@@ -137,6 +137,56 @@ def get_source_members(library: str, srcfile: str, conn) -> List[Dict[str, str]]
     return members
 
 
+def check_bad_chars_in_member(library: str, srcfile: str, member: str, conn) -> List[Dict[str, any]]:
+    """Check for x'0F' characters in source member using alias"""
+    bad_lines = []
+    
+    try:
+        cursor = conn.cursor()
+        
+        # Drop alias if it exists
+        try:
+            cursor.execute(f"DROP ALIAS {library.upper()}/GITSRCMBR")
+        except:
+            pass  # Alias may not exist
+        
+        # Create alias pointing to the problem member
+        create_alias_sql = f"CREATE ALIAS {library.upper()}/GITSRCMBR FOR {library.upper()}.{srcfile.upper()} ({member.upper()})"
+        cursor.execute(create_alias_sql)
+        
+        # Query for bad characters
+        check_sql = f"""
+            Select SrcSeq,
+                   PosStr(SrcDta, x'0F') As BadCol,
+                   SrcDta As SourceLine
+              From {library.upper()}/GITSRCMBR
+             Where PosStr(SrcDta, x'0F') > 0
+        """
+        
+        cursor.execute(check_sql)
+        
+        for row in cursor.fetchall():
+            bad_lines.append({
+                'seq': str(row[0]).strip() if row[0] else '',
+                'col': int(row[1]) if row[1] else 0,
+                'line': row[2].strip() if row[2] else ''
+            })
+        
+        # Clean up alias
+        try:
+            cursor.execute(f"DROP ALIAS {library.upper()}/GITSRCMBR")
+        except:
+            pass
+        
+        cursor.close()
+        
+    except Exception as e:
+        # If we can't check, just return empty
+        pass
+    
+    return bad_lines
+
+
 def export_member_to_temp(library: str, srcfile: str, member: str) -> Tuple[Optional[str], str]:
     """Export member to temporary UTF-8 file, return (temp_path, command)"""
     temp_fd, temp_path = tempfile.mkstemp(prefix=f'ibmi_sync_{member}_', suffix='.tmp')
@@ -255,6 +305,7 @@ def sync_source_file(
     """
     if failures is None:
         failures = []
+    
     stats = {
         'scanned': 0,
         'excluded': 0,
@@ -301,11 +352,25 @@ def sync_source_file(
         target_path = target_dir / target_filename
         exported_files.add(target_filename)
         
+        # Show progress counter
+        print(f"\r   Processing: {progress} files/members remaining", end='', flush=True)
+        
         # Export to temp
         temp_path, cpytostmf_cmd = export_member_to_temp(library, srcfile, member)
         if not temp_path:
             stats['failed'] += 1
-            print(f"   ✗  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename} (export failed)")
+            
+            # Check for bad characters in the source
+            bad_chars = check_bad_chars_in_member(library, srcfile, member, conn)
+            
+            if bad_chars:
+                # Build status line suffix with first bad char info
+                first_bad = bad_chars[0]
+                status_suffix = f"(x'0F' at seq {first_bad['seq']} col {first_bad['col']})"
+                print(f"\n   ✗  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename} {status_suffix}")
+            else:
+                print(f"\n   ✗  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename} (export failed)")
+            
             failures.append({
                 'library': library.upper(),
                 'srcfile': srcfile.upper(),
@@ -313,7 +378,7 @@ def sync_source_file(
                 'type': member_type.upper() if member_type else 'TXT',
                 'target_filename': target_filename,
                 'reason': 'CPYTOSTMF export failed',
-                'command': cpytostmf_cmd
+                'bad_chars': bad_chars
             })
             continue
         
@@ -329,7 +394,8 @@ def sync_source_file(
                 if files_are_identical(temp_path, str(target_path)):
                     stats['unchanged'] += 1
                     if verbose:
-                        print(f"   =  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename} (unchanged)")
+                        # Print verbose unchanged status on new line
+                        print(f"\n   =  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename} (unchanged)")
                     continue
             
             # Content differs or file is new - copy it
@@ -337,14 +403,16 @@ def sync_source_file(
             
             if dry_run:
                 action = "would create" if is_new else "would update"
-                print(f"   ⋯  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename} ({action})")
+                print(f"\n   ⋯  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename} ({action})")
             else:
                 target_dir.mkdir(parents=True, exist_ok=True)
                 with open(temp_path, 'r', encoding='utf-8') as src:
                     with open(target_path, 'w', encoding='utf-8') as dst:
                         dst.write(src.read())
                 
-                print(f"   ✓  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename}")
+                # Print add/update status on new line
+                if verbose:
+                    print(f"\n   ✓  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename}")
             
             if is_new:
                 stats['added'] += 1
@@ -359,18 +427,21 @@ def sync_source_file(
     # Cleanup: remove IFS files that no longer have corresponding members
     if target_dir.exists():
         existing_files = set(f.name for f in target_dir.iterdir() if f.is_file() and not f.name.startswith('.'))
-        orphaned = existing_files - exported_files - {'.metadata.json'}  # Keep metadata
+        orphaned = existing_files - exported_files
         
         if orphaned:
             progress = f"{files_remaining:03d} 00000"
             for filename in orphaned:
                 orphan_path = target_dir / filename
                 if dry_run:
-                    print(f"   ⊗  {progress} {filename} (would delete - no matching member)")
+                    print(f"\n   ⊗  {progress} {filename} (would delete - no matching member)")
                 else:
                     orphan_path.unlink()
-                    print(f"   ⊗  {progress} {filename} (deleted - no matching member)")
+                    print(f"\n   ⊗  {progress} {filename} (deleted - no matching member)")
                 stats['deleted'] += 1
+    
+    # Print final newline to clear progress line
+    print()
     
     return stats
 
@@ -424,7 +495,13 @@ def write_sync_log(target_base: Path, library: str, failures: List[Dict], stats:
                 f.write(f"  {failure['library']}/{failure['srcfile']}.{failure['member']}.{failure['type']}\n")
                 f.write(f"    → {failure['target_filename']}\n")
                 f.write(f"    Reason: {failure['reason']}\n")
-                f.write(f"    Command: {failure['command']}\n\n")
+                
+                # Include bad character details if found
+                if 'bad_chars' in failure and failure['bad_chars']:
+                    f.write(f"    Bad Characters Found (x'0F'):\n")
+                    for bad_line in failure['bad_chars']:
+                        f.write(f"      Seq {bad_line['seq']:>6} Col {bad_line['col']:>3}: {bad_line['line']}\n")
+                f.write(f"\n")
         else:
             f.write(f"FAILURES\n")
             f.write(f"{'-' * 70}\n")
@@ -499,9 +576,6 @@ def sync_library(
         # Only count files that had members
         if stats['scanned'] > 0:
             files_processed += 1
-        
-        # Write metadata
-        write_metadata(target_dir, library, srcfile, stats, dry_run)
         
         # Accumulate stats
         for key in total_stats:
