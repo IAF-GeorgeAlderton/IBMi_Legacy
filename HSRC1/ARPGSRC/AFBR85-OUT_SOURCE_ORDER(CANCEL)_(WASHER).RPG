@@ -1,0 +1,269 @@
+     H            Y.                                    1
+     H** AFBR85 *******************************************************
+     H* OUT SOURCE ORDER(CANCEL) (WASHER)                            *
+     H*                                                               *
+     H* TCH 2001.10.26                                                *
+     H**************************************************************************
+     H*
+     H* *INKC = 1(CF03)
+     H* *IN30 = 1(ERROR)
+     H* *IN90 = 1(NOT READ AFBPL82 ORDER DETAIL FILE)
+     H* *IN91 = 1(NOT READ AFBPL95 ORDER SUMMARY FILE)
+     H**************************************************************************
+     FAFBPW85 CF  E                    WORKSTN
+     FAFBPL82 UF  E           K        DISK
+     FAFBPL95 UF  E           K        DISK
+     I**************************************************************************
+     E                    BCD        13  1
+     E                    ER      1  30 15
+     I**************************************************************************
+     I* BARCODE
+     I*(UPDATE CODE + ABSOLUTE # + PURCHASE CODE + KANBAN TYPE + HAKKO #
+     I            DS
+     I                                        1  13 BCD
+     I                                        1  13 BARCD
+     I                                        1   1 BCOCD
+     I                                        2   5 BZETI
+     I                                        6   90BSIRE
+     I                                        6   9 WSIRE
+     I                                       10  10 BTYPE
+     I                                       11  13 BPAGE
+     I*
+     I            DS
+     I                                        1  120WTMDT
+     I                                        1   20WHHHH
+     I                                        3   40WSSSS
+     I                                        7   80WYYYY
+     I                                        9  100WMMMM
+     I                                       11  120WDDDD
+     I* AFBPP80(RECEIVED DATE)
+     I            DS
+     I                                        1   80B8NODT
+     I                                        1   40B8NOYY
+     I                                        5   60B8NOMM
+     I                                        7   80B8NODD
+     I* AFBPP80(SUMMARY  DATE)
+     I            DS
+     I                                        1   80B8SUDT
+     I                                        1   40B8SUYY
+     I                                        5   60B8SUMM
+     I                                        7   80B8SUDD
+     I* AFBPP90(RECEIVED DATE)
+     I            DS
+     I                                        1   80B9NODT
+     I                                        1   40B9NOYY
+     I                                        5   60B9NOMM
+     I                                        7   80B9NODD
+     I* AFBPP90(COMPLETED DATE)
+     I            DS
+     I                                        1   80B9KNDT
+     I                                        1   40B9KNYY
+     I                                        5   60B9KNMM
+     I                                        7   80B9KNDD
+     I**************************************************************************
+     C*
+     C           *ENTRY    PLIST
+     C                     PARM           PUSR   10
+     C                     PARM           PWKCD   6
+     C* AFBPL95
+     C           KEY3      KLIST
+     C                     KFLD           B8ODNO           ORDER #
+     C                     KFLD           B8PAR1           PART 1
+     C                     KFLD           B8PAR2                2
+     C                     KFLD           B8PAR3                3
+     C                     KFLD           B8ZETI           ABSOLUTE #
+     C* AFBPL82
+     C           KEY4      KLIST
+     C                     KFLD           BCOCD            CONTROL CD
+     C                     KFLD           BZETI            ABSOLUTE #
+     C                     KFLD           WSIRE            TEHAI
+     C                     KFLD           BTYPE            PAGE
+     C                     KFLD           BPAGE            2ND.TREATEMENT
+     C**************************************************************************
+     C*                    MAIN ROUTINE
+     C**************************************************************************
+     C                     EXSR @INT
+     C                     EXSR @MAIN
+     C                     EXSR @END
+     C**************************************************************************
+     C*                    @INT
+     C**************************************************************************
+     C           @INT      BEGSR
+     C*
+     C                     SETOF                     30
+     C                     MOVE *BLANK    MSG
+     C*
+     C                     TIME           WTMDT
+     C*
+     C                     Z-ADD*ZERO     I       20
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @MAIN
+     C**************************************************************************
+     C           @MAIN     BEGSR
+     C*
+B01  C           *INKC     DOUEQ'1'
+     C* DISPLAY ERROR
+B03  C           *IN30     IFEQ '1'
+     C                     EXFMTAFBPW899
+     C*
+     C                     SETOF                     30
+     C                     MOVE *BLANK    MSG
+     C*
+     C                     ELSE
+     C                     EXFMTAFBPW851
+B02  C           *INKC     IFEQ '1'
+     C*
+     C                     ELSE
+     C                     EXSR @CHK1
+     C*
+B04  C           *IN30     IFEQ '0'
+     C                     EXSR @UPD1
+     C                     EXSR @UPD2
+     C                     MOVE *BLANK    BARCD
+     C                     END
+     C                     END
+     C                     END
+     C                     END
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @CHK1
+     C**************************************************************************
+     C           @CHK1     BEGSR
+     C*
+     C* READ ALL DATA?
+     C                     Z-ADD1         I
+     C           1         DO   13        I
+     C           BCD,I     IFEQ *BLANK
+     C                     SETON                     30
+     C                     MOVE ER,1      MSG
+     C                     GOTO #ECHK1
+     C                     END
+     C                     END
+     C*
+     C* ORDER DETAIL FILE
+     C           KEY4      SETGTAFBPL821
+     C*
+     C           #READ1    TAG
+     C           KEY4      REDPEAFBPL821                 90
+     C*
+     C           *IN90     IFEQ '0'
+     C           B8SKJY    ANDEQ'D'
+     C                     GOTO #READ1
+     C                     END
+     C*
+     C           *IN90     IFEQ '1'
+     C                     SETON                     30
+     C                     MOVE ER,2      MSG
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C*
+     C* ORDER SUMMARY PROCESSED ?
+     C           B8SUDT    IFEQ *ZERO
+     C                     SETON                     30
+     C                     MOVE ER,3      MSG
+     C                     UPDATAFBPL821
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C* ALREADY ORDERED ?
+     C           B8ODNO    IFEQ *ZERO
+     C                     SETON                     30
+     C                     MOVE ER,7      MSG
+     C                     UPDATAFBPL821
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C* ALREADY SCANNED ?
+     C           B8NODT    IFNE *ZERO
+     C                     SETON                     30
+     C                     MOVE ER,4      MSG
+     C                     UPDATAFBPL821
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C* EXIST ORDER FILE ?
+     C           KEY3      CHAINAFBPL951             91
+     C           *IN91     IFEQ '1'
+     C                     SETON                     30
+     C                     MOVE ER,5      MSG
+     C                     UPDATAFBPL821
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C* ALREADY ALL KANBAN RECEIVED ?
+     C           B9KNDT    IFNE *ZERO
+     C                     SETON                     30
+     C                     MOVE ER,6      MSG
+     C                     UPDATAFBPL821
+     C                     UPDATAFBPL951
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C           #ECHK1    ENDSR
+     C**************************************************************************
+     C*                    @UPD1:AFBPP80
+     C**************************************************************************
+     C           @UPD1     BEGSR
+     C*
+     C                     Z-ADD2000      B8KOYY           UPDATE YEAR
+     C                     ADD  WYYYY     B8KOYY
+     C                     Z-ADDWMMMM     B8KOMM                  MONTH
+     C                     Z-ADDWDDDD     B8KODD                  DAY
+     C                     Z-ADDWHHHH     B8KOHH                  HOUR
+     C                     Z-ADDWSSSS     B8KOSS                  MINUTE
+     C                     MOVE PUSR      B8KOME                  USER
+     C                     MOVEL'AFBR85'  B8KOPG                  PGM-ID
+     C                     MOVE PWKCD     B8WORK                  WORKER CD
+     C****                 Z-ADD*DATE     B8NODT
+     C                     MOVE 'D'       B8SKJY
+     C                     Z-ADD*YEAR     B8SKYY
+     C                     Z-ADD*MONTH    B8SKMM
+     C                     Z-ADD*DAY      B8SKDD
+     C                     UPDATAFBPL821
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @UPD2:AFBPP90
+     C**************************************************************************
+     C           @UPD2     BEGSR
+     C*
+     C           2000      ADD  WYYYY     B9KOYY           UPDATE YEAR
+     C                     Z-ADDWMMMM     B9KOMM                  MONTH
+     C                     Z-ADDWDDDD     B9KODD                  DAY
+     C                     Z-ADDWHHHH     B9KOHH                  HOUR
+     C                     Z-ADDWSSSS     B9KOSS                  MINUTE
+     C                     MOVE PUSR      B9KOME                  USER
+     C                     MOVEL'AFBR85'  B9KOPG                  PGM-ID
+     C                     MOVE 'D'       B9SKJY
+     C                     Z-ADD*YEAR     B9SKYY
+     C                     Z-ADD*MONTH    B9SKMM
+     C                     Z-ADD*DAY      B9SKDD
+     C*****                Z-ADD*DATE     B9NODT
+     C*                    ADD  1         B9NOSU
+     C*          B9HAKO    IFEQ B9NOSU
+     C*                    Z-ADD*DATE     B9KNDT
+     C*                    END
+     C                     UPDATAFBPL951
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @END
+     C**************************************************************************
+     C           @END      BEGSR
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+     C*
+     C                     ENDSR
+** ERROR MESSAGE
+BARCODE BLANK
+NO DETAIL FILE
+NOT SUMMARIZED
+ALREADY SCANNED
+NOT ORDER FILE
+ALL DAT RECEIVE
+NOT ORDERED

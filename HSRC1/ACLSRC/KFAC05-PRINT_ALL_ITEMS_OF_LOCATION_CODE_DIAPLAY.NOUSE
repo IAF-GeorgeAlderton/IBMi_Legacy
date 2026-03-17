@@ -1,0 +1,141 @@
+             PGM
+             /** KFAC03 **********************************/
+             /*PRINT   ALL ITEMS OF LOCATION CODE DIAPLAY BOARD*/
+             /* PROGRAM ID. : KFAC03. <CLP> */
+             /* CREATE DATE. : MAY.25,'88.               */
+             /* AUTHOR.         : G.B.C.                 */
+             /* N.HYOTO 2001.01.05 CHANGE QPRINTA -> B   */
+             /* H.AMANO 2002.08.26 CHANGE QPRINTB -> C   */
+             /********************************** KFAC03 **/
+             DCLF       FILE(KFAPW00)
+             DCL        VAR(&WSID)  TYPE(*CHAR) LEN(10) VALUE(' ')
+             DCL        VAR(&USER)  TYPE(*CHAR) LEN(10) VALUE(' ')
+             DCL        VAR(&PRT)   TYPE(*CHAR) LEN(7)  VALUE(' ')
+             DCL        VAR(&TYPE)  TYPE(*CHAR) LEN(1)  VALUE(' ')
+             DCL        VAR(&PRTG)  TYPE(*CHAR) LEN(10) VALUE(' ')
+      /*     DCL        VAR(&ANS)   TYPE(*CHAR) LEN(1)  VALUE(' ') */
+             DCL        VAR(&WS)    TYPE(*CHAR) LEN(2)
+             DCL        VAR(&FILE1) TYPE(*CHAR) LEN(9)
+             DCL        VAR(&FILE2) TYPE(*CHAR) LEN(9)
+
+             RTVJOBA    JOB(&WSID) USER(&USER)
+             CHGJOB     SWS(00000000)
+
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+
+             CHGVAR     VAR(&WS) VALUE(%SST(&WSID 1 2))
+             CHGVAR     VAR(&FILE1) VALUE('KFAWP03' *CAT &WS)
+             CHGVAR     VAR(&FILE2) VALUE('KFAWP04' *CAT &WS)
+
+             CHGVAR     VAR(&BR)  VALUE(' ')
+ STP0:       SNDRCVF    DEV(&WSID) RCDFMT(KFAPW001)
+             IF         (&IN01 *EQ '1') RETURN
+             CHGVAR     VAR(&IN80) VALUE('0')
+
+             IF         (&BR *NE ' ') GOTO STP1
+             CHGVAR     VAR(&IN80) VALUE('1')
+             CHGVAR     VAR(&IN99) VALUE('1')
+             CHGVAR     VAR(&MSG) VALUE('PLEASE INPUT THE PRESENCE +
+                          OF THE BARCODE')
+             GOTO       STP0
+
+ STP1:       IF         (&BR *EQ 'Y') GOTO STP2
+             IF         (&BR *EQ 'N') GOTO STP2
+             CHGVAR     VAR(&IN80) VALUE('1')
+             CHGVAR     VAR(&IN99) VALUE('1')
+             CHGVAR     VAR(&MSG) VALUE('''PLEASE SELECT ''Y'' OR +
+                          ''N''''')
+             GOTO       STP0
+
+             /* DATA OUTPUT                                */
+ STP2:       DLTF       FILE(&FILE1)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE1/&FILE1) SRCFILE(HSRC1/ADDSSRC) +
+                          SRCMBR(KFAWP03) OPTION(*NOSRC *NOLIST) +
+                          SIZE(*NOMAX) LVLCHK(*NO)
+             OVRDBF     FILE(KFAWP03) TOFILE(&FILE1)
+             CALL       PGM(KFAR10) PARM(&USER &BR)
+             DLTOVR     FILE(KFAWP03)
+             IF         COND(%SWITCH(00XXXXXX)) THEN(GOTO CMDLBL(@002))
+
+             DLTF       FILE(&FILE2)
+             MONMSG     MSGID(CPF3261 CPF2105)
+
+             CRTPF      FILE(HWFILE1/&FILE2) RCDLEN(36) IGCDTA(*YES) +
+                          OPTION(*NOLIST) SIZE(*NOMAX) LVLCHK(*NO)
+
+             FMTDTA     INFILE((HWFILE1/&FILE1)) +
+                          OUTFILE(HWFILE1/&FILE2) +
+                          SRCFILE(HSRC1/FMTSRC) SRCMBR(KFAS04) +
+                          OPTION(*NOPRT)
+
+             IF         (&BR *EQ 'Y') GOTO STP3
+       /*************************/
+       /*   BARCODE NOTHING     */
+       /*************************/
+             /* PRINTING (TYPE A)                              */
+             OVRPRTF    FILE(KFAPR04) DEVTYPE(*AFPDS) PAGESIZE(30 +
+                          132) LPI(6) OVRFLW(30) OUTQ(QPRINTC) +
+                          FORMTYPE(D921)
+             OVRDBF     FILE(KFAWP04) TOFILE(&FILE2)
+
+             CALL       PGM(KFAR04) PARM(&USER)
+             DLTOVR     FILE(KFAWP04)
+             DLTOVR     FILE(KFAPR04)
+
+             IF         COND(%SWITCH(X0XXXXXX)) THEN(GOTO CMDLBL(@002))
+
+             /* PRINTING (TYPE B)                              */
+             CLRPFM     FILE(&FILE2)
+             FMTDTA     INFILE((HWFILE1/&FILE1)) +
+                          OUTFILE(HWFILE1/&FILE2) +
+                          SRCFILE(HSRC1/FMTSRC) SRCMBR(KFAS05) +
+                          OPTION(*NOPRT)
+
+             OVRPRTF    FILE(KFAPR04) DEVTYPE(*AFPDS) PAGESIZE(30 +
+                          132) LPI(6) OVRFLW(30) OUTQ(QPRINTC) +
+                          FORMTYPE(D921)
+
+             OVRDBF     FILE(KFAWP04) TOFILE(&FILE2)
+             CALL       PGM(KFAR04) PARM(&USER)
+             DLTOVR     FILE(KFAWP04)
+             DLTOVR     FILE(KFAPR04)
+             GOTO       @002
+
+       /*************************/
+       /*   BARCODE THING       */
+       /*************************/
+             /* PRINTING (TYPE A)                              */
+  STP3:       OVRPRTF    FILE(KFAPR05) DEVTYPE(*AFPDS) PAGESIZE(30 +
+                          132) LPI(6) OVRFLW(30) OUTQ(QPRINTC) +
+                          FORMTYPE(D921)
+             OVRDBF     FILE(KFAWP04) TOFILE(&FILE2)
+
+             CALL       PGM(KFAR05) PARM(&USER)
+             DLTOVR     FILE(KFAWP04)
+             DLTOVR     FILE(KFAPR05)
+
+             IF         COND(%SWITCH(X0XXXXXX)) THEN(GOTO CMDLBL(@002))
+
+             /* PRINTING (TYPE B)                              */
+             CLRPFM     FILE(&FILE2)
+             FMTDTA     INFILE((HWFILE1/&FILE1)) +
+                          OUTFILE(HWFILE1/&FILE2) +
+                          SRCFILE(HSRC1/FMTSRC) SRCMBR(KFAS05) +
+                          OPTION(*NOPRT)
+
+             OVRPRTF    FILE(KFAPR05) DEVTYPE(*AFPDS) PAGESIZE(30 +
+                          132) LPI(6) OVRFLW(30) OUTQ(QPRINTC) +
+                          FORMTYPE(D921)
+
+             OVRDBF     FILE(KFAWP04) TOFILE(&FILE2)
+             CALL       PGM(KFAR05) PARM(&USER)
+             DLTOVR     FILE(KFAWP04)
+             DLTOVR     FILE(KFAPR05)
+
+ @002:       DLTF       FILE(&FILE1)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             DLTF       FILE(&FILE2)
+             MONMSG     MSGID(CPF3261 CPF2105)
+
+ END:        ENDPGM

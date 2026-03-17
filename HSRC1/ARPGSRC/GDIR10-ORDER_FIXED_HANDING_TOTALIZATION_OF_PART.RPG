@@ -1,0 +1,206 @@
+     H            Y/                                    1
+      *** GDIR10 *****************************************************
+      *  ORDER FIXED HANDING / TOTALIZATION OF PART NO.
+      *    G.B.C                   97/02/21
+      *    %0001     A.MAMIYA    2001/01/26
+      *    K0626     K.YASUDA    2001/06/26
+      ****************************************************************
+     FGDIPW10 CF  E                    WORKSTN
+     FGDIPL01 UF  E           K        DISK
+     FGDIPL10 UF  E           K        DISK                      A
+     F*
+     FGCQPL12 IF  E           K        DISK
+K0626FAGDPL12 IF  E           K        DISK
+     E                    MSG     1   1 59
+     I****************************************************************
+     I            DS
+     I                                        1   60@@TIME
+     I                                        1   40@TIME
+     I            DS
+     I                                        1   40IHKOTM
+     I                                        1   20IHKOHH
+     I                                        3   40IHKOSS
+     I            DS
+     I                                        1   40IGKOTM
+     I                                        1   20IGKOHH
+     I                                        3   40IGKOSS
+     I* DELETE DUE DATE
+     I            DS
+     I                                        1   80IGSKHZ
+     I                                        1   40IGSKYY
+     I                                        5   60IGSKMM
+     I                                        7   80IGSKDD
+     I* ORDER DATE
+     I            DS
+     I                                        1   80IGHAHZ
+     I                                        1   40IGHAYY
+     I                                        5   60IGHAMM
+     I                                        7   80IGHADD
+     I* KATA
+     I            DS
+     I                                        1   8 IGKATA
+     I                                        1   6 IGKAT6
+     I            DS
+     I                                        1   8 ILDIE
+     I                                        1   6 ILDIE6
+     I            DS
+     I                                        1   8 WWDIE
+     I                                        1   2 WWDIE1
+     I                                        3   6 WWDIE2
+     I                                        7   7 WWDIE3
+     I                                        8   8 WWDIE4
+K0626I            DS
+  |  I                                        1   80SHZ
+  |  I                                        1   40SYY
+  |  I                                        5   60SMM
+K0626I                                        7   80SDD
+     C****************************************************************
+     C*           ＭＡＩＮ　ＲＯＵＴＩＮＥ                         *
+     C****************************************************************
+     C           *ENTRY    PLIST
+     C                     PARM           PPUSER 10
+     C                     PARM           PPGO    2
+K0626 *
+  |  C           KEY1      KLIST
+  |  C                     KFLD           SYY
+  |  C                     KFLD           SMM
+K0626C                     KFLD           SDD
+     C*
+     C                     MOVEA'0'       *IN,99
+     C                     MOVE 'NG'      PPGO
+     C                     MOVE *BLANK    D#MSG
+     C                     MOVE *BLANK    DATASW  1
+     C                     EXSR #DATA
+      *
+K0626C                     Z-ADD*DATE     SHZ
+  |  C                     SETOF                     2077
+  |  C           KEY1      CHAINAGDPL121             20
+  |   *
+  |  C           *IN20     IFEQ '0'
+  |  C           F8YOBI    IFNE 3
+  |  C************         SETON                     77
+  |  C                     END
+K0626C                     END
+      *
+     C           @DSP01    TAG
+     C                     EXFMTDSP01
+     C* < F1=ON >
+     C           *INKA     CABEQ'1'       @END
+     C           DATASW    CABEQ*BLANK    @DSP01
+K0626C* < F12=OFF >
+  |  C   77      *INKL     CABEQ'1'       SKIP
+  |  C   77                GOTO @DSP01
+  |  C* < F5=OFF >
+  |  C  N77      *INKE     CABEQ'0'       @DSP01
+  |  C*
+  |  C* <更新処理>
+K0626C           SKIP      TAG
+     C                     MOVE 'GO'      PPGO
+     C*
+     C           *BLANK    SETLLGDIPL011
+B1   C                     DO   *HIVAL
+     C                     READ GDIPL011                 10
+     C   10                LEAVE
+ B2  C           IGSKJY    IFEQ 'D'                        DELETE CODE
+     C           IGSKHZ    ANDLE*DATE
+     C                     ITER
+ E2  C                     ENDIF
+ B2  C           IGSYHZ    IFNE 0                          集計日付
+     C                     ITER
+ E2  C                     ENDIF
+     C*
+ B2  C           IGHAHZ    IFGT *DATE                      発注日付
+     C                     ITER
+ E2  C                     ENDIF
+     C*
+     C                     TIME           @@TIME
+      *
+     C           IGKATA    CHAINGDIPL101             10
+ B2  C           *IN,10    IFEQ '0'
+     C                     ADD  IGMAIS    IHMAIS
+     C           IHSYOS    MULT IHMAIS    IHSURY
+     C                     Z-ADD*DATE     IHKOHZ
+     C                     Z-ADD@TIME     IHKOTM
+     C                     MOVELPPUSER    IHKOME
+     C                     UPDATGDIPL101
+ X2  C                     ELSE
+     C                     MOVELIGKATA    IHKATA
+     C                     Z-ADD0         IHSYOS
+     C*--------------------
+     C           KEYA1     KLIST
+     C                     KFLD           WWDIE1
+     C                     KFLD           WWDIE2
+     C                     KFLD           WWDIE3
+      *
+     C                     MOVE *BLANK    WWDIE
+     C                     MOVELIGKAT6    WWDIE
+      *
+     C           KEYA1     SETGTGCQPL121
+     C                     DO   *HIVAL
+     C                     SETOF                     11
+     C           KEYA1     REDPEGCQPL121                 11
+     C           *IN11     IFEQ '0'
+     C           T6SKJY    IFEQ 'D'
+     C           T6SKHZ    ANDLE*DATE
+     C                     ELSE
+     C           *DATE     IFGE T6KIHZ
+     C                     SETON                     11
+     C                     Z-ADDT6SYOS    IHSYOS
+     C                     END
+     C                     END
+     C                     END
+     C  N11                END
+     C*--------------------
+%0001C           IHSYOS    IFEQ 0
+%0001C                     Z-ADDIGSYOS    IHSYOS
+%0001C                     END
+     C                     Z-ADDIGMAIS    IHMAIS
+     C           IHSYOS    MULT IHMAIS    IHSURY
+     C                     MOVELPPUSER    IHKOME
+     C                     Z-ADD@TIME     IHKOTM
+     C                     WRITEGDIPL101
+ E2  C                     END
+     C*
+     C                     Z-ADD*DATE     IGSYHZ
+     C                     Z-ADD@TIME     IGKOTM
+     C                     MOVELPPUSER    IGKOME
+     C                     UPDATGDIPL011
+     C*
+E1   C                     ENDDO
+      *
+      *
+     C* <終　了>
+     C           @END      TAG
+     C                     SETON                     LR
+     C                     RETRN
+      *
+      *
+      *
+     C           #DATA     BEGSR
+     C           *BLANK    SETLLGDIPL011
+     C                     DO   *HIVAL
+     C                     READ GDIPL011                 10
+     C   10                LEAVE
+ B2  C           IGSKJY    IFEQ 'D'                        DELETE CODE
+     C           IGSKHZ    ANDLE*DATE
+     C                     ITER
+ E2  C                     ENDIF
+ B2  C           IGSYHZ    IFNE 0                          集計日付
+     C                     ITER
+ E2  C                     ENDIF
+     C*
+ B2  C           IGHAHZ    IFGT *DATE                      発注日付
+     C                     ITER
+ E2  C                     ENDIF
+     C*
+     C                     SETON                     10
+     C                     MOVE '*'       DATASW
+     C*
+     C                     ENDDO
+     C           DATASW    IFEQ *BLANK
+     C                     MOVELMSG,1     D#MSG
+     C                     MOVEA'1'       *IN,99
+     C                     END
+     C                     ENDSR
+**
+THERE IS NOT DATA.

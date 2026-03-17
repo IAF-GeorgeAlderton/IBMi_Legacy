@@ -1,0 +1,834 @@
+     H            Y.
+      ** GDMR320 *******************************************
+      *  ASJ WASHER ORDER KANBAN ISSUE                     *
+      *                                                    *
+      * TCHK1 02/17/11 RE-MAKE                             *
+      * TCHK2 03/30/11 ADD AIR INVOICE DATA                *
+      * JW1   01/21/16 CHG INV 100 TO 200                  *
+      * %0001 07/06/17 CHG INV 200 TO 500   T.SAKAKI       *
+      * %0002 08/20/19 SUMMARY CA AND US    T.SAKAKI       *
+      ******************************************************
+     FGDMPW320CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+TCHK2F                                        RRN0  KSFILE SFL00
+     F                                              KINFDS @INFDS
+     FGDMPL71 UF  E           K        DISK
+     FGDMPL72 IF  E           K        DISK
+     F            GDMPP701                          KRENAMEGDMPL721
+     FAB#PPCT UF  E           K        DISK                      A
+     FGDMPL10 IF  E           K        DISK
+     FGDMPL20 IF  E           K        DISK
+     FGDMPL30 IF  E           K        DISK
+     FGDMPL50 UF  E           K        DISK                      A
+     FGDMPL60 UF  E           K        DISK                      A
+     FGDMPP80 IF  E           K        DISK                      A
+     FAKBPL07 IF  E           K        DISK
+     F*
+     FGDMWP60 IF  E           K        DISK                      A
+     FQPRINT  O   F     132     OF     PRINTER
+      *---------------------------------------------------
+     E                    LT1    25  25  1
+     E                    ERR     1  10 78
+     E                    CMD     1   2 78
+TCHK2E*JW1                INV       100  6
+JW1  E****                INV       200  6
+%0001E                    INV       500  6
+      *---------------------------------------------------
+     I@INFDS      DS
+     I                                     *STATUS  @STTS
+     I                                    B 370 3710@@LIN
+     I                                    B 378 3790@@REC
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      * SYSTEM TIME(6) + DATE(8)
+     I            DS
+     I                                        1  140WWTIME
+     I                                        1   60WTIME
+     I                                        1   40WTIM4
+     I                                        7  120WSDATE
+     I                                        9  120@@YM4
+     I                                        7  120@@YM6
+     I                                        7  140@@YMD
+     I                                        7  100@@YY
+     I                                       11  120@@MM
+     I                                       13  140@@DD
+     I                                        9  140@@YMD6
+     I            DS
+     I                                        1   4 W@LOT#
+     I                                        1   1 W@LOT1
+     I                                        2   4 W@LOT2
+     I            DS
+     I                                        1   6 W@LOC
+     I                                        1   1 W@LOC1
+     I                                        2   3 W@LOC2
+     I                                        4   5 W@LOC3
+     I                                        6   6 W@LOC4
+     I            DS
+     I                                        1   5 W#LOC
+     I                                        1   2 W#LOC1
+     I                                        3   3 W#LOCA
+     I                                        4   5 W#LOC2
+     I*
+     I            DS
+     I                                        1  17 WWBARC
+     I                                        1   1 WWMNGK
+     I                                        2   5 WWZETI
+     I                                        6  11 WWCRHZ
+     I                                       12  12 WWPRDK
+     I                                       13  13 WWLOT1
+     I                                       14  16 WWLOT2
+     I                                       17  17 WWCHKD
+     I            DS
+     I                                        1  14 W@PRT
+     I                                        1   5 W@PRT1
+     I                                        6   6 W@PRTA
+     I                                        7  11 W@PRT2
+     I                                       12  12 W@PRTB
+     I                                       13  14 W@PRT3
+      ******************************************************
+      *  MAIN
+      ******************************************************
+TCHK2C                     EXSR @SET0
+TCHK2C                     Z-ADD1         W#RNP0  40
+     C*
+     C                     DO   *HIVAL
+     C*
+     C                     MOVEL*ON       *IN42
+     C                     WRITEDSP99
+TCHK2C                     Z-ADDW#RNP0    #RCNO
+TCHK2C                     EXFMTCTL00
+     C   KA                LEAVE
+TCHK2C*
+TCHK2C           @@REC     IFNE *ZERO
+TCHK2C                     Z-ADD@@REC     W#RNP0
+TCHK2C                     END
+TCHK2C*
+     C                     MOVEL*OFF      *IN41
+     C                     MOVEL*BLANK    D@MSG
+     C*
+TCHK2C                     EXSR @CHK0
+TCHK2C           *IN41     IFEQ *ON
+TCHK2C                     ITER
+TCHK2C                     END
+     C*
+     C                     EXSR @SUM
+     C                     MOVEL*OFF      *IN42
+     C                     EXSR @SCRN
+     C*
+     C   KA                LEAVE
+     C*
+     C                     ENDDO
+     C*
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *------------------------------------------------------
+      *  INITIALIZE
+      *------------------------------------------------------
+     C           *INZSR    BEGSR
+     C*
+     C                     Z-ADD*ZERO     RRN1    40
+     C                     Z-ADD*ZERO     @@RRN   40
+     C*
+     C                     TIME           WWTIME
+     C*
+     C           P#CMD     PLIST
+     C                     PARM           P@CMD 256
+     C                     PARM           P@LEN  155
+     C           P#BRC     PLIST
+     C                     PARM           PMAREA100
+     C                     PARM           PMBYTE  3
+     C                     PARM           PMCHK   1
+     C                     PARM           PMRTCD  1
+     C*
+     C                     MOVEL#PGM      K#PGM   8 P
+TCHK2C                     MOVEL*BLANK    W@INVP  6
+TCHK2C                     MOVEL*BLANK    W@INV#  6
+TCHK2C*
+     C           K#PGM     CHAINAB#PPCT              99
+     C           *IN99     IFEQ *ON
+TCHK2C                     MOVEL*BLANK    W@INVP
+     C                     ELSE
+TCHK2C                     MOVELCTCHR1    W@INVP
+     C                     END
+     C*
+TCHK2C           W@INVP    SETGTGDMPL72
+     C                     READ GDMPL72                  99
+     C           *IN99     IFEQ *OFF
+TCHK2C                     MOVELIEINVO    W@INV#
+     C                     END
+TCHK2C*
+TCHK2C                     CLEARINV
+TCHK2C                     Z-ADD*ZERO     Z       30
+TCHK2C                     MOVEL*BLANK    W@A006  6
+TCHK2C           *LOVAL    SETLLGDMPL72
+TCHK2C*
+TCHK2C                     DO   *HIVAL
+TCHK2C                     READ GDMPL72                  98
+TCHK2C   98                LEAVE
+TCHK2C           IESKJY    IFNE *BLANK
+TCHK2C                     ITER
+TCHK2C                     END
+TCHK2C                     MOVELIEINVO    W@A002  2
+%0002C           W@A002    IFEQ 'CA'
+%0002C                     ITER
+%0002C                     END
+TCHK2C           W@A002    IFEQ 'US'
+TCHK2C                     LEAVE
+TCHK2C                     END
+TCHK2C           IEINVO    IFNE W@A006
+TCHK2C                     ADD  1         Z
+TCHK2C                     MOVELIEINVO    INV,Z
+TCHK2C                     MOVELIEINVO    W@A006
+TCHK2C                     END
+TCHK2C                     ENDDO
+     C* DUMMY READ
+     C                     READ GDMPP80                  98
+     C*
+     C                     ENDSR
+TCHK2C*------------------------------------------------------
+TCHK2C*  SET INVOICE# FOR SCREEN
+TCHK2C*------------------------------------------------------
+TCHK2C           @SET0     BEGSR
+TCHK2C*
+TCHK2C                     Z-ADD*ZERO     RRN0    40
+TCHK2C                     MOVE *ON       *IN31
+TCHK2C                     WRITECTL00
+TCHK2C                     MOVE *OFF      *IN31
+TCHK2C*
+TCHK2C                     MOVELW@INVP    D@INVP
+TCHK2C                     MOVELW@INV#    D@INV#
+TCHK2C                     MOVELW@INV#    D@INV2
+TCHK2C                     MOVEL'CA'      D@INV2
+TCHK2C*
+TCHK2C                     Z-ADD*ZERO     Z
+TCHK2C*
+TCHK2C                     DO   *HIVAL
+TCHK2C*
+     C                     ADD  1         Z
+%0001C***        Z         IFGT 100
+     C           Z         IFGT 500
+TCHK2C                     LEAVE
+TCHK2C                     END
+TCHK2C           INV,Z     IFEQ *BLANK
+TCHK2C                     LEAVE
+TCHK2C                     END
+TCHK2C*
+TCHK2C                     CLEARSFL00
+TCHK2C*
+TCHK2C                     MOVELINV,Z     S@INVO
+TCHK2C*
+TCHK2C                     ADD  1         RRN0
+TCHK2C                     WRITESFL00
+TCHK2C*
+TCHK2C                     ENDDO
+TCHK2C*
+TCHK2C           RRN0      IFEQ *ZERO
+TCHK2C                     CLEARSFL00
+TCHK2C                     Z-ADD1         RRN0
+TCHK2C                     MOVEL*ON       *IN33
+TCHK2C                     WRITESFL00
+TCHK2C                     MOVEL*OFF      *IN33
+TCHK2C                     END
+TCHK2C*
+TCHK2C                     ENDSR
+TCHK2C*------------------------------------------------------
+TCHK2C*  CHECK FOR SCREEN0
+TCHK2C*------------------------------------------------------
+TCHK2C           @CHK0     BEGSR
+TCHK2C*
+TCHK2C                     DO
+TCHK2C*
+TCHK2C           D@INV#    IFEQ *BLANK
+TCHK2C           D@INV#    ORLE D@INVP
+TCHK2C                     MOVEL*ON       *IN41
+TCHK2C                     MOVELERR,3     D@MSG
+TCHK2C                     LEAVE
+TCHK2C                     END
+TCHK2C*
+TCHK2C                     MOVELD@INV#    W@A002
+TCHK2C           W@A002    IFEQ 'US'
+TCHK2C           D@INV#    OREQ '999999'
+TCHK2C                     ELSE
+TCHK2C                     MOVEL*ON       *IN41
+TCHK2C                     MOVELERR,3     D@MSG
+TCHK2C                     LEAVE
+TCHK2C                     END
+TCHK2C*
+TCHK2C                     ENDDO
+TCHK2C*
+TCHK2C                     ENDSR
+     C*----------------------------------------------------*
+      *  WASHER KANBAN SCAN FILE ---> WORK SUMMARY FILE
+     C*----------------------------------------------------*
+     C           @SUM      BEGSR
+      *
+     C                     CLOSEGDMWP60
+     C                     MOVELCMD,1     P@CMD     P
+     C                     Z-ADD75        P@LEN
+     C                     CALL 'QCMDEXC' P#CMD
+     C                     OPEN GDMWP60
+     C*
+TCHK2C                     CLEARINV
+TCHK2C                     Z-ADD*ZERO     RRN0
+TCHK2C                     Z-ADD*ZERO     Z
+TCHK2C                     DO   *HIVAL
+TCHK2C                     ADD  1         RRN0
+TCHK2C           RRN0      CHAINSFL00                98
+TCHK2C   98                LEAVE
+TCHK2C           S@SLCT    IFNE *BLANK
+TCHK2C                     ADD  1         Z
+TCHK2C                     MOVELS@INVO    INV,Z
+TCHK2C                     END
+TCHK2C                     ENDDO
+TCHK2C*
+     C           *LOVAL    SETLLGDMPL10
+     C*
+     C                     DO   *HIVAL
+     C*
+     C                     READ GDMPL10                  98
+     C   98                LEAVE
+     C                     CLEARGDMWP601
+     C           M1SKJY    IFNE *BLANK
+     C                     ITER
+     C                     END
+     C           M1CHGD    IFLE @@YMD
+     C                     Z-ADDM1LOTN    W6LOTS
+     C                     MOVELM1BOXN    W6BOX
+     C                     MOVELM1PRCN    W6PRC
+     C                     ELSE
+     C                     Z-ADDM1LOTO    W6LOTS
+     C                     MOVELM1BOXO    W6BOX
+     C                     MOVELM1PRCO    W6PRC
+     C                     END
+     C           W6LOTS    IFEQ *ZERO
+     C                     ITER
+     C                     END
+     C*
+     C                     MOVELM1PRT1    W6PRT1
+     C                     MOVELM1PRT2    W6PRT2
+     C                     MOVELM1PRT3    W6PRT3
+     C*
+     C           K#HIN     KLIST
+     C                     KFLD           M1PRT1
+     C                     KFLD           M1PRT2
+     C                     KFLD           M1PRT3
+     C*
+     C           K#HIN     SETGTAKBPL07
+     C                     DO   *HIVAL
+     C           K#HIN     REDPEAKBPL07                  97
+     C   97                LEAVE
+     C           L1SKJY    IFNE *BLANK
+     C                     ITER
+     C                     END
+     C           L1UKHZ    IFGT @@YMD
+     C                     ITER
+     C                     END
+     C           L1STHZ    IFLE @@YMD
+     C                     ITER
+     C                     END
+     C           L1BMON    IFNE 8990
+     C                     ITER
+     C                     END
+     C                     LEAVE
+     C                     ENDDO
+     C           *IN97     IFEQ *ON
+     C                     ITER
+     C                     END
+     C                     MOVELL1TKR1    W6LOC1
+     C                     MOVELL1TKR2    W6LOC2
+     C                     MOVELL1TKR3    W6LOC3
+     C                     MOVELL1TKR4    W6LOC4
+     C                     MOVELL1ZETI    W6ZETI
+     C                     Z-ADDL1SYOS    W6SYOS
+     C*
+     C           K#HIN     CHAINGDMPL60              97
+     C           *IN97     IFEQ *OFF
+     C           M6SKJY    ANDEQ*BLANK
+     C                     Z-ADDM6ADJ#    W6ADJ#
+     C                     ELSE
+     C                     Z-ADD*ZERO     W6ADJ#
+     C                     END
+     C*
+     C                     Z-ADD*ZERO     WTINB#  40
+     C                     Z-ADD999999    WTODER  60
+     C                     MOVEL*BLANK    WTINVO  6
+     C                     MOVE D@INV#    XINV2   40
+     C*
+     C           K#HIN     SETLLGDMPL71
+     C                     DO   *HIVAL
+     C           K#HIN     READEGDMPL71             N    97
+     C   97                LEAVE
+     C           IESKJY    IFNE *BLANK
+     C                     ITER
+     C                     END
+TCHK2C                     MOVELIEINVO    W@A002
+     C** US  OR  CA  (SHIP)
+     C           W@A002    IFEQ 'US'
+     C           W@A002    OREQ 'CA'
+     C*
+TCHK2C           D@INV#    IFEQ '999999'
+TCHK2C                     ITER
+TCHK2C                     END
+     C*
+     C**         IEINVO    IFGT D@INV#
+     C                     MOVE IEINVO    XINV1   40
+     C           XINV1     IFGT XINV2
+     C                     ITER
+     C                     END
+     C*
+     C** EXCEPT US AND CA  (UA)
+TCHK2C                     ELSE
+TCHK2C           IEINVO    LOKUPINV                      90
+TCHK2C           *IN90     IFEQ *OFF
+TCHK2C                     ITER
+TCHK2C                     END
+TCHK2C                     END
+     C                     Z-ADDIESBOX    W6INB#
+     C                     Z-ADDIEODER    W6ODER
+     C                     Z-ADDIEITEM    W6ITEM
+     C                     Z-ADDIEIKBN    W6IKBN
+     C                     MOVELIEPARE    W6PARE
+     C                     MOVELIEINVO    W6INVO
+     C*
+     C                     ADD  IESBOX    WTINB#
+     C           IEODER    IFLT WTODER
+     C                     Z-ADDIEODER    WTODER
+     C                     END
+     C           IEINVO    IFGT WTINVO
+     C                     MOVELIEINVO    WTINVO
+     C                     END
+     C                     WRITEGDMWP601
+     C                     ENDDO
+     C*
+     C                     Z-ADDWTINB#    W6INB#
+     C                     Z-ADDWTODER    W6ODER
+     C                     Z-ADD*ZERO     W6ITEM
+     C                     Z-ADD*ZERO     W6IKBN
+     C                     MOVEL*BLANK    W6PARE
+     C                     MOVELWTINVO    W6INVO
+     C           W6ADJ#    ADD  W6INB#    W@TTL5  50
+     C           W@TTL5    IFGE W6LOTS
+     C           W@TTL5    DIV  W6LOTS    W6KAN#
+     C                     MVR            W6BAL#
+     C                     ELSE
+     C                     Z-ADDW@TTL5    W6BAL#
+     C                     END
+     C*
+     C           W6KAN#    IFEQ *ZERO
+     C                     MOVEL'1'       W6GRP#
+     C                     END
+     C*
+     C                     WRITEGDMWP601
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+      *------------------------------------------------------
+      *   SCREEN
+      *------------------------------------------------------
+     C           @SCRN     BEGSR
+      *
+     C                     EXSR @SCRN1
+      *
+     C                     DO   *HIVAL
+     C*
+     C                     WRITEDSP99
+     C                     EXFMTCTL01
+     C*
+     C                     SELEC
+     C* F1
+     C           *INKA     WHEQ *ON
+     C                     LEAVE
+     C* F12
+     C           *INKL     WHEQ *ON
+     C                     MOVEL*BLANK    D@MSG
+     C                     LEAVE
+     C* F5
+     C           *INKE     WHEQ *ON
+     C                     EXSR @OUT
+     C                     MOVEL*ON       *INKA
+     C                     LEAVE
+     C*
+     C                     ENDSL
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+      *------------------------------------------------------
+      *  SET DATA FOR SCREEN
+      *------------------------------------------------------
+     C           @SCRN1    BEGSR
+      *
+     C                     Z-ADD*ZERO     RRN1
+     C                     MOVE *ON       *IN51
+     C                     WRITECTL01
+     C                     MOVE *OFF      *IN51
+     C                     Z-ADD*ZERO     C1KAN#
+      *
+     C           *LOVAL    SETLLGDMWP60
+      *
+     C                     DO   *HIVAL
+     C*
+     C                     READ GDMWP60                  91
+     C   91                LEAVE
+     C           W6ODER    IFNE *ZERO
+     C           W6ITEM    ANDNE*ZERO
+     C           W6PARE    ANDNE*BLANK
+     C           W6INVO    ANDNE*BLANK
+     C                     ITER
+     C                     END
+     C           W6INB#    IFEQ *ZERO
+     C           W6KAN#    ANDEQ*ZERO
+     C           W6BAL#    ANDEQ*ZERO
+     C           W6ADJ#    ANDEQ*ZERO
+     C                     ITER
+     C                     END
+     C*
+     C                     CLEARSFL01
+     C*
+     C                     MOVELW6LOC2    W#LOC1
+     C                     MOVEL'-'       W#LOCA
+     C                     MOVELW6LOC3    W#LOC2
+     C                     MOVELW#LOC     S1LOC
+     C                     MOVEL*BLANK    W@PRT
+     C                     MOVELW6PRT1    W@PRT1
+     C           W6PRT2    IFNE *BLANK
+     C                     MOVEL'-'       W@PRTA
+     C                     END
+     C                     MOVELW6PRT2    W@PRT2
+     C           W6PRT3    IFNE *BLANK
+     C                     MOVEL'-'       W@PRTB
+     C                     END
+     C                     MOVELW6PRT3    W@PRT3
+     C                     MOVELW@PRT     S1PART
+     C                     Z-ADDW6LOTS    S1LOT
+     C                     Z-ADDW6ADJ#    S1ADJS
+     C                     Z-ADDW6INB#    S1BOXS
+     C                     Z-ADDW6KAN#    S1KAN#
+     C                     Z-ADDW6BAL#    S1BBOX
+     C                     MOVELW6INVO    S1INVO
+     C*
+     C                     ADD  W6KAN#    C1KAN#
+     C*
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+     C*
+     C                     ENDDO
+     C*
+     C           RRN1      IFEQ *ZERO
+     C                     CLEARSFL01
+     C                     Z-ADD1         RRN1
+     C                     WRITESFL01
+     C                     MOVELERR,1     D@MSG
+     C                     END
+     C*
+     C                     ENDSR
+     C*----------------------------------------------------*
+      *  WORK SUMMARY FILE ---> ASJ WASHER ORDER KANBAN
+     C*----------------------------------------------------*
+     C           @OUT      BEGSR
+     C*
+     C                     CLOSEGDMPL60
+     C                     MOVELCMD,2     P@CMD     P
+     C                     Z-ADD75        P@LEN
+     C                     CALL 'QCMDEXC' P#CMD
+     C                     OPEN GDMPL60
+     C*
+     C           *LOVAL    SETLLGDMWP60
+     C*
+     C                     DO   *HIVAL
+     C*
+     C                     READ GDMWP60                  98
+     C   98                LEAVE
+     C*
+     C           W6ODER    IFNE *ZERO
+     C           W6ITEM    ANDNE*ZERO
+     C           W6PARE    ANDNE*BLANK
+     C           W6INVO    ANDNE*BLANK
+     C                     EXSR @OUTS2
+     C                     ITER
+     C                     END
+     C           W6INB#    IFEQ *ZERO
+     C           W6KAN#    ANDEQ*ZERO
+     C           W6BAL#    ANDEQ*ZERO
+     C                     ITER
+     C                     END
+     C*
+     C           W6BAL#    IFNE *ZERO
+     C                     CLEARGDMPP601
+     C                     TIME           WWTIME
+     C                     Z-ADD@@YMD     M6KODT
+     C                     Z-ADDWTIM4     M6KOTM
+     C                     MOVEL#USER     M6KOID
+     C                     MOVEL#WSID     M6KOWS
+     C                     MOVEL#PGM      M6KOPG
+     C                     MOVELW6PRT1    M6PRT1
+     C                     MOVELW6PRT2    M6PRT2
+     C                     MOVELW6PRT3    M6PRT3
+     C                     Z-ADDW6BAL#    M6ADJ#
+     C                     WRITEGDMPP601
+     C                     END
+     C*
+     C           W6KAN#    IFEQ *ZERO
+     C                     ITER
+     C                     END
+     C*
+     C                     MOVELW6LOC2    W#LOC1
+     C                     MOVEL'-'       W#LOCA
+     C                     MOVELW6LOC3    W#LOC2
+     C                     MOVEL*BLANK    W@PRT
+     C                     MOVELW6PRT1    W@PRT1
+     C           W6PRT2    IFNE *BLANK
+     C                     MOVEL'-'       W@PRTA
+     C                     END
+     C                     MOVELW6PRT2    W@PRT2
+     C           W6PRT3    IFNE *BLANK
+     C                     MOVEL'-'       W@PRTB
+     C                     END
+     C                     MOVELW6PRT3    W@PRT3
+     C*
+     C           *IN88     IFEQ *OFF
+     C           *INOF     OREQ *ON
+     C                     EXCPT@HED
+     C                     MOVEL*ON       *IN88
+     C                     MOVEL*OFF      *INOF
+     C                     ENDIF
+     C*
+     C                     EXCPT@DTL
+     C*
+     C           K#KEY     KLIST
+     C                     KFLD           W6PRT1
+     C                     KFLD           W6PRT2
+     C                     KFLD           W6PRT3
+     C           K#KEY     CHAINGDMPL50              95
+     C           *IN95     IFEQ *ON
+     C                     MOVELLT1,1     W@LT#1  1
+     C                     Z-ADD*ZERO     W@LT#2  30
+     C                     ELSE
+     C                     MOVELM5LOT1    W@LT#1
+     C                     Z-ADDM5LOT2    W@LT#2
+     C                     END
+     C*
+     C                     EXSR @OUTS1
+     C*
+     C           *IN95     IFEQ *ON
+     C           M5SKJY    ORNE *BLANK
+     C                     MOVEL*BLANK    M5SKJY
+     C                     Z-ADD*ZERO     M5SKDT
+     C                     Z-ADD*ZERO     M5SKTM
+     C                     MOVEL*BLANK    M5SKID
+     C                     MOVEL*BLANK    M5SKWS
+     C                     MOVEL*BLANK    M5SKPG
+     C                     END
+     C                     TIME           WWTIME
+     C                     Z-ADD@@YMD     M5KODT
+     C                     Z-ADDWTIM4     M5KOTM
+     C                     MOVEL#USER     M5KOID
+     C                     MOVEL#WSID     M5KOWS
+     C                     MOVEL#PGM      M5KOPG
+     C                     MOVELW6PRT1    M5PRT1
+     C                     MOVELW6PRT2    M5PRT2
+     C                     MOVELW6PRT3    M5PRT3
+     C                     MOVELW@LT#1    M5LOT1
+     C                     Z-ADDW@LT#2    M5LOT2
+     C                     Z-ADD@@YMD     M5CRDT
+     C                     Z-ADDWTIM4     M5CRTM
+     C   95                WRITEGDMPP501
+     C  N95                UPDATGDMPP501
+     C*
+     C                     ENDDO
+     C*
+     C           D@INV#    IFEQ '999999'
+     C                     ELSE
+     C                     MOVEL#PGM      K#PGM   8 P
+     C           K#PGM     CHAINAB#PPCT              99
+     C           *IN99     IFEQ *ON
+     C                     CLEARAB#PPCT1
+     C                     MOVELK#PGM     CTKEY1
+     C                     END
+     C                     MOVELD@INV#    CTCHR1
+     C   99                WRITEAB#PPCT1
+     C  N99                UPDATAB#PPCT1
+     C                     END
+     C*
+     C                     ENDSR
+     C*----------------------------------------------------*
+     C*  @OUT SUB-ROUTINE #1 CREATE ASJ WASHER ORDER KANBAN
+     C*----------------------------------------------------*
+     C           @OUTS1    BEGSR
+     C*
+     C                     Z-ADD*ZERO     W@CNT   40
+     C*
+     C                     DO   *HIVAL
+     C*
+     C                     ADD  1         W@CNT
+     C           W@CNT     IFGT W6KAN#
+     C                     LEAVE
+     C                     END
+     C*
+     C           W@LT#2    IFEQ 999
+     C                     Z-ADD1         Y       20
+     C           W@LT#1    LOKUPLT1,Y                    94
+     C           *IN94     IFEQ *ON
+     C                     ADD  1         Y
+     C           Y         IFGT 25
+     C                     MOVELLT1,1     W@LT#1
+     C                     ELSE
+     C                     MOVELLT1,Y     W@LT#1
+     C                     END
+     C                     Z-ADD*ZERO     W@LT#2
+     C                     END
+     C                     END
+     C*
+     C                     ADD  1         W@LT#2
+     C*
+     C                     CLEARGDMPP801
+     C                     TIME           WWTIME
+     C                     Z-ADD@@YMD     M8KODT
+     C                     Z-ADDWTIM4     M8KOTM
+     C                     MOVEL#USER     M8KOID
+     C                     MOVEL#WSID     M8KOWS
+     C                     MOVEL#PGM      M8KOPG
+     C*
+     C                     Z-ADD@@YMD     M8CRDT
+     C                     Z-ADDWTIM4     M8CRTM
+     C                     MOVELW6PRT1    M8PRT1
+     C                     MOVELW6PRT2    M8PRT2
+     C                     MOVELW6PRT3    M8PRT3
+     C                     Z-ADDW6SYOS    M8SYOS
+     C                     Z-ADDW6LOTS    M8LOTS
+     C           M8SYOS    MULT M8LOTS    M8SRYO
+     C*
+     C                     MOVELW6LOC1    W@LOC1
+     C                     MOVELW6LOC2    W@LOC2
+     C                     MOVELW6LOC3    W@LOC3
+     C                     MOVELW6LOC4    W@LOC4
+     C                     MOVELW@LOC     M8LOC
+     C* CHECK DIGIT
+     C                     MOVEL'I'       WWMNGK
+TCHK2C*                    MOVELL1ZETI    WWZETI
+TCHK2C                     MOVELW6ZETI    WWZETI
+     C                     MOVEL@@YMD6    WWCRHZ
+     C                     MOVEL'3'       WWPRDK
+     C                     MOVELW@LT#1    WWLOT1
+     C                     MOVELW@LT#2    WWLOT2
+     C*
+     C                     MOVELWWBARC    PMAREA    P
+     C                     MOVE '016'     PMBYTE
+     C                     MOVE *BLANK    PMCHK
+     C                     MOVE *BLANK    PMRTCD
+     C                     CALL 'ALBRCC'  P#BRC
+     C*
+     C                     MOVELWWMNGK    M8MNGK
+     C                     MOVELWWZETI    M8ZETI
+     C                     MOVELWWCRHZ    M8CRHZ
+     C                     MOVELWWPRDK    M8PRDK
+     C                     MOVELWWLOT1    M8LOT1
+     C                     MOVELWWLOT2    M8LOT2
+     C                     MOVELPMCHK     M8CHKD
+     C*
+     C                     MOVELW6BOX     M8BOXK
+     C                     MOVELW6PRC     M8PRCC
+     C*                    END
+     C           M8BOXK    CHAINGDMPL20              93
+     C           *IN93     IFEQ *OFF
+     C           M2SKJY    ANDEQ*BLANK
+     C                     MOVELM2BKNM    M8BKNM
+     C                     END
+     C           M8PRCC    CHAINGDMPL30              93
+     C           *IN93     IFEQ *OFF
+     C           M3SKJY    ANDEQ*BLANK
+     C                     MOVELM3PCNM    M8PCNM
+     C                     END
+     C*
+     C                     WRITEGDMPP801
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+     C*----------------------------------------------------*
+     C*  @OUT SUB-ROUTINE #2 WRITE OFF SHIPPING INFO
+     C*----------------------------------------------------*
+     C           @OUTS2    BEGSR
+     C*
+     C           K#701     KLIST
+     C                     KFLD           W6PRT1
+     C                     KFLD           W6PRT2
+     C                     KFLD           W6PRT3
+     C                     KFLD           W6ODER
+     C                     KFLD           W6ITEM
+     C                     KFLD           W6IKBN
+     C                     KFLD           W6PARE
+     C                     KFLD           W6INVO
+     C           K#701     CHAINGDMPL71              97
+     C           *IN97     IFEQ *OFF
+     C                     Z-ADD@@YY      IEKOYY
+     C                     Z-ADD@@MM      IEKOMM
+     C                     Z-ADD@@DD      IEKODD
+     C                     MOVELWTIM4     IEKOHH
+     C                     MOVE WTIM4     IEKOSS
+     C                     MOVEL#USER     IEKOME
+     C                     Z-ADDW6INB#    IEIBOX
+     C                     Z-ADD@@YY      IEISSY
+     C                     Z-ADD@@MM      IEISSM
+     C                     Z-ADD@@DD      IEISSD
+     C                     Z-ADD@@YY      IECMPY
+     C                     Z-ADD@@MM      IECMPM
+     C                     Z-ADD@@DD      IECMPD
+     C                     UPDATGDMPP701
+     C                     END
+     C*
+     C                     ENDSR
+      *------------------------------------------------------
+     OQPRINT  E   01           @HED
+     O                         #PGM       8
+     O                         @@YMD Y   56
+     O                         WTIME     65 '  :  :  '
+     O                                   68 'P.'
+     O                         PAGE  Z   72
+     O        E   03           @HED
+     O                                   28 'ASJ WASHER'
+     O                                   41 ' ORDER KANBA'
+     O                                   56 'N CREATE LIST  '
+     O        E   04           @HED
+     O                                   17 'SELECT INVOICE#:'
+     O                         D@INV#    23
+     O                                   25 '&'
+     O                         D@INV2    32
+     O        E   05           @HED
+     O                                    6 'PART#'
+     O                                   20 'LOC'
+     O                                   27 'LOT'
+     O                                   36 '#OF ADJ'
+     O                                   47 '#OF INB'
+     O                                   57 '#OF KAN'
+     O                                   68 'B.BOX'
+     O                                   79 'INVOICE#'
+     O        E 1              @DTL
+     O                         W@PRT     15
+     O                         W#LOC     22
+     O                         W6LOTS    27
+     O                         W6ADJ#2   36
+     O                         W6INB#2   47
+     O                         W6KAN#2   57
+     O                         W6BAL#2   68
+     O                         W6INVO    77
+     C*----------------------------------------------------*
+** LT1
+ABCDEFGHIJKLMNOPQRSTUVWXY
+** ERR
+NO DATA
+ALREADY ISSUED.
+INVOICE# ERROR.
+
+
+
+
+
+
+
+** CMD TEST
+CLRPFM GDMWP60
+CLRPFM GDMPP60

@@ -1,0 +1,541 @@
+      *** GTBR11 *****************************************************
+      * ACZ ORDER FIXED HANDING / DAYLY ORDER FILE ADD&CHANGE
+      *     G.B.C                        97/02/21
+      *
+      * TCHK  10/09/12 CREATE(COPY FROM GDGR11)
+      ****************************************************************
+     H            Y/                                    1
+     FGTBPW11 CF  E                    WORKSTN
+     FGTBPL10 UF  E           K        DISK                      A
+     FAAPTL01 IF  E           K        DISK
+     FAKBPL04 IF  E           K        DISK
+     FAANPL06 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+      * MSK 2004.11.09
+     FGTBPPNO UF  E                    DISK                      A
+     FGTBWP9X O   F     128            DISK                      A
+      *
+     FQPRINT  O   F     132     OF     PRINTER
+     E                    MSG     1   7 59               d[ｰ xｮﾈｰﾆﾞ
+     I****************************************************************
+     I            DS
+     I                                        1   60@@TIME
+     I                                        1   40@TIME
+     I            DS
+     I                                        1   40IBKOTM
+     I                                        1   20IBKOHH
+     I                                        3   40IBKOSS
+     I            DS
+     I                                        1   80IBSKHZ
+     I                                        1   40IBSKYY
+     I                                        5   60IBSKMM
+     I                                        7   80IBSKDD
+     I            DS
+     I                                        1   80IBKOHZ
+     I                                        1   40IBKOYY
+     I                                        5   60IBKOMM
+     I                                        7   80IBKODD
+     I            DS
+     I                                        1   80L7SKHZ
+     I                                        1   40L7SKYY
+     I                                        5   60L7SKMM
+     I                                        7   80L7SKDD
+     I            DS
+     I                                        1   80L7UKHZ
+     I                                        1   40L7UKYY
+     I                                        5   60L7UKMM
+     I                                        7   80L7UKDD
+     I            DS
+     I                                        1   80L7STHZ
+     I                                        1   40L7STYY
+     I                                        5   60L7STMM
+     I                                        7   80L7STDD
+     I            DS
+     I                                        1   80A2GSHZ
+     I                                        1   40A2GSYY
+     I                                        5   60A2GSMM
+     I                                        7   80A2GSDD
+     C****************************************************************
+     C*           ＭＡＩＮ　ＲＯＵＴＩＮＥ                         *
+     C****************************************************************
+     C           *ENTRY    PLIST
+     C                     PARM           PPUSER 10
+     C           P#00      PLIST
+     C                     PARM           P@FILE 10
+     C                     PARM           P@OK    2
+     C                     PARM           P@ID    1
+     C* CHECK & LOCK
+     C                     MOVEL'GTBPP10' P@FILE
+     C                     MOVEL'1'       P@ID
+     C                     CALL 'GTBR0A'  P#00
+      *
+     C           @CLR1     TAG
+     C*
+     C                     MOVE *BLANK    D1OPT
+     C                     MOVE *BLANK    D1HIN1
+     C                     MOVE *BLANK    D1HIN2
+     C                     MOVE *BLANK    D1HIN3
+     C                     MOVE *BLANK    D#MSG
+     C                     MOVEA'00'      *IN,11
+     C                     MOVEA'0'       *IN,99
+     C           P@OK      IFEQ 'NO'
+     C                     MOVELMSG,7     D#MSG
+     C                     MOVE *ON       *IN99
+     C                     ENDIF
+     C****************
+     C*  第１画面  *
+     C****************
+     C           @DSP1     TAG
+     C*
+     C                     EXFMTDSP01
+     C                     MOVEA'00'      *IN,11
+     C*
+     C           P@OK      CABEQ'NO'      @END
+     C*
+     C                     MOVE *BLANK    D#MSG
+     C                     MOVEA'0'       *IN,99
+     C* < F1=ON >
+     C           *INKA     CABEQ'1'       @END
+     C*
+     C                     EXSR #CHK01
+     C           *IN99     CABEQ'1'       @DSP1
+     C*
+     C                     EXSR #SET01
+     C****************
+     C*  第２画面  *
+     C****************
+     C           @DSP2     TAG
+     C*
+     C                     EXFMTDSP02
+     C                     MOVEA'0'       *IN,21
+     C                     MOVEA'0'       *IN,99
+     C                     MOVE *BLANK    D#MSG
+     C* < F1=ON >
+     C           *INKA     CABEQ'1'       @END
+     C* < F3=ON >
+     C           *INKC     CABEQ'1'       @DSP1
+     C*
+     C                     EXSR #CHK02
+     C           *IN99     CABEQ'1'       @DSP2
+     C* < F5=OFF >
+     C           *INKE     CABEQ'0'       @DSP2
+     C*
+     C           *IN30     IFEQ '0'
+     C                     SETON                     30
+     C                     TIME           @@TIME
+     C                     EXCPTHD
+     C                     END
+     C*
+     C                     ADD  1         CHGALL  40
+     C*
+     C                     EXSR #UPD01
+     C                     GOTO @CLR1
+     C*
+     C**************
+     C* 終　　了 *
+     C**************
+     C           @END      TAG
+     C           *IN30     IFEQ '1'
+     C                     EXCPTTO
+     C                     END
+      * UNLOCK
+     C           P@OK      IFEQ 'OK'
+     C                     MOVEL'GTBPP10' P@FILE
+     C                     MOVEL'2'       P@ID
+     C                     CALL 'GTBR0A'  P#00
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+     C****************************************************************
+     C*           ＳＵＢ　　ＲＯＵＴＩＮＥ                         *
+     C****************************************************************
+     C           #CHK01    BEGSR                                     *
+     C****************************************************************
+     C**第１画面チェック**
+     C*
+     C           D1OPT     IFNE '0'
+     C           D1OPT     ANDNE'1'
+     C           D1OPT     ANDNE'2'
+     C                     MOVEA'1'       *IN,11
+     C  N99                MOVELMSG,1     D#MSG
+     C  N99                MOVEA'1'       *IN,99
+     C                     GOTO @CHK1E
+     C                     END
+     C*
+     C           KEY01     KLIST
+     C                     KFLD           D1HIN1
+     C                     KFLD           D1HIN2
+     C                     KFLD           D1HIN3
+     C*----------
+     C           KEY01     SETLLGTBPL101
+     C                     DO   *HIVAL
+     C           KEY01     READEGTBPL101                 10
+     C   10                LEAVE
+     C           IBSKJY    IFEQ 'D'                        DELETE CODE
+     C           IBSKHZ    ANDLE*DATE
+     C                     ITER
+     C                     ENDIF
+     C*:
+     C                     LEAVE
+     C                     ENDDO
+     C*----------
+     C           *IN10     IFEQ '1'
+     C           D1OPT     IFEQ '0'
+     C           D1OPT     OREQ '1'
+     C                     MOVEA'1'       *IN,12
+     C  N99                MOVELMSG,3     D#MSG
+     C  N99                MOVEA'1'       *IN,99
+     C                     GOTO @CHK1E
+     C                     END
+     C                     ELSE
+     C           D1OPT     IFEQ '2'
+     C                     MOVEA'1'       *IN,12
+     C  N99                MOVELMSG,2     D#MSG
+     C  N99                MOVEA'1'       *IN,99
+     C                     GOTO @CHK1E
+     C                     END
+     C                     END
+     C*
+     C*--------------------
+     C                     Z-ADD0         WKSYOS  70       収容数
+     C                     MOVE ' '       WKSEIH  1        製品区分
+     C                     MOVE *BLANK    WKZETI  4        製品区分
+     C           KEY01     SETLLAAPTL01
+B1   C                     DO   *HIVAL
+     C           KEY01     READEAAPTL01                  10
+     C   10                LEAVE
+     C           L5SKJY    IFEQ 'D'                         DELETE CODE
+     C           L5SKHZ    ANDLE*DATE
+     C                     ITER
+     C                     ENDIF
+     C           L5UKHZ    IFGT *DATE
+     C                     ITER
+     C                     ENDIF
+     C           L5STHZ    IFLE *DATE
+     C                     ITER
+     C                     ENDIF
+     C                     Z-ADDL5SYOS    WKSYOS
+     C                     MOVE '0'       WKSEIH           製品区分
+E1   C                     ENDDO
+     C*----------
+B1   C           WKSEIH    IFEQ ' '                        製品区分
+     C           KEY01     SETLLAKBPL04
+ B2  C                     DO   *HIVAL
+     C           KEY01     READEAKBPL04                  10
+     C   10                LEAVE
+     C           L1SKJY    IFEQ 'D'                         DELETE CODE
+     C           L1SKHZ    ANDLE*DATE
+     C                     ITER
+     C                     ENDIF
+     C           L1UKHZ    IFGT *DATE
+     C                     ITER
+     C                     ENDIF
+     C           L1STHZ    IFLE *DATE
+     C                     ITER
+     C                     ENDIF
+     C                     Z-ADDL1SYOS    WKSYOS
+     C                     MOVE '3'       WKSEIH           製品区分
+ E2  C                     ENDDO
+E1   C                     ENDIF
+     C*----------
+B1   C           WKSEIH    IFEQ ' '                        製品区分
+     C           KEY01     SETLLAANPL06
+ B2  C                     DO   *HIVAL
+     C           KEY01     READEAANPL06                  10
+     C   10                LEAVE
+     C           L7SKJY    IFEQ 'D'                         DELETE CODE
+     C           L7SKHZ    ANDLE*DATE
+     C                     ITER
+     C                     ENDIF
+     C           L7UKHZ    IFGT *DATE
+     C                     ITER
+     C                     ENDIF
+     C           L7STHZ    IFLE *DATE
+     C                     ITER
+     C                     ENDIF
+     C                     Z-ADDL7SYOS    WKSYOS
+     C                     MOVE '6'       WKSEIH           製品区分
+ E2  C                     ENDDO
+E1   C                     ENDIF
+     C*
+     C           WKSEIH    IFEQ ' '                        製品区分
+     C           D1OPT     ANDEQ'2'
+     C                     MOVEA'1'       *IN,12
+     C  N99                MOVELMSG,6     D#MSG
+     C  N99                MOVEA'1'       *IN,99
+     C                     GOTO @CHK1E
+     C                     ENDIF
+     C*
+     C                     SETOF                     10
+     C           KEY01     CHAINFCEPL011             10
+     C           *IN10     IFEQ '0'
+     C           A2GSKD    IFEQ 'D'
+     C           A2GSHZ    ANDLE*DATE
+     C                     ELSE
+     C                     MOVELA2ZETI    WKZETI
+     C                     END
+     C                     END
+     C*
+     C           @CHK1E    ENDSR
+     C****************************************************************
+     C           #CHK02    BEGSR                                     *
+     C****************************************************************
+     C**第２画面チェック**
+     C*
+     C                     Z-ADDWKSYOS    D2SYOS           収容数
+     C           D2MAIS    MULT D2SYOS    D2SURY
+     C*
+     C           D1OPT     IFNE '0'
+     C           D2MAIS    IFEQ 0
+     C                     MOVEA'1'       *IN,21
+     C  N99                MOVELMSG,5     D#MSG
+     C  N99                MOVEA'1'       *IN,99
+     C                     GOTO @CHK2E
+     C                     END
+     C                     END
+     C*
+     C           @CHK2E    ENDSR
+     C****************************************************************
+     C           #SET01    BEGSR                                     *
+     C****************************************************************
+     C**第２画面セット**
+     C                     MOVEA'0'       *IN,21
+     C                     MOVEA'0'       *IN,29
+     C           D1OPT     COMP '0'                      80
+     C           D1OPT     COMP '1'                      81
+     C           D1OPT     COMP '2'                      82
+     C           D1HIN3    COMP *BLANK                   20
+     C                     Z-ADD0         D2MAIS
+     C                     Z-ADD0         D2SYOS
+     C   82                Z-ADDWKSYOS    D2SYOS
+     C                     Z-ADD0         D2SURY
+     C   80                MOVEA'1'       *IN,29
+     C*----------
+     C           KEY01     SETLLGTBPL101
+     C                     DO   *HIVAL
+     C           KEY01     READEGTBPL101            N    10
+     C   10                LEAVE
+     C           IBSKJY    IFEQ 'D'                        DELETE CODE
+     C           IBSKHZ    ANDLE*DATE
+     C                     ITER
+     C                     ENDIF
+     C*:
+     C                     LEAVE
+     C                     ENDDO
+     C*----------
+     C  N82      *IN,10    IFEQ '0'
+     C                     Z-ADDIBMAIS    D2MAIS
+     C                     Z-ADDIBSYOS    D2SYOS
+     C           D2MAIS    MULT IBSYOS    D2SURY
+     C                     END
+     C*
+     C                     ENDSR
+     C****************************************************************
+     C           #UPD01    BEGSR                                     *
+     C****************************************************************
+     C                     MOVELD1HIN1    IBHIN1
+     C                     MOVELD1HIN2    IBHIN2
+     C                     MOVELD1HIN3    IBHIN3
+     C                     TIME           @@TIME
+     C*
+     C           KEY01     CHAINGTBPL101             10
+     C* OLD DATA=>FIELD INPUT
+     C                     MOVE IBHIN1    ODHIN1  5
+     C                     MOVE IBHIN2    ODHIN2  5
+     C                     MOVE IBHIN3    ODHIN3  2
+     C                     Z-ADDIBSYOS    ODSYOS  70
+     C                     Z-ADDIBMAIS    ODMAIS  50
+     C                     Z-ADDIBSURY    ODSURY  70
+     C                     Z-ADDIBMAIS    WWMAIS  50
+     C*
+     C                     Z-ADDD2SYOS    IBSYOS
+     C                     Z-ADDD2MAIS    IBMAIS
+     C                     Z-ADDD2SURY    IBSURY
+     C                     MOVELWKZETI    IBZETI
+     C                     MOVE WKSEIH    IBSEIH           製品区分
+     C                     Z-ADD*DATE     IBKOHZ
+     C                     Z-ADD@TIME     IBKOTM
+     C                     MOVELPPUSER    IBKOME
+     C*
+     C* DELETE MODE
+     C*
+     C           *IN80     IFEQ '1'
+     C                     MOVE 'DEL DATA'OLDMSG  8
+     C                     EXCPTOLD
+     C                     EXCPTSP
+     C           *INOF     IFEQ '1'
+     C                     EXCPTHD
+     C                     SETOF                     OF
+     C                     END
+     C                     MOVE 'D'       IBSKJY           DELETE CODE
+     C                     Z-ADD*DATE     IBSKHZ
+     C  N10                UPDATGTBPL101
+      *--------------------*
+      * 2004.11.08 MSK     *
+      *--------------------*
+     C           1         CHAINGTBPPNO1             29
+     C           *IN29     IFEQ '0'
+     C                     ADD  1         IASEQN
+     C                     Z-ADDIASEQN    WKSEQN  50
+     C                     UPDATGTBPPNO1
+     C                     ELSE
+     C                     Z-ADD1         IASEQN
+     C                     Z-ADD1         WKSEQN  50
+     C                     WRITEGTBPPNO1
+     C                     ENDIF
+     C                     Z-ADD0         @@MAIS  50
+     C           IBMAIS    MULT -1        @@MAIS
+     C                     MOVEL'8'       @@NYKB  1
+     C                     MOVE 'D'       @@DEL   1
+     C                     EXCPTFILE
+     C                     MOVEL*BLANK    @@NYKB
+     C                     MOVE ' '       @@DEL   1
+      *
+     C                     ENDIF
+     C*
+     C* CHANGE MODE
+     C*
+     C           *IN81     IFEQ '1'
+     C                     MOVE 'OLD DATA'OLDMSG
+     C                     EXCPTOLD
+     C                     MOVE 'CHG DATA'NEWMSG  8
+     C                     EXCPTNEW
+     C                     EXCPTSP
+     C           *INOF     IFEQ '1'
+     C                     EXCPTHD
+     C                     SETOF                     OF
+     C                     END
+     C  N10                UPDATGTBPL101
+      *--------------------*
+      * 2004.11.08 MSK     *
+      *--------------------*
+     C           IBMAIS    SUB  WWMAIS    @@MAIS
+     C           @@MAIS    IFNE 0
+     C           1         CHAINGTBPPNO1             29
+     C           *IN29     IFEQ '0'
+     C                     ADD  1         IASEQN
+     C                     Z-ADDIASEQN    WKSEQN  50
+     C                     UPDATGTBPPNO1
+     C                     ELSE
+     C                     Z-ADD1         IASEQN
+     C                     Z-ADD1         WKSEQN  50
+     C                     WRITEGTBPPNO1
+     C                     ENDIF
+     C                     Z-ADD0         @@MAIS  50
+     C           IBMAIS    SUB  WWMAIS    @@MAIS
+     C                     MOVEL'8'       @@NYKB  1
+     C                     MOVE '1'       @@DEL   1
+     C                     EXCPTFILE
+     C                     MOVEL*BLANK    @@NYKB
+     C                     MOVE ' '       @@DEL   1
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C*
+     C* ADD MODE
+     C*
+     C           *IN82     IFEQ '1'
+     C                     MOVE 'ADD DATA'NEWMSG
+     C                     EXCPTNEW
+     C                     EXCPTSP
+     C           *INOF     IFEQ '1'
+     C                     EXCPTHD
+     C                     SETOF                     OF
+     C                     END
+     C                     MOVE ' '       IBSKJY           DELETE CODE
+     C                     Z-ADD0         IBSKHZ
+     C  N10                UPDATGTBPL101
+     C   10                WRITEGTBPL101
+      *--------------------*
+      * 2004.11.08 MSK     *
+      *--------------------*
+     C           1         CHAINGTBPPNO1             29
+     C           *IN29     IFEQ '0'
+     C                     ADD  1         IASEQN
+     C                     Z-ADDIASEQN    WKSEQN  50
+     C                     UPDATGTBPPNO1
+     C                     ELSE
+     C                     Z-ADD1         IASEQN
+     C                     Z-ADD1         WKSEQN  50
+     C                     WRITEGTBPPNO1
+     C                     ENDIF
+     C                     Z-ADD0         @@MAIS  50
+     C                     Z-ADDIBMAIS    @@MAIS
+     C                     MOVEL'8'       @@NYKB  1
+     C                     MOVE '2'       @@DEL   1
+     C                     EXCPTFILE
+     C                     MOVEL*BLANK    @@NYKB
+     C                     MOVE ' '       @@DEL   1
+      *
+     C                     ENDIF
+     C*
+     C                     ENDSR
+     C****************************************************************
+      * MSK 2004.11.09
+     OGTBWP9X EADD             FILE
+     O                         IBHIN1     5
+     O                         IBHIN2    10
+     O                         IBHIN3    12
+     O                         @@NYKB    13
+     O                         @@MAIS    18
+     O                         @@DEL     19
+     O                         WKSEQN    24
+      *
+     OQPRINT  E  102           HD
+     O                                  131 '+-------------------+'
+     O        E  1             HD
+     O                                  131 '|         |         |'
+     O        E  1             HD
+     O                                   89 'TIME'
+     O                         @@TIME    98 '  .  .  '
+     O                                  131 '|         |         |'
+     O        E  2             HD
+     O                                   12 'GTBR11-1 '
+     O                                   54 '**  KANBAN INPUT DATA'
+     O                                   69 'CHANGE LIST **'
+     O                                   81 '(PRODUCTS)'
+     O                                   89 'DATE'
+     O                         UDATE Y   98
+     O                                  104 'PAGE'
+     O                         PAGE  Z  108
+     O                                  131 '+-------------------+'
+     O        E  2             HD
+     O                                   21 'MODE'
+     O                                   35 'PART NO.'
+     O                                   52 'AMD QTY'
+     O                                   63 'BOX'
+     O                                   77 'QTY.'
+     O        E  1             OLD
+     O                         OLDMSG    21
+     O                         ODHIN1    29
+     O                                   30 '-'
+     O                         ODHIN2    35
+     O                                   36 '-'
+     O                         ODHIN3    38
+     O                         ODSYOS2   52
+     O                         ODMAIS2   63
+     O                         ODSURY2   77
+     O        E  1             NEW
+     O                         NEWMSG    21
+     O                         IBHIN1    29
+     O                                   30 '-'
+     O                         IBHIN2    35
+     O                                   36 '-'
+     O                         IBHIN3    38
+     O                         IBSYOS2   52
+     O                         IBMAIS2   63
+     O                         IBSURY2   77
+     O        E  1             SP
+     O                                  132 ' '
+     O        E 11             TO
+     O                                   25 '*** CHANGE OF TOTAL'
+     O                         CHGALL2   38
+**  MSG
+ INCORRECT TREATMENT CLASIFICATION.
+ THE PART NUMBER INPUT ALREADY EXIST.
+ THERE IS NO CONRRESPONDING PART NUMBER EXIST.
+ THERE IS NO PART NUMBER IN THE PART MASTER.
+ INPUT THE NUMBER OF BOX.
+ THE PART NUMBER DOES NOT EXIST IN THE KANBAN MASTER.
+ SOMEONE ELSE IS USING THE ORDER FILE. PLS TRY AGAIN LATER.

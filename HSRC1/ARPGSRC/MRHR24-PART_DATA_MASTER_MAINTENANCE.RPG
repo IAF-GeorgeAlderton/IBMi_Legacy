@@ -1,0 +1,564 @@
+     ******************************************************************
+     **  プログラム名   : 部品情報マスタ保守　　　　　　　　     **
+     **                   : （部品マスタ更新）　　　　　　　　     **
+     **  プログラムＩＤ :  MRHR24     <RPG>                        **
+     **  作成年月日     :  2014/01/23                              **
+     **  作成者         :  TR-ITS                                  **
+     **  プログラム概要 : 部品情報マスタの更新をおこなう         **
+     **--------------------------------------------------------------**
+     **  変更年月日     :  YYYY/MM/DD                              **
+     **  変更者         :                                          **
+     **  変更内容       :                                          **
+     ******************************************************************
+     ** <<使用標識説明>>
+     **        80       :部品情報マスタ読込
+     **     81～82    :他ファイル読込
+     ******************************************************************
+     H            Y/                                    1
+     **==============================================================**
+     **  ファイル
+     **==============================================================**
+     F*<<部品情報マスタ>>
+     FMRHPL21 UF  E           K        DISK                      A
+     F*<<部品マスタワークファイル>>
+     FMRHWP21 UF  E           K        DISK
+     F*<<絶対№管理ファイル>>
+     FMRHPL41 UF  E           K        DISK
+     **==============================================================**
+     **  配列
+     **==============================================================**
+      *
+     **==============================================================**
+     **  ＤＳ
+     **==============================================================**
+     I*<<システム情報>>
+     I           SDS
+     I                                     *PROGRAM S@PGID
+     I                                      244 253 S@WSID
+     I                                      254 263 S@USID
+     I                                      264 269 S@JBID
+     I*<<システム日時>>
+     I            DS
+     I                                        1  140S@TIME
+     I                                        1   60S@HMS
+     I                                        1   20S@TMHH
+     I                                        3   40S@TMMM
+     I                                        5   60S@TMSS
+     I                                        7  140S@YYMD
+     I                                        7  100S@DYYY
+     I                                       11  120S@DYMM
+     I                                       13  140S@DYDD
+     **--------------------------------------------------------------**
+     I* <<共通>>
+      *
+     **==============================================================**
+     **  パラメータ
+     **==============================================================**
+     C           *ENTRY    PLIST
+     C                     PARM           P@KKBN  1        *更新区分
+     C                     PARM           P@SHN1  5        *社内品番１
+     C                     PARM           P@SHN2  5        *社内品番２
+     C                     PARM           P@SHN3  2        *社内品番３
+     C                     PARM           P@RTCD  1        *リターンコード
+     C* <<絶対№取得(MRHR29) >>
+     C           P1MH29    PLIST
+     C                     PARM           P1KKBN  1        *更新区分
+     C                     PARM           P1SHN1  5        *社内品番１
+     C                     PARM           P1SHN2  5        *社内品番２
+     C                     PARM           P1SHN3  2        *社内品番３
+     C                     PARM           P1ZETI  4        *絶対№
+     C                     PARM           P1KNKB  1        *取得内容区分
+     C                     PARM           P1RTCD  1        *リターンコード
+     **==============================================================**
+     **  ＫＥＹ
+     **==============================================================**
+     C* <<部品情報マスタ(MRHPL21) >>
+     C           EAKEY     KLIST
+     C                     KFLD           EASHN1           *社内品番１
+     C                     KFLD           EASHN2           *社内品番２
+     C                     KFLD           EASHN3           *社内品番３
+     C                     KFLD           EASEHI           *製品区分
+     C                     KFLD           EATEHI           *手配区分
+     C* <<部品マスタワークファイル(MRHWP21) >>
+     C           W2KEY     KLIST
+     C                     KFLD           W2SHN1           *社内品番１
+     C                     KFLD           W2SHN2           *社内品番２
+     C                     KFLD           W2SHN3           *社内品番３
+     C                     KFLD           W2SEHI           *製品区分
+     C                     KFLD           W2TEHI           *手配区分
+     C* <<絶対№管理ファイル(MRHPL41) >>
+     C           EIKEY     KLIST
+     C                     KFLD           EIZETI           *絶対№
+     **==============================================================**
+     **  メインルーチン
+     **==============================================================**
+      *
+      *---<初期処理>---*
+     C                     EXSR #INIT
+      *
+      *---<主処理>---*
+     C                     EXSR #MAIN
+      *
+      *---<終了処理>---*
+     C                     SETON                     LR
+     C                     RETRN
+      *
+      **************************************************************************
+      *         Ｓ　Ｕ　Ｂ　－　Ｒ　Ｏ　Ｕ　Ｔ　Ｉ　Ｎ　Ｅ
+      **************************************************************************
+      *-------------------------------------------------------------------------
+      *          #INIT    初期処理
+      *-------------------------------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C                     TIME           S@TIME
+      *
+     C                     MOVEL'S'       W@SEHI  1        *製品区分
+     C                     MOVEL'S'       W@TEHI  1        *手配区分
+      *
+     C                     MOVEL*BLANK    P@RTCD           *リターンコード
+     C                     MOVEL*BLANK    P1ZETI           *絶対№
+     C                     MOVEL*BLANK    P1KNKB           *取得内容区分
+     C                     MOVEL*BLANK    P1RTCD           *リターンコード
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #MAIN    メイン処理
+      *-------------------------------------------------------------------------
+     C           #MAIN     BEGSR
+      *削除以外のとき
+     C           P@KKBN    IFNE '0'                        ¬IF_01
+      *　絶対№取得処理
+     C                     EXSR #CAL10
+     C           P1RTCD    IFNE 'E'                        ~¬IF_02
+      *　登録／更新処理
+     C                     EXSR #DBO10
+     C                     END                             _｢IF_02
+      *削除のとき
+     C                     ELSE                            +ELSE_01
+      *　削除処理
+     C                     EXSR #DBO20
+     C                     END                             ｢IF_01
+      *絶対番号が取得できなかったとき
+     C           P1RTCD    IFEQ 'E'                        ¬IF_01
+     C                     MOVEL'E'       P@RTCD           *リターンコード
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CAL10   絶対№取得　処理
+      *-------------------------------------------------------------------------
+     C           #CAL10    BEGSR
+      *　絶対№取得(MRHR29)
+     C                     MOVELP@KKBN    P1KKBN           *更新区分
+     C                     MOVELP@SHN1    P1SHN1           *社内品番１
+     C                     MOVELP@SHN2    P1SHN2           *社内品番２
+     C                     MOVELP@SHN3    P1SHN3           *社内品番３
+     C                     MOVEL*BLANK    P1ZETI           *絶対№
+     C                     MOVEL*BLANK    P1KNKB           *取得内容区分
+     C                     MOVEL*BLANK    P1RTCD           *リターンコード
+     C                     CALL 'MRHR29'  P1MH29
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #DBO10   登録／更新　処理
+      *-------------------------------------------------------------------------
+     C           #DBO10    BEGSR
+      *号口部品マスタから取得ではないとき
+     C           P1KNKB    IFNE '2'                        ¬IF_01
+      *　絶対№管理ファイル(MRHPL41)
+     C                     MOVELP1ZETI    EIZETI           *絶対№
+     C           EIKEY     CHAINMRHPL411             80
+     C           *IN80     IFEQ '0'                        ~¬IF_02
+     C           EIGSKD    IFEQ 'D'                        ~~¬IF_03
+     C           EIGSHZ    ANDLES@YYMD
+      *
+     C                     ELSE                            --+ELSE_03
+      *　絶対№管理ファイル(MRHPL41)更新
+     C                     EXSR #UPD10                     * UPDAT
+     C                     END                             __｢IF_03
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *
+      *部品マスタワークファイル(MRHWP21)
+     C                     MOVELP@SHN1    W2SHN1           *社内品番１
+     C                     MOVELP@SHN2    W2SHN2           *社内品番２
+     C                     MOVELP@SHN3    W2SHN3           *社内品番３
+     C                     MOVELW@SEHI    W2SEHI           *製品区分
+     C                     MOVELW@TEHI    W2TEHI           *手配区分
+     C           W2KEY     CHAINMRHWP211             81
+     C           *IN81     IFEQ '0'                        ¬IF_01
+      *　部品情報マスタ(MRHPL21)
+     C                     MOVELP@SHN1    EASHN1           *社内品番１
+     C                     MOVELP@SHN2    EASHN2           *社内品番２
+     C                     MOVELP@SHN3    EASHN3           *社内品番３
+     C                     MOVELW@SEHI    EASEHI           *製品区分
+     C                     MOVELW@TEHI    EATEHI           *手配区分
+     C           EAKEY     CHAINMRHPL211             81
+     C           *IN81     IFEQ '1'                        ~¬IF_02
+      *　部品情報マスタ(MRHPL21)出力
+     C                     EXSR #WRT20                     * WRITE
+     C                     END                             _｢IF_02
+     C           *IN81     IFEQ '0'                        ~¬IF_02
+     C           EAGSJY    IFEQ 'D'                        ~~¬IF_03
+     C           EAGSHZ    ANDLES@YYMD
+      *　部品情報マスタ(MRHPL21)出力
+     C                     EXSR #WRT21                     * WRITE(UPDAT)
+      *
+     C                     ELSE                            --+ELSE_03
+      *　部品情報マスタ(MRHPL21)更新
+     C                     EXSR #UPD20                     * UPDAT
+     C                     END                             __｢IF_03
+     C                     END                             _｢IF_02
+      *部品マスタワークファイル(MRHWP21)削除
+     C                     DELETMRHWP211                   * DELETE
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #DBO20   削除　処理
+      *-------------------------------------------------------------------------
+     C           #DBO20    BEGSR
+      *部品情報マスタ(MRHPL21)
+     C                     MOVELP@SHN1    EASHN1           *社内品番１
+     C                     MOVELP@SHN2    EASHN2           *社内品番２
+     C                     MOVELP@SHN3    EASHN3           *社内品番３
+     C                     MOVELW@SEHI    EASEHI           *製品区分
+     C                     MOVELW@TEHI    EATEHI           *手配区分
+     C           EAKEY     CHAINMRHPL211             81
+     C           *IN81     IFEQ '0'                        ¬IF_01
+     C           EAGSJY    IFEQ 'D'                        ~¬IF_02
+     C           EAGSHZ    ANDLES@YYMD
+      *
+     C                     ELSE                            -+ELSE_02
+      *部品情報マスタ(MRHPL21)削除
+     C                     EXSR #DEL20                     * DELETE(UPDAT)
+      *
+     C           EAZETI    IFNE '0000'                     ~~¬IF_03
+      *　絶対№管理ファイル(MRHPL41)
+     C                     MOVELEAZETI    EIZETI           *絶対№
+     C           EIKEY     CHAINMRHPL411             80
+     C           *IN80     IFEQ '0'                        ~~~¬IF_04
+     C           EIGSKD    IFEQ 'D'                        ~~~~¬IF_05
+     C           EIGSHZ    ANDLES@YYMD
+      *
+     C                     ELSE                            ----+ELSE_05
+      *　　絶対№管理ファイル(MRHPL41)更新
+     C                     EXSR #UPD11                     * UPDAT
+     C                     END                             ____｢IF_05
+     C                     END                             ___｢IF_04
+     C                     END                             __｢IF_03
+      *
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #UPD10   絶対№管理ファイル(MRHPL41)更新処理(UPDAT)
+      *-------------------------------------------------------------------------
+     C           #UPD10    BEGSR
+      *絶対№管理ファイル(MRHPL41)更新
+      *　絶対番号取得
+     C                     MOVEL*BLANK    EIGSKD           * DELETE CODE D
+     C                     Z-ADD*ZERO     EIGSHZ           * DELETE DATE
+     C                     MOVEL*BLANK    EIGSNM           * DELETE PERSON
+     C                     Z-ADDS@YYMD    EIGKHZ           * UPDATE DATE
+     C                     Z-ADDS@HMS     EIGKTM           * UPDATE TIME
+     C                     MOVELS@PGID    EIGKPG           * UPDATE PROGRAM
+     C                     MOVELS@USID    EIGKNM           * UPDATE PERSON'
+     C                     MOVELP@SHN1    EISHN1           *社内品番１
+     C                     MOVELP@SHN2    EISHN2           *社内品番２
+     C                     MOVELP@SHN3    EISHN3           *社内品番３
+     C                     Z-ADD*ZERO     EIAKHZ           * FREE DATE
+      *
+     C                     UPDATMRHPL411
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #UPD11   絶対№管理ファイル(MRHPL41)更新処理(UPDAT)
+      *-------------------------------------------------------------------------
+     C           #UPD11    BEGSR
+      *絶対№管理ファイル(MRHPL41)更新
+      *　絶対番号解除
+     C                     MOVEL*BLANK    EIGSKD           * DELETE CODE D
+     C                     Z-ADD*ZERO     EIGSHZ           * DELETE DATE
+     C                     MOVEL*BLANK    EIGSNM           * DELETE PERSON
+     C                     Z-ADDS@YYMD    EIGKHZ           * UPDATE DATE
+     C                     Z-ADDS@HMS     EIGKTM           * UPDATE TIME
+     C                     MOVELS@PGID    EIGKPG           * UPDATE PROGRAM
+     C                     MOVELS@USID    EIGKNM           * UPDATE PERSON'
+     C                     MOVEL*BLANK    EISHN1           *社内品番１
+     C                     MOVEL*BLANK    EISHN2           *社内品番２
+     C                     MOVEL*BLANK    EISHN3           *社内品番３
+     C                     Z-ADDS@YYMD    EIAKHZ           * FREE DATE
+      *
+     C                     UPDATMRHPL411
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #WRT20   部品情報マスタ(MRHPL21)追加処理(WRITE)
+      *-------------------------------------------------------------------------
+     C           #WRT20    BEGSR
+      *
+     C                     CLEARMRHPL211
+      *
+     C                     Z-ADDS@YYMD    EAGKHZ           * UPDATE DATE
+     C                     Z-ADDS@HMS     EAGKTM           * UPDATE TIME
+     C                     MOVELS@PGID    EAGKPG           * UPDATE PROGRAM
+     C                     MOVELS@USID    EAGKNM           * UPDATE PERSON
+     C                     MOVELW2SHN1    EASHN1           * INHOUSE PART NUMBER
+     C                     MOVELW2SHN2    EASHN2           * INHOUSE PART NUMBER
+     C                     MOVELW2SHN3    EASHN3           * INHOUSE PART NUMBER
+     C                     MOVELW2SEHI    EASEHI           * PRODUCT INSTRUCTION
+     C                     Z-ADDW2SHHZ    EASHHZ           * CHANGE DATE
+     C                     MOVELW2MEK1    EAMEK1           * SRFACE TREATMENT CD
+     C                     MOVELW2MEK2    EAMEK2           * SRFACE TREATMENT CD
+     C                     MOVELW2MEK3    EAMEK3           * SRFACE TREATMENT CD
+     C                     MOVELW2MMEI    EAMMEI           * SRFACE TREATMENTNAM
+     C                     MOVELW2SETR    EASETR           * SECOND SRFACE TREAT
+     C                     MOVELW2SECD    EASECD           * 2ND SRFACE TREAT CD
+     C                     Z-ADDW2SOZI    EASOZI           * MATERIAL WEIGHT
+     C                     MOVELW2SOZT    EASOZT           * MATERIAL WEIGHT UNI
+     C                     Z-ADDW2KASI    EAKASI           * FINISHED WEIGHT
+     C                     MOVELW2KAST    EAKAST           * FINISHED WEIGHT UNI
+     C                     Z-ADDW2KIKI    EAKIKI           * MATERIAL PROPERTIES
+     C                     MOVELW2ZAIC    EAZAIC           * MATERIAL CODE
+     C                     MOVELW2ZANM    EAZANM           * MATERIAL NAME
+     C                     Z-ADDW2KAZI    EAKAZI           * WIRE DIAMETER
+     C                     Z-ADDW2TUSZ    EATUSZ           * NOMINAL SIZE
+     C                     MOVELW2BDAI    EABDAI           * L-CLASS CODE
+     C                     MOVELW2BTIU    EABTIU           * M-CLASS CODE
+     C                     MOVELW2BHIN    EABHIN           * S-CLASS CODE
+     C                     MOVELW2SMEI    EASMEI           * L-CLASS NAME
+     C                     MOVELW2TMEI    EATMEI           * M-CLASS NAME
+     C                     MOVELW2DMEI    EADMEI           * S-CLASS NAME
+     C                     Z-ADDW2KUBI    EAKUBI           * NOMINAL LENGTH
+     C                     Z-ADDW2SSYS    EASSYS           * CONTAINING QUANTITY
+     C                     MOVELW2SSYT    EASSYT           * TYPE
+     C                     MOVELP1ZETI    EAZETI           * ID NUMBER
+     C                     MOVELW2TEHI    EATEHI           * PRODUCTION ORDER IN
+     C                     MOVELW2KH11    EAKH11           * COMPONENT PART NUMB
+     C                     MOVELW2KH12    EAKH12           * COMPONENT PART NUMB
+     C                     MOVELW2KH13    EAKH13           * COMPONENT PART NUMB
+     C                     Z-ADDW2SKS1    EASKS1           * QTY 1
+     C                     MOVELW2KOT1    EAKOT1           * ASSEMBLY CODE 1
+     C                     Z-ADDW2KBM1    EAKBM1           * ASSEMBLY LINE 1
+     C                     MOVELW2KH21    EAKH21           * COMPONENT PART NUMB
+     C                     MOVELW2KH22    EAKH22           * COMPONENT PART NUMB
+     C                     MOVELW2KH23    EAKH23           * COMPONENT PART NUMB
+     C                     Z-ADDW2SKS2    EASKS2           * QTY 2
+     C                     MOVELW2KOT2    EAKOT2           * ASSEMBLY CODE 2
+     C                     Z-ADDW2KBM2    EAKBM2           * ASSEMBLY LINE 2
+     C                     MOVELW2KH31    EAKH31           * COMPONENT PART NUMB
+     C                     MOVELW2KH32    EAKH32           * COMPONENT PART NUMB
+     C                     MOVELW2KH33    EAKH33           * COMPONENT PART NUMB
+     C                     Z-ADDW2SKS3    EASKS3           * QTY 3
+     C                     MOVELW2KOT3    EAKOT3           * ASSEMBLY CODE 3
+     C                     Z-ADDW2KBM3    EAKBM3           * ASSEMBLY LINE 3
+     C                     MOVELW2KH41    EAKH41           * COMPONENT PART NUMB
+     C                     MOVELW2KH42    EAKH42           * COMPONENT PART NUMB
+     C                     MOVELW2KH43    EAKH43           * COMPONENT PART NUMB
+     C                     Z-ADDW2SKS4    EASKS4           * QTY 4
+     C                     MOVELW2KOT4    EAKOT4           * ASSEMBLY CODE 4
+     C                     Z-ADDW2KBM4    EAKBM4           * ASSEMBLY LINE 4
+     C                     Z-ADDW2OQTP    EAOQTP           * OQ TEMP
+     C                     Z-ADDW2KPTM    EAKPTM           * KEEP TIME
+     C                     Z-ADDW2TMTP    EATMTP           * TEMPERING TEMP
+     C                     Z-ADDW2CO2     EACO2            * CO2(%)
+     C                     Z-ADDW2BSK1    EABSK1           * BASCKET 1
+     C                     Z-ADDW2BSK2    EABSK2           * BASCKET 2
+     C                     Z-ADDW2BSK3    EABSK3           * BASCKET 3
+     C                     Z-ADDW2BSK4    EABSK4           * BASCKET 4
+     C                     Z-ADDW2OQLT    EAOQLT           * OQ LOT
+     C                     Z-ADDW2MKSU    EAMKSU           * COEFFICIENT
+     C                     Z-ADDW2BLSU    EABLSU           * BARREL
+     C                     Z-ADDW2LATP    EALATP           * LAN/AOQ TEMP
+     C                     Z-ADDW2LATM    EALATM           * LAN/AOQ KEEP TIME
+     C                     Z-ADDS@YYMD    EAGRHZ           * ADD DATE
+     C                     Z-ADDS@HMS     EAGRTM           * ADD TIME
+     C                     MOVELS@PGID    EAGRPG           * ADD PROGRAM
+     C                     MOVELS@USID    EAGRNM           * ADD PERSON'
+      *
+     C                     WRITEMRHPL211
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #WRT21   部品情報マスタ(MRHPL21)追加更新処理(UPDAT)
+      *-------------------------------------------------------------------------
+     C           #WRT21    BEGSR
+      *
+     C                     MOVEL*BLANK    EAGSJY           * DELETE CODE D
+     C                     Z-ADD*ZERO     EAGSHZ           * DELETE DATE
+     C                     MOVEL*BLANK    EAGSNM           * DELETE PERSON
+     C                     Z-ADDS@YYMD    EAGKHZ           * UPDATE DATE
+     C                     Z-ADDS@HMS     EAGKTM           * UPDATE TIME
+     C                     MOVELS@PGID    EAGKPG           * UPDATE PROGRAM
+     C                     MOVELS@USID    EAGKNM           * UPDATE PERSON
+     C                     MOVELW2SHN1    EASHN1           * INHOUSE PART NUMBER
+     C                     MOVELW2SHN2    EASHN2           * INHOUSE PART NUMBER
+     C                     MOVELW2SHN3    EASHN3           * INHOUSE PART NUMBER
+     C                     MOVELW2SEHI    EASEHI           * PRODUCT INSTRUCTION
+     C                     Z-ADDW2SHHZ    EASHHZ           * CHANGE DATE
+     C                     MOVELW2MEK1    EAMEK1           * SRFACE TREATMENT CD
+     C                     MOVELW2MEK2    EAMEK2           * SRFACE TREATMENT CD
+     C                     MOVELW2MEK3    EAMEK3           * SRFACE TREATMENT CD
+     C                     MOVELW2MMEI    EAMMEI           * SRFACE TREATMENTNAM
+     C                     MOVELW2SETR    EASETR           * SECOND SRFACE TREAT
+     C                     MOVELW2SECD    EASECD           * 2ND SRFACE TREAT CD
+     C                     Z-ADDW2SOZI    EASOZI           * MATERIAL WEIGHT
+     C                     MOVELW2SOZT    EASOZT           * MATERIAL WEIGHT UNI
+     C                     Z-ADDW2KASI    EAKASI           * FINISHED WEIGHT
+     C                     MOVELW2KAST    EAKAST           * FINISHED WEIGHT UNI
+     C                     Z-ADDW2KIKI    EAKIKI           * MATERIAL PROPERTIES
+     C                     MOVELW2ZAIC    EAZAIC           * MATERIAL CODE
+     C                     MOVELW2ZANM    EAZANM           * MATERIAL NAME
+     C                     Z-ADDW2KAZI    EAKAZI           * WIRE DIAMETER
+     C                     Z-ADDW2TUSZ    EATUSZ           * NOMINAL SIZE
+     C                     MOVELW2BDAI    EABDAI           * L-CLASS CODE
+     C                     MOVELW2BTIU    EABTIU           * M-CLASS CODE
+     C                     MOVELW2BHIN    EABHIN           * S-CLASS CODE
+     C                     MOVELW2SMEI    EASMEI           * L-CLASS NAME
+     C                     MOVELW2TMEI    EATMEI           * M-CLASS NAME
+     C                     MOVELW2DMEI    EADMEI           * S-CLASS NAME
+     C                     Z-ADDW2KUBI    EAKUBI           * NOMINAL LENGTH
+     C                     Z-ADDW2SSYS    EASSYS           * CONTAINING QUANTITY
+     C                     MOVELW2SSYT    EASSYT           * TYPE
+     C                     MOVELP1ZETI    EAZETI           * ID NUMBER
+     C                     MOVELW2TEHI    EATEHI           * PRODUCTION ORDER IN
+     C                     MOVELW2KH11    EAKH11           * COMPONENT PART NUMB
+     C                     MOVELW2KH12    EAKH12           * COMPONENT PART NUMB
+     C                     MOVELW2KH13    EAKH13           * COMPONENT PART NUMB
+     C                     Z-ADDW2SKS1    EASKS1           * QTY 1
+     C                     MOVELW2KOT1    EAKOT1           * ASSEMBLY CODE 1
+     C                     Z-ADDW2KBM1    EAKBM1           * ASSEMBLY LINE 1
+     C                     MOVELW2KH21    EAKH21           * COMPONENT PART NUMB
+     C                     MOVELW2KH22    EAKH22           * COMPONENT PART NUMB
+     C                     MOVELW2KH23    EAKH23           * COMPONENT PART NUMB
+     C                     Z-ADDW2SKS2    EASKS2           * QTY 2
+     C                     MOVELW2KOT2    EAKOT2           * ASSEMBLY CODE 2
+     C                     Z-ADDW2KBM2    EAKBM2           * ASSEMBLY LINE 2
+     C                     MOVELW2KH31    EAKH31           * COMPONENT PART NUMB
+     C                     MOVELW2KH32    EAKH32           * COMPONENT PART NUMB
+     C                     MOVELW2KH33    EAKH33           * COMPONENT PART NUMB
+     C                     Z-ADDW2SKS3    EASKS3           * QTY 3
+     C                     MOVELW2KOT3    EAKOT3           * ASSEMBLY CODE 3
+     C                     Z-ADDW2KBM3    EAKBM3           * ASSEMBLY LINE 3
+     C                     MOVELW2KH41    EAKH41           * COMPONENT PART NUMB
+     C                     MOVELW2KH42    EAKH42           * COMPONENT PART NUMB
+     C                     MOVELW2KH43    EAKH43           * COMPONENT PART NUMB
+     C                     Z-ADDW2SKS4    EASKS4           * QTY 4
+     C                     MOVELW2KOT4    EAKOT4           * ASSEMBLY CODE 4
+     C                     Z-ADDW2KBM4    EAKBM4           * ASSEMBLY LINE 4
+     C                     Z-ADDW2OQTP    EAOQTP           * OQ TEMP
+     C                     Z-ADDW2KPTM    EAKPTM           * KEEP TIME
+     C                     Z-ADDW2TMTP    EATMTP           * TEMPERING TEMP
+     C                     Z-ADDW2CO2     EACO2            * CO2(%)
+     C                     Z-ADDW2BSK1    EABSK1           * BASCKET 1
+     C                     Z-ADDW2BSK2    EABSK2           * BASCKET 2
+     C                     Z-ADDW2BSK3    EABSK3           * BASCKET 3
+     C                     Z-ADDW2BSK4    EABSK4           * BASCKET 4
+     C                     Z-ADDW2OQLT    EAOQLT           * OQ LOT
+     C                     Z-ADDW2MKSU    EAMKSU           * COEFFICIENT
+     C                     Z-ADDW2BLSU    EABLSU           * BARREL
+     C                     Z-ADDW2LATP    EALATP           * LAN/AOQ TEMP
+     C                     Z-ADDW2LATM    EALATM           * LAN/AOQ KEEP TIME
+      *
+     C                     UPDATMRHPL211
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #UPD20   部品情報マスタ(MRHPL21)更新処理(UPDAT)
+      *-------------------------------------------------------------------------
+     C           #UPD20    BEGSR
+      *
+     C                     MOVEL*BLANK    EAGSJY           * DELETE CODE D
+     C                     Z-ADD*ZERO     EAGSHZ           * DELETE DATE
+     C                     MOVEL*BLANK    EAGSNM           * DELETE PERSON
+     C                     Z-ADDS@YYMD    EAGKHZ           * UPDATE DATE
+     C                     Z-ADDS@HMS     EAGKTM           * UPDATE TIME
+     C                     MOVELS@PGID    EAGKPG           * UPDATE PROGRAM
+     C                     MOVELS@USID    EAGKNM           * UPDATE PERSON
+     C                     Z-ADDW2SHHZ    EASHHZ           * CHANGE DATE
+     C                     MOVELW2MEK1    EAMEK1           * SRFACE TREATMENT CD
+     C                     MOVELW2MEK2    EAMEK2           * SRFACE TREATMENT CD
+     C                     MOVELW2MEK3    EAMEK3           * SRFACE TREATMENT CD
+     C                     MOVELW2MMEI    EAMMEI           * SRFACE TREATMENTNAM
+     C                     MOVELW2SETR    EASETR           * SECOND SRFACE TREAT
+     C                     MOVELW2SECD    EASECD           * 2ND SRFACE TREAT CD
+     C                     Z-ADDW2SOZI    EASOZI           * MATERIAL WEIGHT
+     C                     MOVELW2SOZT    EASOZT           * MATERIAL WEIGHT UNI
+     C                     Z-ADDW2KASI    EAKASI           * FINISHED WEIGHT
+     C                     MOVELW2KAST    EAKAST           * FINISHED WEIGHT UNI
+     C                     Z-ADDW2KIKI    EAKIKI           * MATERIAL PROPERTIES
+     C                     MOVELW2ZAIC    EAZAIC           * MATERIAL CODE
+     C                     MOVELW2ZANM    EAZANM           * MATERIAL NAME
+     C                     Z-ADDW2KAZI    EAKAZI           * WIRE DIAMETER
+     C                     Z-ADDW2TUSZ    EATUSZ           * NOMINAL SIZE
+     C                     MOVELW2BDAI    EABDAI           * L-CLASS CODE
+     C                     MOVELW2BTIU    EABTIU           * M-CLASS CODE
+     C                     MOVELW2BHIN    EABHIN           * S-CLASS CODE
+     C                     MOVELW2SMEI    EASMEI           * L-CLASS NAME
+     C                     MOVELW2TMEI    EATMEI           * M-CLASS NAME
+     C                     MOVELW2DMEI    EADMEI           * S-CLASS NAME
+     C                     Z-ADDW2KUBI    EAKUBI           * NOMINAL LENGTH
+     C                     Z-ADDW2SSYS    EASSYS           * CONTAINING QUANTITY
+     C                     MOVELW2SSYT    EASSYT           * TYPE
+     C                     MOVELP1ZETI    EAZETI           * ID NUMBER
+     C                     MOVELW2KH11    EAKH11           * COMPONENT PART NUMB
+     C                     MOVELW2KH12    EAKH12           * COMPONENT PART NUMB
+     C                     MOVELW2KH13    EAKH13           * COMPONENT PART NUMB
+     C                     Z-ADDW2SKS1    EASKS1           * QTY 1
+     C                     MOVELW2KOT1    EAKOT1           * ASSEMBLY CODE 1
+     C                     Z-ADDW2KBM1    EAKBM1           * ASSEMBLY LINE 1
+     C                     MOVELW2KH21    EAKH21           * COMPONENT PART NUMB
+     C                     MOVELW2KH22    EAKH22           * COMPONENT PART NUMB
+     C                     MOVELW2KH23    EAKH23           * COMPONENT PART NUMB
+     C                     Z-ADDW2SKS2    EASKS2           * QTY 2
+     C                     MOVELW2KOT2    EAKOT2           * ASSEMBLY CODE 2
+     C                     Z-ADDW2KBM2    EAKBM2           * ASSEMBLY LINE 2
+     C                     MOVELW2KH31    EAKH31           * COMPONENT PART NUMB
+     C                     MOVELW2KH32    EAKH32           * COMPONENT PART NUMB
+     C                     MOVELW2KH33    EAKH33           * COMPONENT PART NUMB
+     C                     Z-ADDW2SKS3    EASKS3           * QTY 3
+     C                     MOVELW2KOT3    EAKOT3           * ASSEMBLY CODE 3
+     C                     Z-ADDW2KBM3    EAKBM3           * ASSEMBLY LINE 3
+     C                     MOVELW2KH41    EAKH41           * COMPONENT PART NUMB
+     C                     MOVELW2KH42    EAKH42           * COMPONENT PART NUMB
+     C                     MOVELW2KH43    EAKH43           * COMPONENT PART NUMB
+     C                     Z-ADDW2SKS4    EASKS4           * QTY 4
+     C                     MOVELW2KOT4    EAKOT4           * ASSEMBLY CODE 4
+     C                     Z-ADDW2KBM4    EAKBM4           * ASSEMBLY LINE 4
+     C                     Z-ADDW2OQTP    EAOQTP           * OQ TEMP
+     C                     Z-ADDW2KPTM    EAKPTM           * KEEP TIME
+     C                     Z-ADDW2TMTP    EATMTP           * TEMPERING TEMP
+     C                     Z-ADDW2CO2     EACO2            * CO2(%)
+     C                     Z-ADDW2BSK1    EABSK1           * BASCKET 1
+     C                     Z-ADDW2BSK2    EABSK2           * BASCKET 2
+     C                     Z-ADDW2BSK3    EABSK3           * BASCKET 3
+     C                     Z-ADDW2BSK4    EABSK4           * BASCKET 4
+     C                     Z-ADDW2OQLT    EAOQLT           * OQ LOT
+     C                     Z-ADDW2MKSU    EAMKSU           * COEFFICIENT
+     C                     Z-ADDW2BLSU    EABLSU           * BARREL
+     C                     Z-ADDW2LATP    EALATP           * LAN/AOQ TEMP
+     C                     Z-ADDW2LATM    EALATM           * LAN/AOQ KEEP TIME
+      *
+     C                     UPDATMRHPL211
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #DEL20   部品情報マスタ(MRHPL21)削除更新処理(DELETE)
+      *-------------------------------------------------------------------------
+     C           #DEL20    BEGSR
+      *
+     C                     MOVEL'D'       EAGSJY           * DELETE CODE D
+     C                     Z-ADDS@YYMD    EAGSHZ           * DELETE DATE
+     C                     MOVELS@USID    EAGSNM           * DELETE PERSON
+     C                     Z-ADDS@YYMD    EAGKHZ           * UPDATE DATE
+     C                     Z-ADDS@HMS     EAGKTM           * UPDATE TIME
+     C                     MOVELS@PGID    EAGKPG           * UPDATE PROGRAM
+     C                     MOVELS@USID    EAGKNM           * UPDATE PERSON
+      *
+     C                     UPDATMRHPL211
+      *
+     C                     ENDSR
+      *----------------------------------------------------------------

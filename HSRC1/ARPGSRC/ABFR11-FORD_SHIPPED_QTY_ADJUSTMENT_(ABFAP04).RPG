@@ -1,0 +1,392 @@
+     H            Y/                                    1
+     H* ABFR11 *******************************************************
+     H* FORD SHIPPED QTY ADJUSTMENT (ABFAP05)                        *
+     H* JW   2023.04.27                                              *
+     H****************************************************************
+     FABFPW11 CF  E                    WORKSTN
+     F                                              KINFDS INFDS
+     FFGBPL01 IF  E           K        DISK
+     FGADPL11 IF  E           K        DISK
+     FABFAP05 UF  E           K        DISK                      A
+      *================================================================
+     E                    MSG     1  20 60
+      *================================================================
+     IINFDS       DS
+     I                                    B 378 3790$$RRN
+      *
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1  15 XMHIN
+     I                                        1   5 XMHN1
+     I                                        6  10 XMHN2
+     I                                       11  15 XMHN3
+      *
+     I           SDS
+     I                                     *PROGRAM #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     I                                      264 269 #JBNO
+      *===============================================================
+      *  START  PROGRAM
+      *===============================================================
+     C                     MOVE '#INIT   '@STEP   8
+     C*
+     C           @STEP     DOUEQ'#END    '
+     C           @STEP     CASEQ'#INIT   '#INIT
+     C           @STEP     CASEQ'#DSP1   '#DSP1
+     C           @STEP     CASEQ'#CHK1   '#CHK1
+     C           @STEP     CASEQ'#DSP2   '#DSP2
+     C           @STEP     CASEQ'#CHK2   '#CHK2
+     C           @STEP     CASEQ'#CHK2 F5'#CHK2
+     C           @STEP     CASEQ'#UPDAT  '#UPDAT
+     C                     ENDCS
+     C                     ENDDO
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+      *===============================================================
+      *   << INIT >>
+      *===============================================================
+     C           #INIT     BEGSR
+     C                     TIME           SDATE
+     C                     MOVEA*ALL'0'   *IN
+     C                     MOVE *BLANK    XKBN
+     C                     Z-ADD0         XYEAR
+     C                     MOVE *BLANK    XPLNT
+     C                     MOVE *BLANK    XMHN1
+     C                     MOVE *BLANK    XMHN2
+     C                     MOVE *BLANK    XMHN3
+     C                     MOVE *BLANK    XMSG
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDSR
+      *===============================================================
+      * DISPLAY 1ST SCREEN
+      *===============================================================
+     C           #DSP1     BEGSR
+      *
+     C           XSEQ#     IFEQ 0
+     C                     Z-ADD1         XSEQ#
+     C                     ENDIF
+      *
+     C                     EXFMTDSP01
+     C                     MOVEA'00000'   *IN,41
+     C                     MOVE *BLANK    XMSG
+     C*
+     C                     MOVE '#CHK1   '@STEP
+     C*  < F1 >  END JOB
+     C           *INKA     IFEQ *ON
+     C           *INKC     OREQ *ON
+     C                     MOVE '#END    '@STEP
+     C                     ENDIF
+      *  < F12 >  INQUIRY
+     C           *INKL     IFEQ *ON
+     C                     MOVE *BLANK    P@YEAR
+     C                     CALL 'ABFR12'
+     C                     PARM           P@YEAR  4
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *===============================================================
+      *  CHECK 1ST SCREEN
+      *===============================================================
+     C           #CHK1     BEGSR
+     C                     SETOF                     85
+     C* XKBN
+     C                     SELEC
+     C           XKBN      WHEQ '0'
+     C                     MOVEL'0-CANCEL'DKBN
+     C           XKBN      WHEQ '1'
+     C                     MOVEL'1-CHANGE'DKBN
+     C           XKBN      WHEQ '2'
+     C                     MOVEL'2-ADD   'DKBN
+     C                     OTHER
+     C                     SETON                     41  85
+     C                     MOVELMSG,1     XMSG
+     C                     GOTO @CHK1Z
+     C                     ENDSL
+      * XYEAR
+     C           XYEAR     IFEQ 0
+     C                     SETON                     42  85
+     C                     MOVELMSG,6     XMSG
+     C                     GOTO @CHK1Z
+     C                     ENDIF
+     C           XYEAR     IFLT 2020
+     C           XYEAR     ORGT 2100
+     C                     SETON                     42  85
+     C                     MOVELMSG,7     XMSG
+     C                     GOTO @CHK1Z
+     C                     ENDIF
+      * XPLNT
+     C           XPLNT     IFEQ *BLANK
+     C                     SETON                     43  85
+     C                     MOVELMSG,2     XMSG
+     C                     GOTO @CHK1Z
+     C                     ENDIF
+      * XMHN1
+     C           XMHN1     IFEQ *BLANK
+     C           XMHN2     OREQ *BLANK
+     C                     SETON                     44  85
+     C                     MOVELMSG,3     XMSG
+     C                     GOTO @CHK1Z
+     C                     ENDIF
+      * XSEQ#
+     C           XSEQ#     IFEQ 0
+     C                     SETON                     45  85
+     C                     MOVELMSG,17    XMSG
+     C                     GOTO @CHK1Z
+     C                     ENDIF
+     C*--------------------
+     C           KEY01     KLIST
+     C                     KFLD           XYEAR
+     C                     KFLD           XPLNT
+     C                     KFLD           XMHIN
+     C                     KFLD           XSEQ#
+     C*
+     C           KEY01     CHAINABFAP05             N90
+     C           *IN90     IFEQ *OFF
+     C           C4SKJY    ANDEQ'D'
+     C                     SETON                     90
+     C                     ENDIF
+     C*
+S1   C           *IN90     IFEQ *OFF
+     C           XKBN      IFEQ '2'                        2-ADD
+     C                     SETON                     414243
+     C                     SETON                     444585
+     C                     MOVELMSG,5     XMSG
+     C                     GOTO @CHK1Z
+     C                     ENDIF
+X1   C                     ELSE
+     C           XKBN      IFNE '2'                        NE 2-ADD
+     C                     SETON                     414243
+     C                     SETON                     444585
+     C                     MOVELMSG,4     XMSG
+     C                     GOTO @CHK1Z
+     C                     ENDIF
+E1   C                     ENDIF
+     C*-------------------------
+     C           @CHK1Z    TAG
+     C*-------------------------
+     C           *IN85     IFEQ *ON
+     C                     MOVE '#DSP1   '@STEP
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * IF NO ERROR...
+     C                     MOVEL*BLANK    DKMEI
+     C                     MOVEA'00000000'*IN,51
+     C                     MOVEL*BLANK    XMSG
+     C                     MOVE '#DSP2   '@STEP
+      * SET DATA
+     C                     Z-ADDC4NONY    DNONY
+     C                     MOVE *BLANK    DKMEI
+     C                     MOVELC4DOCK    DDOCK
+     C                     Z-ADDC4ADHZ    DADHZ
+     C                     Z-ADDC4ADQT    DADQT
+     C                     Z-ADDC4QPC     DQPC
+     C                     MOVELC4NOTE    DNOTE
+     C*
+     C           XCHK1     ENDSR
+      *===============================================================
+      * DIDPLAY 2ND SCREEN
+      *===============================================================
+     C           #DSP2     BEGSR
+     C*
+     C                     EXFMTDSP02
+     C                     SETOF                     85
+     C                     MOVEA'00000000'*IN,51
+     C                     MOVE *BLANK    XMSG
+     C*
+     C                     MOVE '#CHK2   '@STEP
+     C*  < F3 >  BACK
+     C           *INKA     IFEQ *ON
+     C           *INKC     OREQ *ON
+     C           *INKL     OREQ *ON
+     C                     MOVEA'00000000'*IN,41
+     C                     MOVE *BLANK    XMSG
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDIF
+     C*  < F5 >  UPDATE
+     C           *INKE     IFEQ *ON
+     C                     MOVE '#CHK2 F5'@STEP
+     C           XKBN      IFEQ '0'                        0-CANCEL
+     C                     MOVE '#UPDAT  '@STEP
+     C                     ENDIF
+     C                     ENDIF
+     C*
+     C                     ENDSR
+      *===============================================================
+      *  CHECK 2ND SCREEN
+      *===============================================================
+     C           #CHK2     BEGSR
+     C                     MOVE *OFF      *IN85
+     C                     MOVEL*BLANK    DKMEI
+      * NONY
+     C           DNONY     IFEQ 0
+     C                     SETON                     51  85
+     C                     MOVELMSG,8     XMSG
+     C                     GOTO @CHK2Z
+     C                     ENDIF
+     C*
+     C           DNONY     CHAINFGBPL01              99
+     C           *IN99     IFEQ *ON
+     C                     SETON                     51  85
+     C                     MOVELMSG,9     XMSG
+     C                     GOTO @CHK2Z
+     C                     ENDIF
+      *
+     C           KEY02     KLIST
+     C                     KFLD           XTOKU   40
+     C                     KFLD           DNONY
+      *
+     C                     Z-ADD5149      XTOKU
+     C           KEY02     SETLLGADPL11
+     C                     DO   *HIVAL
+     C           KEY02     READEGADPL11                  98
+     C   98                LEAVE
+     C           B5SKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+     C                     MOVELB5KMEI    DKMEI
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C           *IN91     IFEQ *ON
+     C                     SETON                     51  85
+     C                     MOVELMSG,10    XMSG
+     C                     GOTO @CHK2Z
+     C                     ENDIF
+      * ADJ DATE
+     C           DADHZ     IFEQ 0
+     C                     SETON                     52  85
+     C                     MOVELMSG,16    XMSG
+     C                     GOTO @CHK2Z
+     C                     ENDIF
+     C*
+     C                     MOVELDADHZ     $SRC
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+     C           $RTN      IFNE *BLANK
+     C                     SETON                     52  85
+     C                     MOVELMSG,11    XMSG
+     C                     GOTO @CHK2Z
+     C                     ENDIF
+     C                     MOVEL$TRUE     DADHZ
+      * QTY
+     C           DADQT     IFEQ 0
+     C                     SETON                     53  85
+     C                     MOVELMSG,12    XMSG
+     C                     GOTO @CHK2Z
+     C                     ENDIF
+      * QPC
+     C           DQPC      IFEQ 0
+     C                     SETON                     54  85
+     C                     MOVELMSG,13    XMSG
+     C                     GOTO @CHK2Z
+     C                     ENDIF
+      * NOTE
+     C           DNOTE     IFEQ *BLANK
+     C                     SETON                     55  85
+     C                     MOVELMSG,14    XMSG
+     C                     GOTO @CHK2Z
+     C                     ENDIF
+      *
+     C*-------------------------
+     C           @CHK2Z    TAG
+     C*-------------------------
+     C           *IN85     IFEQ *ON
+     C                     MOVEL'#DSP2   '@STEP
+     C                     ELSE
+      *
+     C           @STEP     IFEQ '#CHK2 F5'
+     C                     MOVEL'#UPDAT  '@STEP
+     C                     ELSE
+     C                     MOVELMSG,15    XMSG
+     C                     MOVEL'#DSP2   '@STEP
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *===============================================================
+      *  UPDATE PROCESS
+      *===============================================================
+     C           #UPDAT    BEGSR
+     C*
+     C           KEY01     CHAINABFAP05              90
+     C*
+     C                     SELEC
+      * DELETE
+     C           XKBN      WHEQ '0'                        0-CANCEL
+     C           *IN90     ANDEQ*OFF
+     C                     MOVE 'D'       C4SKJY
+     C                     Z-ADDTODAY     C4SKHZ
+     C                     Z-ADDNOW       C4SKTM
+     C                     MOVEL#USER     C4SKUS
+     C                     UPDATABFAP05R
+      * UPDATE
+     C           XKBN      WHEQ '1'                        1-CHANGE
+     C           *IN90     ANDEQ*OFF
+     C                     MOVE *BLANK    C4SKJY
+     C                     Z-ADD0         C4SKHZ
+     C                     Z-ADD0         C4SKTM
+     C                     MOVE *BLANK    C4SKUS
+     C                     Z-ADDTODAY     C4KOHZ
+     C                     Z-ADDNOW       C4KOTM
+     C                     MOVEL#USER     C4KOUS
+      *
+     C                     Z-ADDDNONY     C4NONY
+     C                     MOVELDDOCK     C4DOCK
+     C                     Z-ADDDADHZ     C4ADHZ
+     C                     Z-ADDDADQT     C4ADQT
+     C                     Z-ADDDQPC      C4QPC
+     C                     MOVELDNOTE     C4NOTE
+     C                     UPDATABFAP05R
+      * ADD
+     C           XKBN      WHEQ '2'
+     C           *IN90     ANDEQ*ON
+     C                     CLEARABFAP05R
+     C                     Z-ADDTODAY     C4CRHZ
+     C                     Z-ADDNOW       C4CRTM
+     C                     MOVEL#USER     C4CRUS
+     C                     Z-ADDXYEAR     C4ADYY
+     C                     MOVELXPLNT     C4PLNT
+     C                     MOVELXMHIN     C4MHIN
+      *
+     C                     Z-ADDDNONY     C4NONY
+     C                     MOVELDDOCK     C4DOCK
+     C                     Z-ADDDADHZ     C4ADHZ
+     C                     Z-ADDDADQT     C4ADQT
+     C                     Z-ADDDQPC      C4QPC
+     C                     MOVELDNOTE     C4NOTE
+     C                     WRITEABFAP05R
+     C                     ENDSL
+      *
+     C                     MOVE '#DSP1   '@STEP
+      *
+     C                     ENDSR
+      *===============================================================
+** MS(60A) ........2.........3.........4.........5.........6
+ENTER 0, 1 OR 2 FOR THE UPDATE ID                            01
+ENTER PLANT CODE!                                            02
+ENTER USER PART#                                             03
+THERE IS NO TARGET RECORD!                                   04
+RECORD ALREADY EXISTS!                                       05
+ENTER YEAR!                                                  06
+YEAR IS INVALID!                                             07
+ENTER DELIVERY CODE!                                         08
+DELIVERY CODE DOES NOT EXIST IN CUSTOMER MASTER!             09
+DELIVERY CODE DOES NOT EXIST IN SHIPPING MASTER!             10
+ADJ DATE IS INVALID!                                         11
+ENTER ADJ QTY!                                               12
+ENTER QPC!                                                   13
+ENTER NOTE!                                                  14
+PRESS F5 TO UPDATE...                                        15
+ENTER ADJ DATE!                                              16
+ENTER SEQ#                                                   17
+                                                             18
+                                                             19
+                                                             20

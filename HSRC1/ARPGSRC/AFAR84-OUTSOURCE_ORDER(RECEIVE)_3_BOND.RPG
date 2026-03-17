@@ -1,0 +1,320 @@
+     H            Y.                                    1
+     H** AFAR84 *******************************************************
+     H* OUT SOURCE ORDER(RECEIVE)                                     *
+     H*                                                               *
+     H* TCH 2000.11.29                                                *
+     H* TCHK1 11/15/06 BUG FIX                                        *
+     H* TCHK2 08/01/12 CHG BARCODE BLANK CHECK                        *
+     H* TCHK3 02/22/13 ADD SUPPLIER CHECK                             *
+     H* LEC   2017.12.20 ADD WRITE TO ERROR LOG --> AFAPP84
+     H**************************************************************************
+     H*
+     H* *INKC = 1(CF03)
+     H* *IN30 = 1(ERROR)
+     H* *IN90 = 1(NOT READ AFAPL82 ORDER DETAIL FILE)
+     H* *IN91 = 1(NOT READ )
+     H**************************************************************************
+     FAFAPW84 CF  E                    WORKSTN
+     FAFAPL82 UF  E           K        DISK
+     FAFAPL95 UF  E           K        DISK
+     FAFAPP84 O   E                    DISK
+     I**************************************************************************
+     E                    BCD        15  1
+     E                    ER      1  30 15
+     I**************************************************************************
+     I* BARCODE
+     I*(KANRI CODE+ZETAI NO+TEHAI NO+PAGE NO+NIJI KAKO KUBUN+TAISYO KUBN+
+     I* SYUKO YUKO KUBUN+HAKO SYU+CHECK DIGIT)
+     I            DS
+     I                                        1  15 BCD
+     I                                        1  15 BARCD
+     I                                        1   1 BCOCD
+     I                                        2   5 BZETI
+     I                                        6   80BTEHI
+     I                                        6   8 WTEHI
+     I                                        9  10 BPAGE
+     I                                       11  11 BNIJI
+     I                                       12  12 BTICD
+     I                                       13  13 BYUKO
+     I                                       14  14 BHASY
+     I                                       15  15 BCKDT
+     I*
+     I            DS
+     I                                        1  120WTMDT
+     I                                        1   20WHHHH
+     I                                        3   40WSSSS
+     I                                        7   80WYYYY
+     I                                        9  100WMMMM
+     I                                       11  120WDDDD
+     I                                        1   60WHMS
+     I                                        7  120WYMD
+     I* AFAPP80(RECEIVED DATE)
+     I            DS
+     I                                        1   80A8NODT
+     I                                        1   40A8NOYY
+     I                                        5   60A8NOMM
+     I                                        7   80A8NODD
+     I* AFAPP80(SUMMARY  DATE)
+     I            DS
+     I                                        1   80A8SUDT
+     I                                        1   40A8SUYY
+     I                                        5   60A8SUMM
+     I                                        7   80A8SUDD
+     I* AFAPP90(RECEIVED DATE)
+     I            DS
+     I                                        1   80A9NODT
+     I                                        1   40A9NOYY
+     I                                        5   60A9NOMM
+     I                                        7   80A9NODD
+     I* AFAPP90(COMPLETED DATE)
+     I            DS
+     I                                        1   80A9KNDT
+     I                                        1   40A9KNYY
+     I                                        5   60A9KNMM
+     I                                        7   80A9KNDD
+     I**************************************************************************
+     C*
+     C           *ENTRY    PLIST
+     C                     PARM           PUSR   10
+     C                     PARM           PWKCD   6
+     C* AFAPL95
+     C           KEY3      KLIST
+     C                     KFLD           A8ODNO           ORDER #
+     C                     KFLD           A8PAR1           PART1
+     C                     KFLD           A8PAR2               2
+     C                     KFLD           A8PAR3               3
+     C                     KFLD           A8ZETI           ABSOLUTE#
+     C                     KFLD           A8TEHI           TEHAI #
+     C* AFAPL82
+     C           KEY4      KLIST
+     C                     KFLD           BCOCD            CONTROL CD
+     C                     KFLD           BZETI            ABSOLUTE #
+     C                     KFLD           WTEHI            TEHAI
+     C                     KFLD           BPAGE            PAGE
+     C                     KFLD           BNIJI            2ND.TREATEMENT
+     C                     KFLD           BTICD            TARGET TYPE
+     C                     KFLD           BYUKO            SHIP EFFECTIVE
+     C                     KFLD           BHASY            CONTAINER TYPE
+     C                     KFLD           BCKDT            CHECK DIGIT
+     C**************************************************************************
+     C*                    MAIN ROUTINE
+     C**************************************************************************
+     C                     EXSR @INT
+     C                     EXSR @MAIN
+     C                     EXSR @END
+     C**************************************************************************
+     C*                    @INT
+     C**************************************************************************
+     C           @INT      BEGSR
+     C*
+     C                     SETOF                     30
+     C                     MOVE *BLANK    MSG
+     C*
+     C                     TIME           WTMDT
+     C*
+     C                     Z-ADD*ZERO     I       20
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @MAIN
+     C**************************************************************************
+     C           @MAIN     BEGSR
+     C*
+B01  C           *INKC     DOUEQ'1'
+     C* DISPLAY ERROR
+B03  C           *IN30     IFEQ '1'
+     C                     EXFMTAFAPW899
+     C*
+     C                     SETOF                     30
+     C                     MOVE *BLANK    MSG
+     C*
+     C                     ELSE
+     C                     EXFMTAFAPW841
+B02  C           *INKC     IFEQ '1'
+     C*
+     C                     ELSE
+     C                     EXSR @CHK1
+     C*
+B04  C           *IN30     IFEQ '0'
+     C                     EXSR @UPD1
+     C                     EXSR @UPD2
+     C                     MOVE *BLANK    BARCD
+     C                     END
+     C                     END
+     C                     END
+     C                     END
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @CHK1
+     C**************************************************************************
+     C           @CHK1     BEGSR
+     C*
+     C                     MOVE *BLANKS   A8PAR1
+     C                     MOVE *BLANKS   A8PAR2
+     C                     MOVE *BLANKS   A8PAR3
+     C                     MOVE *BLANKS   A8SUPP
+     C*
+     C           BARCD     IFEQ *BLANKS
+     C                     SETON                     30
+     C                     MOVE ER,1      MSG
+     C                     GOTO #ECHK1
+     C                     ENDIF
+     C*
+     C* ORDER DETAIL FILE
+     C           KEY4      SETGTAFAPL821
+     C           #READ1    TAG
+     C*
+     C           KEY4      REDPEAFAPL821                 90
+     C           *IN90     IFEQ '1'
+     C                     SETON                     30
+     C                     MOVE ER,2      MSG
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+TCHK1C           *IN90     IFEQ '0'
+TCHK1C           A8SKJY    ANDEQ'D'
+TCHK1C                     GOTO #READ1
+TCHK1C                     END
+     C*
+     C* ORDER SUMMARY PROCESSED ?
+     C           A8SUDT    IFEQ *ZERO
+     C                     SETON                     30
+     C                     MOVE ER,3      MSG
+     C                     UPDATAFAPL821
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C* ALREADY ORDERED ?
+     C           A8ODNO    IFEQ *ZERO
+     C                     SETON                     30
+     C                     MOVE ER,7      MSG
+     C                     UPDATAFAPL821
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C* ALREADY SCANNED ?
+     C           A8NODT    IFNE *ZERO
+     C                     SETON                     30
+     C                     MOVE ER,4      MSG
+     C                     UPDATAFAPL821
+     C                     GOTO #ECHK1
+     C                     END
+TCHK3C*
+TCHK3C* NOT 3-BOND ?
+TCHK3C           A8SUPP    IFNE '2255'
+TCHK3C                     SETON                     30
+TCHK3C                     MOVE ER,8      MSG
+TCHK3C                     UPDATAFAPL821
+TCHK3C                     GOTO #ECHK1
+TCHK3C                     END
+     C*
+     C* EXIST ORDER FILE ?
+     C           KEY3      CHAINAFAPL951             91
+     C           *IN91     IFEQ '1'
+     C                     SETON                     30
+     C                     MOVE ER,5      MSG
+     C                     UPDATAFAPL821
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C* ALREADY ALL KANBAN RECEIVED ?
+     C           A9KNDT    IFNE *ZERO
+     C                     SETON                     30
+     C                     MOVE ER,6      MSG
+     C                     UPDATAFAPL821
+     C                     UPDATAFAPL951
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C           #ECHK1    TAG
+      *
+     C           *IN30     IFEQ *ON
+     C                     MOVELBARCD     A4BRC1
+     C                     MOVE '01'      ERPS    2
+     C                     EXSR WRTERR
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @UPD1:AFAPP80
+     C**************************************************************************
+     C           @UPD1     BEGSR
+     C*
+     C                     Z-ADD2000      A8KOYY           UPDATE YEAR
+TCHK2C                     ADD  WYYYY     A8KOYY
+     C                     Z-ADDWMMMM     A8KOMM                  MONTH
+     C                     Z-ADDWDDDD     A8KODD                  DAY
+     C                     Z-ADDWHHHH     A8KOHH                  HOUR
+     C                     Z-ADDWSSSS     A8KOSS                  MINUTE
+     C                     MOVE PUSR      A8KOME                  USER
+     C                     MOVEL'AFAR84'  A8KOPG                  PGM-ID
+     C                     MOVE PWKCD     A8WORK                  WORKER CD
+     C                     Z-ADD*DATE     A8NODT
+     C                     UPDATAFAPL821
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @UPD2:AFAPP90
+     C**************************************************************************
+     C           @UPD2     BEGSR
+     C*
+     C                     Z-ADD2000      A9KOYY           UPDATE YEAR
+TCHK2C                     ADD  WYYYY     A9KOYY
+     C                     Z-ADDWMMMM     A9KOMM                  MONTH
+     C                     Z-ADDWDDDD     A9KODD                  DAY
+     C                     Z-ADDWHHHH     A9KOHH                  HOUR
+     C                     Z-ADDWSSSS     A9KOSS                  MINUTE
+     C                     MOVE PUSR      A9KOME                  USER
+     C                     MOVEL'AFAR84'  A9KOPG                  PGM-ID
+     C                     Z-ADD*DATE     A9NODT
+     C                     ADD  1         A9NOSU
+     C           A9HAKO    IFEQ A9NOSU
+     C                     Z-ADD*DATE     A9KNDT
+     C                     END
+     C                     UPDATAFAPL951
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @END
+     C**************************************************************************
+     C           @END      BEGSR
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+     C*
+     C                     ENDSR
+     C**************************************************************************
+      *
+      * WRITE TO ERROR LOG FILE.
+      *
+     C           WRTERR    BEGSR
+      *
+     C                     TIME           WTMDT
+     C                     Z-ADD20000000  A4KSDT
+     C                     ADD  WYMD      A4KSDT
+     C                     Z-ADDWHMS      A4KSTM
+     C                     MOVELPWKCD     A4OPER
+      *
+     C                     MOVELMSG       A4EMSG
+     C                     MOVELERPS      A4ERPS
+     C                     MOVELBZETI     A4ZETI
+     C                     MOVELA8PAR1    A4BHB1
+     C                     MOVELA8PAR2    A4BHB2
+     C                     MOVELA8PAR3    A4BHB3
+     C                     MOVELA8SUPP    A4ATOB
+     C                     WRITEAFAPP841
+     C                     CLEARAFAPP841
+      *
+     C                     ENDSR
+     C**************************************************************************
+      *
+** ERROR MESSAGE
+BARCODE BLANK
+NO DETAIL FILE
+NOT SUMMARIZED
+ALREADY SCANNED
+NOT ORDER FILE
+ALL DAT RECEIVE
+NOT ORDERED
+SUPPLIER ERROR

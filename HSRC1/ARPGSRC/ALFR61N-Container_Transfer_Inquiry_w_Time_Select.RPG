@@ -1,0 +1,647 @@
+     H            Y.                                    1
+     H***ALFR61N****************************************************************
+     H*  CONTAINER TRANSFER INQUIRY W/TIME SELECTION                           *
+     H*  LEC           2019.12.10                                              *
+     H*  JW1           2021.04.26 ADD TIME SELECTION                           *
+     H**************************************************************************
+     FALFPW61NCF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     F                                        RRN2  KSFILE SFL02
+     F                                              KINFDS @INFDS
+     FALFPL61 IF  E           K        DISK
+     FALFPL62 IF  E           K        DISK
+     F            ALFPP601                          KRENAMEALFP621
+     FAGDPL12 IF  E           K        DISK
+     FALBPL30 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+     FALFWP61 UF  E           K        DISK                      A    UC
+      **************************************************************************
+     E                    ERR     1  12 70
+     E                    CMD     1   1 70
+      **************************************************************************
+     I@INFDS      DS
+     I                                     *STATUS  @STTS
+     I                                    B 370 3710@@LIN
+     I                                    B 378 3790@@REC
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60WSSTM6
+     I                                        1   40WSSTM4
+     I                                        1   20WSSHHH
+     I                                        3   40WSSNNN
+     I                                        5   60WSSSSS
+     I                                        7  140WSSDAT
+     I                                        7  100WSSYYY
+     I                                       11  120WSSMMM
+     I                                       13  140WSSDDD
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      * SCANNED FROM DATE
+     I            DS
+     I                                        1   80XFDAT
+     I                                        1   40XFYY
+     I                                        5   60XFMM
+     I                                        7   80XFDD
+     I            DS
+     I                                        1   80WFDAT
+     I                                        1   40WFYY
+     I                                        5   60WFMM
+     I                                        7   80WFDD
+      *         FROM DATE -1 DAYS
+     I            DS
+     I                                        1   80F8KAHZ
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+      * SCANNED TO DATE
+     I            DS
+     I                                        1   80XTDAT
+     I                                        1   40XTYY
+     I                                        5   60XTMM
+     I                                        7   80XTDD
+     I            DS
+     I                                        1   80WTDAT
+     I                                        1   40WTYY
+     I                                        5   60WTMM
+     I                                        7   80WTDD
+      * SCANNED RESULT DATE
+     I            DS
+     I                                        1   80F6CODT
+     I                                        1   40F6DTYY
+     I                                        5   80F6DTMD
+      * SCANNED RESULT TIME
+     I            DS
+     I                                        1   60F6COTM
+     I                                        1   20F6TIHH
+     I                                        3   40F6TIMM
+     I                                        5   60F6TISS
+     I            DS
+     I                                        1   5 W8TIME
+     I                                        1   2 W8TIHH
+     I                                        3   3 W8@DY1
+     I                                        4   5 W8TIMM
+      * WORK TO DATE 1
+     I            DS
+     I                                        1  140F6DATE
+     I                                        1   80F6SDAT
+     I                                        9  140F6STIM
+      * WORK TO DATE 2
+     I            DS
+     I                                        1  140XXTO
+     I                                        1   80XXTDAT
+     I                                        9  140XXTTIM
+      *  part number edit
+     I            DS
+     I                                        1  20 PARTNO
+     I                                        1   5 XSHN1
+     I                                        6   6 DASH1
+     I                                        7  11 XSHN2
+     I                                       12  12 DASH2
+     I                                       13  14 XSHN3
+      *
+     C**************************************************************************
+     C*                    MAIN ROUTINE
+     C**************************************************************************
+     C                     EXSR #INIT
+      *
+     C           @@ID      DOWNE'99'
+     C           @@ID      CASEQ'10'      #DSP01
+     C           @@ID      CASEQ'20'      #SFL01
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+     C*************************************************************************
+     C*     1ST SCREEN(SCAN DATE)
+     C**************************************************************************
+     C           #DSP01    BEGSR
+      *
+     C                     SETOF                     4748
+     C                     EXFMTDSP01
+     C                     MOVE *BLANK    XMSG
+     C                     SETOF                     313233
+     C                     SETOF                     343536
+      *
+     C                     SELEC
+      * <F1: END>
+     C           *INKA     WHEQ *ON
+     C                     MOVE '99'      @@ID
+     C                     OTHER
+      * <ENTR>
+     C                     EXSR #CHK1
+      *
+     C           *IN85     IFEQ *OFF
+     C                     EXSR #SET2
+     C                     ENDIF
+      *
+     C           *IN85     IFEQ *ON
+     C                     MOVEL'10'      @@ID
+     C                     ELSE
+     C                     MOVEL'20'      @@ID
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C           XDSP01    ENDSR
+     C*************************************************************************
+     C*     1ST SCREEN CHECK
+     C**************************************************************************
+     C           #CHK1     BEGSR
+      *
+     C                     SETOF                     85
+     C                     TIME           WSDT
+      * FROM DATE
+     C           XFDAT     IFEQ 0
+     C  N85                MOVELERR,10    XMSG
+     C                     SETON                     3185
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XFDAT     IFGT TODAY
+     C  N85                MOVELERR,1     XMSG
+     C                     SETON                     3185
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * CHECK CALENDAR
+     C                     MOVELXFDAT     $SRC      P
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN1   1
+      *
+     C           $RTN1     IFNE *BLANK
+     C  N85                MOVELERR,1     XMSG
+     C                     SETON                     3185
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * FROM TIME
+     C                     MOVELXFTM      $TIME
+     C                     CALL 'UTLR01B'
+     C                     PARM           $TIME   4
+     C                     PARM           $RTN2   1
+     C           $RTN2     IFNE *BLANK
+     C  N85                MOVELERR,9     XMSG
+     C                     SETON                     3785
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     Z-ADDXFDAT     WFDAT
+      * TO DATE
+     C           XTDAT     IFEQ *ZERO
+     C                     Z-ADDWFDAT     WTDAT
+     C                     ELSE
+     C                     Z-ADDXTDAT     WTDAT
+     C                     ENDIF
+      *
+     C           WFDD      IFEQ *ZERO
+     C                     Z-ADD01        WFDD
+     C                     ENDIF
+      *
+     C           WTDD      IFEQ *ZERO
+     C           K#AGDA    KLIST
+     C                     KFLD           WTYY
+     C                     KFLD           WTMM
+     C           K#AGDA    SETGTAGDPL12
+     C           K#AGDA    REDPEAGDPL12                  98
+     C           *IN98     IFEQ *OFF
+     C                     Z-ADDF8KADD    WTDD
+     C                     ELSE
+     C                     Z-ADD31        WTDD
+     C                     ENDIF
+     C                     ENDIF
+      * DATE TO
+      * CHECK CALENDAR
+     C           XTYY      IFNE 9999
+     C                     MOVELWTDAT     $SRC      P
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC
+     C                     PARM           $TRUE
+     C                     PARM           $RTN1
+      *
+     C           $RTN1     IFNE *BLANK
+     C  N85                MOVELERR,6     XMSG
+     C                     SETON                     3285
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     ENDIF
+      * TO TIME
+     C                     MOVELXTTM      $TIME
+     C                     CALL 'UTLR01B'
+     C                     PARM           $TIME   4
+     C                     PARM           $RTN2   1
+     C           $RTN2     IFNE *BLANK
+     C  N85                MOVELERR,7     XMSG
+     C                     SETON                     3885
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+      * FROM > TO
+     C           WFDAT     IFGT WTDAT
+     C  N85                MOVELERR,2     XMSG
+     C                     SETON                     313285
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XTDAT     IFEQ 0
+     C           XFDAT     ANDNE0
+     C                     Z-ADD99999999  XTDAT
+     C                     Z-ADD99999999  WTDAT
+     C                     ENDIF
+      * PART
+     C                     MOVE '-'       DASH1
+     C           XSHN3     IFNE *BLANKS
+     C                     MOVE '-'       DASH2
+     C                     ENDIF
+      *
+     C           XSHN1     IFNE *BLANK
+     C           XSHN2     ORNE *BLANK
+     C           XSHN3     ORNE *BLANK
+     C           K#PL01    KLIST
+     C                     KFLD           XSHN1
+     C                     KFLD           XSHN2
+     C                     KFLD           XSHN3
+     C           K#PL01    CHAINFCEPL01              99
+     C           *IN99     IFEQ *ON
+     C  N85                MOVELERR,5     XMSG
+     C                     SETON                     3385
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     ENDIF
+      * OK/NG
+     C           XOK       IFNE 'OK'
+     C           XOK       ANDNE'NG'
+     C           XOK       ANDNE*BLANK
+     C  N85                MOVELERR,8     XMSG
+     C                     SETON                     3685
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XCHK1     ENDSR
+     C*************************************************************************
+     C*     2ND SCREEN SET
+     C**************************************************************************
+     C           #SET2     BEGSR
+      *
+     C                     Z-ADDXTDAT     XXTDAT
+     C           XTTM      MULT 100       XXTTIM
+     C                     ADD  99        XXTTIM
+      *
+     C                     MOVEL*ON       *IN41
+     C                     WRITECTL01
+     C                     MOVEL*OFF      *IN41
+     C                     MOVEL*OFF      *IN42
+     C                     Z-ADD0         RRN1    40
+     C                     Z-ADD0         S1CVOK
+     C                     Z-ADD0         S1CVNG
+     C                     Z-ADD0         C1CVOK
+     C                     Z-ADD0         C1CVNG
+     C                     Z-ADD0         W61OK
+     C                     Z-ADD0         W61NG
+      *
+      * CLEAR WORK FILE (ALFWP61)
+     C                     CLOSEALFWP61
+     C           P#CMD     PLIST
+     C                     PARM           P@CMD 256
+     C                     PARM           P@LEN  155
+     C                     Z-ADD70        P@LEN
+     C                     MOVELCMD,1     P@CMD
+     C                     CALL 'QCMDEXC' P#CMD
+     C                     OPEN ALFWP61
+      *
+     C           K#L61     KLIST
+     C                     KFLD           K@DATE  80
+     C                     KFLD           K@TIME  60
+     C                     Z-ADDXFDAT     K@DATE
+     C           XFTM      MULT 100       K@TIME
+      * READ ALFPL61
+     C           K#L61     SETLLALFPL61
+      *
+     C                     DO   *HIVAL
+      *
+     C                     READ ALFPL61                  97
+     C   97                LEAVE
+      * END ?
+     C           F6CODT    IFGT XTDAT
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     Z-ADDF6CODT    F6SDAT
+     C                     Z-ADDF6COTM    F6STIM
+      * END ?
+     C           F6DATE    IFGT XXTO
+     C                     LEAVE
+     C                     ENDIF
+      * PART
+     C           XSHN1     IFNE *BLANK
+     C           XSHN2     ORNE *BLANK
+     C           XSHN3     ORNE *BLANK
+      *
+     C           PARTNO    IFNE F6PART
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      * OK/NG
+     C           XOK       IFNE *BLANK
+     C           XOK       IFNE F6OKNG
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           F6WKCD    CHAINALFWP61              96
+     C           *IN96     IFEQ *ON
+     C                     CLEARALFPP601
+     C                     ENDIF
+      *
+     C                     MOVELF6WKCD    NUM60   60
+     C           NUM60     CHAINALBPL30              95
+     C           *IN95     IFEQ *ON
+     C                     MOVE *BLANK    ALWKNM
+     C                     ENDIF
+      *
+     C                     MOVELF6WKCD    W61TMC
+     C                     MOVELALWKNM    W61TMN
+      *
+     C           F6OKNG    IFEQ 'OK'
+     C                     ADD  1         W61OK
+     C                     ELSE
+     C                     ADD  1         W61NG
+     C                     ENDIF
+      *
+     C  N96                UPDATALFWP611
+     C   96                WRITEALFWP611
+     C                     CLEARALFWP611
+      *
+     C                     ENDDO
+      *
+     C           *LOVAL    SETLLALFWP61
+      *
+     C                     DO   *HIVAL
+      *
+     C                     READ ALFWP61                  94
+     C   94                LEAVE
+      *
+     C                     CLEARSFL01
+     C                     MOVELW61TMC    S1TMC
+     C                     MOVELW61TMN    S1TMNM
+     C                     MOVELW61TMC    H1TMC
+     C                     MOVEL'0'       H1SEL
+      *
+     C                     Z-ADDW61OK     S1CVOK
+     C                     Z-ADDW61NG     S1CVNG
+     C                     ADD  W61OK     C1CVOK
+     C                     ADD  W61NG     C1CVNG
+      *
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+     C*
+     C                     ENDDO
+     C*
+     C           RRN1      IFEQ *ZERO
+     C  N85                MOVELERR,3     XMSG
+     C                     SETON                     313285
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C*************************************************************************
+     C*     2ND SCREEN
+     C**************************************************************************
+     C           #SFL01    BEGSR
+      *
+     C                     Z-ADD1         W#RNP2  40
+      *
+     C                     DO   *HIVAL
+      *
+     C                     MOVEL*OFF      *IN47
+     C                     MOVEL*ON       *IN48
+     C                     WRITEDSP99
+     C                     Z-ADDW#RNP2    #RCN02
+     C                     EXFMTCTL01
+      *
+     C           @@REC     IFNE *ZERO
+     C                     Z-ADD@@REC     W#RNP2
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    XMSG
+     C                     MOVEL*OFF      *IN85
+      * F1: END
+     C                     SELEC
+     C           *INKA     WHEQ *ON
+     C                     MOVEL'99'      @@ID
+     C                     LEAVE
+      * F12: BACK
+     C           *INKL     WHEQ *ON
+     C                     MOVEL'10'      @@ID
+     C                     LEAVE
+      * ENTR
+     C                     OTHER
+     C                     EXSR #CHK2
+      * <F1:END>
+     C           *INKA     IFEQ *ON
+     C                     MOVEL'99'      @@ID
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*     2ND SCREEN CHECK
+     C**************************************************************************
+     C           #CHK2     BEGSR
+      *
+     C                     SETOF                     85
+     C                     Z-ADD0         RRN1
+      *
+     C                     DO   *HIVAL
+      *
+     C                     ADD  1         RRN1
+     C           RRN1      CHAINSFL01                93
+     C   93                LEAVE
+      *
+     C           S1SEL     IFNE *BLANK
+     C                     MOVEL*BLANK    S1SEL
+     C                     MOVE *OFF      H1SEL
+     C                     UPDATSFL01
+     C                     MOVEL*OFF      *IN52
+     C                     EXSR #SET3
+     C                     EXSR #FMT3
+      * F1: END
+     C           *INKA     IFEQ *ON
+     C                     MOVEL'99'      @@ID
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ELSE
+     C                     MOVEL*OFF      *IN52
+     C                     MOVEL*BLANK    S1SEL
+     C                     MOVEL*OFF      H1SEL
+     C                     UPDATSFL01
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+     C*************************************************************************
+     C*     3RD SCREEN SET
+     C**************************************************************************
+     C           #SET3     BEGSR
+      *
+     C                     Z-ADDXTDAT     XXTDAT
+     C           XTTM      MULT 100       XXTTIM
+     C                     ADD  99        XXTTIM
+      *
+     C                     MOVEL*ON       *IN61
+     C                     WRITECTL02
+     C                     MOVEL*OFF      *IN61
+     C                     MOVEL*OFF      *IN62
+     C                     Z-ADD0         RRN2    40
+      *
+     C                     MOVEL*ON       *IN63
+      *
+     C                     MOVELS1TMC     C2TMC
+     C                     MOVELS1TMNM    C2TMNM
+     C                     Z-ADDS1CVOK    C2CVOK
+     C                     Z-ADDS1CVNG    C2CVNG
+     C                     MOVELH1TMC     TMCD    6
+      * READ ALFPL62
+     C           K#L62     KLIST
+     C                     KFLD           TMCD
+     C                     KFLD           WFDAT
+     C                     KFLD           K@TIME
+     C**                   Z-ADD0         K@TIME
+     C           XFTM      MULT 100       K@TIME
+     C           K#L62     SETLLALFPL62
+      *
+     C                     DO   *HIVAL
+      *
+     C           TMCD      READEALFPL62                  97
+     C   97                LEAVE
+     C           F6CODT    IFGT WTDAT
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     Z-ADDF6CODT    F6SDAT
+     C                     Z-ADDF6COTM    F6STIM
+      * END ?
+     C           F6DATE    IFGT XXTO
+     C                     LEAVE
+     C                     ENDIF
+      * PART
+     C           XSHN1     IFNE *BLANK
+     C           XSHN2     ORNE *BLANK
+     C           XSHN3     ORNE *BLANK
+      *
+     C           PARTNO    IFNE F6PART
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      * OK/NG
+     C           XOK       IFNE *BLANK
+     C           XOK       IFNE F6OKNG
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     CLEARSFL02
+     C                     Z-ADDF6DTMD    S2DATE
+     C                     MOVELF6TIHH    W8TIHH
+     C                     MOVEL':'       W8@DY1
+     C                     MOVELF6TIMM    W8TIMM
+     C                     MOVELW8TIME    S2TIME
+      * ON/KG
+     C                     MOVELF6OKNG    S2OKNG
+     C                     MOVELF6PART    S2HIN1    P
+     C                     MOVELF6ABAR    S2ABAR    P
+     C                     MOVELF6PBAR    S2PBAR    P
+     C                     ADD  1         RRN2
+      * INDICATE RED
+     C           F6OKNG    IFEQ 'NG'
+     C                     MOVE *ON       *IN55
+     C                     MOVE *ON       IND55
+     C                     ELSE
+     C                     MOVE *OFF      *IN55
+     C                     MOVE *OFF      IND55
+     C                     ENDIF
+      * SET ERROR MSG
+     C                     MOVE *BLANK    S2EHED
+     C                     MOVE *BLANK    S2EMSG
+     C           F6OKNG    IFEQ 'NG'
+     C                     MOVEL'ERR MSG:'S2EHED
+     C                     MOVELF6ERR     S2EMSG
+     C                     ENDIF
+      *
+     C                     WRITESFL02
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+     C*************************************************************************
+     C*     3RD SCREEN(TM,DATE DETAIL)
+     C**************************************************************************
+     C           #FMT3     BEGSR
+      *
+     C                     Z-ADD1         W#RNP3  40
+     C                     MOVEL*OFF      *IN85
+      *
+     C                     DO   *HIVAL
+      *
+     C                     SETON                     4748
+     C                     WRITEDSP99
+     C                     Z-ADDW#RNP3    #RCN03
+     C                     EXFMTCTL02
+     C                     MOVE *OFF      *IN85
+     C                     MOVE *BLANK    XMSG
+      * <F1:END OR F12:BACK>
+     C   KA
+     COR KL                LEAVE
+      *
+     C           @@REC     IFNE *ZERO
+     C                     Z-ADD@@REC     W#RNP3
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*         INITIALIZE
+     C**************************************************************************
+     C           #INIT     BEGSR
+      *
+     C                     TIME           WSDT
+      *
+     C                     Z-ADDWSSYYY    XFYY
+     C                     Z-ADDWSSMMM    XFMM
+     C                     Z-ADDWSSDDD    XFDD
+     C                     Z-ADD0         XFTM
+     C                     Z-ADDWSSYYY    XTYY
+     C                     Z-ADDWSSMMM    XTMM
+     C                     Z-ADDWSSDDD    XTDD
+     C                     Z-ADD2359      XTTM
+     C                     MOVEL*BLANK    XMSG
+      *
+     C                     MOVEL'10'      @@ID    2
+     C                     MOVEL*OFF      *IN85
+      *
+     C                     ENDSR
+     C**************************************************************************
+** ERR   +.........+.........+.........+.........+.........+.........> (70)
+DATE_FROM IS INVALID!                                                  01
+FROM DATE > TO DATE!                                                   02
+NO DATA FOUND!                                                         03
+ENTER X FOR SELECTION!                                                 04
+PART NOT FOUND IN MASTER!                                              05
+DATE_TO IS INVALID!                                                    06
+TIME_TO ID INVALID!                                                    07
+ENTER OK, NG OR BLANK                                                  08
+TIME_FROM ID INVALID!                                                  09
+ENTER DATE_FROM!                                                       10
+                                                                       11
+                                                                       12
+** CMD
+CLRPFM QTEMP/ALFWP61

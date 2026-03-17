@@ -1,0 +1,758 @@
+     H            Y.
+     F** ABTR30 ******************************************************
+     F*  SHORTAGE FOLLOW STATUS                                      *
+     F*  SAKAKI. 2020.03.16 WRITTEN                                  *
+     F*  ---------------------------                                 *
+JW1  F*  JW      2020.05.27 CHG RANGE OF TARGET DATE                 *
+JW2  F*  JW      2020.09.18 ADD PARAMETERS FOR ALOR28/29             *
+     F****************************************************************
+     FAB#PL1A IF  E           K        DISK
+     FABTWL30 IF  E           K        DISK
+     FAGDPL12 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+     FAB#PPM1 IF  E           K        DISK
+      * EKANBAN SERIAL NUMBER FILE                    *
+     FAB#PL70 IF  E           K        DISK
+      *  TOYOTA SCANNED RESULT                       *
+     FAB#PL65 IF  E           K        DISK
+     FALDPL68 IF  E           K        DISK
+      *
+     FABTWP30 UF  E           K        DISK                      A
+      *
+     I            DS
+     I                                        1  10 W@PHB
+     I                                        1   4 W@PHBY
+     I                                        5   6 W@PHBM
+     I                                        7   8 W@PHBD
+     I                                        9  10 W@PHBB
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        7  100SYEAR
+     I                                       11  120SMONTH
+     I                                       13  140SDAY
+     I                                        7  140SDATE
+     I                                        1   60STIME
+     I                                        1   40STIM4
+      *
+     I            DS
+     I                                        1   40W@TIM
+     I                                        1   20W@TIMH
+     I                                        3   40W@TIMM
+      *
+     I            DS
+     I                                        1  120W#SDTI
+     I                                        1   80W#SDAT
+     I                                        9  120W#STIM
+     I                                        9  100W#STHH
+     I                                       11  120W#STMM
+      *
+     I            DS
+     I                                        1  120W@SDTI
+     I                                        1   80W@SDAT
+     I                                        9  120W@STIM
+     I                                        9  100W@STHH
+     I                                       11  120W@STMM
+      *
+     I            DS
+     I                                        1  120W@NDTI
+     I                                        1   80W@NOHZ
+     I                                        9  120W@NOTM
+      *
+     I            DS
+     I                                        1   80F8KAHZ
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+      *
+     I            DS
+     I                                        1   80BANOHZ
+     I                                        1   40BANOYY
+     I                                        5   60BANOMM
+     I                                        7   80BANODD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     TIME           WTIME
+     C                     Z-ADDSTIME     W#TIME  60
+      *
+      * TODAY FOR WEEKDAY
+      * PREVIOUS WORIKING DAY FOR HOLIDAY
+     C           KEYF8     KLIST
+     C                     KFLD           K@KAYY  40
+     C                     KFLD           K@KAMM  20
+     C                     KFLD           K@KADD  20
+      *
+     C                     Z-ADDSYEAR     K@KAYY
+     C                     Z-ADDSMONTH    K@KAMM
+     C                     Z-ADDSDAY      K@KADD
+      *
+     C                     Z-ADD0         W#SDTI
+      *
+      * GET PREVIOUS WORKING DAY AND 1 DAYS AGO
+     C                     Z-ADD0         X       20
+     C                     Z-ADD0         Y       20
+     C           KEYF8     SETGTAGDPL12
+     C                     READPAGDPL12                  20
+     C           *IN20     DOWEQ'0'
+     C           X         ANDLE1
+      *
+     C                     ADD  1         Y
+     C           Y         IFEQ 2
+     C                     Z-ADDF8KAHZ    W#3DAT           1 DAY AGO
+     C                     ENDIF
+      *
+     C           F8HIRU    IFEQ *BLANK
+     C                     ADD  1         X
+     C           X         IFEQ 1
+     C                     Z-ADDF8KAHZ    W#SDAT           PREV
+     C***                  ELSE
+     C***                  Z-ADDF8KAHZ    W#3DAT           1 DAYS AGO
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     READPAGDPL12                  20
+     C                     ENDDO
+      *
+      *
+     C           W#SDAT    IFEQ SDATE
+     C                     Z-ADDSTIM4     W#STIM
+     C                     Z-ADDSTIM4     W@STIM
+     C                     ELSE
+     C                     Z-ADD2230      W#STIM
+     C                     Z-ADD2230      W@STIM
+     C                     ENDIF
+      *
+      * 12 HOURS AGO
+     C           W#TIME    IFGE 120000
+     C                     SUB  120000    W#TIME
+     C                     Z-ADDSDATE     W#3DAT
+     C                     ELSE
+     C                     ADD  120000    W#TIME
+     C                     ENDIF
+      ********
+      *
+      *翌稼働日
+      * NEXT WORKING DATE
+     C                     Z-ADDSYEAR     K@KAYY
+     C                     Z-ADDSMONTH    K@KAMM
+     C                     Z-ADDSDAY      K@KADD
+     C                     Z-ADD0         W@ZDAT  80
+     C           KEYF8     SETGTAGDPL12
+     C                     DO   *HIVAL
+     C                     READ AGDPL12                  20
+     C           *IN20     IFEQ '0'
+     C           F8HIRU    ANDEQ' '
+     C                     Z-ADDF8KAHZ    W@ZDAT
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+JW1   * 23 HOURS LATER
+ |   C***        W@STHH    ADD  23        W@STHH
+ |   C***        W@STHH    IFGE 24
+ |   C***                  Z-ADDW@ZDAT    W@SDAT
+ |   C***                  SUB  24        W@STHH
+ |   C***                  ELSE
+JW1  C***                  ENDIF
+      *
+      * 24 HOURS LATER
+ |   C                     Z-ADDW@ZDAT    W@SDAT
+      *
+     C                     Z-ADDW#SDAT    K@NOHZ  80
+      *
+     C           K@NOHZ    SETLLAB#PL1A
+     C                     DO   *HIVAL
+     C                     READ AB#PL1A                  20
+     C   20                LEAVE
+      *
+     C           BASKJY    IFEQ 'D'
+     C           BASKHZ    ANDLESDATE
+     C                     ITER
+     C                     ENDIF
+      *
+     C           BANOHZ    IFGT W@ZDAT
+     C                     LEAVE
+     C                     ENDIF
+      * NAPCK
+     C           BANONY    IFEQ 0323
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     EXSR #SB400
+      *
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *                                                    *
+      *----------------------------------------------------*
+     CSR         #SB400    BEGSR
+      *
+     C           KEYM11    KLIST
+     C                     KFLD           K@NONY  4
+     C                     KFLD           K@NOBN  2
+     C                     MOVE BANONY    K@NONY
+     C                     MOVE BANOBN    K@NOBN
+     C           KEYM11    CHAINAB#PPM1              15
+     C           *IN15     IFEQ '0'
+     C           M@SKJY    ANDEQ'D'
+     C           M@SKDT    ANDLESDATE
+     C                     SETON                     15
+     C                     ENDIF
+      *
+     C                     Z-ADD0         W@NDTI
+     C                     Z-ADDBANOHZ    W@NOHZ
+     C                     Z-ADD0         W@NOTM
+     C           *IN15     IFEQ '0'
+     C                     Z-ADDM@NTIM    W@NOTM
+     C           M@CHGD    IFGT SDATE
+     C                     Z-ADDM@OTIM    W@NOTM
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     EXSR #SB410
+      *
+     CSR         ESB400    ENDSR
+      *----------------------------------------------------*
+      *２０時間後                                        *
+      * 20 HOURS LATER
+      *----------------------------------------------------*
+     CSR         #SB410    BEGSR
+      *
+      * SYSTEM DATE <= USER DELIVERY DATE <= SYSTEM DATE(AFTER 20HOUR)
+     C           W@NDTI    IFGE W#SDTI
+     C           W@NDTI    ANDLEW@SDTI
+     C                     EXSR #SB420
+     C                     ENDIF
+      *
+     CSR         ESB410    ENDSR
+      *----------------------------------------------------*
+      *  AB#PP70 CHECK                                     *
+      *----------------------------------------------------*
+     C           #SB420    BEGSR
+      *
+     C           KEY70     KLIST
+     C                     KFLD           BATOKU           CUSTOMER
+     C                     KFLD           K$NONY  4        DELIVERY CODE
+     C                     KFLD           BANKOJ           DELIVERY FACTORY
+     C                     KFLD           BANUKE           DELIVERY RECEIVING
+     C                     KFLD           BAMHN1           USER PARTS NO 1
+     C                     KFLD           BAMHN2           USER PARTS NO 2
+     C                     KFLD           BAMHN3           USER PARTS NO 3
+     C                     KFLD           BAMHN4           USER PARTS NO 4
+     C                     KFLD           K$ODRN 10        ORDER NO
+     C                     KFLD           BANOYY           INVOICE DATE YY
+     C                     KFLD           BANOMM           INVOICE DATE MM
+     C                     KFLD           BANODD           INVOICE DATE DD
+      *
+      *
+     C                     MOVELBANONY    K$NONY           DELIVERY CODE
+     C                     MOVELBAODRN    K$ODRN           ORDER NO
+      *
+     C           KEY70     SETLLAB#PL70
+     C                     Z-ADD0         WWSRYO 100
+     C                     SETOF                     91
+      *
+     C                     DO   *HIVAL
+     C           KEY70     READEAB#PL70                  90
+     C   90                LEAVE
+     C           EKSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+     C*        ('DELIVERY QUANTITY')
+     C                     ADD  EKSRYO    WWSRYO
+     C                     SETON                     91
+     C                     ENDDO
+      *
+     C   91                GOTO $SB420
+      *
+      *
+      *
+     C                     MOVELBAINVN    K$ODRN           ORDER NO
+      *
+     C           KEY70     SETLLAB#PL70
+      *
+     C                     DO   *HIVAL
+     C           KEY70     READEAB#PL70                  90
+     C   90                LEAVE
+     C           EKSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+     C*        ('DELIVERY QUANTITY')
+     C                     ADD  EKSRYO    WWSRYO
+     C                     SETON                     91
+     C                     ENDDO
+      *
+     C   91                GOTO $SB420
+      *
+      *
+      *
+     C                     MOVELBAINVN    K$ODRN           ORDER NO
+      *
+     C           KEY70     SETLLAB#PL70
+      *
+     C                     DO   *HIVAL
+     C           KEY70     READEAB#PL70                  90
+     C   90                LEAVE
+     C           EKSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+     C*        ('DELIVERY QUANTITY')
+     C                     ADD  EKSRYO    WWSRYO
+     C                     SETON                     91
+     C                     ENDDO
+      *
+     C   91                GOTO $SB420
+      *
+     C           K#65      KLIST
+     C                     KFLD           K$NONY  4        DELIVERY CODE
+     C                     KFLD           BANKOJ
+     C                     KFLD           BANUKE
+     C                     KFLD           BANOYY
+     C                     KFLD           BANOMM
+     C                     KFLD           BANODD
+     C                     KFLD           BANOBN
+     C                     KFLD           BASHN1
+     C                     KFLD           BASHN2
+     C                     KFLD           BASHN3
+     C                     KFLD           K$OR12 12
+     C                     MOVELBAINVN    K$OR12
+     C           K#65      SETLLAB#PL65
+      *
+     C                     DO   *HIVAL
+     C           K#65      READEAB#PL65                  90
+     C   90                LEAVE
+     C           A6SKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+     C*        ('DELIVERY QUANTITY')
+     C                     ADD  A6SRYO    WWSRYO
+     C                     SETON                     91
+     C                     ENDDO
+      *
+      *-------------------------*
+     C           $SB420    TAG
+      *-------------------------*
+     C           KEY68     KLIST
+     C                     KFLD           BATOKU           CUSTOMER
+     C                     KFLD           BANONY           DELIVERY CODE
+     C                     KFLD           BANKOJ           DELIVERY FACTORY
+     C                     KFLD           BANUKE           DELIVERY RECEIVING
+     C                     KFLD           BAMHN1           USER PARTS NO 1
+     C                     KFLD           BAMHN2           USER PARTS NO 2
+     C                     KFLD           BAMHN3           USER PARTS NO 3
+     C                     KFLD           BAMHN4           USER PARTS NO 4
+     C                     KFLD           BAODRN 10        ORDER NO
+     C                     KFLD           BANOHZ
+     C                     KFLD           K$NOBN  2
+     C                     MOVE BANOBN    K$NOBN
+      * 未納箱数
+      * # OF UNSHIP BOX
+     C           KEY68     SETLLALDPL68
+     C                     Z-ADD0         $$HAKO  50
+     C                     DO   *HIVAL
+     C           KEY68     READEALDPL68                  90
+     C   90                LEAVE
+     C           AFSKJC    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+     C                     ADD  1         $$HAKO
+     C                     ENDDO
+     C*******************
+     C                     Z-ADD1         WKHAKO  40
+     C           BASRYO    SUB  WWSRYO    $$SRYO 100
+      *
+     C           BASYOS    IFNE 0
+     C           $$SRYO    DIV  BASYOS    WKHAKO
+     C                     MVR            SSS     40
+     C           SSS       IFNE 0
+     C                     ADD  1         WKHAKO
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     SUB  $$HAKO    WKHAKO
+     C*******************
+     C           WKHAKO    IFGT 0
+     C                     EXSR #SB500
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  WRITE                                             *
+      *----------------------------------------------------*
+     CSR         #SB500    BEGSR
+      *
+     C           KEYW      KLIST
+     C                     KFLD           KATOKU  40
+     C                     KFLD           KANONY  40
+     C                     KFLD           KANOHZ  80
+     C                     KFLD           KANOBN  2
+     C                     KFLD           KAMHN1  5
+     C                     KFLD           KAMHN2  5
+     C                     KFLD           KAMHN3  5
+     C                     KFLD           KAMHN4  5
+     C                     MOVELBATOKU    KATOKU
+     C                     MOVELBANONY    KANONY
+     C                     MOVELBANOHZ    KANOHZ
+     C                     MOVE BANOBN    KANOBN
+     C                     MOVELBAMHN1    KAMHN1
+     C                     MOVELBAMHN2    KAMHN2
+     C                     MOVELBAMHN3    KAMHN3
+     C                     MOVELBAMHN4    KAMHN4
+      *
+     C           KEYW      CHAINABTWP301             18
+     C           *IN18     IFEQ '0'
+      *
+     C                     ADD  WKHAKO    W1CNT
+      *
+     C                     UPDATABTWP301
+      *
+     C                     ELSE
+     C* CHECK BY IAF PART #
+     C                     MOVEL*BLANK    WCHK    1
+     C                     MOVEL*BLANK    PCHK    1
+     C                     MOVEL*BLANK    PPLOC   6
+     C                     EXSR #SB590
+     C*  FIRST TIME
+     C           WCHK      IFEQ *BLANK
+     C                     EXSR #SB510                     A-PICS
+     C                     EXSR #SB520                     STOCK
+     C                     EXSR #SB530                     PLASTIC
+     C                     ENDIF
+     C*
+     C                     CLEARABTWP301
+     C                     Z-ADDBATOKU    W1TOKU
+     C                     Z-ADDBANONY    W1NONY
+     C                     MOVELBANKOJ    W1NKOJ
+     C                     MOVELBANUKE    W1NUKE
+     C                     Z-ADDBANOHZ    W1NODT
+     C                     MOVELBANOBN    W1NOBN
+     C                     Z-ADDW@NOTM    W1NOTM
+     C                     MOVELBAODRN    W1ODRN
+     C                     MOVELBAMHN1    W1MHN1
+     C                     MOVELBAMHN2    W1MHN2
+     C                     MOVELBAMHN3    W1MHN3
+     C                     MOVELBAMHN4    W1MHN4
+     C                     Z-ADDW@NDTI    W1NDTI
+     C                     Z-ADDW#SDTI    W1SDTI
+     C                     Z-ADDW@SDTI    W112TI
+     C                     MOVELPPLOC     W1LOC
+     C*
+     C           KEYFCE    KLIST
+     C                     KFLD           BASHN1
+     C                     KFLD           BASHN2
+     C                     KFLD           BASHN3
+     C           KEYFCE    CHAINFCEPL01              33
+     C           *IN33     IFEQ '0'
+     C                     MOVELA2ZETI    W1LZET
+     C                     MOVELA2STRK    W1LOC1
+     C                     MOVELA2STRT    W1LOC2
+     C                     MOVELA2STRR    W1LOC3
+     C                     MOVELA2STRD    W1LOC4
+     C                     ENDIF
+      *
+     C                     MOVELBASHN1    W1LPR1
+     C                     MOVELBASHN2    W1LPR2
+     C                     MOVELBASHN3    W1LPR3
+      *
+     C                     Z-ADDWKHAKO    W1CNT
+      *
+     C                     Z-ADDP9ALD3    W1ALD3
+     C                     Z-ADDP9ADA1    W1ADA1
+     C                     Z-ADDP9NYKO    W1NYKO
+     C                     Z-ADDP9SRT     W1SRT
+     C                     Z-ADDP9OUK     W1OUK
+     C                     Z-ADDP9BZK     W1BZK
+     C                     Z-ADDP9DSK     W1DSK
+     C                     Z-ADDP9JCK     W1JCK
+     C                     Z-ADDP9SBK     W1SBK
+     C                     Z-ADDP9LOQK    W1LOQK
+     C                     Z-ADDP9OUI     W1OUI
+     C                     Z-ADDP9BZI     W1BZI
+     C                     Z-ADDP9DSI     W1DSI
+     C                     Z-ADDP9JCI     W1JCI
+     C                     Z-ADDP9SBI     W1SBI
+     C                     Z-ADDP9LOQI    W1LOQI
+     C                     Z-ADDP9PLOU    W1PLOU
+     C                     Z-ADDP9PLBZ    W1PLBZ
+     C                     Z-ADDP9PLDS    W1PLDS
+     C                     Z-ADDP9PLJC    W1PLJC
+     C                     Z-ADDP9PLSB    W1PLSB
+     C                     Z-ADDP9PLLO    W1PLLO
+     C                     Z-ADDP9PRE     W1PRE
+     C                     Z-ADDP9CVS     W1CVS
+     C                     Z-ADDP9LPLD    W1LPLD
+     C                     Z-ADDP9LPLT    W1LPLT
+     C                     Z-ADDP9LP2D    W1LP2D
+     C                     Z-ADDP9LP2T    W1LP2T
+     C                     Z-ADDP9ALL     W1ALL
+     C                     MOVE $OINV     W1TUHK
+     C                     MOVE $OINV     W1TUHT
+     C                     MOVEL'2'       W1DKBN
+     C                     MOVELPCHK      W1PLAS                       S
+     C                     WRITEABTWP301
+     C                     ENDIF
+      *
+     CSR         ESB500    ENDSR
+      *----------------------------------------------------*
+      *  A-PICS STATUS                                     *
+      *----------------------------------------------------*
+     CSR         #SB510    BEGSR
+      *
+     C                     MOVELBASHN1    PHSHN1
+     C                     MOVELBASHN2    PHSHN2
+     C                     MOVELBASHN3    PHSHN3
+     C                     CALL 'ALOR28'
+     C                     PARM           PHSHN1  5
+     C                     PARM           PHSHN2  5
+     C                     PARM           PHSHN3  2
+     C                     PARM           P8ALD3  40       COMPLETE SHIP SCAN
+     C                     PARM           P8ADA1  40       RE-ISSUED
+     C                     PARM           P8NYKO  40       COMPLETE STORE IN
+     C                     PARM           P8SRT   40       SRT(CONVEYANCE)
+     C                     PARM           P8OUK   40       COMPLETE OUTSOURCE
+     C                     PARM           P8BZK   40       COMPLETE BZ WEIGH
+     C                     PARM           P8DSK   40       COMPLETE DS WEIGH
+     C                     PARM           P8JCK   40       COMPLETE JC WEIGH
+     C                     PARM           P8SBK   40       COMPLETE SB WEIGH
+     C                     PARM           P8LOQK  40       COMPLETE LOQ
+     C                     PARM           P8OUI   40       IN PROCESS (OUTSRC)
+     C                     PARM           P8BZI   40       IN PROCESS (BZ)
+     C                     PARM           P8DSI   40       IN PROCESS (DS)
+     C                     PARM           P8JCI   40       IN PROCESS (JC)
+     C                     PARM           P8SBI   40       IN PROCESS (SB)
+     C                     PARM           P8LOQI  40       IN PROCESS (LOQ)
+     C                     PARM           P8PLOU  40       BEFORE (OUTSOUR  )
+     C                     PARM           P8PLBZ  40       BEFORE (BZ       )
+     C                     PARM           P8PLDS  40       BEFORE (DS       )
+     C                     PARM           P8PLJC  40       BEFORE (JC       )
+     C                     PARM           P8PLSB  40       BEFORE (SB       )
+     C                     PARM           P8PLLO  40       BEFORE (LOQ      )
+     C                     PARM           P8PRE   40       AFTER  CV COLLECTION
+     C                     PARM           P8CVS   40       BEFORE CV COLLECTION
+     C                     PARM           P8LPLD  80        LAST PL DATE
+     C                     PARM           P8LPLT  60        LAST PL TIME
+     C                     PARM           P8ALL   40       ALL ISSUED
+JW1   * P/T STATUS
+"    C                     PARM           P8PLPD  80       PT BF OUT DATE
+"    C                     PARM           P8PLPS  40       PT SHIP PRELOAD
+      *
+     C                     Z-ADDP8ALD3    P9ALD3  40
+     C                     Z-ADDP8ADA1    P9ADA1  40
+     C                     Z-ADDP8NYKO    P9NYKO  40
+     C                     Z-ADDP8SRT     P9SRT   40
+     C                     Z-ADDP8OUK     P9OUK   40
+     C                     Z-ADDP8BZK     P9BZK   40
+     C                     Z-ADDP8DSK     P9DSK   40
+     C                     Z-ADDP8JCK     P9JCK   40
+     C                     Z-ADDP8SBK     P9SBK   40
+     C                     Z-ADDP8LOQK    P9LOQK  40
+     C                     Z-ADDP8OUI     P9OUI   40
+     C                     Z-ADDP8BZI     P9BZI   40
+     C                     Z-ADDP8DSI     P9DSI   40
+     C                     Z-ADDP8JCI     P9JCI   40
+     C                     Z-ADDP8SBI     P9SBI   40
+     C                     Z-ADDP8LOQI    P9LOQI  40
+     C                     Z-ADDP8PLOU    P9PLOU  40
+     C                     Z-ADDP8PLBZ    P9PLBZ  40
+     C                     Z-ADDP8PLDS    P9PLDS  40
+     C                     Z-ADDP8PLJC    P9PLJC  40
+     C                     Z-ADDP8PLSB    P9PLSB  40
+     C                     Z-ADDP8PLLO    P9PLLO  40
+     C                     Z-ADDP8PRE     P9PRE   40
+     C                     Z-ADDP8CVS     P9CVS   40
+     C                     Z-ADDP8LPLD    P9LPLD  80
+     C                     Z-ADDP8LPLT    P9LPLT  60
+     C                     Z-ADDP8ALL     P9ALL   40
+      *
+     CSR         ESB510    ENDSR
+      *----------------------------------------------------*
+      * GET NYU                                            *
+      *----------------------------------------------------*
+     CSR         #SB520    BEGSR
+      *
+     C           NYUR21    PLIST
+     C                     PARM           $HIN1   5
+     C                     PARM           $HIN2   5
+     C                     PARM           $HIN3   2
+     C                     PARM           $HAYY   4
+     C                     PARM           $HAMM   2
+     C                     PARM           $HADD   2
+     C                     PARM           $HABB   2
+      *OUT
+     C                     PARM           $OHKSU  5
+     C                     PARM           $OSISU  5
+     C                     PARM           $ONYSU  5
+     C                     PARM           $OSYSU  5
+     C                     PARM           $OKISU  5
+     C                     PARM           $OINV   5
+      *
+     C                     MOVE SDATE     PDATE
+     C                     MOVEL'-'       PPORM
+     C                     MOVEL'0010'    PDAYS
+     C                     CALL 'DATR1A'
+     C                     PARM           PDATE   8
+     C                     PARM           PPORM   1        + OR -
+     C                     PARM           PDAYS   4
+     C                     PARM           PRDAT   8
+     C                     PARM           PRTN    1
+     C                     MOVELBASHN1    $HIN1
+     C                     MOVELBASHN2    $HIN2
+     C                     MOVELBASHN3    $HIN3
+     C                     MOVELPRDAT     W@PHB
+     C                     MOVE W@PHBY    $HAYY
+     C                     MOVE W@PHBM    $HAMM
+     C                     MOVE W@PHBD    $HADD
+     C                     MOVE '01'      $HABB
+     C                     CALL 'NYUR21'  NYUR21
+      *
+     CSR         ESB520    ENDSR
+      *----------------------------------------------------*
+      * CHECK PLASTIC KANBAN PROCESS                       *
+      *----------------------------------------------------*
+     CSR         #SB530    BEGSR
+      *
+     C                     Z-ADD0         P9LP2D  80
+     C                     Z-ADD0         P9LP2T  60
+      *
+     C                     Z-ADDW#SDAT    P1DATE
+     C                     Z-ADD1         P1BIN
+      *
+     C                     CALL 'UTLR14A'
+      * IN
+     C                     PARM           PHSHN1  5
+     C                     PARM           PHSHN2  5
+     C                     PARM           PHSHN3  2
+     C                     PARM           P1DATE  80
+     C                     PARM           P1BIN   20
+      * OUT
+     C                     PARM           PALOCA  6
+     C                     PARM           PAKIND  1
+     C                     PARM           PAPRCN  3
+     C                     PARM           PAPRCR  3
+     C                     PARM           PAMCNN  3
+     C                     PARM           PAMCNR  3
+     C                     PARM           PADPTN  40
+     C                     PARM           PADPTR  40
+     C                     PARM           PAPLOC  6
+     C                     PARM           PAPKIN  1
+     C                     PARM           PAPPRC  3
+     C                     PARM           PAPMCN  3
+     C                     PARM           PAPDPT  40
+     C                     PARM           PARTN   1
+      *
+     C           PARTN     IFNE '*'                                    S
+     C           PAPDPT    ANDEQ0111                                   S
+     C           PAPKIN    ANDEQ'C'                                    S
+     C           PAKIND    ANDNE'C'                                    S
+     C                     MOVELPAPLOC    PPLOC   6
+     C                     EXSR #SB540
+     C                     ENDIF                                       S
+      *
+     CSR         ESB530    ENDSR
+      *----------------------------------------------------*
+      * PLASTIC STATUS                                     *
+      *----------------------------------------------------*
+     CSR         #SB540    BEGSR
+      *
+     C                     CALL 'ALOR29'
+     C                     PARM           PHSHN1  5
+     C                     PARM           PHSHN2  5
+     C                     PARM           PHSHN3  2
+     C                     PARM           PAPPRC  3
+     C                     PARM           PAPMCN  3
+     C                     PARM           W#3DAT  80
+     C                     PARM           W#TIME  60
+     C                     PARM           P@BZK   40        BZ計量済み
+     C                     PARM           P@DSK   40        DS計量済み
+     C                     PARM           P@JCK   40        JC計量済み
+     C                     PARM           P@BZI   40        BZ投入中
+     C                     PARM           P@DSI   40        DS投入中
+     C                     PARM           P@JCI   40        JC投入中
+     C                     PARM           P@PLBZ  40        BZ PRE
+     C                     PARM           P@PLDS  40        DS PRE
+     C                     PARM           P@PLJC  40        JC PRE
+     C                     PARM           P@LPLD  80        LAST PRE DATE
+     C                     PARM           P@LPLT  60        TIME
+JW1   * P/T STATUS
+"    C                     PARM           P@PLPD  80       PT BF OUT DATE
+"    C                     PARM           P@PLPS  40       PT SHIP PRELOAD
+      *
+     C***                  ADD  P@BZK     P9BZK   40
+     C***                  ADD  P@DSK     P9DSK   40
+     C***                  ADD  P@JCK     P9JCK   40
+     C                     ADD  P@BZI     P9BZI   40
+     C                     ADD  P@DSI     P9DSI   40
+     C                     ADD  P@JCI     P9JCI   40
+     C                     ADD  P@PLBZ    P9PLBZ  40
+     C                     ADD  P@PLDS    P9PLDS  40
+     C                     ADD  P@PLJC    P9PLJC  40
+      *
+     C                     Z-ADDP@LPLD    P9LP2D  80
+     C                     Z-ADDP@LPLT    P9LP2T  60
+      *
+     C                     MOVEL'*'       PCHK    1
+      *
+      *
+     CSR         ESB540    ENDSR
+      *----------------------------------------------------*
+      *  GET PREVIOUS DATA                                 *
+      *----------------------------------------------------*
+     CSR         #SB590    BEGSR
+      *
+     C           KEYW2     KLIST
+     C                     KFLD           KASHN1
+     C                     KFLD           KASHN2
+     C                     KFLD           KASHN3
+     C                     MOVELBASHN1    KASHN1  5
+     C                     MOVELBASHN2    KASHN2  5
+     C                     MOVELBASHN3    KASHN3  2
+      *
+     C           KEYW2     CHAINABTWL30              19
+      *
+     C           *IN19     IFEQ '0'
+     C                     Z-ADDW1ALD3    P9ALD3  40
+     C                     Z-ADDW1ADA1    P9ADA1  40
+     C                     Z-ADDW1NYKO    P9NYKO  40
+     C                     Z-ADDW1SRT     P9SRT   40
+     C                     Z-ADDW1OUK     P9OUK   40
+     C                     Z-ADDW1BZK     P9BZK   40
+     C                     Z-ADDW1DSK     P9DSK   40
+     C                     Z-ADDW1JCK     P9JCK   40
+     C                     Z-ADDW1SBK     P9SBK   40
+     C                     Z-ADDW1LOQK    P9LOQK  40
+     C                     Z-ADDW1OUI     P9OUI   40
+     C                     Z-ADDW1BZI     P9BZI   40
+     C                     Z-ADDW1DSI     P9DSI   40
+     C                     Z-ADDW1JCI     P9JCI   40
+     C                     Z-ADDW1SBI     P9SBI   40
+     C                     Z-ADDW1LOQI    P9LOQI  40
+     C                     Z-ADDW1PLOU    P9PLOU  40
+     C                     Z-ADDW1PLBZ    P9PLBZ  40
+     C                     Z-ADDW1PLDS    P9PLDS  40
+     C                     Z-ADDW1PLJC    P9PLJC  40
+     C                     Z-ADDW1PLSB    P9PLSB  40
+     C                     Z-ADDW1PLLO    P9PLLO  40
+     C                     Z-ADDW1PRE     P9PRE   40
+     C                     Z-ADDW1CVS     P9CVS   40
+     C                     Z-ADDW1ALL     P9ALL   40
+     C                     MOVE W1TUHK    $OINV   5
+     C                     Z-ADDW1LPLD    P9LPLD  80
+     C                     Z-ADDW1LPLT    P9LPLT  60
+     C                     Z-ADDW1LP2D    P9LP2D  80
+     C                     Z-ADDW1LP2T    P9LP2T  60
+     C                     MOVELW1PLAS    PCHK    1
+     C                     MOVELW1LOC     PPLOC   6
+      *
+     C                     MOVEL'*'       WCHK
+     C                     ENDIF
+     C*
+     CSR         ESB590    ENDSR

@@ -1,0 +1,72 @@
+             PGM
+             /** ALDC04 **********************************************/
+             /*  THE NUMBER OF PROCESSED BOXES BY WORKER LIST        */
+             /*  TCH 00.08.14                                        */
+             /*  THE NUMBER OF PROCESSED BOXES BY DATE(ALDR08)ADDED  */
+             /*  TCH 00.01.15                                        */
+             /*  ADD DAILY REPORT OPTION(F09)    TCH OCT/10/02       */
+             /*  TCH 02/02/05 SCREEN VERSION                         */
+             /********************************************** ALDC04 **/
+             DCLF       FILE(ALDPW05)
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&USR)  TYPE(*CHAR) LEN(10)
+             DCL        VAR(&ST)   TYPE(*CHAR) LEN(02)
+
+             RTVJOBA    JOB(&WSID) USER(&USR)
+
+             CHGVAR     VAR(&YEAR) VALUE(0)
+             CHGVAR     VAR(&MM)   VALUE(0)
+             CHGVAR     VAR(&DD)   VALUE(0)
+    /*       CHGVAR     VAR(&USER) VALUE('      ')     */
+      /* TCH */
+             CHKOBJ     OBJ(HWFILE1/AABOX) OBJTYPE(*DTAARA)
+             MONMSG     MSGID(CPF9801) EXEC(GOTO CMDLBL(STPX))
+
+             SNDBRKMSG  MSG('SOMEBODY ELSE IS USING THE PRINT +
+                          PROGRAM RUN IT LATER.') TOMSGQ(&WSID) +
+                          MSGTYPE(*INFO)
+             GOTO       END
+
+ STPX:       CRTDTAARA  DTAARA(HWFILE1/AABOX) TYPE(*CHAR) LEN(10) +
+                          TEXT('# OF PROCESSED BOX')
+       /*  TCH */
+
+ STP1:       SNDRCVF    DEV(&WSID) RCDFMT(ALDPW051)
+
+             CHGVAR     VAR(&IN02) VALUE('0')
+             CHGVAR     VAR(&IN03) VALUE('0')
+             CHGVAR     VAR(&IN99) VALUE('0')
+
+             IF         (&IN01 *EQ '1') GOTO END1
+
+             IF         (&YEAR *NE 0) GOTO STP2
+             CHGVAR     VAR(&IN02) VALUE('1')
+             CHGVAR     VAR(&IN99) VALUE('1')
+             GOTO       STP1
+
+ STP2:
+             IF         ((&MM *GE 01) *AND (&MM *LE 12)) GOTO STP3
+             CHGVAR     VAR(&IN03) VALUE('1')
+             CHGVAR     VAR(&IN99) VALUE('1')
+             GOTO       STP1
+
+
+ STP3:
+      /*     IF         COND(&IN05 *EQ '0' *AND &IN09 *EQ '0') +
+                          THEN(GOTO CMDLBL(STP1))      */
+
+             CLRPFM     FILE(ALDWP05)
+             MONMSG     MSGID(CPF0000)
+
+             CALL       PGM(ALDR05) PARM(&YEAR &MM)
+             DLTOVR     FILE(*ALL)
+
+   /*        CALL       PGM(ALDR12) PARM(&USER &YEAR &MM &DD &ST)  */
+             CALL       PGM(ALDR12) PARM(&YEAR &MM &DD &ST)
+             IF         COND(&ST *EQ '12') THEN(GOTO CMDLBL(STP1))
+  /* TCH */
+ END1:
+             DLTDTAARA  DTAARA(HWFILE1/AABOX)
+  /* TCH */
+
+ END:        ENDPGM

@@ -1,0 +1,157 @@
+     H            Y.
+     F** AB#R24 ********************************************
+     F*  OHASHI ORDER/FORECAST PROCESSING                  *
+     F*                                                    *
+     F*           AUG/25/04                                *
+     F*                                                    *
+     F* TCHK1 10/25/07 CREATE(COPY FROM AB#R24)            *
+     F******************************************************
+     FOHASHI  IP  F     256            DISK
+     FAB#WOHA O   E                    DISK
+      *--------------------------------------------------------
+     E                    ARY       256  1
+     E                    A10        10  1
+     E                    A20        20  1
+     E                    A9          9  1
+     E                    A9X         9  1
+      *--------------------------------------------------------
+     IOHASHI  AA  01
+     I                                        1   4 SEQ
+     I                                       13  20 SHDT
+     I                                        1 256 DATA
+     I            DS
+     I                                        1   8 MDYDUE
+     I                                        1   20MM
+     I                                        3   3 SLSH1
+     I                                        4   50DD
+     I                                        6   6 SLSH2
+     I                                        7   80YY
+     I            DS
+     I                                        1   80YMD
+     I                                        1   40WYY
+     I                                        5   60WMM
+     I                                        7   80WDD
+     I            DS
+     I                                        1  20 AWMHIN
+     I                                        1   5 AWMHN1
+     I                                        6  10 AWMHN2
+     I                                       11  15 AWMHN3
+     I                                       16  20 AWMHN4
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           PID     1
+     C                     PARM           PFG     1
+     C                     PARM           PTN     1
+      *
+     C           SEQ       CABLT'0002'    @END
+      *
+     C                     MOVEADATA      ARY
+TCHK1C           ARY,13    IFEQ ','
+TCHK1C           ARY,13    OREQ ' '
+TCHK1C                     GOTO @END
+TCHK1C                     END
+      *
+     C                     CLEARAB#WOHA1
+      * DUE DATE
+     C                     MOVE SHDT      MDYDUE
+     C                     MOVE DD        WDD
+     C                     MOVE MM        WMM
+     C           2000      ADD  YY        WYY
+      *
+     C           YMD       CABLT*DATE     @END
+     C                     Z-ADDYMD       AWSHDT
+      * PART NUMBER
+     C                     MOVE *BLANK    A20
+     C                     Z-ADD21        X       30
+     C                     Z-ADD*ZERO     Y
+     C                     DO   *HIVAL
+     C                     ADD  1         X
+     C           ARY,X     IFEQ ','
+     C                     LEAVE
+     C                     ENDIF
+     C           ARY,X     IFNE '-'
+     C                     ADD  1         Y
+     C                     MOVE ARY,X     A20,Y
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     MOVEAA20       AWMHIN
+      * QTY
+     C                     MOVE *OFF      *IN90
+     C                     MOVE *BLANK    A9
+     C                     Z-ADD*ZERO     Y
+     C                     DO   *HIVAL
+     C                     ADD  1         X
+     C           ARY,X     IFEQ ','
+     C                     LEAVE
+     C                     ENDIF
+     C           ARY,X     IFEQ '-'
+     C                     MOVE *ON       *IN90
+     C                     ITER
+     C                     ENDIF
+     C                     ADD  1         Y
+     C                     MOVE ARY,X     A9,Y
+     C                     ENDDO
+      *
+     C                     MOVE *ALL'0'   A9X
+     C                     Z-ADD9         A       20
+     C                     Z-ADD9         B       20
+     C                     DO   9
+     C           A9,A      IFNE *BLANK
+     C                     MOVE A9,A      A9X,B
+     C                     SUB  1         B
+     C                     ENDIF
+     C                     SUB  1         A
+     C           A         IFEQ 0
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     MOVEAA9X       @9C     9
+     C                     MOVE @9C       AWSRYO
+     C           *IN90     IFEQ *ON
+     C                     Z-SUBAWSRYO    AWSRYO
+     C                     ENDIF
+      * SHIP TO
+     C                     ADD  1         X
+     C           ','       LOKUPARY,X                    10
+     C                     ADD  1         X
+     C           ','       LOKUPARY,X                    10
+      *
+     C                     ADD  1         X
+     C                     MOVEAARY,X     ID      2
+     C           ID        IFNE 'FG'
+     C           ID        ANDNE'TN'
+     C                     GOTO @END
+     C                     ENDIF
+      * ORDER NUMBER
+     C           ','       LOKUPARY,X                    10
+     C                     MOVE *BLANK    A10
+     C                     Z-ADD*ZERO     Y       30
+     C                     DO   *HIVAL
+     C                     ADD  1         X
+     C           ARY,X     IFEQ ','
+     C                     LEAVE
+     C                     ENDIF
+     C                     ADD  1         Y
+     C                     MOVE ARY,X     A10,Y
+     C                     ENDDO
+      *
+     C                     MOVEAA10       AWORDN
+      *
+     C                     Z-ADD5671      AWTOKU
+     C           ID        IFEQ 'FG'
+     C                     Z-ADD5671      AWNONY
+     C                     MOVE '1'       PFG
+     C                     ELSE
+     C                     Z-ADD5672      AWNONY
+     C                     MOVE '1'       PTN
+     C                     ENDIF
+     C                     MOVEL'0'       AWNKOJ
+     C                     MOVEL'00  '    AWNUKE
+     C                     MOVEL'0000'    AWSBAN
+      *
+     C                     WRITEAB#WOHA1
+     C                     MOVE '1'       PID
+      *
+     C           @END      TAG

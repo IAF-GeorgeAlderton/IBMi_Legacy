@@ -1,0 +1,149 @@
+     H            Y.
+     F*=========================================================================
+     F*  PROGRAM    : CHKRJ4                                                   *
+     F*  FUNCTION   : READ CHKWPU1 AND DITECT ERROR STATUS                     *
+     F*------------------------------------------------------------------------*
+     F* CHANGE DATE| PROGRAMMER  | ID  | MEMO                                  *
+     F*------------------------------------------------------------------------*
+     F* 2017/12/19 | JW (SRA)    | JW1 | ADD LCKW AND TIMW                     *
+     F* 2018/08/08 | JW (SRA)    | JW2 | CHG CHKWPJ2 TO CHKWPJ4                *
+     F*=========================================================================
+      *
+     FCHKWPU1 IP  E                    DISK
+JW1  FCHKPL01 UF  E           K        DISK
+JW2  FCHKWPJ4 O   E                    DISK
+      *
+     I* SYSTEM TIME
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        1   20SHH
+     I                                        3   40SMN
+     I                                        5   60SSS
+     I                                        7  140TODAY
+     I                                        7  100SYY
+     I                                       11  120SMM
+     I                                       13  140SDD
+     I* WORK DATE
+     I            DS
+     I                                        1  10 WDATE
+     I                                        1   4 WYY
+     I                                        5   5 WH1
+     I                                        6   7 WMM
+     I                                        8   8 WH2
+     I                                        9  10 WDD
+     I* WORK TIME
+     I            DS
+     I                                        1   8 WTIME
+     I                                        1   2 WHH
+     I                                        3   3 WC1
+     I                                        4   5 WMN
+     I                                        6   6 WC2
+     I                                        7   8 WSS
+      *
+      *====================================================
+     C           KEY       CHAINCHKPL01              88
+     C   88                GOTO @END
+JW1   * IF GET TIMW 2 TIMES CONTINUOUSLY --> SEND ERROR MSG
+ |    * IF GET LCKW 2 TIMES CONTINUOUSLY --> SEND ERROR MSG
+ |   C                     MOVE *BLANK    ERRFLG  1
+ |   C                     SELEC
+ |   C           CSSTAT    WHEQ 'TIMW'
+ |   C           C1FLG     IFEQ 'T'
+ |   C           C1JOB     ANDNEJOBNAM                     ADD
+ |   C                     MOVE 'T'       ERRFLG
+ |   C                     ENDIF
+ |   C           CSSTAT    WHEQ 'LCKW'
+ |   C           C1FLG     IFEQ 'L'
+ |   C                     MOVE 'L'       ERRFLG
+ |   C                     ENDIF
+ |   C                     ENDSL
+JW1   * UPDATE CHKPP01
+ |   C                     SELEC
+ |   C           CSSTAT    WHEQ 'MSGW'
+ |   C                     MOVE 'M'       C1FLG
+ |   C           CSSTAT    WHEQ 'LCKW'
+ |   C                     MOVE 'L'       C1FLG
+ |   C           CSSTAT    WHEQ 'TIMW'
+ |   C                     MOVE 'T'       C1FLG
+ |   C                     OTHER
+ |   C                     MOVE *BLANK    C1FLG
+ |   C                     ENDSL
+JW1  C                     UPDATCHKPL011
+      *
+JW1  C           CSSTAT    IFEQ 'MSGW'
+JW1  C           ERRFLG    ORNE *BLANK
+      *
+JW2  C                     ADD  1         LIN#
+ |   C           LIN#      IFEQ 1
+ |   C                     EXSR #HDR
+ |   C                     ENDIF
+ |    *
+JW2  C                     EXSR #MOVE
+     C                     WRITECHKWPJ41
+JW1  C                     ENDIF
+      *
+     C           @END      TAG
+      *
+JW2   *------------------------------------------------------------------------*
+ |    * HEADER
+ |    *------------------------------------------------------------------------*
+ |   C           #HDR      BEGSR
+ |    *
+ |   C                     MOVEL'SUBSYS  'C4SBYS    P
+ |   C                     MOVEL'JOB_NAME'C4JOB     P
+ |   C                     MOVEL'USER    'C4USER    P
+ |   C                     MOVEL'JOB#'    C4JOBN    P
+ |   C                     MOVEL'TYP '    C4TYPE    P
+ |   C                     MOVEL'PR '     C4PTY     P
+ |   C                     MOVEL'CPU%'    C4CPUP    P
+ |   C                     MOVEL'STATS '  C4STAT    P
+ |   C                     MOVEL'DATE'    C4CRDT    P
+ |   C                     MOVEL'TIME'    C4CRTM    P
+ |   C                     MOVEL':/N '    C4KAIG
+ |   C                     WRITECHKWPJ41
+ |    *
+JW2  C                     ENDSR
+JW2   *------------------------------------------------------------------------*
+ |    * MOVE DATA
+ |    *------------------------------------------------------------------------*
+ |   C           #MOVE     BEGSR
+ |    *
+ |   C                     MOVELCSSBYS    C4SBYS    P
+ |   C                     MOVELCSJOB     C4JOB     P
+ |   C                     MOVELCSUSER    C4USER    P
+ |   C                     MOVELCSJOBN    C4JOBN    P
+ |   C                     MOVELCSTYPE    C4TYPE    P
+ |   C                     MOVELCSPTY     C4PTY     P
+ |   C                     MOVELCSCPUP    C4CPUP    P
+ |   C                     MOVELCSSTAT    C4STAT    P
+ |   C                     MOVELSYY       WYY
+ |   C                     MOVELSMM       WMM
+ |   C                     MOVELSDD       WDD
+ |   C                     MOVELWDATE     C4CRDT
+ |   C                     MOVELSHH       WHH
+ |   C                     MOVELSMN       WMN
+ |   C                     MOVELSSS       WSS
+ |   C                     MOVELWTIME     C4CRTM
+ |   C                     MOVEL':/N '    C4KAIG
+ |    *
+JW2  C                     ENDSR
+JW2   *------------------------------------------------------------------------*
+ |    * INITIAL SET
+ |    *------------------------------------------------------------------------*
+ |   C           *INZSR    BEGSR
+ |    *
+ |   C           KEY       KLIST
+ |   C                     KFLD           CSSBYS
+ |   C                     KFLD           CSJOB
+ |    *
+ |   C                     TIME           SDATE
+ |   C                     Z-ADD0         LIN#    30
+ |   C                     MOVEL'EDIWE'   JOBNAM 10
+ |   C                     MOVE 'EKPRD'   JOBNAM
+ |   C                     MOVEL'/'       WH1
+ |   C                     MOVEL'/'       WH2
+ |   C                     MOVEL':'       WC1
+ |   C                     MOVEL':'       WC2
+ |    *
+JW2  C                     ENDSR

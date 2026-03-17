@@ -1,0 +1,147 @@
+     H            Y.
+     F** UTLR24C *******************************************
+     F*  PROGRAM: GET WORKING DATE (LAST & NEXT)           *
+     F*  WRITTEN: JW (SRA)                                 *
+     F*           05/26/2020                               *
+     F*----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UTLR24C'
+     F*                    PARM           $BDATE  8
+     F*                    PARM           $BFLG   1
+     F*                    PARM           $LSTDT  8
+     F*                    PARM           $NXTDT  8
+     F*  IN   $BDATE : 8A BASE DATE (BLANK=TODAY)
+     F*  OUT  $BFLG  : 1A Y/N, Y=BDATE IS WORKING DAY
+     F*                        N=BDATE IS NON-WORKING DAY
+     F*       $LSTDT : 8A LAST WORKING DAY
+     F*       $NXTDT : 8A NEXT WORKING DAY
+     F******************************************************
+     FAGDPL12 IF  E           K        DISK
+      *--------------------------------------------------------
+     I            DS
+     I                                        1   80F8KA
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+     I            DS
+     I                                        1   80K@DT
+     I                                        1   40K@DTYY
+     I                                        5   60K@DTMM
+     I                                        7   80K@DTDD
+     I            DS
+     I                                        1  140@SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *--------------------------------------------------------
+      *                    MAIN PROCESS
+      *--------------------------------------------------------
+     C                     EXSR #INIT
+      * GET TODAY'S WORKING FLAG
+     C                     EXSR #GETF
+      * GET LAST WORKING DATE
+     C                     EXSR #GETL
+      * GET NEXT WORKING DATE
+     C                     EXSR #GETN
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *=============================================================
+      * GET TODAY'S WORKING FLAG
+      *=============================================================
+     C           #GETF     BEGSR
+      *
+     C                     MOVE 'N'       $BFLG
+      * READ CALENDAR
+     C           KEY       CHAINAGDPL12              98
+     C           *IN98     IFEQ *OFF
+     C           F8HIRU    IFEQ ' '
+     C           F8YORU    ANDEQ' '
+     C                     MOVE 'Y'       $BFLG
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *=============================================================
+      * GET LAST WORKING DATE
+      *=============================================================
+     C           #GETL     BEGSR
+      *
+      * READ CALENDAR
+     C           KEY       SETLLAGDPL12
+     C                     DO   *HIVAL
+     C                     READPAGDPL12                  98
+     C   98                LEAVE
+      * IGNORE HIRU
+     C           F8HIRU    IFEQ '*'
+     C                     ITER
+     C                     ENDIF
+      * IGNORE YORU
+     C           F8YORU    IFEQ '*'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           F8KA      IFNE @BDATE
+     C                     MOVELF8KA      $LSTDT
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *=============================================================
+      * GET NEXT WORKING DATE
+      *=============================================================
+     C           #GETN     BEGSR
+      *
+      * READ CALENDAR
+     C           KEY       SETLLAGDPL12
+     C                     DO   *HIVAL
+     C                     READ AGDPL12                  98
+     C   98                LEAVE
+      * IGNORE HIRU
+     C           F8HIRU    IFEQ '*'
+     C                     ITER
+     C                     ENDIF
+      * IGNORE YORU
+     C           F8YORU    IFEQ '*'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           F8KA      IFNE @BDATE
+     C                     MOVELF8KA      $NXTDT
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *=============================================================
+      *                    INITIAL PROCESS
+      *=============================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $BDATE  8        IN
+     C                     PARM           $BFLG   1        OUT
+     C                     PARM           $LSTDT  8        "
+     C                     PARM           $NXTDT  8        "
+      *
+     C           KEY       KLIST
+     C                     KFLD           K@DTYY  40
+     C                     KFLD           K@DTMM  20
+     C                     KFLD           K@DTDD  20
+      *
+     C                     MOVE 'N'       $BFLG
+     C                     MOVEL'00000000'$LSTDT
+     C                     MOVEL'00000000'$NXTDT
+     C                     TIME           @SDATE
+      *
+     C           $BDATE    IFEQ *BLANK
+     C           $BDATE    OREQ '00000000'
+     C                     MOVELTODAY     $BDATE
+     C                     ENDIF
+      *
+     C                     MOVEL$BDATE    @BDATE  80
+     C                     MOVEL$BDATE    K@DT
+      *
+     C                     ENDSR

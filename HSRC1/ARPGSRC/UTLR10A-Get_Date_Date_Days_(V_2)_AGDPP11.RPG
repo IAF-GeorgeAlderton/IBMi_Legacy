@@ -1,0 +1,176 @@
+     H            Y.
+     F** UTLR10 ********************************************
+     F*  PROGRAM: *DATE* TARGET = DATE + DAYS              *
+     F*  WRITTEN: JW (SRA)  20216.01.29                    *
+     F*  --------------------------------------            *
+     F*  ADD DEFAULT PARAMETERS
+     F*----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UTLR10A'
+     F*                    PARM           $DT8    8
+     F*                    PARM           $SIGN   1
+     F*                    PARM           $DAYS   4
+     F*                    PARM           $IAF    1
+     F*                    PARM           $TGT8   8
+     F*                    PARM           $RTN    1
+     F*   IN  $DT8  :  8A DATE (YYYYMMDD) IF BLANK --> TODAY
+     F*       $SIGN :  1A + OR -          IF BLANK --> +
+     F*       $DAYS :  4A DAYS            IF BLANK --> 0000
+     F*       $IAF  :  1A Y=USE IAF CALENADER, N=USE REGULAR CALENDAR
+     F*                   IF BLANK --> Y
+     F*   OUT $TGT8 :  8A TARGET
+     F*       $RTN  :  1A RETURN FLAG (BLANK=OK, *=ERROR)
+     F******************************************************
+     FAGDPL12 IF  E           K        DISK
+      *--------------------------------------------------------
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1   80K@DT
+     I                                        1   40K@DTYY
+     I                                        5   60K@DTMM
+     I                                        7   80K@DTDD
+     I            DS
+     I                                        1   80F8KA
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+      *--------------------------------------------------------
+      *                    MAIN PROCESS
+      *--------------------------------------------------------
+      *
+     C                     EXSR #INIT
+      * DAY=0
+     C           $DAYS     IFEQ '0000'
+     C                     MOVEL$DT8      $TGT8
+     C                     GOTO @END
+     C                     ENDIF
+      *
+     C           $SIGN     IFEQ '+'
+     C                     EXSR #ADD
+     C                     ELSE
+     C           $SIGN     IFEQ '-'
+     C                     EXSR #SUB
+     C                     ELSE
+     C                     MOVE '*'       $RTN
+     C                     GOTO @END
+     C                     ENDIF
+     C                     ENDIF
+      * SET PARAMETER
+     C                     MOVEL@TGT8     $TGT8
+      *
+     C           @END      TAG
+     C                     SETON                     LR
+     C                     RETRN
+      *=============================================================
+      *                    ADD DAYS
+      *=============================================================
+     C           #ADD      BEGSR
+      *
+     C           KEY       SETGTAGDPL12
+     C                     MOVE *OFF      *IN98
+     C           *IN98     DOWEQ*OFF
+     C                     READ AGDPL12                  98
+     C           *IN98     IFEQ *OFF
+      * IGNORE HIRU
+     C           $IAF      IFEQ 'Y'
+     C           F8HIRU    ANDEQ'*'
+     C                     ITER
+     C                     ENDIF
+      * IGNORE YORU
+     C           $IAF      IFEQ 'Y'
+     C           F8YORU    ANDEQ'*'
+     C                     ITER
+     C                     ENDIF
+      * COUNT
+     C                     ADD  1         CNT
+      * END
+     C           CNT       IFEQ @DAYS
+     C                     Z-ADDF8KA      @TGT8
+     C                     MOVE *ON       *IN98
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *=============================================================
+      *                    SUBTRACT DAYS
+      *=============================================================
+     C           #SUB      BEGSR
+      *
+     C           KEY       SETLLAGDPL12
+     C                     MOVE *OFF      *IN98
+     C           *IN98     DOWEQ*OFF
+     C                     READPAGDPL12                  98
+     C           *IN98     IFEQ *OFF
+      * IGNORE HIRU
+     C           $IAF      IFEQ 'Y'
+     C           F8HIRU    ANDEQ'*'
+     C                     ITER
+     C                     ENDIF
+      * IGNORE YORU
+     C           $IAF      IFEQ 'Y'
+     C           F8YORU    ANDEQ'*'
+     C                     ITER
+     C                     ENDIF
+      * COUNT
+     C                     ADD  1         CNT
+      * END
+     C           CNT       IFEQ @DAYS
+     C                     Z-ADDF8KA      @TGT8
+     C                     MOVE *ON       *IN98
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *=============================================================
+      *                    INITIAL PROCESS
+      *=============================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $DT8    8
+     C                     PARM           $SIGN   1
+     C                     PARM           $DAYS   4
+     C                     PARM           $IAF    1
+     C                     PARM           $TGT8   8
+     C                     PARM           $RTN    1
+      *
+     C           KEY       KLIST
+     C                     KFLD           K@DTYY  40
+     C                     KFLD           K@DTMM  20
+     C                     KFLD           K@DTDD  20
+      * DEFAULT
+     C                     TIME           SDATE
+     C           $DT8      IFEQ *BLANK
+     C                     MOVELTODAY     $DT8
+     C                     ENDIF
+      *
+     C           $SIGN     IFEQ *BLANK
+     C                     MOVEL'+'       $SIGN
+     C                     ENDIF
+      *
+     C           $DAYS     IFEQ *BLANK
+     C                     MOVEL'0000'    $DAYS
+     C                     ENDIF
+      *
+     C           $IAF      IFEQ *BLANK
+     C                     MOVEL'Y'       $IAF
+     C                     ENDIF
+      *
+     C                     MOVEL'00000000'$TGT8
+     C                     MOVEL' '       $RTN
+     C                     MOVEL$DT8      @DT8    80
+     C                     Z-ADD@DT8      K@DT
+     C                     Z-ADD0         @TGT8   80
+     C                     MOVEL$DAYS     @DAYS   40
+     C                     Z-ADD0         CNT     40
+      *
+     C                     ENDSR

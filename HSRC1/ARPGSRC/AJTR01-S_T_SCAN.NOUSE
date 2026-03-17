@@ -1,0 +1,432 @@
+     H            Y.                                    1
+     H** AJTR01 *******************************************************
+     H* S/T SCAN                                                      *
+     H*                                                               *
+     H* TCH 2004.11.29                                                *
+     H**************************************************************************
+     FAJTPW01 CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     F                                        RRN2  KSFILE SFL02
+     F                                              KINFDS @INFDS
+     FFCETL11 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+     FAGAPL31 IF  E           K        DISK
+     FAH#PL11 IF  E           K        DISK
+     FAJTPP01 O   E                    DISK
+     E                    BCD        15  1
+     E                    LOT        10  8
+     E                    CMD     1   3 17
+     E                    ER      1  30 15
+     I**************************************************************************
+     I* BARCODE
+     I*(KANRI CODE+ZETAI NO+TEHAI NO+PAGE NO+NIJI KAKO KUBUN+TAISYO KUBN+
+     I**************************************************************************
+     I@INFDS      DS
+     I                                    B 370 3710@@LIN
+     I                                    B 378 3790@@REC
+     I* SYUKO YUKO KUBUN+HAKO SYU+CHECK DIGIT)
+     I            DS
+     I                                        1  15 BCD
+     I                                        1  15 BARCD
+     I                                        1   1 BCOCD
+     I                                        2   5 BZETI
+     I                                        6   80BTEHI
+     I                                        6   8 WTEHI
+     I                                        9  10 BPAGE
+     I                                       11  11 BNIJI
+     I                                       12  12 BTICD
+     I                                       13  13 BYUKO
+     I                                       14  14 BHASY
+     I                                       15  15 BCKDT
+     I                                        9  15 LTCHK
+     I*
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60WHMS
+     I                                        7  140WDATE
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *-----------------------------------------------
+     C           @@ID      DOWNE'99'
+     C           @@ID      CASEQ'01'      #SCRN1
+     C           @@ID      CASEQ'02'      #SCRN2
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *-----------------------------------------------
+     C           *INZSR    BEGSR
+      *-----------------------------------------------
+     C* AGAPL31
+     C           KEY1      KLIST
+     C                     KFLD           A2BHB1           INTERNAL PART
+     C                     KFLD           A2BHB2
+     C                     KFLD           A2BHB3
+     C* AH#PL11
+     C           KEY2      KLIST
+     C                     KFLD           BZETI            ABSOLUTE #
+     C                     KFLD           WTEHI            TEHAI #
+     C           K#FCE     KLIST
+     C                     KFLD           D@PRT1           INTERNAL PART
+     C                     KFLD           D@PRT2
+     C                     KFLD           D@PRT3
+      *
+     C           *LIKE     DEFN A2BHB1    WWBHB1
+     C           *LIKE     DEFN A2BHB2    WWBHB2
+     C           *LIKE     DEFN A2BHB3    WWBHB3
+      *
+     C                     MOVE '01'      @@ID    2
+     C                     EXSR #SET1
+     C*
+     C                     Z-ADD*ZERO     I       20
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*    SET
+     C**************************************************************************
+     C           #SET1     BEGSR
+      *
+     C                     SETOF                     30
+     C                     MOVE *BLANK    MSG
+      *
+     C                     MOVE *ON       *IN52
+     C                     WRITECTL01
+     C                     MOVE *OFF      *IN52
+      *
+     C                     CLEARSFL01
+     C                     Z-ADD1         RRN1    40
+     C                     WRITESFL01
+     C                     Z-ADD*ZERO     @@RRN   40
+     C                     MOVE *BLANK    @@ZETI
+     C                     MOVE *BLANK    BARCD
+     C                     MOVE *BLANK    LOT
+     C                     Z-ADD*ZERO     @L      20
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*    SET
+     C**************************************************************************
+     C           #SET2     BEGSR
+      *
+     C                     SETOF                     30
+     C                     MOVE *BLANK    MSG
+     C                     MOVE *OFF      *IN11
+      *
+     C                     MOVE *ON       *IN54
+     C                     WRITECTL02
+     C                     MOVE *OFF      *IN54
+      *
+     C                     CLEARSFL02
+     C                     Z-ADD1         RRN2    40
+     C                     WRITESFL02
+     C                     Z-ADD*ZERO     @@RRN2  40
+     C                     MOVE *BLANK    D@PRT1
+     C                     MOVE *BLANK    D@PRT2
+     C                     MOVE *BLANK    D@PRT3
+     C                     MOVE *BLANK    D@LOT
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*    1ST SCREEN
+     C**************************************************************************
+     C           #SCRN1    BEGSR
+      *
+     C                     MOVELCMD,1     D@KEY
+     C                     MOVELCMD,2     D@KY2
+     C                     WRITEDSP99
+     C                     MOVE *ON       *IN51
+     C                     EXFMTCTL01
+     C                     MOVE *OFF      *IN51
+      *
+     C                     SELEC
+B02  C           *INKC     WHEQ '1'
+     C                     MOVEL'99'      @@ID    2
+B02  C           *INKD     WHEQ '1'
+     C                     EXSR #SET2
+     C                     MOVEL'02'      @@ID    2
+      *
+     C                     OTHER
+     C                     EXSR @CHK1
+     C*
+B04  C           *IN30     IFEQ *ON
+     C                     EXFMTERR99
+     C                     SETOF                     30
+     C                     MOVE *BLANK    MSG
+     C                     ELSE
+     C           @@RRN     IFGT 1
+     C           *INKE     ANDEQ*ON
+     C                     EXSR @WRT1
+     C                     EXFMTDSP97
+     C                     EXSR #SET1
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDSL
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @CHK1
+     C**************************************************************************
+     C           @CHK1     BEGSR
+     C*
+     C                     SETOF                     3088
+     C*
+     C           BARCD     IFEQ *BLANK
+     C                     MOVE *ON       *IN88
+     C                     ELSE
+     C           LTCHK     IFEQ *BLANK
+     C                     MOVE '1'       W@LOT
+     C                     ELSE
+     C                     MOVE *BLANK    W@LOT   1
+     C                     ENDIF
+      *
+     C           W@LOT     IFEQ *BLANK
+     C           @@ZETI    IFNE *BLANK
+     C           BZETI     ANDNE@@ZETI
+     C                     SETON                     30
+     C                     MOVE ER,8      MSG
+     C                     ELSE
+     C* ABSOLUTE NUMBER CHECK
+     C           BZETI     SETLLFCETL11
+     C           *IN90     DOUEQ*ON
+     C           BZETI     READEFCETL11                  90
+     C           *IN90     IFEQ '0'
+     C           A2GSKD    ANDEQ*BLANK
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+     C*
+     C           *IN90     IFEQ *ON
+     C                     SETON                     30
+     C                     MOVE ER,3      MSG
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C* FIXED ORDER DATA ACUUM.CHECK
+     C           KEY2      CHAINAH#PL111             92
+     C           *IN92     IFEQ '1'
+     C*
+     C* LEVELLED PRODUCTION FIXED ORDERING
+     C           KEY1      CHAINAGAPL31              91
+     C           *IN91     IFEQ '1'
+     C                     SETON                     30
+     C                     MOVE ER,5      MSG
+     C                     GOTO #ECHK1
+     C                     END
+     C                     END
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     C           BARCD     IFNE *BLANK
+     C           *IN30     ANDEQ*OFF
+     C                     Z-ADD*ZERO     RRN1
+     C           *IN90     DOUEQ*ON
+     C                     ADD  1         RRN1
+     C           RRN1      CHAINSFL01                90
+     C           *IN90     IFEQ *OFF
+     C           S@BAR     ANDNE*BLANK
+     C           S@BAR     ANDEQBARCD
+     C                     SETON                     30
+     C                     MOVE ER,9      MSG
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C           BARCD     IFNE *BLANK
+     C           *IN30     ANDEQ*OFF
+     C                     ADD  1         @@RRN
+     C           @@RRN     CHAINSFL01                90
+     C   90                CLEARSFL01
+     C                     MOVE BARCD     S@BAR
+     C                     MOVE W@LOT     H@LOT
+     C           W@LOT     IFEQ *BLANK
+     C                     MOVE A2BHB1    H@HIN1
+     C                     MOVE A2BHB2    H@HIN2
+     C                     MOVE A2BHB3    H@HIN3
+     C                     MOVE A2ZETI    @@ZETI  4
+     C                     ENDIF
+     C                     Z-ADD@@RRN     RRN1
+     C   90                WRITESFL01
+     C  N90                UPDATSFL01
+      *
+     C           W@LOT     IFEQ '1'
+     C                     ADD  1         @L
+     C                     MOVELBARCD     LOT,@L
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     C                     MOVE *BLANK    BARCD
+      *
+     C           #ECHK1    ENDSR
+     C**************************************************************************
+     C*                    @WRT
+     C**************************************************************************
+     C           @WRT1     BEGSR
+     C*
+     C                     CLEARAJTPP011
+     C                     Z-ADD*ZERO     RRN1
+     C           *IN90     DOUEQ*ON
+     C                     ADD  1         RRN1
+     C           RRN1      CHAINSFL01                90
+     C           *IN90     IFEQ *OFF
+     C           S@BAR     ANDNE*BLANK
+     C           H@LOT     ANDEQ*BLANK
+     C                     MOVE S@BAR     BARCD
+     C                     TIME           WTIME
+     C                     Z-ADDWDATE     AJKODT                  MONTH
+     C                     Z-ADDWHMS      AJKOTM                  DAY
+     C                     MOVE #USER     AJKOME                  WORKER CD
+     C                     MOVE S@BAR     AJAPCS
+     C                     MOVE BCOCD     AJKANR           CONTROL CODE
+     C                     MOVE BZETI     AJZETI           ABSOLUTE
+     C                     MOVE WTEHI     AJTEHI           TEHAI #
+     C                     MOVE BPAGE     AJPAGE           PAGE #
+     C                     MOVE H@HIN1    AJSHN1
+     C                     MOVE H@HIN2    AJSHN2
+     C                     MOVE H@HIN3    AJSHN3
+     C                     Z-ADD1         @L
+     C                     MOVE LOT,@L    AJLTNO
+      *
+     C                     WRITEAJTPP011
+      *
+     C                     DO   *HIVAL
+     C                     ADD  1         @L
+     C           LOT,@L    IFEQ *BLANK
+     C                     LEAVE
+     C                     ENDIF
+     C                     MOVE LOT,@L    AJLTNO
+     C                     WRITEAJTPP011
+     C                     ENDDO
+      *
+     C                     ENDIF
+     C                     ENDDO
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*   2ND SCREEN
+     C**************************************************************************
+     C           #SCRN2    BEGSR
+     C*
+     C                     MOVELCMD,3     D@KEY
+     C                     MOVELCMD,2     D@KY2
+     C                     WRITEDSP99
+     C                     MOVE *ON       *IN53
+     C                     EXFMTCTL02
+     C                     MOVE *OFF      *IN53
+      *
+     C                     SELEC
+B02  C           *INKC     WHEQ '1'
+     C                     MOVEL'99'      @@ID    2
+B02  C           *INKD     WHEQ '1'
+     C                     EXSR #SET1
+     C                     MOVEL'01'      @@ID    2
+     C*
+     C                     OTHER
+     C                     EXSR @CHK2
+     C*
+B04  C           *IN30     IFEQ *ON
+     C                     EXFMTERR99
+     C                     SETOF                     30
+     C                     MOVE *BLANK    MSG
+C    C                     ELSE
+     C           @@RRN2    IFGE 1
+     C           *IN88     ANDEQ*ON
+     C           *INKE     ANDEQ*ON
+     C                     EXSR @WRT2
+     C                     EXFMTDSP97
+     C                     EXSR #SET2
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDSL
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @CHK2
+     C**************************************************************************
+     C           @CHK2     BEGSR
+     C*
+     C                     SETOF                     3088
+     C*
+     C           K#FCE     CHAINFCEPL01              90
+     C           *IN90     IFEQ *ON
+     C                     SETON                     30
+     C                     MOVE ER,8      MSG
+     C                     GOTO #ECHK2
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *IN11
+     C           D@LOT     IFEQ *BLANK
+     C                     MOVE *ON       *IN88
+     C                     ELSE
+     C                     Z-ADD*ZERO     RRN2
+     C           *IN90     DOUEQ*ON
+     C                     ADD  1         RRN2
+     C           RRN2      CHAINSFL02                90
+     C           *IN90     IFEQ *OFF
+     C           D@LOT     ANDNE*BLANK
+     C           D@LOT     ANDEQS@LOT
+     C                     SETON                     30
+     C                     MOVE ER,9      MSG
+     C                     GOTO #ECHK2
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ADD  1         @@RRN2
+     C           @@RRN2    CHAINSFL02                90
+     C                     MOVE D@LOT     S@LOT
+     C                     Z-ADD@@RRN2    RRN2
+     C   90                WRITESFL02
+     C  N90                UPDATSFL02
+     C                     ENDIF
+      *
+     C                     MOVE *BLANK    D@LOT
+      *
+     C           #ECHK2    ENDSR
+     C**************************************************************************
+     C*                    @WRT
+     C**************************************************************************
+     C           @WRT2     BEGSR
+     C*
+     C                     CLEARAJTPP011
+     C                     Z-ADD*ZERO     RRN2
+     C           *IN90     DOUEQ*ON
+     C                     ADD  1         RRN2
+     C           RRN2      CHAINSFL02                90
+     C           *IN90     IFEQ *OFF
+     C           S@LOT     ANDNE*BLANK
+     C                     TIME           WTIME
+     C                     Z-ADDWDATE     AJKODT                  MONTH
+     C                     Z-ADDWHMS      AJKOTM                  DAY
+     C                     MOVE #USER     AJKOME                  WORKER CD
+     C                     MOVE D@PRT1    AJSHN1
+     C                     MOVE D@PRT2    AJSHN2
+     C                     MOVE D@PRT3    AJSHN3
+     C                     MOVE S@LOT     AJLTNO
+      *
+     C                     WRITEAJTPP011
+      *
+     C                     ENDIF
+     C                     ENDDO
+     C*
+     C                     ENDSR
+** CMD
+F3:END    F4:POS
+F5:WRT
+F3:END  F4:APICS
+** ERROR MESSAGE
+BARCODE BLANK
+CONTROL CODE
+ABSOLUTE NO.
+ALREADY SCANNED
+LOT NUMBER
+BARCODE ERROR.
+COMPLET. WEIGHT
+PART ERROR
+DUPLICATE ERROR

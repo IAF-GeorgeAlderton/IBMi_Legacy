@@ -1,0 +1,232 @@
+             PGM
+             /** AFAC61 **************************************/
+             /*  COMBINED PARTIAL CONTAINERS MENU            */
+             /*  TCH 2000.05.22                              */
+             /*  TCH 2000.07.07 DISPLAY COMPLETED MESSAGE    */
+             /*  TCH 2001.01.30 ADD TEST MODE                */
+             /*  TCH 2002.05.21 CONVERT KANBAN DATA          */
+             /************************************** AFAC61 **/
+             DCLF       FILE(AFAPW61)
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&USID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT)     TYPE(*CHAR) LEN(7)
+             DCL        VAR(&PRTG)    TYPE(*CHAR) LEN(10)
+             DCL        VAR(&TYPE)    TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRCD1)   TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRCD2)   TYPE(*CHAR) LEN(1)
+             DCL        VAR(&WLIB)  TYPE(*CHAR) LEN(8)
+             DCL        VAR(&CNT1) TYPE(*DEC) LEN(10 0)
+             DCL        VAR(&CNT2) TYPE(*DEC) LEN(10 0)
+
+             RTVJOBA    JOB(&WSID) USER(&USID)
+
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+
+             CALL       PGM(ALBC00) PARM(&USID &WLIB)
+
+ STP1:
+
+             SNDRCVF    DEV(&WSID) RCDFMT(AFAPW611)
+             CHGVAR     VAR(&IN98) VALUE('0')
+             CHGVAR     VAR(&IN99) VALUE('0')
+
+             IF         (&IN01 *EQ '1') GOTO END
+
+             IF         (&SELET *EQ ' ') THEN(DO)
+             CHGVAR     VAR(&IN99) VALUE('1')
+             CHGVAR     VAR(&MSG) VALUE('SELECT MENU NUMBER')
+             GOTO       STP1
+             ENDDO
+
+             IF         (&IN05 *EQ '0') GOTO STP1
+
+ /* ENTRY KANBAN & LOT ID TAG */
+             IF         COND(&SELET *EQ '1') THEN(DO)
+             CALL       PGM(AFAR60) PARM(&USID)
+             ENDDO
+
+
+ /* CREATE KANBAN DATA */
+             IF         (&SELET *EQ '10') THEN(DO)
+
+             CLRPFM     FILE(AAA011199)
+             CLRPFM     FILE(AAFT11199)
+
+ /*  */
+             CRTPF      FILE(QTEMP/WAFT0111) RCDLEN(512) +
+                          OPTION(*NOLIST) SIZE(1000 1000 2) +
+                          LVLCHK(*NO) AUT(*ALL)
+             MONMSG     MSGID(CPF0000)
+             CLRPFM     FILE(QTEMP/WAFT0111)
+
+             CRTPF      FILE(QTEMP/WAA1111) RCDLEN(256) +
+                          OPTION(*NOLIST) SIZE(1000 1000 2) +
+                          LVLCHK(*NO) AUT(*ALL)
+             MONMSG     MSGID(CPF0000)
+             CLRPFM     FILE(QTEMP/WAA1111)
+
+             OVRDBF     FILE(AAA1111) TOFILE(QTEMP/WAA1111)
+             OVRDBF     FILE(AAFT0111) TOFILE(QTEMP/WAFT0111)
+             CHGVAR     VAR(&PRCD1) VALUE(' ')
+             CALL       PGM(AFAR62) PARM(&PRCD1)
+
+             CHGVAR     VAR(&PRCD2) VALUE(' ')
+             CALL       PGM(AFAR67) PARM(&PRCD2)
+
+             DLTOVR     FILE(AAA1111)
+             MONMSG     MSGID(CPF0000)
+
+             DLTOVR     FILE(AAFT0111)
+             MONMSG     MSGID(CPF0000)
+
+ /* CONVERT FILE/512 BITES */
+             OVRDBF     FILE(OUTPUT1) TOFILE(QTEMP/WAFT0111)
+             OVRDBF     FILE(OUTPUT2) TOFILE(AAFT11199)
+                CALL       PGM(AAFR81)
+             DLTOVR     FILE(OUTPUT1)
+             DLTOVR     FILE(OUTPUT2)
+
+ /* CONVERT FILE/256 BITES */
+             OVRDBF     FILE(OUTPUT1) TOFILE(QTEMP/WAA1111)
+             OVRDBF     FILE(OUTPUT2) TOFILE(AAA011199)
+                CALL       PGM(AAFR82)
+             DLTOVR     FILE(OUTPUT1)
+             DLTOVR     FILE(OUTPUT2)
+
+             IF         COND((&PRCD1 *EQ '1') *AND (&PRCD2 *EQ '1')) THEN(DO)
+             CHGVAR     VAR(&IN99) VALUE('1')
+             CHGVAR     VAR(&MSG) VALUE('NO DATA')
+             GOTO       STP1
+             ENDDO
+/*                                                                   */
+             IF         COND(&PRCD2 *EQ '2') THEN(DO)
+             CHGVAR     VAR(&IN99) VALUE('1')
+             CHGVAR     VAR(&MSG) VALUE('NO PLATING MASTER')
+             GOTO       STP1
+             ENDDO
+/*                                                                   */
+/*           IF         COND(&PRCD2 *EQ '1') THEN(DO)                */
+/*           CHGVAR     VAR(&IN99) VALUE('1')                        */
+/*           CHGVAR     VAR(&MSG) VALUE('NO PLATING DATA')           */
+/*           GOTO       STP1                                         */
+/*           ENDDO                                                   */
+/*                                                                   */
+/*           IF         COND(&PRCD1 *EQ '1') THEN(DO)                */
+/*           CHGVAR     VAR(&IN99) VALUE('1')                        */
+/*           CHGVAR     VAR(&MSG) VALUE('NO APICS DATA')             */
+/*           GOTO       STP1                                         */
+/*           ENDDO                                                   */
+
+             CLRPFM     FILE(XXX011199)
+             MONMSG     MSGID(CPF0000)
+             CLRPFM     FILE(XXFT11199)
+             MONMSG     MSGID(CPF0000)
+             IF         COND(&PRCD1 *EQ ' ') THEN(CPYF +
+                          FROMFILE(HFILE1/AAA011199) +
+                          TOFILE(HFILE1/XXX011199) MBROPT(*REPLACE) +
+                          CRTFILE(*YES))
+
+             IF         COND(&PRCD2 *EQ ' ') THEN(CPYF +
+                          FROMFILE(HWFILE1/AAFT11199) +
+                          TOFILE(HWFILE1/XXFT11199) MBROPT(*REPLACE) +
+                          CRTFILE(*YES))
+
+             IF         COND(&PRCD1 *EQ ' ' *AND &PRCD2 *EQ ' ') +
+                          THEN(DO)
+             CHGVAR     VAR(&MSG) VALUE('COMPLETED SUCCESSFULLY. +
+                          YOU HAVE BOTH APICS AND PLASTIC +
+                          KANABANS.')
+             ENDDO
+
+             IF         COND(&PRCD1 *EQ ' ' *AND &PRCD2 *EQ '1') +
+                          THEN(DO)
+             CHGVAR     VAR(&MSG) VALUE('COMPLETED SUCCESSFULLY. +
+                          YOU HAVE APICS KANBANS.')
+             ENDDO
+
+             IF         COND(&PRCD1 *EQ '1' *AND &PRCD2 *EQ ' ') +
+                          THEN(DO)
+             CHGVAR     VAR(&MSG) VALUE('COMPLETED SUCCESSFULLY. +
+                          YOU HAVE PLASTIC KANBANS.')
+             ENDDO
+
+             CHGVAR     VAR(&SELET) VALUE('  ')
+             CHGVAR     VAR(&IN98) VALUE('1')
+             ENDDO
+
+ /* RECREATE KANBAN DATA    */
+             IF         (&SELET *EQ '11') THEN(DO)
+             CHGVAR     VAR(&CNT1) VALUE(0)
+             CHGVAR     VAR(&CNT2) VALUE(0)
+             CHGVAR     VAR(&IN98) VALUE('1')
+             RTVMBRD    FILE(XXX011199) NBRCURRCD(&CNT1)
+             MONMSG     MSGID(CPF0000)
+             IF         COND(&CNT1 *GT 0) THEN(DO)
+             CPYF       FROMFILE(XXX011199) +
+                          TOFILE(HFILE1/AAA011199) MBROPT(*REPLACE)
+             ENDDO
+             RTVMBRD    FILE(XXFT11199) NBRCURRCD(&CNT2)
+             MONMSG     MSGID(CPF0000)
+             IF         COND(&CNT2 *GT 0) THEN(DO)
+             CPYF       FROMFILE(XXFT11199) +
+                          TOFILE(HWFILE1/AAFT11199) MBROPT(*REPLACE)
+             ENDDO
+             IF         COND(&CNT1 *GT 0 *AND &CNT2 *GT 0) +
+                          THEN(DO)
+             CHGVAR     VAR(&MSG) VALUE('COMPLETED SUCCESSFULLY. +
+                          YOU HAVE BOTH APICS AND PLASTIC +
+                          KANABANS.')
+             ENDDO
+
+             IF         COND(&CNT1 *GT 0 *AND &CNT2 *EQ 0) +
+                          THEN(DO)
+             CHGVAR     VAR(&MSG) VALUE('COMPLETED SUCCESSFULLY. +
+                          YOU HAVE APICS KANBANS.')
+             ENDDO
+
+             IF         COND(&CNT1 *EQ 0 *AND &CNT2 *GT 0) +
+                          THEN(DO)
+             CHGVAR     VAR(&MSG) VALUE('COMPLETED SUCCESSFULLY. +
+                          YOU HAVE PLASTIC KANBANS.')
+             ENDDO
+
+             IF         COND(&CNT1 *EQ 0 *AND &CNT2 *EQ 0) +
+                          THEN(DO)
+             CHGVAR     VAR(&MSG) VALUE('NO DATA.')
+             ENDDO
+
+             ENDDO
+
+ /* INQUIRY AND/OR BY NEW LOT # */
+             IF         (&SELET *EQ '20') THEN(DO)
+             CALL       PGM(AFAR64) PARM(&WSID)
+             ENDDO
+
+
+ /* INQUIRY AND/OR BY PART AND DATE */
+             IF         (&SELET *EQ '30') THEN(DO)
+             CALL       PGM(AFAR65) PARM(&WSID)
+             ENDDO
+
+ /* INQUIRY AND/OR BY PART AND DATE */
+             IF         (&SELET *EQ '35') THEN(DO)
+             CALL       PGM(AFAR69) PARM(&USID)
+             ENDDO
+
+ /* SUMMARY LIST */
+             IF         (&SELET *EQ '40') THEN(DO)
+             CLRPFM     FILE(AFAWP60)
+             MONMSG     MSGID(CPF0000)
+
+             CALL       PGM(AFAR66) PARM(&USID)
+             ENDDO
+ /* CANCEL       */
+             IF         (&SELET *EQ '50') THEN(DO)
+
+             CALL       PGM(AFAC68)
+             ENDDO
+
+             GOTO       STP1
+
+ END:
+             ENDPGM

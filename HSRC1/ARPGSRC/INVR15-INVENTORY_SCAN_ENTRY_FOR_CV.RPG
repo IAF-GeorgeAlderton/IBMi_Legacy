@@ -1,0 +1,190 @@
+     H            Y.                                    1
+      *  INVR15     ************************************************************
+      * INVENTORY SCAN ENTRY --  FOR CV                                        *
+      *       2022/01/14
+      **************************************************************************
+     FINVPW15 CF  E                    WORKSTN
+     FALBPL30 IF  E           K        DISK
+     FINVPP15 UF  E           K        DISK                      A
+      **************************************************************************
+     E                    ERR     1   3 30
+      **************************************************************************
+     I            DS
+     I                                        1  17 D@BAR
+     I                                        1   4 WMDL#
+     I                                        5   8 WNONY
+     I                                        9  16 WPRDAT
+     I                                        1  16 BARCD
+     I                                       17  17 WCHKDG
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60ALTIME
+     I                                        7  140ALDATE
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           PWKCD   6
+     C                     PARM           PUSER  10
+      *
+      **************************************************************************
+      *                    MAIN ROUTINE
+      **************************************************************************
+      *
+     C           @@ID      DOWNE'99'
+     C           @@ID      CASEQ'01'      #SCRN1           MODULE# BARCODE
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *
+      **************************************************************************
+      *         INITIALIZE
+      **************************************************************************
+     C           *INZSR    BEGSR
+      *
+     C           P#BRC     PLIST
+     C                     PARM           PMAREA100
+     C                     PARM           PMBYTE  3
+     C                     PARM           PMCHK   1
+     C                     PARM           PMRTCD  1
+      *
+     C                     MOVE '01'      @@ID    2
+     C                     TIME           @TIME  140
+      *
+     C                     MOVELPWKCD     WKCD    60
+     C           WKCD      CHAINALBPL30              31
+     C                     MOVELALWKNM    WKNM   20
+      *
+     C                     ENDSR
+      *************************************************************************
+     C           #SCRN1    BEGSR
+      *
+      * calculate total number of modules in inventory file...
+     C                     EXSR #TOTM
+      *
+     C                     EXFMTDSP01
+      *
+     C                     SELEC
+     C           *INKC     WHEQ *ON
+     C                     MOVE *OFF      *IN99
+     C                     MOVE *OFF      *IN61
+     C                     MOVE *BLANK    D@ERR
+     C                     MOVE '99'      @@ID
+      *
+     C                     OTHER
+     C                     EXSR #CHK1
+     C           *IN99     IFEQ *OFF
+     C                     EXSR #WRT
+     C                     ENDIF
+      *
+     C                     ENDSL
+      *
+     C                     ENDSR
+      **************************************************************************
+      *     CHECK
+      **************************************************************************
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE *OFF      *IN99
+     C                     MOVE *OFF      *IN61
+     C                     MOVE *BLANK    D@ERR
+      *
+     C           D@BAR     IFEQ *BLANK
+     C                     SETON                     9961
+     C                     MOVELERR,1     D@ERR
+     C                     GOTO #ECHK1
+     C                     ENDIF
+      *
+     C           D@BAR     CHAININVPP15             N50
+     C           *IN50     IFEQ *OFF
+     C                     SETON                     9961
+     C                     MOVELERR,2     D@ERR
+     C                     GOTO #ECHK1
+     C                     ENDIF
+      *
+      * check digit...
+     C                     MOVELBARCD     PMAREA    P
+     C                     MOVE '016'     PMBYTE
+     C                     MOVE *BLANK    PMCHK
+     C                     MOVE *BLANK    PMRTCD
+     C                     CALL 'ALBRCC'  P#BRC
+     C           PMRTCD    IFNE *BLANK
+     C                     MOVELERR,3     D@ERR
+     C                     SETON                     9961
+     C                     GOTO #ECHK1
+     C                     ELSE
+     C           PMCHK     IFNE WCHKDG
+     C                     MOVELERR,3     D@ERR
+     C                     SETON                     9961
+     C                     GOTO #ECHK1
+     C                     ENDIF
+     C                     ENDIF
+      *
+      * check for valid date...
+     C                     MOVELWPRDAT    INDATE 10
+     C                     MOVE *BLANKS   ODATE   8
+     C                     MOVE *BLANK    ORTNCD  1
+     C                     CALL 'UTLR01'
+     C                     PARM           INDATE
+     C                     PARM           ODATE
+     C                     PARM           ORTNCD
+     C           ORTNCD    IFNE *BLANK
+     C                     MOVELERR,3     D@ERR
+     C                     SETON                     9961
+     C                     GOTO #ECHK1
+     C                     ENDIF
+      *
+     C           #ECHK1    ENDSR
+      **************************************************************************
+      *     WRITE
+      **************************************************************************
+     C           #WRT      BEGSR
+      *
+     C                     CLEARINVPP151
+     C                     TIME           @TIME  140
+      *
+     C                     Z-ADDALDATE    IVDATE
+     C                     Z-ADDALTIME    IVTIME
+     C                     MOVELPWKCD     IVWKCD
+     C                     MOVELWKNM      IVWKNM
+     C                     MOVELD@BAR     IVBARC
+     C                     MOVELWMDL#     IVMDL#
+     C                     MOVELWNONY     IVNONY
+     C                     MOVELWPRDAT    IVPDAT
+     C                     WRITEINVPP151
+      *
+     C                     MOVEL*BLANKS   D@BAR
+      *
+     C                     ENDSR
+      **************************************************************************
+      *     CALCULATE TOTAL NUMBER OF MODULES IN INVENTORY FILE (INVPP15)
+      **************************************************************************
+     C           #TOTM     BEGSR
+      *
+     C                     MOVE *OFF      *IN75
+     C           *LOVAL    SETLLINVPP15
+      *
+     C                     Z-ADD*ZERO     D@TOTM
+     C           *IN75     DOWEQ*OFF
+      *
+     C                     READ INVPP15                  75
+     C           *IN75     IFEQ *OFF
+     C           IVSKJY    IFEQ *BLANK
+     C                     ADD  1         D@TOTM
+     C                     ELSE
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      **************************************************************************
+** ERR
+SCAN MODULE BARCODE
+MODULE ALREADY SCANNED
+INVALID MODULE BARCODE

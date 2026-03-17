@@ -1,0 +1,445 @@
+     H            Y.
+     F** AFFR02 ******************************************************
+     F*  PROGRAM    : TAC ORDER CREATE AND UPDATE FC/FIRM            *
+     F*  WRITTEN    : 11/30/2015                                     *
+     F*  WRITTEN BY : JW (SRA)                                       *
+     F*  FUNCTION   : READ AFFWP02 AND UPDATE ORDER                  *
+     F****************************************************************
+     FAFFWP02 IF  E           K        DISK
+     FABBPL63 UF  E           K        DISK                      A
+     FAFFWP03 UF  E           K        DISK                      A
+     FQPRINT  O   F     132     OF     PRINTER
+      *---------------------------------------------------------------
+     E                    TBL     1   1 40
+      *
+     I            DS
+     I                                        1   80W@DATE
+     I                                        1   40W@YY
+     I                                        5   60W@MM
+     I                                        7   80W@DD
+     I            DS
+     I                                        1   60W@TIME
+     I                                        1   20W@HH
+     I                                        3   40W@MN
+     I                                        5   60W@SS
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      ******************************************************
+      *                    MAIN PROCESS
+      ******************************************************
+      * Initial Process
+     C                     EXSR @INIT
+      *
+      * CREATE WORK (AFFWP03) -------------------
+     C                     MOVE *OFF      *IN81
+     C           *IN81     DOUEQ*ON
+     C                     READ AFFWP02                  81
+     C           *IN81     IFEQ *OFF
+     C           AFTYPE    IFEQ 'F'
+     C                     EXSR @CRTF
+     C                     ELSE
+     C                     EXSR @CRTO
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      *
+      * UPADTE FC --------------------------------
+     C           *LOVAL    SETLLAFFWP03
+     C                     MOVE *OFF      *IN82
+     C           *IN82     DOUEQ*ON
+     C                     READ AFFWP03                  82
+     C           *IN82     IFEQ *OFF
+     C                     MOVELBBNONY    K@NONY
+     C                     MOVELBBNKOJ    K@NKOJ
+     C                     MOVELBBNUKE    K@NUKE
+     C                     MOVELBBMHN1    K@MHN1
+     C                     MOVELBBMHN2    K@MHN2
+     C                     MOVELBBMHN3    K@MHN3
+     C                     MOVELBBMHN4    K@MHN4
+     C                     MOVELBBDATE    K@DATE
+     C           K#WP03    CHAINABBPL63              93
+     C           *IN93     IFEQ *OFF
+     C                     EXSR @SET2
+     C                     UPDATABBPP601
+     C                     ADD  1         UPD#
+     C                     MOVEL'UPD'     TYPE    3
+     C                     EXSR @PRINT
+     C                     ELSE
+     C                     EXSR @SET2
+     C                     WRITEABBPP601
+     C                     ADD  1         ADD#
+     C                     MOVEL'ADD'     TYPE
+     C                     EXSR @PRINT
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      * Print Footer------------------------------
+     C           UPD#      ADD  ADD#      TTL#
+     C           TTL#      IFNE 0
+     C                     EXCPTFOT1
+     C                     SETON                     U1
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      ******************************************************
+      *          CREATE WORK FILE (AFFWP03) FOR FC ORDER
+      ******************************************************
+     C           @CRTF     BEGSR
+      * GET WEEK#
+     C                     MOVELAFDDAT    $DATE
+     C                     CALL 'UTLR02'
+     C                     PARM           $DATE   8
+     C                     PARM           $DAY    1
+     C                     PARM           $WEEK#  1
+     C                     PARM           $RTN    1
+     C                     MOVEL$WEEK#    WEEK#   10
+      * SET KEY
+     C                     MOVELAFNONY    K@NONY
+     C                     MOVEL'0'       K@NKOJ
+     C                     MOVEL'00  '    K@NUKE
+     C                     MOVELAFMHN1    K@MHN1
+     C                     MOVELAFMHN2    K@MHN2
+     C                     MOVELAFMHN3    K@MHN3
+     C                     MOVELAFMHN4    K@MHN4
+     C                     MOVELAFDDAT    K@DATE
+     C           K#WP03    CHAINAFFWP03              91
+     C           *IN91     IFEQ *OFF
+     C                     EXSR @SET1
+     C                     UPDATAFFWP03R
+     C                     ELSE
+     C                     CLEARAFFWP03R
+     C                     EXSR @SET1
+     C                     Z-ADDAFTOKU    BBTOKU
+     C                     Z-ADDAFNONY    BBNONY
+     C                     MOVEL'0'       BBNKOJ
+     C                     MOVEL'00  '    BBNUKE
+     C                     MOVEL'0000'    BBSEBN
+     C                     MOVELAFMHN1    BBMHN1
+     C                     MOVELAFMHN2    BBMHN2
+     C                     MOVELAFMHN3    BBMHN3
+     C                     MOVELAFMHN4    BBMHN4
+     C                     MOVELAFSHN1    BBSHN1
+     C                     MOVELAFSHN2    BBSHN2
+     C                     MOVELAFSHN3    BBSHN3
+     C                     MOVELAFDDAT    BBDATE
+     C                     WRITEAFFWP03R
+     C                     ENDIF
+      *
+     C                     ENDSR
+      ******************************************************
+      *          CREATE WORK FILE (  ) FOR FIRM ORDER
+      ******************************************************
+     C           @CRTO     BEGSR
+     C                     ENDSR
+      ******************************************************
+      *                    SET DATA 1
+      ******************************************************
+     C           @SET1     BEGSR
+     C                     Z-ADDW@YY      BBKOYY
+     C                     Z-ADDW@MM      BBKOMM
+     C                     Z-ADDW@DD      BBKODD
+     C                     Z-ADDW@HH      BBKOHH
+     C                     Z-ADDW@MN      BBKOSS
+     C                     MOVEL#USER     BBKOME
+     C                     MOVELAFMEM1    BBKUBN
+      *
+     C                     SELEC
+     C           1         WHEQ WEEK#
+     C                     MOVE AFDDAT    BBDT11
+     C                     Z-ADDAFQTY     BBNS01
+     C           2         WHEQ WEEK#
+     C                     MOVE AFDDAT    BBDT12
+     C                     Z-ADDAFQTY     BBNS02
+     C           3         WHEQ WEEK#
+     C                     MOVE AFDDAT    BBDT13
+     C                     Z-ADDAFQTY     BBNS03
+     C           4         WHEQ WEEK#
+     C                     MOVE AFDDAT    BBDT14
+     C                     Z-ADDAFQTY     BBNS04
+     C           5         WHEQ WEEK#
+     C                     MOVE AFDDAT    BBDT15
+     C                     Z-ADDAFQTY     BBNS05
+     C                     ENDSL
+      *
+     C                     MOVE AFDDAT    DAY#    20
+     C                     SELEC
+     C           1         WHEQ DAY#
+     C                     MOVE AFQTY     BBSU01
+     C           2         WHEQ DAY#
+     C                     MOVE AFQTY     BBSU02
+     C           3         WHEQ DAY#
+     C                     MOVE AFQTY     BBSU03
+     C           4         WHEQ DAY#
+     C                     MOVE AFQTY     BBSU04
+     C           5         WHEQ DAY#
+     C                     MOVE AFQTY     BBSU05
+     C           6         WHEQ DAY#
+     C                     MOVE AFQTY     BBSU06
+     C           7         WHEQ DAY#
+     C                     MOVE AFQTY     BBSU07
+     C           8         WHEQ DAY#
+     C                     MOVE AFQTY     BBSU08
+     C           9         WHEQ DAY#
+     C                     MOVE AFQTY     BBSU09
+     C           10        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU10
+     C           11        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU11
+     C           12        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU12
+     C           13        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU13
+     C           14        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU14
+     C           15        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU15
+     C           16        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU16
+     C           17        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU17
+     C           18        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU18
+     C           19        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU19
+     C           20        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU20
+     C           21        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU21
+     C           22        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU22
+     C           23        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU23
+     C           24        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU24
+     C           25        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU25
+     C           26        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU26
+     C           27        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU27
+     C           28        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU28
+     C           29        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU29
+     C           30        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU30
+     C           31        WHEQ DAY#
+     C                     MOVE AFQTY     BBSU31
+     C                     ENDSL
+      * TOTAL
+     C           BBNS01    ADD  BBNS02    BBGEKN
+     C                     ADD  BBNS03    BBGEKN
+     C                     ADD  BBNS04    BBGEKN
+     C                     ADD  BBNS05    BBGEKN
+      *
+     C                     ENDSR
+      ******************************************************
+      *                    SET DATA 2
+      ******************************************************
+     C           @SET2     BEGSR
+     C                     MOVELBBSKJY    ABSKJY
+     C                     MOVELBBSKYY    ABSKYY
+     C                     MOVELBBSKMM    ABSKMM
+     C                     MOVELBBSKDD    ABSKDD
+     C                     MOVELBBKOYY    ABKOYY
+     C                     MOVELBBKOMM    ABKOMM
+     C                     MOVELBBKODD    ABKODD
+     C                     MOVELBBKOHH    ABKOHH
+     C                     MOVELBBKOSS    ABKOSS
+     C                     MOVELBBKOME    ABKOME
+     C                     MOVELBBTOKU    ABTOKU
+     C                     MOVELBBNONY    ABNONY
+     C                     MOVELBBNKOJ    ABNKOJ
+     C                     MOVELBBNUKE    ABNUKE
+     C                     MOVELBBSEBN    ABSEBN
+     C                     MOVELBBMHN1    ABMHN1
+     C                     MOVELBBMHN2    ABMHN2
+     C                     MOVELBBMHN3    ABMHN3
+     C                     MOVELBBMHN4    ABMHN4
+     C                     MOVELBBSHN1    ABSHN1
+     C                     MOVELBBSHN2    ABSHN2
+     C                     MOVELBBSHN3    ABSHN3
+     C                     MOVELBBKUBN    ABKUBN
+     C                     MOVELBBDATE    ABDATE
+     C                     MOVELBBDT11    ABDT11
+     C                     MOVELBBDT21    ABDT21
+     C                     MOVELBBNS01    ABNS01
+     C                     MOVELBBWK01    ABWK01
+     C                     MOVELBBDT12    ABDT12
+     C                     MOVELBBDT22    ABDT22
+     C                     MOVELBBNS02    ABNS02
+     C                     MOVELBBWK02    ABWK02
+     C                     MOVELBBDT13    ABDT13
+     C                     MOVELBBDT23    ABDT23
+     C                     MOVELBBNS03    ABNS03
+     C                     MOVELBBWK03    ABWK03
+     C                     MOVELBBDT14    ABDT14
+     C                     MOVELBBDT24    ABDT24
+     C                     MOVELBBNS04    ABNS04
+     C                     MOVELBBWK04    ABWK04
+     C                     MOVELBBDT15    ABDT15
+     C                     MOVELBBDT25    ABDT25
+     C                     MOVELBBNS05    ABNS05
+     C                     MOVELBBWK05    ABWK05
+     C                     MOVELBBGEKN    ABGEKN
+     C                     MOVELBBWKSU    ABWKSU
+     C                     MOVELBBSU01    ABSU01
+     C                     MOVELBBSU02    ABSU02
+     C                     MOVELBBSU03    ABSU03
+     C                     MOVELBBSU04    ABSU04
+     C                     MOVELBBSU05    ABSU05
+     C                     MOVELBBSU06    ABSU06
+     C                     MOVELBBSU07    ABSU07
+     C                     MOVELBBSU08    ABSU08
+     C                     MOVELBBSU09    ABSU09
+     C                     MOVELBBSU10    ABSU10
+     C                     MOVELBBSU11    ABSU11
+     C                     MOVELBBSU12    ABSU12
+     C                     MOVELBBSU13    ABSU13
+     C                     MOVELBBSU14    ABSU14
+     C                     MOVELBBSU15    ABSU15
+     C                     MOVELBBSU16    ABSU16
+     C                     MOVELBBSU17    ABSU17
+     C                     MOVELBBSU18    ABSU18
+     C                     MOVELBBSU19    ABSU19
+     C                     MOVELBBSU20    ABSU20
+     C                     MOVELBBSU21    ABSU21
+     C                     MOVELBBSU22    ABSU22
+     C                     MOVELBBSU23    ABSU23
+     C                     MOVELBBSU24    ABSU24
+     C                     MOVELBBSU25    ABSU25
+     C                     MOVELBBSU26    ABSU26
+     C                     MOVELBBSU27    ABSU27
+     C                     MOVELBBSU28    ABSU28
+     C                     MOVELBBSU29    ABSU29
+     C                     MOVELBBSU30    ABSU30
+     C                     MOVELBBSU31    ABSU31
+      *
+     C                     ENDSR
+      ******************************************************
+      *          @PRINT: PRINT ERROR REPORT
+      ******************************************************
+     C           @PRINT    BEGSR
+      *
+     C   OF                EXCPTHDR1
+     C   OF                SETOF                     OF
+     C                     ADD  1         SEQ#
+     C           ABNS01    ADD  ABNS02    TTLM
+     C                     ADD  ABNS03    TTLM
+     C                     ADD  ABNS04    TTLM
+     C                     ADD  ABNS05    TTLM
+     C                     EXCPTDTL1
+      *
+     C                     ENDSR
+      ******************************************************
+      *                  INITIAL ROUTINE
+      ******************************************************
+     C           @INIT     BEGSR
+      *
+     C           K#WP03    KLIST
+     C                     KFLD           K@NONY
+     C                     KFLD           K@NKOJ
+     C                     KFLD           K@NUKE
+     C                     KFLD           K@MHN1
+     C                     KFLD           K@MHN2
+     C                     KFLD           K@MHN3
+     C                     KFLD           K@MHN4
+     C                     KFLD           K@DATE
+      *
+     C           *LIKE     DEFN ABNONY    K@NONY
+     C           *LIKE     DEFN ABNKOJ    K@NKOJ
+     C           *LIKE     DEFN ABNUKE    K@NUKE
+     C           *LIKE     DEFN ABMHN1    K@MHN1
+     C           *LIKE     DEFN ABMHN2    K@MHN2
+     C           *LIKE     DEFN ABMHN3    K@MHN3
+     C           *LIKE     DEFN ABMHN4    K@MHN4
+     C           *LIKE     DEFN ABDATE    K@DATE
+      *
+     C                     Z-ADD*DATE     W@DATE
+     C                     TIME           W@TIME
+     C                     Z-ADD0         ADD#    50
+     C                     Z-ADD0         UPD#    50
+     C                     Z-ADD0         TTL#    50
+     C                     Z-ADD0         SEQ#    50
+     C                     Z-ADD0         TTLM    90
+     C                     MOVE *ON       *INOF
+     C                     MOVELTBL,1     #TITLE 38
+     C                     SETOF                     U1
+      *
+     C                     ENDSR
+      *************************************************************
+      *                    OUTPUT                                 *
+      *************************************************************
+     OQPRINT  E  102           HDR1
+     O                                    8 'PROGRAM:'
+     O                                   15 'AFFR02'
+     O                         #TITLE    70
+     O                                  100 'DATE'
+     O                         W@DATE   111 '    .  .  '
+     O                         W@TIME   120 '  :  :  '
+     O                         PAGE  Z  130
+     O                                  126 'PAGE'
+     O        E  1             HDR1
+     O                                    4 'SEQ'
+     O                                   10 'U/A'
+     O                                   16 'DLV#'
+     O                                   19 'F'
+     O                                   24 'DOC'
+     O                                   47 'CUSTOMER-PART-------'
+     O                                   50 '-->'
+     O                                   56 'DATE'
+     O                                   69 'QTY(WK1)'
+     O                                   81 'QTY(WK2)'
+     O                                   93 'QTY(WK3)'
+     O                                  105 'QTY(WK4)'
+     O                                  117 'QTY(WK5)'
+     O                                  129 'M-TTL'
+     O        E  1             HDR1
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+     O                                  130 '----------'
+      *
+     O        E  1             DTL1
+     O                         SEQ#  Z    5
+     O                         TYPE    +002
+     O                         ABNONY  +002
+     O                         ABNKOJ  +002
+     O                         ABNUKE  +002
+     O                         ABMHN1  +002
+     O                         ABMHN2  +001
+     O                         ABMHN3  +001
+     O                         ABMHN4  +001
+     O                         ABDATE  +001
+     O                         ABNS011 +001
+     O                         ABNS021 +001
+     O                         ABNS031 +001
+     O                         ABNS041 +001
+     O                         ABNS051 +001
+     O                         TTLM  1 +001
+      *
+     O        E  1             FOT1
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+     O                                  130 '----------'
+      *
+     O        E  1             FOT1
+     O                                   17 '** TOTAL RECORDS:'
+     O                         TTL#  J   24
+     O                                   33 '(UPDATE:'
+     O                         UPD#  J   40
+     O                                   46 ', ADD:'
+     O                         ADD#  J   53
+     O                                   54 ')'
+** TBL
+<< TAC ORDER UPLOADING LOG LIST >>

@@ -1,0 +1,237 @@
+     H            Y.
+     F** AB#R0E6  ***********************************************
+     F*  FORD ORDER UPLOADE STATUS REPORT (V.2)                 *
+     F*  JW   2022.05.03                                        *
+     F***********************************************************
+     FABF3L01 IF  E           K        DISK
+     FAB#PL1J IF  E           K        DISK
+     FAB#PPF1 IF  E           K        DISK
+     FAB#WP0E UF  E           K        DISK                      A
+      ****************************************************
+     E                    MSG     1  10 15
+     E                    STS     1   5 15
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      ****************************************************
+     C                     EXSR #INIT
+      *
+     C                     EXSR #SET3P
+      *
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  SET AB#WP0E BY ABF3P01                            *
+      *----------------------------------------------------*
+     C           #SET3P    BEGSR
+      *
+     C           K#3L01    SETLLABF3L01
+     C                     DO   *HIVAL
+     C           K#3L01    READEABF3L01                  98
+     C   98                LEAVE
+      * PRINT
+     C           AFDLDT    IFNE @NOHZ
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     CLEARAB#WP0E1
+     C                     EXSR #CHK3P
+     C                     MOVELAFSTID    E0STID
+     C                     Z-ADDAFNONY    E0NONY
+     C                     MOVELAFMHIN    E0MHIN
+      * UPLOADED
+     C                     MOVELAFSTID    E1STID
+     C                     Z-ADDAFNONY    E1NONY
+     C                     MOVELAFMHIN    E1MHIN
+     C                     Z-ADD@QTY      E1QTY
+     C                     Z-ADD@QPC      E1QPC
+     C                     Z-ADD@QSB      E1QSB
+      *
+     C                     Z-ADDAFQTY2    E1FDMD
+     C                     Z-ADDAFYSQY    E1FRCV
+     C                     Z-ADD 8S 0     E1IQTY
+     C                     Z-ADDAFDLDT    E1NOHZ
+     C                     MOVEL 4A       E1DOCK
+     C                     MOVEL 6A       E1POR#
+     C                     MOVEL15A       E1STTS
+     C                     MOVEL15A       E1MSG
+     C                     WRITEAB#WP0E1
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  CHECK ABF3P01                                     *
+      *----------------------------------------------------*
+     C           #CHK3P    BEGSR
+      * QPC
+     C                     Z-ADD0         @QPC    60
+     C                     Z-ADD0         @QSB    80
+     C                     MOVELXSURY     @QTY    80
+     C           WSYOS     IFEQ 0
+     C                     Z-ADD@QTY      @QPC
+     C                     ELSE
+     C                     Z-ADDWSSYOS    @QPC
+     C                     ENDIF
+      *
+     C           @QTY      DIV  @QPC      @SHO    80
+     C                     MVR            @REM   104
+     C           @REM      IFNE 0
+     C                     ADD  1         @SHO
+     C                     ENDIF
+     C           @SHO      MULT @QPC      @QSB
+     C                     ENDIF
+      * CHECK PP10
+     C                     MOVE *BLANK    XSYS
+     C                     MOVE *BLANK    XADJ
+     C                     MOVEL'OK'      XTOBE     P
+     C                     Z-ADD0         EACNT   20       E & ALIVE
+     C                     Z-ADD0         ECCNT   20       E & CHANGE
+     C                     Z-ADD0         EDCNT   20       E & DELETE
+     C                     Z-ADD0         MACNT   20       M & ALIVE
+     C                     Z-ADD0         MDCNT   20       M & DELETE
+     C                     Z-ADD0         ESRYO   70       E QTY
+     C                     Z-ADD0         MSRYO   70       M QTY
+      *
+     C                     MOVELXNONY     K#NONY
+     C                     MOVELWNKOJ     K#NKOJ
+     C                     MOVELWNUKE     K#NUKE
+     C                     Z-ADDWNYMD     K#NOHZ
+     C                     MOVELXBIN      K#NOBN
+     C                     MOVELWODRN     K#ODRN 10
+     C                     MOVELAFIPAR    K#MHIN 20
+      *
+     C           K#PL1J    SETLLAB#PL1J
+     C                     DO   *HIVAL
+     C           K#PL1J    READEAB#PL1J                  97
+     C   97                LEAVE
+      *
+     C                     SELEC
+     C           BAEDIK    WHEQ 'E'
+     C           BASKJY    IFEQ ' '
+     C                     ADD  1         EACNT
+     C                     Z-ADDBASRYO    ESRYO
+     C                     ELSE
+     C                     ADD  1         EDCNT
+     C                     ENDIF
+     C                     OTHER
+     C           BASKJY    IFEQ ' '
+     C                     ADD  1         MACNT
+     C                     Z-ADDBASRYO    MSRYO
+     C                     ELSE
+     C                     ADD  1         MDCNT
+     C                     ENDIF
+     C                     ENDSL
+     C                     ENDDO
+      *
+     C                     SELEC
+     C           EACNT     WHGE 1                          <E & ALIVE>
+     C                     MOVELMSG,9     XSYS             UPLOADED
+     C                     MOVE *BLANK    XADJ
+     C           ECCNT     WHGE 1                          <E & CHANGED>
+     C                     MOVELMSG,9     XSYS             UPLOADED
+     C                     MOVELMSG,5     XADJ
+     C           EDCNT     WHGE 1                          <E & DELETE>
+     C                     MOVELMSG,9     XSYS
+     C                     MOVELMSG,4     XADJ
+     C           MACNT     WHGE 1                          <M & ALIVE>
+     C                     MOVELMSG,10    XSYS             MAN_ADDED
+     C                     MOVE *BLANK    XADJ
+     C           MDCNT     WHGE 1                          <M & DELETE>
+     C                     MOVELMSG,10    XSYS             MANADDED
+     C                     MOVELMSG,4     XADJ             *DELETED*
+     C                     ENDSL
+      * CHECK PPF1 (TOBE)
+     C                     Z-ADDWNYMD     K#NOHZ
+     C                     MOVELAFSTID    K#STID
+     C                     MOVELAFICCD    K#STFC
+     C                     MOVELAFDOCK    K#NUKE
+     C                     MOVELWMHIN     K#IPAR
+     C                     Z-ADDTODAY     K#DATE
+     C           K#PPF1    CHAINAB#PPF1              96
+      * DLT
+     C           XADJ      IFNE MSG,4
+     C           *IN96     IFEQ *ON
+     C           *IN96     OREQ *OFF
+     C           F5QTY     ANDEQ0
+     C                     MOVELMSG,1     XTOBE
+     C                     ENDIF
+     C                     ENDIF
+      * CHG
+     C           XADJ      IFEQ *BLANK
+     C           *IN96     IFEQ *OFF
+     C           @QTY      ANDNEESRYO
+     C                     MOVELMSG,5     XADJ
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           *IN96     IFEQ *OFF
+     C           @QSB      ANDNEESRYO
+     C                     MOVELMSG,3     XTOBE
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *--------------------------------------------------
+      * INITIALIZE
+      *--------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $NOHZ   8        SHIP DATE
+     C                     PARM           $PDAT   8        PROCESS DATE
+      *
+     C           K#3L01    KLIST
+     C                     KFLD           K#PRHZ  80
+      *
+     C           K#PL1J    KLIST
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#NKOJ  1
+     C                     KFLD           K#NUKE  4
+     C                     KFLD           K#NOHZ  80
+     C                     KFLD           K#NOBN  20
+     C                     KFLD           K#ODRN 10
+     C                     KFLD           K#MHIN 20
+      *
+     C           K#PPF1    KLIST
+     C                     KFLD           K#NOHZ  80
+     C                     KFLD           K#STID  5
+     C                     KFLD           K#STFC  5
+     C                     KFLD           K#NUKE  4
+     C                     KFLD           K#IPAR 20
+     C                     KFLD           K#DATE  80
+      *
+     C                     TIME           SDATE
+     C                     MOVEL$NOHZ     @NOHZ   80
+     C                     MOVEL$PDAT     @PDAT   80
+      *
+     C           $PDAT     IFEQ *BLANK
+     C           $PDAT     OREQ *ZEROS
+     C                     Z-ADDTODAY     @PDAT
+     C                     ENDIF
+      *
+     C                     Z-ADD@PDAT     K#PRHZ
+      *
+     C                     ENDSR
+      *
+** MSG (15A)..>
+TO_BE_DLT       01
+TO_BE_ADD       02
+TO_BE_CHG       03
+*DELETED*       04
+*QTY CHANGED*   05
+                06
+                07
+                08
+UPLOADED        09
+MAN_ADDED       10
+** STS (15A)..>
+                01
+                02
+                03
+                04
+                05

@@ -1,0 +1,296 @@
+     H            Y.
+      ** UTLR61 ****************************************************
+      *  GET IAF PART# FROM USER PART                              *
+      *  (COPIED FROM UTLR55)                                      *
+      **************************************************************
+      *  CALLING SEQ.                                              *
+     C*                    CALL 'UTLR61'
+     C*                    PARM           $NONY   4
+     C*                    PARM           $NKOJ   1
+     C*                    PARM           $NUKE   4
+     C*                    PARM           $MHIN1 20
+     C*                    PARM           @TOKU   40
+     C*                    PARM           @MHIN2 20
+     C*                    PARM           @SHIN  12
+     C*                    PARM           @RTN    1
+     C*   IN  $NONY   4A  DELIV#                                   *
+     C*       $NKOJ   1A  FACTORY                                  *
+     C*       $NUKE   4A  DOCK                                     *
+     C*       $MHIN1 20A  CUST PART#                               *
+     C*   OUT @TOKU   4,0 CUST#                                    *
+     C*       @MHIN2 20A  CUST PART# (NO BLANK, NO HIPHEN)         *
+     C*       @SHIN  12A  IAF  PART#                               *
+     C*       @RTN    1A  RETURN FLAG (BLANK=OK,                   *
+     C*                     BLANK=OK                               *
+     C*                     1    =DELIVERY CODE NOT FOUND          *
+     C*                     2    =COMMON & IAF PART M/F NOT FOUND  *
+     C*                     3    =SHIPPING INF NOT FOUND           *
+      **************************************************************
+     FFAAPL09 IF  E           K        DISK
+     FEDIPP42 IF  E           K        DISK
+     FGADPL15 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+      ***********************************************************
+     E                    IN         20  1
+     E                    OT         20  1
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1   80B7SKHZ
+     I                                        1   40B7SKYY
+     I                                        5   60B7SKMM
+     I                                        7   80B7SKDD
+     I            DS
+     I                                        1   80FBTKDT
+     I                                        1   40FBTKYY
+     I                                        5   60FBTKMM
+     I                                        7   80FBTKDD
+     I            DS
+     I                                        1   80FBTSDT
+     I                                        1   40FBTSYY
+     I                                        5   60FBTSMM
+     I                                        7   80FBTSDD
+     I            DS
+     I                                        1  20 @MHIN
+     I                                        1   5 @MHN1
+     I                                        6  10 @MHN2
+     I                                       11  15 @MHN3
+     I                                       16  20 @MHN4
+     I            DS
+     I                                        1  12 PSHIN
+     I                                        1   5 PSHN1
+     I                                        6  10 PSHN2
+     I                                       11  12 PSHN3
+      ****************************************************
+      * MAIN ROUTINE
+      ****************************************************
+      *
+     C                     EXSR #INIT
+      * ERROR
+     C           @RTN      IFNE *BLANK
+     C                     GOTO ENDP
+     C                     ENDIF
+      *
+      * CHECK COMMON PART M/F =========================
+      *
+     C           KEY1      SETLLFAAPL09
+     C                     DO   *HIVAL
+     C           KEY1      READEFAAPL09                  10
+     C   10                LEAVE
+      * IGNORE
+     C           B7SKBN    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * CHECK FACTORY
+     C           PNKOJ     IFNE *BLANK
+     C           PNKOJ     ANDNE'0'
+     C           B7NKJO    ANDNE*BLANK
+     C           PNKOJ     IFNE B7NKJO
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      * CHECK DOCK
+     C           PNUKE     IFNE *BLANK
+     C           PNUKE     ANDNE'0   '
+     C           PNUKE     ANDNE'00  '
+     C           B7NUKE    ANDNE*BLANK
+     C           PNUKE     IFNE B7NUKE
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      * NO ERROR
+     C                     LEAVE
+     C                     ENDDO
+      *---------------------------------------------------
+      * IF EXISTS, GOTO ENDP
+     C           *IN10     IFEQ *OFF
+     C                     MOVE *BLANK    @RTN
+     C                     MOVE B7SHN1    PSHN1
+     C                     MOVE B7SHN2    PSHN2
+     C                     MOVE B7SHN3    PSHN3
+     C                     MOVELPSHIN     @SHIN
+     C                     GOTO ENDP
+     C                     ENDIF
+      *
+      * IF NOT EXIST IN COMMON PART M/F, CHECK IAF PART ==================
+      *
+     C                     MOVEL@MHIN     PSHIN
+     C                     MOVEL@MHIN     @SHIN
+     C           KEY2      CHAINFCEPL01              91
+     C           *IN91     IFEQ *ON
+     C                     EXSR #BBHR5
+     C           OKFLG1    IFEQ *BLANK
+     C                     MOVEL#SHIN     @SHIN
+     C                     ELSE
+     C                     EXSR #PART
+     C           OKFLG2    IFEQ *BLANK
+     C                     MOVEL#SHIN     @SHIN
+     C                     ELSE
+     C                     MOVE '2'       @RTN
+     C                     GOTO ENDP
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+      *
+      * IF PART EXISTS, CHECK SHIPPING MASTER
+     C           @NONY     SETLLGADPL15
+     C                     MOVE *OFF      *IN98
+     C                     DO   *HIVAL
+     C           @NONY     READEGADPL15                  98
+     C   98                LEAVE
+      * CHECK FACTORY
+     C           PNKOJ     IFNE *BLANK
+     C           PNKOJ     ANDNE'0'
+     C           PNKOJ     IFNE B5NKOJ
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      * CHECK DOCK
+     C           PNUKE     IFNE *BLANK
+     C           PNUKE     ANDNE'0   '
+     C           PNUKE     ANDNE'00  '
+     C           PNUKE     IFNE B5NUKE
+     C                     ITER
+     C                     ELSE
+     C                     MOVE *OFF      *IN98
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+      * END CHECK FACTORY/DOCK=DEFAULT
+     C           B5NKOJ    IFEQ *BLANK
+     C           B5NKOJ    OREQ '0'
+     C           B5NUKE    ANDEQ*BLANK
+     C           B5NUKE    OREQ '0   '
+     C           B5NUKE    OREQ '00  '
+     C                     MOVE *OFF      *IN98
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C           *IN98     IFEQ *ON
+     C                     MOVE '3'       @RTN
+     C                     GOTO ENDP
+     C                     ENDIF
+      *---------------------------------------------------
+     C                     MOVE ' '       @RTN
+      *---------------------------------------------------
+      *
+     C           ENDP      TAG
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      ****************************************************
+      * CALL BBHR50
+      ****************************************************
+     C           #BBHR5    BEGSR
+      *
+     C                     MOVEL@TOKU     #TOKU
+     C                     MOVELPNONY     #NONY
+     C                     MOVELPNKOJ     #NKOJ
+     C                     MOVELPNUKE     #NUKE
+     C                     MOVEL@MHIN     #MHIN
+     C                     CALL 'BBHR50'
+     C                     PARM           #TOKU   4
+     C                     PARM           #NONY   4
+     C                     PARM           #NKOJ   1
+     C                     PARM           #NUKE   4
+     C                     PARM           #MHIN  20
+     C                     PARM           #SHIN  12
+     C                     PARM           OKFLG1  1
+      *
+     C                     ENDSR
+      ****************************************************
+      * CHECK PART MASTER WITHOUT '00'
+      ****************************************************
+     C           #PART     BEGSR
+      *
+     C                     MOVE 'N'       OKFLG2  1
+     C                     MOVEL@MHIN     PSHIN
+     C**         PSHN3     IFEQ '00'
+     C                     MOVE *BLANK    PSHN3
+     C           KEY2      CHAINFCEPL01              92
+     C           *IN92     IFEQ *OFF
+     C                     MOVE *BLANK    OKFLG2
+     C                     MOVELPSHIN     #SHIN
+     C                     ENDIF
+     C**                   ENDIF
+      *
+     C                     ENDSR
+      ****************************************************
+      * INITIALIZE
+      ****************************************************
+     C           #INIT     BEGSR
+     C*
+     C           *ENTRY    PLIST
+     C                     PARM           PNONY   4        IN
+     C                     PARM           PNKOJ   1        "
+     C                     PARM           PNUKE   4        "
+     C                     PARM           PMHIN1 20        "
+     C                     PARM           @TOKU   40       OUT
+     C                     PARM           @MHIN2 20        "
+     C                     PARM           @SHIN  12        "
+     C                     PARM           @RTN    1        "
+      *
+     C           KEY1      KLIST
+     C                     KFLD           @TOKU
+     C                     KFLD           @NONY
+     C                     KFLD           @MHN1
+     C                     KFLD           @MHN2
+     C                     KFLD           @MHN3
+     C                     KFLD           @MHN4
+      *
+     C           KEY2      KLIST
+     C                     KFLD           PSHN1
+     C                     KFLD           PSHN2
+     C                     KFLD           PSHN3
+      *
+     C                     TIME           WSDT
+      *
+     C                     MOVE PNONY     @NONY   40
+     C                     MOVE *BLANK    @SHIN
+     C                     MOVE *BLANK    PSHIN
+     C                     MOVE *BLANK    @RTN
+      * GET CUSTOMER GROUP
+     C           PNONY     CHAINEDIPP42              93
+     C           *IN93     IFEQ *OFF
+     C                     MOVELE4GRP     @GRP    4
+     C                     ELSE
+     C                     MOVEL'TYT'     @GRP
+     C                     ENDIF
+      * GET CUSTOMER CODE
+     C           @NONY     CHAINGADPL15              94
+     C           *IN94     IFEQ *OFF
+     C                     Z-ADDB5TOKU    @TOKU   40
+     C                     ELSE
+     C                     Z-ADD0         @TOKU
+     C                     MOVE '1'       @RTN
+     C                     ENDIF
+      * REMOVE BLAK/HIPHEN
+     C                     MOVEAPMHIN1    IN
+     C                     MOVEA*ALL' '   OT
+     C                     Z-ADD0         IX      20
+     C                     Z-ADD0         IY      20
+      *
+     C                     DO   *HIVAL
+     C                     ADD  1         IX
+      * END
+     C           IX        IFGT 20
+     C                     LEAVE
+     C                     ENDIF
+      * IGNORE
+     C           IN,IX     IFEQ *BLANK
+     C           IN,IX     OREQ '-'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ADD  1         IY
+     C                     MOVE IN,IX     OT,IY
+     C                     ENDDO
+     C                     MOVEAOT        @MHIN2
+     C                     MOVEAOT        @MHIN
+     C                     MOVEAOT        @SHIN
+      *
+     C                     ENDSR
+     C*

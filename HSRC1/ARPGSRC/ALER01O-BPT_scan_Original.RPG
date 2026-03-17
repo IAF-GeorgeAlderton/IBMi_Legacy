@@ -1,0 +1,788 @@
+     H            Y.                                    1
+      ** ALER01 ****************************************************************
+      *  BPT SCAN                                                              *
+      *
+      * TCHK  02/05/10 CREATE                                          *********
+      * TCHK1 06/01/12 BUG FIX                                         *********
+      * TCHK2 06/05/12 ADD ERROR SCREEN                                *********
+      * TCHK3 02/28/13 ADD ALEPP10(ASJ KANBAN:ORDER#,LOT#)             *********
+%0001 * SAKAKI 11/25/2019 ADD UEXR16 TO CHECK STORE IN/OUT STATUS      *********
+      * LEC    10/06/2020 ADD PGM LOCK FOR WRONG KANBAN ERROR          *********
+      **************************************************************************
+     FALEPW01OCF  E                    WORKSTN
+     FALBPL30 IF  E           K        DISK
+     FFCEPL07 IF  E           K        DISK
+     FFCEPL41 IF  E           K        DISK
+%0001FAANPL04 IF  E           K        DISK
+     F*
+     FALEPP01 IF  E           K        DISK                      A
+     FALEPL013IF  E           K        DISK
+     F            ALEPP011                          KRENAMEALEPL@13
+TCHK3FALEPP10 IF  E           K        DISK                      A
+     F*
+     E                    ERR     1  20 17
+     E                    LOT         4  8
+     E                    BPT        16 17
+      **************************************************************************
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     I* SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   20WSSHHH
+     I                                        3   40WSSNNN
+     I                                        5   60WSSSSS
+     I                                        7  100WSSYYY
+     I                                       11  120WSSMMM
+     I                                       13  140WSSDDD
+     I                                        1   40WSSTM4
+     I                                        1   60WSSTM6
+     I                                        7  140WSSDAT
+     I* IAF BPT KANBAN
+     I* KANBAN TYPE,ABSOLUTE#,ORDER#,SEHIN KUBUN,LOT#
+     I            DS
+     I                                        1  17 WHNF
+     I                                        1   1 WHKANS
+     I                                        2   5 WHZETI
+     I                                        6  14 WHETC
+     I                                       15  15 WHCHKD
+     I*
+     I            DS
+     I                                        1  12 WHPART
+     I                                        1   5 WHPAR1
+     I                                        6  10 WHPAR2
+     I                                       11  12 WHPAR3
+     I*
+     I            DS
+     I                                        1  12 WHSHIN
+     I                                        1   5 WHSHI1
+     I                                        6  10 WHSHI2
+     I                                       11  12 WHSHI3
+     I* ASJ BPT KANBAN
+     I* KANBAN TYPE,ABSOLUTE#,ORDER#,SEHIN KUBUN,LOT#
+     I            DS
+     I                                        1  17 WASJ
+     I                                        1   1 WAKANS
+     I                                        2   5 WAZETI
+     I                                        6  11 WAORDR
+     I                                       12  12 WASEHI
+     I                                       13  160WALOTN
+     I                                       17  17 WACHKD
+     I*
+     I            DS
+     I                                        1  12 WAPART
+     I                                        1   5 WAPAR1
+     I                                        6  10 WAPAR2
+     I                                       11  12 WAPAR3
+     I* COMMON
+     I            DS
+     I                                        1  12 W@PART
+     I                                        1   5 W@PAR1
+     I                                        6  10 W@PAR2
+     I                                       11  12 W@PAR3
+     I**
+%0001I            DS
+     I                                        1  17 A8HN01
+     I                                        1   1 K1KSKB
+     I                                        2   5 K1ZETI
+     I                                        6   7 K1MBCD
+     I                                        9  11 K1KTEI
+      **************************************************************************
+      *                    MAIN ROUTINE
+      **************************************************************************
+     C           W@ID      DOWNE'99'
+     C           W@ID      CASEQ'10'      #FMT10
+     C           W@ID      CASEQ'20'      #FMT20
+     C           W@ID      CASEQ'30'      #FMT30
+     C           W@ID      CASEQ'40'      #FMT40
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      **************************************************************************
+      *  INITIALIZE
+      **************************************************************************
+     C           *INZSR    BEGSR
+      *
+     C                     TIME           WSDT
+     C                     MOVE '10'      W@ID    2
+     C                     MOVEL*BLANK    D@TMCD
+     C* DUMMY READ
+     C                     READ ALEPP01             N    90
+     C*
+     C                     EXSR #CLEAR
+     C*
+     C                     ENDSR
+      **************************************************************************
+      *  WORK CLEAR
+      **************************************************************************
+     C           #CLEAR    BEGSR
+      *
+     C                     CLEARLOT
+     C                     CLEARBPT
+     C                     MOVEL*BLANK    F1EMSG
+     C                     MOVEL*BLANK    BRCD20
+     C                     MOVEL*BLANK    F2EMSG
+     C                     MOVEL*BLANK    BRCD30
+     C                     MOVEL*BLANK    F3EMSG
+     C                     MOVEL*BLANK    BRCD40
+     C                     MOVEL*BLANK    F4EMSG
+     C                     SETOF                     616263
+     C                     SETOF                     64
+     C                     Z-ADD*ZERO     FKANB   40
+     C*
+     C                     ENDSR
+      **************************************************************************
+     C* TM ID CODE
+     C           #FMT10    BEGSR
+      **************************************************************************
+     C                     EXFMTFMT010
+     C                     MOVEL*BLANK    F1EMSG
+     C*
+     C                     SELEC
+      *
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+     C                     OTHER
+     C                     EXSR #CHK1
+     C           *IN99     IFEQ *OFF
+     C                     MOVEL'20'      W@ID
+     C                     MOVEL*BLANK    BRCD20
+     C                     ENDIF
+      *
+     C                     ENDSL
+      *
+     C                     ENDSR
+      **************************************************************************
+      *  CHECK--TM CODE
+      **************************************************************************
+     C           #CHK1     BEGSR
+      *
+     C                     SETOF                     6199
+      *
+     C                     MOVEL*BLANK    W1WKNM 20
+      *
+     C                     MOVELD@TMCD    K@TMCD  60
+     C           K@TMCD    CHAINALBPL30              90
+     C           *IN90     IFEQ *OFF
+     C           ALSKJY    ANDEQ*BLANK
+     C                     MOVELALWKNM    W1WKNM
+     C                     ENDIF
+      *
+     C           *IN90     IFEQ *ON
+     C           ALSKJY    OREQ 'D'
+     C                     SETON                     6199
+     C                     MOVELERR,1     F1EMSG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      **************************************************************************
+     C* HALF-FINISHED KANBAN
+     C           #FMT20    BEGSR
+      **************************************************************************
+     C                     EXFMTFMT020
+     C                     MOVEL*BLANK    F2EMSG
+     C*
+     C                     SELEC
+      *
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+     C                     OTHER
+     C                     EXSR #CHK2
+     C           *IN99     IFEQ *OFF
+     C                     MOVEL'30'      W@ID
+     C                     MOVEL*BLANK    BRCD30
+TCHK2C                     ELSE
+TCHK2C                     MOVELF2EMSG    F99ER1
+TCHK2C                     EXFMTFMT999
+     C                     ENDIF
+      *
+     C                     ENDSL
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C           #CHK2     BEGSR
+     C**************************************************************************
+     C                     SETOF                     6299
+     C                     MOVEL*BLANK    WHPART
+     C                     MOVEL*BLANK    WHSHIN
+     C                     MOVELBRCD20    WHNF
+     C*
+     C                     DO
+     C*
+     C           BRCD20    IFEQ *BLANK
+     C                     SETON                     6299
+     C                     MOVELERR,2     F2EMSG
+     C                     LEAVE
+     C                     END
+     C           WHKANS    IFGE '0'
+     C           WHKANS    ANDLE'9'
+     C                     ELSE
+     C                     SETON                     6299
+     C                     MOVELERR,9     F2EMSG
+     C                     LEAVE
+     C                     END
+     C* CHECK DIGIT
+     C           P#BRC     PLIST
+     C                     PARM           PMAREA100
+     C                     PARM           PMBYTE  3
+     C                     PARM           PMCHK   1
+     C                     PARM           PMRTCD  1
+     C                     MOVELWHNF      PMAREA    P
+     C                     MOVE '014'     PMBYTE
+     C                     MOVE *BLANK    PMCHK
+     C                     MOVE *BLANK    PMRTCD
+     C                     CALL 'ALBRCC'  P#BRC
+     C           PMRTCD    IFNE *BLANK
+     C                     MOVELERR,7     F2EMSG
+     C                     SETON                     6299
+     C                     LEAVE
+     C                     END
+     C           WHCHKD    IFNE PMCHK
+     C                     MOVELERR,7     F2EMSG
+     C                     SETON                     6299
+     C                     LEAVE
+     C                     END
+     C*
+     C           WHZETI    CHAINFCEPL07              90
+     C           *IN90     IFEQ *ON
+     C                     MOVELERR,6     F2EMSG
+     C                     SETON                     6299
+     C                     LEAVE
+     C                     END
+     C           *IN90     IFEQ *OFF
+     C           A2GSKD    ANDNE*BLANK
+     C                     MOVELERR,14    F2EMSG
+     C                     SETON                     6299
+     C                     LEAVE
+     C                     END
+     C* EXIST TABLE CHECK
+     C           K#PL41    KLIST
+     C                     KFLD           A2BHB1
+     C                     KFLD           A2BHB2
+     C                     KFLD           A2BHB3
+     C           K#PL41    SETLLFCEPL41
+     C                     DO   *HIVAL
+     C           K#PL41    READEFCEPL41                  90
+     C   90                LEAVE
+     C           F4GSKD    IFEQ *BLANK
+     C                     LEAVE
+     C                     END
+     C                     ENDDO
+     C           *IN90     IFEQ *ON
+     C                     MOVELERR,11    F2EMSG
+     C                     SETON                     6299
+     C                     LEAVE
+     C                     END
+     C* DUPLICATE SCAN CHECK
+     C           K#L013    KLIST
+     C                     KFLD           WSSDAT
+     C                     KFLD           WHNF
+     C           K#L013    CHAINALEPL013             90
+     C           *IN90     IFEQ *OFF
+     C                     MOVELERR,12    F2EMSG
+     C                     SETON                     6299
+     C                     LEAVE
+     C                     END
+     C*
+     C                     MOVELA2BHB1    WHPAR1
+     C                     MOVELA2BHB2    WHPAR2
+     C                     MOVELA2BHB3    WHPAR3
+     C*
+     C                     MOVELF4PRT1    WHSHI1
+     C                     MOVELF4PRT2    WHSHI2
+     C                     MOVELF4PRT3    WHSHI3
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+      **************************************************************************
+     C* LOT ID TAG
+     C           #FMT30    BEGSR
+      **************************************************************************
+     C                     EXFMTFMT030
+     C                     MOVEL*BLANK    F3EMSG
+     C*
+     C                     SELEC
+     C*
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+     C           *INKE     WHEQ *ON
+     C           LOT,1     IFEQ *BLANK
+     C                     SETON                     6399
+     C                     MOVELERR,8     F3EMSG
+     C                     ELSE
+TCHK1C                     EXSR #CHK3
+TCHK1C           *IN99     IFEQ *OFF
+TCHK1C           BRCD30    IFNE *BLANK
+TCHK1C                     MOVELBRCD30    LOT,X
+TCHK1C                     END
+TCHK1C                     MOVEL*BLANK    BRCD30
+     C                     MOVEL'40'      W@ID
+     C                     MOVEL*OFF      *IN64
+     C                     MOVEL*BLANK    BRCD40
+TCHK2C                     ELSE
+TCHK2C                     MOVELF3EMSG    F99ER1
+TCHK2C                     EXFMTFMT999
+TCHK1C                     END
+     C                     END
+     C                     OTHER
+     C                     EXSR #CHK3
+     C           *IN99     IFEQ *OFF
+     C                     MOVELBRCD30    LOT,X
+     C                     MOVEL*BLANK    BRCD30
+TCHK2C                     ELSE
+TCHK2C                     MOVELF3EMSG    F99ER1
+TCHK2C                     EXFMTFMT999
+     C                     END
+     C*
+     C                     ENDSL
+      *
+     C                     ENDSR
+      **************************************************************************
+     C* CHECK LOT-ID
+     C           #CHK3     BEGSR
+      **************************************************************************
+     C                     SETOF                     6399
+      *
+     C                     DO
+     C*
+     C           BRCD30    IFEQ *BLANK
+TCHK1C           *INKE     IFEQ *ON
+TCHK1C                     LEAVE
+TCHK1C                     END
+     C                     SETON                     6399
+     C                     MOVELERR,2     F3EMSG
+     C                     LEAVE
+     C                     END
+     C*
+     C           BRCD30    LOKUPLOT                      90
+     C           *IN90     IFEQ *ON
+     C                     SETON                     6299
+     C                     MOVELERR,3     F3EMSG
+     C                     LEAVE
+     C                     END
+     C*
+     C                     Z-ADD1         X       20
+     C           *BLANK    LOKUPLOT,X                    90
+     C           *IN90     IFEQ *OFF
+     C                     SETON                     6399
+     C                     MOVELERR,4     F3EMSG
+     C                     LEAVE
+     C                     END
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+      **************************************************************************
+     C* BPT
+     C           #FMT40    BEGSR
+      **************************************************************************
+     C                     EXFMTFMT040
+     C                     MOVEL*BLANK    F4EMSG
+     C*
+     C                     SELEC
+     C* F3 =BACK
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+     C* F5 NEXT
+     C           *INKE     WHEQ *ON
+     C           BPT,1     IFEQ *BLANK
+     C                     SETON                     6499
+     C                     MOVELERR,8     F4EMSG
+     C                     ELSE
+TCHK1C                     EXSR #CHK4
+TCHK1C           *IN99     IFEQ *OFF
+TCHK1C           BRCD40    IFNE *BLANK
+TCHK1C                     MOVELBRCD40    BPT,X
+TCHK1C                     END
+TCHK1C                     MOVEL*BLANK    BRCD40
+     C                     EXSR #WRT
+%0001C                     EXSR #CHKAN
+%0001C                     EXSR #SUB17
+%0002C                     EXSR #SBSTA
+     C                     EXSR #CLEAR
+     C                     MOVEL'20'      W@ID
+     C                     MOVEL*OFF      *IN62
+     C                     MOVEL*BLANK    BRCD20
+TCHK2C                     ELSE
+      *
+      * LOCK PGM IF WRONG KANBAN ERROR, OTHERWISE DISPLAY ERROR...
+     C           F4EMSG    IFEQ ERR,10
+     C                     EXSR LOCKPG
+     C                     ELSE
+TCHK2C                     MOVELF4EMSG    F99ER1
+TCHK2C                     EXFMTFMT999
+     C                     ENDIF
+      *
+TCHK1C                     END
+     C                     END
+     C                     OTHER
+     C                     EXSR #CHK4
+     C           *IN99     IFEQ *OFF
+     C                     MOVELBRCD40    BPT,X
+     C                     MOVEL*BLANK    BRCD40
+     C                     ADD  1         FKANB
+TCHK2C                     ELSE
+      * LOCK PGM IF WRONG KANBAN ERROR, OTHERWISE DISPLAY ERROR...
+     C           F4EMSG    IFEQ ERR,10
+     C                     EXSR LOCKPG
+     C                     ELSE
+TCHK2C                     MOVELF4EMSG    F99ER1
+TCHK2C                     EXFMTFMT999
+     C                     ENDIF
+     C                     END
+     C*
+     C                     ENDSL
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C           #CHK4     BEGSR
+     C**************************************************************************
+     C                     SETOF                     6499
+     C                     MOVEL*BLANK    WAPART
+     C                     MOVELBRCD40    WASJ
+     C*
+     C                     DO
+     C*
+     C           BRCD40    IFEQ *BLANK
+TCHK1C           *INKE     IFEQ *ON
+TCHK1C                     LEAVE
+TCHK1C                     END
+     C                     SETON                     6499
+     C                     MOVELERR,2     F4EMSG
+     C                     LEAVE
+     C                     END
+     C           WAKANS    IFNE 'I'
+     C                     SETON                     6499
+     C                     MOVELERR,9     F4EMSG
+     C                     LEAVE
+     C                     END
+     C* CHECK DIGIT
+     C                     MOVELWASJ      PMAREA    P
+     C                     MOVE '016'     PMBYTE
+     C                     MOVE *BLANK    PMCHK
+     C                     MOVE *BLANK    PMRTCD
+     C                     CALL 'ALBRCC'  P#BRC
+     C           PMRTCD    IFNE *BLANK
+     C                     MOVELERR,7     F4EMSG
+     C                     SETON                     6499
+     C                     LEAVE
+     C                     END
+     C           WACHKD    IFNE PMCHK
+     C                     MOVELERR,7     F4EMSG
+     C                     SETON                     6499
+     C                     LEAVE
+     C                     END
+     C*
+     C           WAZETI    IFNE WHZETI
+     C                     MOVELERR,10    F4EMSG
+     C                     SETON                     6499
+     C                     LEAVE
+     C                     END
+     C*
+     C           BRCD40    LOKUPBPT                      90
+     C           *IN90     IFEQ *ON
+     C                     SETON                     6499
+     C                     MOVELERR,13    F4EMSG
+     C                     LEAVE
+     C                     END
+     C*
+TCHK3C           K#EP10    KLIST
+TCHK3C                     KFLD           WAZETI
+TCHK3C                     KFLD           WAORDR
+TCHK3C                     KFLD           K@LOTN  4
+TCHK3C                     MOVELWALOTN    K@LOTN
+TCHK3C           K#EP10    CHAINALEPP10              90
+TCHK3C           *IN90     IFEQ *OFF
+TCHK3C                     SETON                     6499
+TCHK3C                     MOVELERR,13    F4EMSG
+TCHK3C                     LEAVE
+TCHK3C                     END
+TCHK3C*
+     C                     Z-ADD1         X       20
+     C           *BLANK    LOKUPBPT,X                    90
+     C           *IN90     IFEQ *OFF
+     C                     SETON                     6499
+     C                     MOVELERR,5     F4EMSG
+     C                     LEAVE
+     C                     END
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C           #WRT      BEGSR
+     C**************************************************************************
+     C                     CLEARALEPP011
+     C*
+     C                     TIME           WSDT
+     C                     Z-ADDWSSDAT    A8DATE
+     C                     Z-ADDWSSTM6    A8TIME
+     C                     MOVEL#PGM      A8PGID
+     C                     MOVEL#WSID     A8WSID
+     C                     MOVEL#USER     A8USER
+     C                     MOVELD@TMCD    A8TMCD
+     C* IAF BPT KANBAN
+     C                     MOVELWHNF      A8HN01
+     C                     MOVELWHPART    A8HNPT
+     C                     MOVELWHSHIN    A8SHIN
+     C* SCANNED LOT ID TAG
+     C                     MOVELLOT,1     A8LT01
+     C                     MOVELLOT,2     A8LT02
+     C                     MOVELLOT,3     A8LT03
+     C                     MOVELLOT,4     A8LT04
+     C* LOT ID TAG
+     C                     MOVELLOT,1     A8L#01
+     C                     MOVELLOT,2     A8L#02
+     C                     MOVELLOT,3     A8L#03
+     C                     MOVELLOT,4     A8L#04
+     C* BPT KANBAN
+     C                     MOVELBPT,01    A8BP01
+     C                     MOVELBPT,02    A8BP02
+     C                     MOVELBPT,03    A8BP03
+     C                     MOVELBPT,04    A8BP04
+     C                     MOVELBPT,05    A8BP05
+     C                     MOVELBPT,06    A8BP06
+     C                     MOVELBPT,07    A8BP07
+     C                     MOVELBPT,08    A8BP08
+     C                     MOVELBPT,09    A8BP09
+     C                     MOVELBPT,10    A8BP10
+     C                     MOVELBPT,11    A8BP11
+     C                     MOVELBPT,12    A8BP12
+     C                     MOVELBPT,13    A8BP13
+     C                     MOVELBPT,14    A8BP14
+     C                     MOVELBPT,15    A8BP15
+     C                     MOVELBPT,16    A8BP16
+     C*
+     C                     WRITEALEPP011
+     C*
+TCHK3C                     Z-ADD*ZERO     Y       20
+TCHK3C                     DO   *HIVAL
+TCHK3C*
+TCHK3C                     ADD  1         Y
+TCHK3C           Y         IFGT 16
+TCHK3C                     LEAVE
+TCHK3C                     END
+TCHK3C           BPT,Y     IFEQ *BLANK
+TCHK3C                     LEAVE
+TCHK3C                     END
+TCHK3C*
+TCHK3C                     CLEARALEPP101
+TCHK3C*
+TCHK3C                     Z-ADDWSSDAT    A0DATE
+TCHK3C                     Z-ADDWSSTM6    A0TIME
+TCHK3C                     MOVEL#PGM      A0PGID
+TCHK3C                     MOVEL#WSID     A0WSID
+TCHK3C                     MOVEL#USER     A0USER
+TCHK3C                     MOVELD@TMCD    A0TMCD
+TCHK3C*
+TCHK3C                     MOVELWHNF      A0HNKN
+TCHK3C                     MOVELWHPAR1    A0HNP1
+TCHK3C                     MOVELWHPAR2    A0HNP2
+TCHK3C                     MOVELWHPAR3    A0HNP3
+TCHK3C                     MOVELWHSHI1    A0SHN1
+TCHK3C                     MOVELWHSHI2    A0SHN2
+TCHK3C                     MOVELWHSHI3    A0SHN3
+TCHK3C*
+TCHK3C                     MOVELBPT,Y     WASJ
+TCHK3C                     MOVELWAKANS    A0KANS
+TCHK3C                     MOVELWAZETI    A0ZETI
+TCHK3C                     MOVELWAORDR    A0ORDR
+TCHK3C                     MOVELWASEHI    A0SEHI
+TCHK3C                     MOVELWALOTN    A0LOTN
+TCHK3C                     MOVELWACHKD    A0CHKD
+TCHK3C*
+TCHK3C                     WRITEALEPP101
+TCHK3C*
+TCHK3C                     ENDDO
+TCHK3C*
+     C                     ENDSR
+     C**************************************************************************
+     C           #CHKAN    BEGSR
+     C**************************************************************************
+     C                     MOVEL*BLANK    P1TKR1  1
+     C                     MOVEL*BLANK    P1TKR2  2
+     C                     MOVEL*BLANK    P1TKR3  2
+     C                     MOVEL*BLANK    P1TKR4  1
+     C                     MOVE K1KSKB    K2KSKB  10
+      *
+     C           K#KEY     KLIST
+     C                     KFLD           K1ZETI
+     C                     KFLD           K2KSKB
+     C                     KFLD           K1KTEI
+     C                     KFLD           K1MBCD
+      *
+     C           K#KEY     SETGTAANPL04
+      *-------------------------
+     C                     DO   *HIVAL
+     C           K#KEY     REDPEAANPL04                  97
+     C   97                LEAVE
+     C*
+     C           L7SKJY    IFEQ *BLANK
+     C           L7STHZ    ANDEQ99999999
+     C                     MOVELL7TKR1    P1TKR1
+     C                     MOVELL7TKR2    P1TKR2
+     C                     MOVELL7TKR3    P1TKR3
+     C                     MOVELL7TKR4    P1TKR4
+     C                     LEAVE
+     C                     ENDIF
+     C*
+     C                     ENDDO
+      *-------------------------
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C           #SUB17    BEGSR
+     C**************************************************************************
+     C*
+     C                     Z-ADD*ZERO     Y       20
+     C*-------
+D1   C                     DO   *HIVAL
+ |   C*-------
+ |   C                     ADD  1         Y
+ |   C*
+ |2  C           Y         IFGT 16
+ ||  C                     LEAVE
+ |2  C                     ENDIF
+ |   C*
+ |2  C           BPT,Y     IFNE *BLANK
+ ||  C                     MOVEL*BLANK    WASJ20 20
+ ||  C                     MOVELBPT,Y     WASJ20
+ ||  C*
+ ||  C                     MOVEL*BLANK    @@BARA256
+ ||  C                     MOVEL*BLANK    @@BARB256
+ ||  C                     MOVEL*BLANK    WORK10 10
+ ||  C                     MOVELD@TMCD    WORK10
+ ||  C                     MOVEL*BLANK    TANT20 20
+ ||  C                     MOVELW1WKNM    TANT20
+ ||  C*
+ ||  C                     CALL 'UEXR16'
+ ||  C                     PARM           WASJ20
+ ||  C                     PARM           @@BARA
+ ||  C                     PARM           @@BARB
+ ||  C*
+ ||  C                     PARM           P1TKR1
+ ||  C                     PARM           P1TKR2
+ ||  C                     PARM           P1TKR3
+ ||  C                     PARM           P1TKR4
+ ||  C                     PARM           WHPAR1
+ ||  C                     PARM           WHPAR2
+ ||  C                     PARM           WHPAR3
+ ||  C*
+ ||  C                     PARM           WORK10
+ ||  C                     PARM           TANT20
+ ||  C                     PARM           #PGM
+ ||  C                     PARM '2'       P9TYPE  1
+ ||  C                     PARM ' '       P9RTN   1
+ ||   *
+ |2  C                     ELSE
+ ||  C                     LEAVE
+ |2  C                     ENDIF
+ |   C*-------
+ 1   C                     ENDDO
+     C*-------
+      *
+     C                     ENDSR
+      *================================================================
+      * INTRA STOCK UPDATE SUB ROUTINE               *
+      *================================================================
+     C           #SBSTA    BEGSR
+      *
+     C                     Z-ADD1         P#HKSU  50
+      *
+     C                     MOVEL*BLANK    P#QR11
+     C                     MOVEL*BLANK    P#QR12
+     C                     MOVEL*BLANK    P#QR21
+     C                     MOVEL*BLANK    P#QR22
+      * PULLING KANBAN
+     C                     MOVELWHNF      P#BAR1    P
+     C*
+     C                     Z-ADD*ZERO     Y       20
+     C*-------
+D1   C                     DO   *HIVAL
+ |   C*
+ |   C                     ADD  1         Y
+ |   C*
+ |2  C           Y         IFGT 16
+ ||  C                     LEAVE
+ |2  C                     ENDIF
+ |   C*
+ |2  C           BPT,Y     IFNE *BLANK
+ ||  C                     MOVEL*BLANK    P#BAR2
+ ||  C                     MOVELBPT,Y     P#BAR2    P
+ ||   *
+ ||  C                     CALL 'STAR00'
+ ||  C                     PARM WSSDAT    P#TIHZ  80
+ ||  C                     PARM WSSTM6    P#TITI  60
+ ||  C                     PARM '0111'    P#BMON  4
+ ||  C                     PARM WHPAR1    P#SHN1  5
+ ||  C                     PARM WHPAR2    P#SHN2  5
+ ||  C                     PARM WHPAR3    P#SHN3  2
+ ||  C                     PARM P1TKR1    P#ATK1  1
+ ||  C                     PARM P1TKR2    P#ATK2  2
+ ||  C                     PARM P1TKR3    P#ATK3  2
+ ||  C                     PARM P1TKR4    P#ATK4  1
+ ||  C                     PARM '2'       P#SYOR  1
+ ||  C                     PARM '2'       P#ZAIK  1        在庫減
+ ||  C                     PARM           P#HKSU  50
+ ||  C                     PARM WORK10    P#TMCD 10
+ ||  C                     PARM TANT20    P#TMNM 20
+ ||  C                     PARM #PGM      P#PGM  10
+ ||  C                     PARM           P#BAR1 20
+ ||  C                     PARM           P#QR11256
+ ||  C                     PARM           P#QR12256
+ ||  C                     PARM           P#BAR2 20
+ ||  C                     PARM           P#QR21256
+ ||  C                     PARM           P#QR22256
+ ||   *
+ |2  C                     ELSE
+ ||  C                     LEAVE
+ |2  C                     ENDIF
+ |   C*-------
+ 1   C                     ENDDO
+      *
+     C                     ENDSR
+      *================================================================*********
+      * LOCK THE PROGRAM DUE TO ERROR FOR TL TO UNLOCK
+      *================================================================
+     C           LOCKPG    BEGSR
+      *
+     C                     Z-ADD2         P1PGM
+     C                     MOVELF4EMSG    P1ERR     P
+     C                     MOVEL#PGM      P1PID
+     C                     MOVELD@TMCD    P1KOME    P
+     C                     Z-ADD*ZERO     P1DTTM
+     C                     CALL 'AM#R09'
+     C                     PARM           P1PGM   20
+     C                     PARM           P1ERR  25
+     C                     PARM           P1PID  10
+     C                     PARM           P1KOME 10
+     C                     PARM           P1DTTM 140
+      *
+     C                     ENDSR
+      *================================================================*********
+** ERR(17A).....>      ##
+TM ID CODE ERROR       01
+BLANK SCANNED          02
+LOT-ID  DUPLICATE      03
+LOT-ID MAX 4           04
+KANBAN MAX 16          05
+UNKNOWN PART#          06
+CHECK DEGIT ERROR      07
+NOT YET SCAN           08
+KANBAN KIND ERROR      09
+WRONG KANBAN           10
+KANBAN BPT ?           11
+IAF BPT KAN DUP        12
+ASJ BPT KAN DUP        13
+PART DELETED           14
+#15                    15
+#16                    16
+#17                    17
+#18                    18
+#19                    19
+#20                    20

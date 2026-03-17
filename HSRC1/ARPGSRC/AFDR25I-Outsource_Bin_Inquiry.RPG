@@ -1,0 +1,368 @@
+     H            Y.                                    1
+      ** AFDR25I  **************************************************************
+      *  OUTSOURCE BIN INQUIRY                                                 *
+      *
+      **************************************************************************
+     FAFDPW25ICF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL010
+     F                                              KINFDS @INFDS
+     FAFDPP25 IF  E           K        DISK
+     FAFDPL2A IF  E           K        DISK
+     FFGBPL01 IF  E           K        DISK
+     FALBPL30 IF  E           K        DISK
+     FAFDPL9V IF  E           K        DISK
+      **************************************************************************
+     E                    ERR     1   3 70
+      **************************************************************************
+     I@INFDS      DS
+     I                                     *STATUS  @STTS
+     I                                    B 370 3710@@LIN
+     I                                    B 378 3790@@REC
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60WSSTM6
+     I                                        1   40WSSTM4
+     I                                        1   20WSSHHH
+     I                                        3   40WSSNNN
+     I                                        5   60WSSSSS
+     I                                        7  140WSSDAT
+     I                                        7  100WSSYYY
+     I                                       11  120WSSMMM
+     I                                       13  140WSSDDD
+      *
+      **************************************************************************
+      *                    MAIN ROUTINE
+      **************************************************************************
+     C           @@ID      DOWNE'99'
+     C           @@ID      CASEQ'10'      #FMT10
+     C           @@ID      CASEQ'20'      #FMT20
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      **************************************************************************
+      *         INITIALIZE
+      **************************************************************************
+     C           *INZSR    BEGSR
+      *
+     C                     TIME           WSDT
+      *
+     C                     MOVEL'10'      @@ID    2
+     C                     MOVEL*OFF      *IN49
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     1ST SCREEN(BIN#)
+      **************************************************************************
+     C           #FMT10    BEGSR
+      *
+     C                     SETOF                     4748
+     C                     WRITEFMT099
+     C                     EXFMTFMT010
+     C                     MOVEL*BLANK    MSG
+     C                     MOVEL*OFF      *IN49
+      *
+     C                     SELEC
+     C           *INKA     WHEQ *ON
+     C                     MOVE '99'      @@ID
+     C                     OTHER
+     C                     EXSR #CHK10
+     C           *IN49     IFEQ *OFF
+     C                     EXSR #SET20
+     C                     ENDIF
+     C           *IN49     IFEQ *ON
+     C                     MOVEL'10'      @@ID
+     C                     ELSE
+     C                     MOVEL'20'      @@ID
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     1ST SCREEN - CHECK BIN#
+      **************************************************************************
+     C           #CHK10    BEGSR
+      *
+      ********   F##BIN    IFEQ *BLANK
+      ********             MOVELERR,2     MSG
+      ********             SETON                     49
+      ********             ENDIF
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     SET SUBFILE FOR 2ND SCREEN
+      **************************************************************************
+     C           #SET20    BEGSR
+      *
+     C                     MOVEL*ON       *IN41
+     C                     WRITECTL010
+     C                     MOVEL*OFF      *IN41
+     C                     MOVEL*OFF      *IN42
+     C                     Z-ADD*ZERO     RRN1    40
+      *
+      * read all bin numbers starting with what was keyed in and reading
+      * to the end...
+      *
+     C           F##BIN    SETLLAFDPP25
+      *
+     C                     DO   *HIVAL
+      *
+     C                     READ AFDPP25                  97
+     C   97                LEAVE
+      *
+     C                     CLEARSFL010
+     C                     MOVE *BLANK    S1SEL
+     C                     MOVELBNNOBN    S1BIN#
+     C           BNSKJY    IFEQ *BLANK
+     C                     MOVE 'A'       H1STAT
+     C                     ELSE
+     C                     MOVELBNSKJY    H1STAT
+     C                     ENDIF
+     C                     Z-ADDBNKODT    H1STDT
+     C                     Z-ADDBNKOTM    H1STTM
+     C                     MOVELBNKOME    H1STBY
+     C                     Z-ADDBNISDT    H1ISDT
+     C                     Z-ADDBNISTM    H1ISTM
+     C                     MOVELBNISME    H1ISBY
+     C                     Z-ADDBNLBDT    H1LBDT
+     C                     Z-ADDBNLBTM    H1LBTM
+     C                     MOVELBNLBME    H1LBBY
+      *
+      *
+     C           H1STAT    IFEQ 'A'
+      *
+      *  get bin's location and contents information...
+     C           BNNOBN    SETLLAFDPL2A
+     C                     MOVE *OFF      *IN62
+     C           *IN62     DOWEQ*OFF
+      *
+     C           BNNOBN    READEAFDPL2A                  62
+      *
+      * ignore sekido because, PC enters bogus bin #s to get them processed...
+     C           AFSUPP    IFEQ '3111'
+     C           AFSUPP    OREQ '4456'                     MITSUCHI
+     C                     ITER
+     C                     ENDIF
+      *
+      *
+      * check receive date for this order to see if bin has been rec back in....
+      *   if not received, then location = supplier
+      *   if received, then location = iaf
+      *
+     C           AFNOYY    IFEQ *ZERO
+      *
+      * set supplier name as bin location...
+     C                     MOVELAFSUPP    ##CODE  40
+     C           ##CODE    CHAINFGBPL01              61
+     C           *IN61     IFEQ *OFF
+     C                     MOVELB2SMEI    S1NAME
+     C                     ENDIF
+      *
+      *  bin has been received back in, so bin location = iaf...
+     C                     ELSE
+     C                     MOVEL'IAF'     S1NAME
+     C                     ENDIF
+      *
+     C                     LEAVE
+      *
+     C                     ENDDO
+      *
+     C           *IN62     IFEQ *ON
+     C                     MOVE *BLANKS   S1NAME
+     C                     CLEARAFDPP201
+     C                     ENDIF
+      *
+      * move info from Outsource file...
+     C           S1NAME    IFNE *BLANKS
+     C                     Z-ADDAFKODT    S1DATE
+     C                     Z-ADDAFKHMS    S1TIME
+     C                     MOVELAFKOME    ##CHR6  6
+     C                     ENDIF
+      *
+     C                     SELEC
+     C           S1NAME    WHEQ 'IAF'
+     C                     EXSR #CHKOS
+     C           S1NAME    WHNE 'IAF'
+     C           S1NAME    ANDNE*BLANKS
+     C                     MOVELAFPAR1    S1SHN1
+     C                     MOVELAFPAR2    S1SHN2
+     C                     MOVELAFPAR3    S1SHN3
+     C                     MOVELAFODNO    S1ORD#
+     C                     Z-ADDAFHAKO    S1BOX#
+     C                     Z-ADDAFSYOS    S1QPC
+     C                     ENDSL
+      *
+      * get TM name...
+     C           S1NAME    IFNE *BLANKS
+     C                     TESTN          ##CHR6     61
+     C           *IN61     IFEQ *ON
+     C                     MOVEL##CHR6    ##WKCD  60
+     C           ##WKCD    CHAINALBPL30              61
+     C           *IN61     IFEQ *OFF
+     C                     MOVELALWKNM    S1LCBY
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           AFKOME    IFEQ 'I0998'
+     C                     MOVELERR,3     S1LCBY
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+      *
+     C                     ADD  1         RRN1
+     C                     WRITESFL010
+      *
+     C                     ENDDO
+      *
+     C           RRN1      IFEQ *ZERO
+     C                     SETON                     313249
+     C           MSG       IFEQ *BLANK
+     C                     MOVELERR,1     MSG
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     2ND SCREEN  -  DISPLAY BIN SUBFILE
+      **************************************************************************
+     C           #FMT20    BEGSR
+      *
+     C                     Z-ADD1         W#RNP1  40
+      *
+     C                     DO   *HIVAL
+      *
+     C                     MOVEL*OFF      *IN47
+     C                     MOVEL*ON       *IN48
+     C                     WRITEFMT099
+     C                     Z-ADDW#RNP1    #RCN01
+     C                     EXFMTCTL010
+      *
+     C           @@REC     IFNE *ZERO
+     C                     Z-ADD@@REC     W#RNP1
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    MSG
+     C                     MOVEL*OFF      *IN49
+      *
+     C                     SELEC
+     C           *INKA     WHEQ *ON
+     C                     MOVEL'99'      @@ID
+     C                     LEAVE
+     C           *INKL     WHEQ *ON
+     C                     MOVEL'10'      @@ID
+     C                     LEAVE
+     C                     OTHER
+     C                     EXSR #CHK20
+     C           *INKA     IFEQ *ON
+     C                     MOVEL'99'      @@ID
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      **************************************************************************
+      *     2ND SCREEN - CHECK FOR SELECTED SUBFILE RECORD, DISPLAY
+      **************************************************************************
+     C           #CHK20    BEGSR
+      *
+     C                     Z-ADD*ZERO     RRN1
+      *
+     C                     DO   *HIVAL
+      *
+     C                     ADD  1         RRN1
+     C           RRN1      CHAINSFL010               93
+     C   93                LEAVE
+      *
+     C           S1SEL     IFNE *BLANK
+     C                     MOVEL*ON       *IN52
+     C                     MOVEL*BLANK    S1SEL
+     C                     UPDATSFL010
+     C                     MOVEL*OFF      *IN52
+     C                     EXSR #DSP20
+     C           *INKA     IFEQ *ON
+     C                     MOVEL'99'      @@ID
+     C                     LEAVE
+     C                     ENDIF
+     C           *INKL     IFEQ *ON
+     C                     MOVEL'01'      @@ID
+     C                     LEAVE
+     C                     ENDIF
+     C                     ELSE
+     C                     MOVEL*OFF      *IN52
+     C                     MOVEL*BLANK    S1SEL
+     C                     UPDATSFL010
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     DISPLAY DETAIL SCREEN TWO
+      **************************************************************************
+     C           #DSP20    BEGSR
+      *
+     C                     MOVELS1BIN#    F1BIN#
+      *
+     C                     MOVELH1STAT    F1STAT
+     C                     Z-ADDH1STDT    F1STDT
+     C                     Z-ADDH1STTM    F1STTM
+     C                     MOVELH1STBY    F1STBY
+     C                     Z-ADDH1ISDT    F1ISDT
+     C                     Z-ADDH1ISTM    F1ISTM
+     C                     MOVELH1ISBY    F1ISBY
+     C                     Z-ADDH1LBDT    F1LBDT
+     C                     Z-ADDH1LBTM    F1LBTM
+     C                     MOVELH1LBBY    F1LBBY
+      *
+     C                     MOVELS1NAME    F1LOCN
+     C                     Z-ADDS1DATE    F1LCDT
+     C                     Z-ADDS1TIME    F1LCTM
+     C                     MOVELS1LCBY    F1LCBY
+      *
+     C                     EXFMTFMT020
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     CHECK TO SEE IF BIN# IS SCANNED TO O/S STORE IN FILE
+      **************************************************************************
+     C           #CHKOS    BEGSR
+      *
+     C           S1BIN#    SETGTAFDPL9V
+      *
+     C                     DO   *HIVAL
+      *
+     C           S1BIN#    REDPEAFDPL9V                  97
+     C   97                LEAVE
+      *
+     C           AFSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDAFCODT    S1DATE
+     C                     Z-ADDAFCOTM    S1TIME
+     C                     MOVELAFCOWK    ##CHR6
+     C                     MOVELAFPHN1    S1SHN1
+     C                     MOVELAFPHN2    S1SHN2
+     C                     MOVELAFPHN3    S1SHN3
+     C           S1NAME    CAT  '- ':1    S1NAME
+     C           S1NAME    CAT  AFLOCN:1  S1NAME
+     C                     LEAVE
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *************************************************************************
+** ERR
+NO DATA FOUND!
+VALID SEARCH CHARS 0 - 9, A - Z
+LOCAL PROCURE

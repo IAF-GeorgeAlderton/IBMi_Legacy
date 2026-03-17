@@ -1,0 +1,597 @@
+     H            Y.
+     F***CHKR22*****************************************************************
+     F*  PROGRAM    : PRINT INCORRECT COMMON PART LIST                         *
+     F*             : READ FAAPP02 AND CHAIN AB#PP10 AND COMPARE IAF PART      *
+     F*             : RUN IN FCKC00 (10:10AM BY JOBSCDE)                       *
+     F*  WRITTEN    : 5/1/2016                                                 *
+     F*  WRITTEN BY : JW (SRA)                                                 *
+     F*  =====================                                                 *
+     F*  ** NOTE **                                                            *
+     F*  IF PARAMETER $CUST: 'H' = HONDA ONLY                                  *
+     F*               $UPD : 'Y' = UPDATE PP10                                 *
+     F*               $CUST: ' ' = TARGET ALL CUSTOMERS                        *
+     F**************************************************************************
+     FAB#PL19DUF  E           K        DISK
+     FFAAPL05 IF  E           K        DISK
+     FFAAPL08 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+     FFCEPL30 IF  E           K        DISK
+     FQPRINT  O   F     198     OF     PRINTER
+     I            DS
+     I                                        1  20 BAMHIN
+     I                                        1   5 BAMHN1
+     I                                        6  10 BAMHN2
+     I                                       11  15 BAMHN3
+     I                                       16  20 BAMHN4
+     I            DS
+     I                                        1  14 XPART
+     I                                        1   5 XPART1
+     I                                        6   6 XP1
+     I                                        7  11 XPART2
+     I                                       12  12 XP2
+     I                                       13  14 XPART3
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+     C                     DO   *HIVAL
+     C                     READ AB#PL19D                 91
+     C   91                LEAVE
+      * IGNORE TOYOTA
+     C           BATOKU    IFEQ 3411
+     C                     ITER
+     C                     ENDIF
+      * SELECT CUSTOMER
+     C           $CUST     IFEQ 'H'
+     C           BATOKU    IFNE 0294
+     C           BATOKU    ANDNE0295
+     C           BATOKU    ANDNE0296
+     C           BATOKU    ANDNE0390
+     C           BATOKU    ANDNE0391
+     C           BATOKU    ANDNE0400
+     C           BATOKU    ANDNE1602
+     C           BATOKU    ANDNE3135
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      * CHECK PART MASTER
+     C           K#PL01    CHAINFCEPL01              99
+     C           *IN99     IFEQ *OFF
+     C                     ITER
+     C                     ENDIF
+      * CHECK SERVICE PART MASTER
+     C           K#PL01    CHAINFCEPL30              99
+     C           *IN99     IFEQ *OFF
+     C                     ITER
+     C                     ENDIF
+      *
+      *  CHECK COMMON PART MASTER WITH NORMAL VALUE
+     C                     EXSR #CHK1
+     C           OKFLG     IFEQ 'E'
+     C                     GOTO ERR
+     C                     ENDIF
+      *
+      *  CHECK COMMON PART MASTER WITH MHN3,MHN4=BLANK
+     C           OKFLG     IFEQ 'N'
+     C                     EXSR #CHK2
+     C           OKFLG     IFEQ 'E'
+     C                     GOTO ERR
+     C                     ENDIF
+     C                     ENDIF
+      *
+      *  CHECK COMMON PART MASTER WITHOUT NONY
+     C           OKFLG     IFEQ 'N'
+     C                     EXSR #CHK3
+     C           OKFLG     IFEQ 'E'
+     C                     GOTO ERR
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           OKFLG     IFEQ 'Y'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           ERR       TAG
+     C           OKFLG     IFEQ 'N'
+     C                     MOVEL'???  '   B7SHN1
+     C                     MOVE *BLANK    B7SHN2
+     C                     MOVE *BLANK    B7SHN3
+     C                     ENDIF
+      *
+     C                     EXSR #PRINT
+      * UPDATE?
+     C           $UPD      IFEQ 'Y'
+     C           BASHN1    IFNE XPART1
+     C           BASHN2    ORNE XPART2
+     C           BASHN3    ORNE XPART3
+     C                     EXSR #UPD
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     MOVELSEQ#      $CNT
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  CHECK COMMON PART MASTER WITH NORMAL VALUE        *
+      *----------------------------------------------------*
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE 'N'       OKFLG   1
+      * 1. CHAIN WITH FAC + DOCK
+     C                     MOVELBATOKU    KATOKU
+     C                     MOVELBANONY    KANONY
+     C                     MOVELBAMHN1    KAMHN1
+     C                     MOVELBAMHN2    KAMHN2
+     C                     MOVELBAMHN3    KAMHN3
+     C                     MOVELBAMHN4    KAMHN4
+     C                     MOVELBANKOJ    KANKOJ
+     C                     MOVELBANUKE    KANUKE
+     C           KEY1      CHAINFAAPL05              99
+     C           *IN99     IFEQ *OFF
+     C           B7SKBN    IFNE 'D'
+     C           BASHN1    IFEQ B7SHN1
+     C           BASHN2    ANDEQB7SHN2
+     C           BASHN3    ANDEQB7SHN3
+     C                     MOVE 'Y'       OKFLG
+     C                     GOTO XCHK1
+     C                     ELSE
+     C                     MOVE 'E'       OKFLG
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+      * 2. CHAIN WITH FAC=BLANK + DOCK
+     C                     MOVE *BLANK    KANKOJ
+     C                     MOVELBANUKE    KANUKE
+     C           KEY1      CHAINFAAPL05              98
+     C           *IN98     IFEQ *OFF
+     C           B7SKBN    IFNE 'D'
+     C           BASHN1    IFEQ B7SHN1
+     C           BASHN2    ANDEQB7SHN2
+     C           BASHN3    ANDEQB7SHN3
+     C                     MOVE 'Y'       OKFLG
+     C                     GOTO XCHK1
+     C                     ELSE
+     C                     MOVE 'E'       OKFLG
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+      * 3. CHAIN WITH FAC + DOCK=BLANK
+     C                     MOVELBANKOJ    KANKOJ
+     C                     MOVE *BLANK    KANUKE
+     C           KEY1      CHAINFAAPL05              97
+     C           *IN97     IFEQ *OFF
+     C           B7SKBN    IFNE 'D'
+     C           BASHN1    IFEQ B7SHN1
+     C           BASHN2    ANDEQB7SHN2
+     C           BASHN3    ANDEQB7SHN3
+     C                     MOVE 'Y'       OKFLG
+     C                     GOTO XCHK1
+     C                     ELSE
+     C                     MOVE 'E'       OKFLG
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+      * 4. CHAIN WITH FAC=BLANK + BLANK = BLANK
+     C                     MOVE *BLANK    KANKOJ
+     C                     MOVE *BLANK    KANUKE
+     C           KEY1      CHAINFAAPL05              96
+     C           *IN96     IFEQ *OFF
+     C           B7SKBN    IFNE 'D'
+     C           BASHN1    IFEQ B7SHN1
+     C           BASHN2    ANDEQB7SHN2
+     C           BASHN3    ANDEQB7SHN3
+     C                     MOVE 'Y'       OKFLG
+     C                     GOTO XCHK1
+     C                     ELSE
+     C                     MOVE 'E'       OKFLG
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           XCHK1     ENDSR
+      *----------------------------------------------------*
+      *  CHECK COMMON PART MASTER WITH (MHN3/MHN4=BLANK)   *
+      *----------------------------------------------------*
+     C           #CHK2     BEGSR
+      * A. CHAIN WITH FAC + DOCK  (MHN3/MHN4=BLANK)
+     C                     MOVELBATOKU    KATOKU
+     C                     MOVELBANONY    KANONY
+     C                     MOVELBAMHN1    KAMHN1
+     C                     MOVELBAMHN2    KAMHN2
+     C                     MOVE *BLANK    KAMHN3
+     C                     MOVE *BLANK    KAMHN4
+     C                     MOVELBANKOJ    KANKOJ
+     C                     MOVELBANUKE    KANUKE
+     C           KEY1      CHAINFAAPL05              99
+     C           *IN99     IFEQ *OFF
+     C           B7SKBN    IFNE 'D'
+     C           BASHN1    IFEQ B7SHN1
+     C           BASHN2    ANDEQB7SHN2
+     C           BASHN3    ANDEQB7SHN3
+     C                     MOVE 'Y'       OKFLG
+     C                     GOTO XCHK2
+     C                     ELSE
+     C                     MOVE 'E'       OKFLG
+     C                     GOTO XCHK2
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+      * B. CHAIN WITH FAC=BLANK + DOCK (MHN3/MHN4=BLANK)
+     C                     MOVE *BLANK    KANKOJ
+     C                     MOVELBANUKE    KANUKE
+     C           KEY1      CHAINFAAPL05              98
+     C           *IN98     IFEQ *OFF
+     C           B7SKBN    IFNE 'D'
+     C           BASHN1    IFEQ B7SHN1
+     C           BASHN2    ANDEQB7SHN2
+     C           BASHN3    ANDEQB7SHN3
+     C                     MOVE 'Y'       OKFLG
+     C                     GOTO XCHK2
+     C                     ELSE
+     C                     MOVE 'E'       OKFLG
+     C                     GOTO XCHK2
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+      * C. CHAIN WITH FAC + DOCK=BLANK (MHN3/MHN4=BLANK)
+     C                     MOVELBANKOJ    KANKOJ
+     C                     MOVE *BLANK    KANUKE
+     C           KEY1      CHAINFAAPL05              97
+     C           *IN97     IFEQ *OFF
+     C           B7SKBN    IFNE 'D'
+     C           BASHN1    IFEQ B7SHN1
+     C           BASHN2    ANDEQB7SHN2
+     C           BASHN3    ANDEQB7SHN3
+     C                     MOVE 'Y'       OKFLG
+     C                     GOTO XCHK2
+     C                     ELSE
+     C                     MOVE 'E'       OKFLG
+     C                     GOTO XCHK2
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+      * D. CHAIN WITH FAC=BLANK + BLANK = BLANK (MHN3/MHN4=BLANK)
+     C                     MOVE *BLANK    KANKOJ
+     C                     MOVE *BLANK    KANUKE
+     C           KEY1      CHAINFAAPL05              96
+     C           *IN96     IFEQ *OFF
+     C           B7SKBN    IFNE 'D'
+     C           BASHN1    IFEQ B7SHN1
+     C           BASHN2    ANDEQB7SHN2
+     C           BASHN3    ANDEQB7SHN3
+     C                     MOVE 'Y'       OKFLG
+     C                     GOTO XCHK2
+     C                     ELSE
+     C                     MOVE 'E'       OKFLG
+     C                     GOTO XCHK2
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           XCHK2     ENDSR
+      *----------------------------------------------------*
+      *  CHECK COMMON PART MASTER WITHOUT NONY             *
+      *----------------------------------------------------*
+     C           #CHK3     BEGSR
+      *
+      * 1. CHAIN WITH FULL MHIN
+     C                     MOVELBATOKU    KATOKU
+     C                     MOVELBAMHN1    KAMHN1
+     C                     MOVELBAMHN2    KAMHN2
+     C                     MOVELBAMHN3    KAMHN3
+     C                     MOVELBAMHN4    KAMHN4
+     C           KEY2      SETLLFAAPL08
+      *
+     C                     DO   *HIVAL
+     C           KEY2      READEFAAPL08                  95
+     C   95                LEAVE
+      *
+     C           B7SKBN    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           BASHN1    IFEQ B7SHN1
+     C           BASHN2    ANDEQB7SHN2
+     C           BASHN3    ANDEQB7SHN3
+     C                     MOVE 'Y'       OKFLG
+     C                     LEAVE
+     C                     ELSE
+     C                     MOVE 'E'       OKFLG
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+      * 2. CHAIN WITH MHN1/2
+     C                     MOVELBATOKU    KATOKU
+     C                     MOVELBAMHN1    KAMHN1
+     C                     MOVELBAMHN2    KAMHN2
+     C                     MOVE *BLANK    KAMHN3
+     C                     MOVE *BLANK    KAMHN4
+     C           KEY2      SETLLFAAPL08
+      *
+     C                     DO   *HIVAL
+     C           KEY2      READEFAAPL08                  94
+     C   94                LEAVE
+      *
+     C           B7SKBN    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           BASHN1    IFEQ B7SHN1
+     C           BASHN2    ANDEQB7SHN2
+     C           BASHN3    ANDEQB7SHN3
+     C                     MOVE 'Y'       OKFLG
+     C                     LEAVE
+     C                     ELSE
+     C                     MOVE 'E'       OKFLG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  GUESS                                             *
+      *----------------------------------------------------*
+     C           #GUESS    BEGSR
+      *
+     C                     MOVE *BLANK    XPART
+      *
+     C                     MOVELBAMHN1    KAMHN1
+     C                     MOVELBAMHN2    KAMHN2
+     C                     MOVELBAMHN3    KAMHN3
+     C                     MOVELBAMHN4    KAMHN4
+     C           KEY3      SETLLFAAPL05
+     C                     DO   *HIVAL
+     C           KEY3      READEFAAPL05                  98
+     C   98                LEAVE
+     C           B7SKBN    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELB7SHN1    XPART1
+     C                     MOVELB7SHN2    XPART2
+     C                     MOVELB7SHN3    XPART3
+     C           B7SHN2    IFEQ *BLANK
+     C                     MOVE ' '       XP1
+     C                     ELSE
+     C                     MOVE '-'       XP1
+     C                     ENDIF
+     C           B7SHN3    IFEQ *BLANK
+     C                     MOVE ' '       XP2
+     C                     ELSE
+     C                     MOVE '-'       XP2
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C           XPART     IFEQ *BLANK
+     C                     MOVEL'NEW PART'LTR11  11
+     C                     MOVE '???'     LTR11
+     C                     MOVELLTR11     XPART     P
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  UPDATE                                            *
+      *----------------------------------------------------*
+     C           #UPD      BEGSR
+      *
+     C           XPART1    IFEQ 'NEW P'
+     C                     MOVELBAMHN1    BASHN1
+     C                     MOVELBAMHN2    BASHN2
+     C                     MOVE *BLANK    BASHN3
+     C                     ELSE
+     C                     MOVELXPART1    BASHN1
+     C                     MOVELXPART2    BASHN2
+     C                     MOVELXPART3    BASHN3
+     C                     ENDIF
+      *
+     C                     UPDATAB#PP101
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      *CONVERT
+     C           ' ':'_'   XLATEBAEDIK    XAEDIK  1
+     C           ' ':'_'   XLATEBAMHN1    XAMHN1  5
+     C           ' ':'_'   XLATEBAMHN2    XAMHN2  5
+     C           ' ':'_'   XLATEBAMHN3    XAMHN3  5
+     C           ' ':'_'   XLATEBASHN1    XASHN1  5
+     C           ' ':'_'   XLATEBASHN2    XASHN2  5
+     C           ' ':'_'   XLATEBASHN3    XASHN3  2
+     C           ' ':'_'   XLATEB7SHN1    X7SHN1  5
+     C           ' ':'_'   XLATEB7SHN2    X7SHN2  5
+     C           ' ':'_'   XLATEB7SHN3    X7SHN3  2
+     C           ' ':'_'   XLATEBAODRN    XAODRN 10
+      * CALL BBHR51
+     C                     MOVELBATOKU    PTOKU
+     C                     MOVELBANONY    PNONY
+     C                     MOVELBANKOJ    PNKOJ
+     C                     MOVELBANUKE    PNUKE
+     C                     MOVELBAMHIN    @MHIN
+     C                     MOVEL*BLANK    @SHIN
+     C                     MOVEL*BLANK    @FLG
+     C                     CALL 'BBHR51'
+     C                     PARM           PTOKU   4
+     C                     PARM           PNONY   4
+     C                     PARM           PNKOJ   1
+     C                     PARM           PNUKE   4
+     C                     PARM           @MHIN  20
+     C                     PARM           @SHIN  12
+     C                     PARM           @FLG    1
+      *
+     C                     MOVE *BLANK    @BBHR5 12
+     C           @FLG      IFEQ *BLANK
+     C                     MOVEL@SHIN     @BBHR5
+     C                     ELSE
+     C                     MOVEL'???'     @BBHR5
+     C                     ENDIF
+      * BRAEK?
+     C           BANONY    IFNE SVNONY
+     C           SVNONY    ANDNE0
+     C                     EXCPT@BRK
+     C                     ADD  1         LIN#
+     C                     ENDIF
+      * GUESS
+     C                     EXSR #GUESS
+      * DETAIL
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     Z-ADDBANONY    SVNONY
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $CUST   1        H=HONDA, OTHER=ALL
+     C                     PARM           $UPD    1        Y=UPDATE, N=NOT UPDAT
+     C                     PARM           $CNT    4
+      *
+     C           KEY1      KLIST
+     C                     KFLD           KAMHN1
+     C                     KFLD           KAMHN2
+     C                     KFLD           KAMHN3
+     C                     KFLD           KAMHN4
+     C                     KFLD           KATOKU
+     C                     KFLD           KANONY
+     C                     KFLD           KANKOJ
+     C                     KFLD           KANUKE
+      *
+     C           KEY2      KLIST
+     C                     KFLD           KATOKU
+     C                     KFLD           KAMHN1
+     C                     KFLD           KAMHN2
+     C                     KFLD           KAMHN3
+     C                     KFLD           KAMHN4
+      *
+     C           KEY3      KLIST
+     C                     KFLD           KAMHN1
+     C                     KFLD           KAMHN2
+     C                     KFLD           KAMHN3
+     C                     KFLD           KAMHN4
+      *
+     C           K#PL01    KLIST
+     C                     KFLD           BASHN1
+     C                     KFLD           BASHN2
+     C                     KFLD           BASHN3
+      *
+     C           *LIKE     DEFN BATOKU    KATOKU
+     C           *LIKE     DEFN BANONY    KANONY
+     C           *LIKE     DEFN BAMHN1    KAMHN1
+     C           *LIKE     DEFN BAMHN2    KAMHN2
+     C           *LIKE     DEFN BAMHN3    KAMHN3
+     C           *LIKE     DEFN BAMHN4    KAMHN4
+     C           *LIKE     DEFN BANKOJ    KANKOJ
+     C           *LIKE     DEFN BANUKE    KANUKE
+      *
+     C                     Z-ADD*DATE     @DATE   80
+     C                     TIME           @TIME   60
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+     C                     MOVEL'0000'    $CNT
+     C                     Z-ADD0         SVNONY  40
+     C                     MOVEL'XXXXX-XX'XPART  14
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   14 'UPD='
+     O                         $UPD      15
+     O                                   45 '!! PART NOT FOUND IN'
+     O                                   65 ' COMMON PART MASTER.'
+     O                                   85 ' PLEASE REGISTER THE'
+     O                                  105 ' PART ASAP !!       '
+     O                                  106 'DATE'
+     O                         @DATE    109 '    .  .  '
+     O                         @TIME    119 '  :  :  '
+     O                                  122 'P.'
+     O                         PAGE  Z  126
+     O        E   02           @HDR
+     O                                    1 '.'
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   14 'CUST'
+     O                                   21 'DELV'
+     O                                   25 'F'
+     O                                   30 'DOCK'
+     O                                   45 'SHP_DATE_BIN'
+     O                                   59 'USER_PART'
+     O                                   80 'IAF_PART??? '
+     O                                   96 'COMMON MASTER'
+     O                                  104 'ORDER#'
+     O                                  122 'ORD_QTY'
+     O                                  130 'IAF'
+     O                                  138 'USR'
+     O                                  156 'IAF-PART(MAYBE?)'
+JW   O**                                130 'BBHR51 '
+     O        E 1              @HDR
+     O                                   59 '(PP10)   '
+     O                                   80 '(PP10)      '
+     O                                   96 '(FAAPP02)    '
+     O                                  130 'Q/C'
+     O                                  138 'Q/C'
+     O        E 1              @HDR
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+     O                                  140 '--------------------'
+     O                                  160 '--------------------'
+     O                                  180 '--------------------'
+     O        E 1              @DTL
+     O                         SEQ#    +001
+     O                         XAEDIK  +001
+     O                         BATOKU  +003
+     O                         BANONY  +003
+     O                         BANKOJ  +003
+     O                         BANUKE  +003
+     O                         BANOYY  +002
+     O                                 +000 '/'
+     O                         BANOMM  +000
+     O                                 +000 '/'
+     O                         BANODD  +000
+     O                         BANOBN  +001
+     O                         XAMHN1  +003
+     O                         XAMHN2  +000
+     O                         XAMHN3  +000
+     O                         XASHN1  +003
+     O                         XASHN2  +000
+     O                         XASHN3  +000
+     O                         X7SHN1  +003
+     O                         X7SHN2  +000
+     O                         X7SHN3  +000
+     O                         XAODRN  +003
+     O                         BASRYO1 +001
+     O                         BASYOS1 +001
+     O                         BAUSYS1 +001
+     O                         XPART   +002
+JW   O**                       @BBHR5  +002
+     O        E 1              @BRK
+     O                                    1 '.'
+     O**      E 1              @FOT
+     O**                                 20 '** THERE IS NO TARGE'
+     O**                                 40 'T DATA **           '

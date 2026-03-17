@@ -1,0 +1,235 @@
+     H            Y.
+     F** UEXR12 *********************************************
+     F*  PROGRAM: CHECK APICS SHORTAGE ?                     *
+     F*  WRITTEN: JW (SRA) 2019.09.10                       *
+     F*-----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UEXR12'
+     F*                    PARM           $PART  12
+     F*                    PARM           $FLG    1
+     F*                    PARM           $RTN    1
+     F*  IN  $PART : 12A IAF PART
+     F*  OUT $FLG  :  1A Y=SHORTAGE, N=NOT SHORTAGE
+     F*      $RTN  :  1A RETURN CODE (OK:BLANK, *:ERROR)
+     F******************************************************
+     FAH#TL19 IF  E           K        DISK
+      *===================================================
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I                                       13  140SDD
+     I            DS
+     I                                        1   80K#HTHZ
+     I                                        1   40K#HTYY
+     I                                        5   60K#HTMM
+     I                                        7   80K#HTDD
+     I            DS
+     I                                        1  12 K#SHIN
+     I                                        1   5 K#SHN1
+     I                                        6  10 K#SHN2
+     I                                       11  12 K#SHN3
+     I            DS
+     I                                        1   80CFHTHZ
+     I                                        1   40CFHTYY
+     I                                        5   60CFHTMM
+     I                                        7   80CFHTDD
+      *===================================================
+      *           MAIN ROUTINE
+      *===================================================
+     C                     EXSR #INIT
+      *
+     C           K#L19S    SETLLAH#TL19
+     C                     DO   *HIVAL
+     C           K#L19     READEAH#TL19                  98
+     C   98                LEAVE
+      *
+     C           CFSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * CHECK PICK-UP
+     C                     EXSR #PICK
+     C           @EXIST    IFEQ 'Y'
+     C                     ITER
+     C                     ENDIF
+      * CHECK BZ/DS
+     C                     EXSR #BZ
+     C           @EXIST    IFEQ 'Y'
+     C                     ITER
+     C                     ENDIF
+      * CHECK 2ND
+     C                     EXSR #2ND
+     C           @EXIST    IFEQ 'Y'
+     C                     ITER
+     C                     ENDIF
+      * CHECK SRT
+     C                     EXSR #SRT
+     C           @EXIST    IFEQ 'Y'
+     C                     ITER
+     C                     ENDIF
+      * RESULT
+     C           @EXIST    IFEQ 'N'
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      * SET FLAG
+     C           @EXIST    IFEQ 'Y'
+     C                     MOVEL'N'       $FLG             ALL PULLED   = NOT SH
+     C                     ELSE
+     C                     MOVEL'Y'       $FLG             NOT ALL PULL = SHORT
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *======================================================
+      * CHECK PICK UP
+      *======================================================
+     C           #PICK     BEGSR
+      *
+     C                     MOVELCFCHYU    P@CHYU
+     C                     MOVELCFZENO    P@ZETI
+     C                     MOVELCFTHNO    P@THNO
+     C                     MOVELCFHTHZ    P@HTHZ
+     C                     CALL 'ALCRS1'
+     C                     PARM           P@CHYU  1        KANBAN TYPE
+     C                     PARM           P@ZETI  4        ZETI#
+     C                     PARM           P@THNO  3        ORDER#
+     C                     PARM           P@HTHZ  80       KANBAN ISSUE DATE
+     C                     PARM           P@DAT1  80       PICK DATE
+     C                     PARM           P@TIM1  60       PICK TIME
+      *
+     C           P@DAT1    IFEQ 0
+     C                     MOVE 'N'       @EXIST
+     C                     ELSE
+     C                     MOVE 'Y'       @EXIST
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *======================================================
+      * CHECK BZ/DS
+      *======================================================
+     C           #BZ       BEGSR
+      *
+     C                     MOVELCFHIN1    P@SHN1
+     C                     MOVELCFHIN2    P@SHN2
+     C                     MOVELCFHIN3    P@SHN3
+     C                     MOVELCFTHNO    P@THNO
+     C                     MOVELCFHTHZ    P@HTHZ
+     C                     CALL 'AJSR1Z'
+     C                     PARM           P@SHN1  5        IAF PART 1
+     C                     PARM           P@SHN2  5        IAF PART 2
+     C                     PARM           P@SHN3  2        IAF PART 3
+     C                     PARM           P@THNO  3        ORDER#
+     C                     PARM           P@HTHZ  80       KANBAN ISSUE DATE
+     C                     PARM           P@DAT2  80       ADMITTABLE DATE
+     C                     PARM           P@TIM2  60       ADMITTABLE TIME
+      *
+     C           P@DAT2    IFEQ 0
+     C                     MOVE 'N'       @EXIST
+     C                     ELSE
+     C                     MOVE 'Y'       @EXIST
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *======================================================
+      * CHECK 2ND INFO
+      *======================================================
+     C           #2ND      BEGSR
+      *
+     C                     MOVELCFHIN1    P@SHN1
+     C                     MOVELCFHIN2    P@SHN2
+     C                     MOVELCFHIN3    P@SHN3
+     C                     MOVELCFTHNO    P@THNO
+     C                     MOVELCFHTHZ    P@HTHZ
+     C                     CALL 'AJHR2W'
+     C                     PARM           P@SHN1  5        IAF PART 1
+     C                     PARM           P@SHN2  5        IAF PART 2
+     C                     PARM           P@SHN3  2        IAF PART 3
+     C                     PARM           P@THNO  3        ORDER#
+     C                     PARM           P@HTHZ  80       KANBAN ISSUE DATE
+     C                     PARM           P@DAT3  80       WEIGHING DATE
+     C                     PARM           P@TIM3  60       WEIGHING TIME
+      *
+     C           P@DAT3    IFEQ 0
+     C                     MOVE 'N'       @EXIST
+     C                     ELSE
+     C                     MOVE 'Y'       @EXIST
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *======================================================
+      * CHECK SRT/SHIPPING
+      *======================================================
+     C           #SRT      BEGSR
+      *
+     C                     MOVELCFHIN1    P@SHN1
+     C                     MOVELCFHIN2    P@SHN2
+     C                     MOVELCFHIN3    P@SHN3
+     C                     MOVELCFTHNO    P@THNO
+     C                     MOVELCFHTHZ    P@HTHS
+     C                     CALL 'ALCRS5'
+     C                     PARM           P@SHN1  5        IAF PART 1
+     C                     PARM           P@SHN2  5        IAF PART 2
+     C                     PARM           P@SHN3  2        IAF PART 3
+     C                     PARM           P@THNO  3        ORDER#
+     C                     PARM           P@HTHS  8        KANBAN ISSUE DATE
+     C                     PARM           P@DAT4  8        SCAN DATE
+     C                     PARM           P@TIM4  6        SCAN TIME
+     C                     PARM           P@STK   1        STOCK Y/N
+     C                     PARM           P@RTN   1        RETURN
+      *
+     C           P@DAT4    IFEQ '00000000'
+     C           P@DAT4    OREQ *BLANK
+     C                     MOVE 'N'       @EXIST
+     C                     ELSE
+     C                     MOVE 'Y'       @EXIST
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *======================================================
+      * INITIAL SET
+      *======================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $PART  12
+     C                     PARM           $FLG    1
+     C                     PARM           $RTN    1
+      *
+     C           K#L19S    KLIST
+     C                     KFLD           K#SHN1  5
+     C                     KFLD           K#SHN2  5
+     C                     KFLD           K#SHN3  2
+     C                     KFLD           K#HTYY  40
+     C                     KFLD           K#HTMM  20
+     C                     KFLD           K#HTDD  20
+      *
+     C           K#L19     KLIST
+     C                     KFLD           K#SHN1
+     C                     KFLD           K#SHN2
+     C                     KFLD           K#SHN3
+      *
+     C                     MOVEL$PART     K#SHIN
+     C                     MOVE *BLANK    $FLG
+     C                     MOVE *BLANK    $RTN
+     C                     MOVE 'N'       @EXIST  1
+      * GRT START DATE
+     C                     TIME           SDATE
+     C                     MOVELTODAY     QQDATE
+     C                     MOVE '-'       QQPORM
+     C                     MOVE '0010'    QQDAYS
+     C                     MOVE *BLANK    QQRDAT
+     C                     MOVE *BLANK    QQRTN
+     C                     CALL 'DATR1A'
+     C                     PARM           QQDATE  8
+     C                     PARM           QQPORM  1        + OR -
+     C                     PARM           QQDAYS  4
+     C                     PARM           QQRDAT  8
+     C                     PARM           QQRTN   1
+      *
+     C                     MOVELQQRDAT    STDAT   80
+     C                     Z-ADDSTDAT     K#HTHZ
+      *
+     C                     ENDSR
+      *====================================================

@@ -1,0 +1,119 @@
+     H            Y.
+     F** UTLR34F  ****************************************************
+     F*  PROGRAM    : UTILITY- GET IC CODE (FORD) FROM ABF3P01       *
+     F*  WRITTEN    : JW (SRA)  2024.07.01                           *
+     F*----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UTLR34F'
+     F*                    PARM           $NONY   4
+     F*                    PARM           $DOCK   4
+     F*                    PARM           $POR#   6
+     F*                    PARM           $ICCD   5
+     F*                    PARM           $RTN    1
+     F*   IN  $NONY   4A  DELIVERY CODE
+     F*       $DOCK   4A  DOCK
+     F*       $POR#   6A  PROGRAM ID#  (BLANK=LATEST PGMID#)
+     F*   OUT $ICCD   5A  IC CODE
+     F*       $RTN    1A  RETURN FLAG (BLANK:OK, *:ERROR)
+     F****************************************************************
+     FABF3L03 IF  E           K        DISK
+      *---------------------------------------------------------------
+     I* SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I* SYSTEM TIME
+     I            DS
+     I                                        1   80QAEFHZ
+     I                                        1   40QAEFYY
+     I                                        5   60QAEFMM
+     I                                        7   80QAEFDD
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      ******************************************************
+      *                    MAIN PROCESS
+      ******************************************************
+     C                     EXSR #INIT
+      * RETRIEVE ICCD
+     C           $POR#     IFEQ *BLANK
+     C           $POR#     OREQ '999999'
+     C                     MOVE '999999'  K#POR#
+     C                     EXSR #POR9                      LATEST
+     C                     ELSE
+     C                     MOVEL$POR#     K#POR#
+     C                     EXSR #POR1
+     C                     ENDIF
+      *
+      * RETRIEVE ICCD FROM ROUTE MASTER
+     C           S@ICCD    IFEQ *BLANK
+     C                     CALL 'UTLR34'
+     C                     PARM           $NONY   4
+     C                     PARM           $DOCK   4
+     C                     PARM           XICCD   5
+     C                     PARM           $RTN1   1
+     C                     MOVELXICCD     S@ICCD
+     C                     ENDIF
+      *
+     C           S@ICCD    IFEQ *BLANK
+     C                     MOVE '*'       $RTN
+     C                     ELSE
+     C                     MOVELS@ICCD    $ICCD
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      ************************************
+      * POR# = BLANK  (LATEST ICCD)      *
+      ************************************
+     C           #POR9     BEGSR
+      *
+     C           KEY01     SETLLABF3L03
+     C                     READ ABF3L03                  91
+     C           *IN91     IFEQ *OFF
+     C           XNONY     ANDEQ$NONY
+     C           AFDOCK    ANDEQ$DOCK
+     C                     MOVELAFICCD    S@ICCD
+     C                     ENDIF
+      *
+     C                     ENDSR
+      ************************************
+      * POR# <> BLANK                    *
+      ************************************
+     C           #POR1     BEGSR
+      *
+     C           KEY01     CHAINABF3L03              92
+     C           *IN92     IFEQ *OFF
+     C                     MOVELAFICCD    S@ICCD
+     C                     ENDIF
+      *
+     C                     ENDSR
+      ************************************
+      * INITIAL SETTING                  *
+      ************************************
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $NONY   4
+     C                     PARM           $DOCK   4
+     C                     PARM           $POR#   6
+     C                     PARM           $ICCD   5
+     C                     PARM           $RTN    1
+      *
+     C           KEY01     KLIST
+     C                     KFLD           K#NONY  4
+     C                     KFLD           K#DOCK  4
+     C                     KFLD           K#POR#  6
+      *
+     C                     TIME           WSDT
+     C                     MOVE *BLANK    $ICCD
+     C                     MOVE *BLANK    $RTN
+     C                     MOVEL$NONY     K#NONY
+     C                     MOVEL$DOCK     K#DOCK
+     C                     MOVE *BLANK    S@ICCD  5
+      * DUMMY
+     C                     MOVE *BLANK    AFPOR#
+      *
+     C                     ENDSR

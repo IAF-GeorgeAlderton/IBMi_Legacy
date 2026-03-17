@@ -1,0 +1,261 @@
+     H            Y.
+     F***CHKR61F ***************************************************************
+     F*  PROGRAM    : CHECK FORD RECEIVED QTY VS IAF SHIPPED QTY               *
+     F*  WRITTEN    : 2022.12.15                                               *
+     F*  WRITTEN BY : JW (SRA)                                                 *
+     F**************************************************************************
+     FAB#PL10BIF  E           K        DISK
+     FABFAP01 IF  E           K        DISK
+     FQPRINT  O   F     198     OF     PRINTER
+     E                    ERR     1   6 40
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I                                        7  100@YEAR
+     I            DS
+     I                                        1  20 BAMHIN
+     I                                        1   5 BAMHN1
+     I                                        6  10 BAMHN2
+     I                                       11  15 BAMHN3
+     I                                       16  20 BAMHN4
+     I            DS
+     I                                        1  20 SVMHIN
+     I                                        1   5 SVMHN1
+     I                                        6  10 SVMHN2
+     I                                       11  15 SVMHN3
+     I                                       16  20 SVMHN4
+     I            DS
+     I                                        1  17 XXMHIN
+     I                                        1   5 XXMHN1
+     I                                        6   6 XXPH1
+     I                                        7  11 XXMHN2
+     I                                       12  12 XXPH2
+     I                                       13  14 XXMHN3
+     I            DS
+     I                                        1   80@LDAT
+     I                                        1   40CFUPDY
+     I                                        5   60CFUPDM
+     I                                        7   80CFUPDD
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+     C           @YEAR     SETLLAB#PL10B
+      *
+     C                     DO   *HIVAL
+     C           @YEAR     READEAB#PL10B                 98
+     C   98                LEAVE
+      * IGNORE
+     C           BASKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+     C           BAURYY    IFEQ 0
+     C                     ITER
+     C                     ENDIF
+     C           BATOKU    IFNE 5149
+     C                     ITER
+     C                     ENDIF
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     Z-ADDBANONY    SVNONY  40
+     C                     MOVELBANKOJ    SVNKOJ  1
+     C                     MOVELBANUKE    SVNUKE  4
+     C                     MOVELBAMHIN    SVMHIN 20
+     C                     ENDIF
+      * BREAK?
+     C           BANONY    IFNE SVNONY
+     C**         BANKOJ    ORNE SVNKOJ
+     C**         BANUKE    ORNE SVNUKE
+     C           BAMHIN    ORNE SVMHIN
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * DETAIL PROCESS
+     C                     MOVELBANUKE    SVNUKE
+     C                     ADD  BASRYO    @IAFQ   70
+     C                     ADD  1         RCNT
+     C           BAEDIK    IFNE 'E'
+     C                     ADD  1         MCNT
+     C                     ENDIF
+      *
+     C                     ENDDO
+      * LAST BREAK
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * TOTAL
+     C           SEQ#      IFEQ 0
+     C                     EXCPT@HDR
+     C                     EXCPT@TTL1
+     C                     ELSE
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     EXCPT@TTL2
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  BREAK                                             *
+      *----------------------------------------------------*
+     C           #BRK1     BEGSR
+      *
+     C           RCNT      IFNE MCNT
+     C                     EXSR #CUM
+      *
+     C           @IAFQ     IFNE @MSTQ
+     C                     EXSR #PRINT
+     C                     ENDIF
+     C                     ENDIF
+      * RESET
+     C                     Z-ADDBANONY    SVNONY
+     C                     MOVELBANKOJ    SVNKOJ
+     C                     MOVELBANUKE    SVNUKE
+     C                     MOVELBAMHIN    SVMHIN
+     C                     Z-ADD0         @IAFQ
+     C                     Z-ADD0         RCNT
+     C                     Z-ADD0         MCNT
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * GET CUM MASTER                                     *
+      *----------------------------------------------------*
+     C           #CUM      BEGSR
+      * GET PLANT CODE
+     C                     MOVELSVNONY    $NONY
+     C                     MOVELSVNUKE    $NUKE
+     C                     CALL 'UTLR34B'
+     C                     PARM           $NONY   4
+     C                     PARM           $NUKE   4
+     C                     PARM           $PLNT   5
+     C                     PARM           $RTNX   1
+      *
+     C           K#AP01    KLIST
+     C                     KFLD           K#DOCK  5
+     C                     KFLD           K#DOC2  4
+     C                     KFLD           K#PART 12
+      * GET CUM W/00
+     C                     Z-ADD0         @MSTQ   70
+     C                     MOVEL$PLNT     K#DOCK
+     C                     MOVEL'00  '    K#DOC2
+     C                     MOVELSVMHIN    K#PART
+     C           K#AP01    CHAINABFAP01              98
+     C           *IN98     IFEQ *OFF
+     C                     Z-ADDCFCAMT    @MSTQ   70
+     C                     ENDIF
+      * GET CUM W/NUKE
+     C           @MSTQ     IFEQ 0
+     C                     MOVEL$PLNT     K#DOCK
+     C                     MOVELSVNUKE    K#DOC2
+     C                     MOVELSVMHIN    K#PART
+     C           K#AP01    CHAINABFAP01              98
+     C           *IN98     IFEQ *OFF
+     C                     Z-ADDCFCAMT    @MSTQ   70
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      *
+     C           @MSTQ     SUB  @IAFQ     @DIFF   70
+      *
+      * GET CUSTOMER NAME
+     C                     MOVELSVNONY    $DLV
+     C                     CALL 'UTLR62'
+     C                     PARM           $DLV    4
+     C                     PARM           $GRP    3
+     C                     PARM           $NAME1 15
+     C                     PARM           $NAME2 50
+     C                     PARM           $RTNX   1
+     C                     MOVEL$NAME1    XNAME  15
+      *
+     C                     MOVELSVMHN1    XXMHN1
+     C                     MOVELSVMHN2    XXMHN2
+     C                     MOVELSVMHN3    XXMHN3
+      *
+     C           XMSG      IFEQ *BLANK
+     C                     MOVELERR,1     XMSG   25
+     C                     ENDIF
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $RTN    1
+      *
+     C                     TIME           SDATE
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+     C                     MOVE 'Y'       FIRST   1
+     C                     MOVE ' '       $RTN
+     C                     Z-ADD0         RCNT    40       RECORD#
+     C                     Z-ADD0         MCNT    40       MANUAL PO
+     C                     MOVE '-'       XXPH1
+     C                     MOVE '-'       XXPH2
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   40 '** FORD CUM MASTER V'
+     O                                   60 'S SHIP LOG DISCREPAN'
+     O                                   80 'CY LIST **          '
+     O                                  108 'DATE'
+     O                         TODAY    111 '    .  .  '
+     O                         NOW      121 '  :  :  '
+     O                                  125 'P.'
+     O                         PAGE  Z  129
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   11 'PLANT'
+     O                                   16 'DELV'
+     O                                   21 'DOCK'
+     O                                   27 'PART#'
+     O                                   49 '1.CUM_MST '
+     O                                   59 '2.IAF_SHP'
+     O                                   70 '1. - 2.'
+     O                                   81 'LAST UPD'
+     O                                   92 'ERR MSG'
+     O                                  115 'NAME'
+     O        E 1              @DTL
+     O                         SEQ#  1 +000
+     O                         $PLNT   +001
+     O                         SVNONY  +001
+     O                         SVNUKE  +001
+     O                         XXMHIN  +001
+     O                         @MSTQ 1 +000
+     O                         @IAFQ 1 +002
+     O                         @DIFF J +002
+     O                         @LDAT   +002 '    /  /  '
+     O                         XMSG    +002
+     O                         $NAME1  +001
+      *
+     O        E 1              @TTL1
+     O                                 +000 ' ** THERE IS NO ERRO'
+     O                                 +000 'R FOR THIS REPORT **'
+      *
+     O        E 1              @TTL2
+     O                                 +000 ' ** TOTAL ERROR'
+     O                         SEQ#  1 +001
+     O                                 +001 '**'
+** ERR (25A) ......2....+
+CUM QTY IS NOT MATCH !

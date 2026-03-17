@@ -1,0 +1,141 @@
+     H            Y.
+     F** AB#R9M ****************************************************************
+     F*  PROGRAM    : PRINT FORD MISSING ORDER REPORT                         *
+     F*  WRITTEN BY : JW (SRA)  2026.02.05                                     *
+     F**************************************************************************
+     FFBCPL01DIF  E           K        DISK
+     FQPRINT  O   F     198     OF     PRINTER
+     F**************************************************************************
+     I            DS
+     I                                        1  140STIME
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1  20 FBMHIN
+     I                                        1   5 FBMHN1
+     I                                        6  10 FBMHN2
+     I                                       11  15 FBMHN3
+     I                                       16  20 FBMHN4
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+     C           5149      SETLLFBCPL01D
+     C                     DO   *HIVAL
+     C           5149      READEFBCPL01D                 98
+     C   98                LEAVE
+      * IGNORE
+     C           FBNONY    IFEQ 5185
+     C                     ITER
+     C                     ENDIF
+      *
+      * GET IAF YTD ---------------------------------------
+     C                     MOVEL@YYYY     $YEAR
+     C                     MOVELFBNONY    $NONY
+     C                     MOVELFBMHIN    $MHIN
+     C                     CALL 'UEXR41H'
+     C                     PARM           $YEAR   8
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $YTDQ   9
+     C                     MOVEL$YTDQ     @IAFQ   90
+      * GET FORD YTD --------------------------------------
+     C                     MOVEL@SDATE    $NOHZ
+     C                     MOVELFBNONY    $NONY
+     C                     MOVELFBMHIN    $MHIN
+     C                     CALL 'UEXR41K'
+     C                     PARM           $NOHZ   8
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $PLNT   5
+     C                     PARM           $YTDQ   9
+     C                     MOVEL$YTDQ     @FRDQ   90
+      * COMPARE -------------------------------------------
+     C           @IAFQ     IFLT @FRDQ
+     C           @IAFQ     SUB  @FRDQ     @DIFF   90
+     C                     EXSR #PRINT
+     C                     ENDIF
+     C                     ENDDO
+      * SET RETURN CODE
+     C           SEQ#      IFGE 1
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      *
+     C           LINE      IFGE 65
+     C                     EXCPT@HDR
+     C                     Z-ADD4         LINE
+     C                     ENDIF
+      * EDIT
+     C                     MOVELFBMHIN    $MHIN
+     C                     CALL 'EDTR02A'
+     C                     PARM           $MHIN  20
+     C                     PARM           $MHIN2 23
+     C                     MOVEL$MHIN2    XMHIN  20
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LINE
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $SDATE  8
+     C                     PARM           $RTN    1
+      *
+     C                     MOVE *BLANK    $RTN
+     C                     TIME           STIME
+      *
+     C           $SDATE    IFEQ *BLANK
+     C                     Z-ADDTODAY     @SDATE  80
+     C                     ELSE
+     C                     MOVEL$SDATE    @SDATE
+     C                     ENDIF
+      *
+     C                     MOVEL@SDATE    @YYYY   40
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD80        LINE    30
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   40 '** FORD MISSING ORDE'
+     O                                   60 'R REPORT **  FOR SHI'
+     O                                   68 'P DATE: '
+     O                         @SDATE    78 '    /  /  '
+     O                         TODAY    102 '    .  .  '
+     O                         NOW      112 '  :  :  '
+     O                                  115 'P.'
+     O                         PAGE  Z  119
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   12 'PLANT'
+     O                                   18 'DELV#'
+     O                                   28 'SHP_DATE'
+     O                                   37 'PART#'
+     O                                   64 'FORD_DEMAND'
+     O                                   76 'IAF_YTD'
+     O                                   88 'MISSING'
+     O        E 1              @DTL
+     O                         SEQ#  Z +001
+     O                         $PLNT   +002
+     O                         FBNONY  +002
+     O                         @SDATE  +002 '    /  /  '
+     O                         XMHIN   +002
+     O                         @FRDQ 1 +001
+     O                         @IAFQ 1 +001
+     O                         @DIFF J +001

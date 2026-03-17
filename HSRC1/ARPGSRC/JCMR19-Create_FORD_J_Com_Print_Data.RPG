@@ -1,0 +1,116 @@
+     H            Y.
+      ** JCMR19 ********************************************************
+      *  CREATE FORD J-COM PRINT DATA                                  *
+      *  JW     2018/05/23                                             *
+JW1   *  JW     2021/11/01 ADD OPTION (CANCEL)                         *
+      *----------------------------------------------------*
+      *  CALLING SEQ.
+      *                    CALL 'JCMR19'
+      *                    PARM           $ASN    8
+JW1   *                    PARM           $FLG1   1
+      *                    PARM           $RTN    1
+      *  IN   $ASN  :  8A ASN#
+JW1   *  "    $FLG1 :  1A (A=ASN, C=CANCEL)
+      *  OUT  $RTN  :  1A RETURN FLAG (BLANK=OK, *=ERROR)
+      ******************************************************************
+     FJCMPL11 IF  E           K        DISK
+     FJCMPP12 IF  E           K        DISK
+     FJCMWP11 UF  E           K        DISK                      A
+     FJCMWP12 UF  E           K        DISK                      A
+      *---------------------------------------------------
+     I* SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************
+      *  MAIN
+      *************************************************************
+      * INITIALIZE
+     C                     EXSR #INIT
+      *
+      * CHECK ASN
+     C           $ASN      CHAINJCMPL11              91
+     C           *IN91     IFEQ *ON
+     C                     MOVE '*'       $RTN
+     C                     GOTO #ENDP
+     C                     ENDIF
+      * DELETE DUPLICATED
+     C                     EXSR #DLT
+      * CREATE HEADER
+     C                     CLEARJCMWP111
+     C           $ASN      CHAINJCMPL11              91
+     C                     Z-ADDTODAY     J1CRHZ
+     C                     Z-ADDNOW       J1CRTM
+     C                     MOVEL#USER     J1CRME
+JW1   * FL1G=C (CANCEL)
+ :   C           $FLG1     IFEQ 'C'
+ :   C                     MOVE '05'      J1PPS
+ :   C                     ELSE
+ :   C                     MOVE '00'      J1PPS
+JW1  C                     ENDIF
+      *********
+     C                     WRITEJCMWP111
+      * CREATE DETAIL
+     C           J1SHID    SETLLJCMPP12
+     C                     MOVE *OFF      *IN92
+     C           *IN92     DOWEQ*OFF
+     C           J1SHID    READEJCMPP12                  92
+     C           *IN92     IFEQ *OFF
+     C                     Z-ADDTODAY     J2CRHZ
+     C                     Z-ADDNOW       J2CRTM
+      * ORDER#
+     C           J2ORDN    IFEQ *BLANK
+     C                     MOVEL'11111'   J2ORDN
+     C                     ENDIF
+      *
+     C                     WRITEJCMWP121
+      *
+     C           SKIP1     TAG
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           #ENDP     TAG
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *-----------------------------------------------------------
+      *          DELETE DUPLICATE RECORD
+      *-----------------------------------------------------------
+     C           #DLT      BEGSR
+      * HEADER
+     C           $ASN      SETLLJCMWP11
+     C                     MOVE *OFF      *IN95
+     C           *IN95     DOWEQ*OFF
+     C           $ASN      READEJCMWP11                  95
+     C           *IN95     IFEQ *OFF
+     C                     DELETJCMWP111
+     C                     ENDIF
+     C                     ENDDO
+      * DETAIL
+     C           $ASN      SETLLJCMWP12
+     C                     MOVE *OFF      *IN96
+     C           *IN96     DOWEQ*OFF
+     C           $ASN      READEJCMWP12                  96
+     C           *IN96     IFEQ *OFF
+     C                     DELETJCMWP121
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *-----------------------------------------------------------
+      *          INITIALIZE
+      *-----------------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $ASN    8
+JW1  C                     PARM           $FLG1   1
+     C                     PARM           $RTN    1
+      *
+     C                     MOVE *BLANK    $RTN
+     C                     TIME           WSDT
+     C                     ENDSR

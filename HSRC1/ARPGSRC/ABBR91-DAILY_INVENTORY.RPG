@@ -1,0 +1,361 @@
+     H            Y.                                    1
+     H***ABBR7A*****************************************************************
+     H* PRIORITY KANBAN SCAN                                                   *
+     H*        12/22/03(TCH)
+     H*
+TCHK1H* TCHK1 12/24/05 CHG PRINTER CONTROL
+TCHK2H* TCHK2 06/17/09 CHG PRINTER CONTROL
+TCHK3H* TCHK3 09/24/10 CHG LOCATION CODE
+TCHK4H* TCHK4 09/11/13 ADD LOCATION CODE A=SB
+TCHK5H* TCHK5 10/21/13 ADD LOCATION CODE B=BZ4
+TCHK6H* TCHK6 06/26/14 ADD LOCATION CODE C=JC PRE LOAD
+TCHK6H*                ADD LOCATION CODE D=JC
+TCHK6H*                ADD LOCATION CODE E=QD
+TCHK5H* LEC   11/13/15 ADD LOCATION CODE F=BZ5
+JW1  H* JW    12/16/19 CHG LOCATION CODE NAME
+JW2  H* JW  2021.09.07 ADD F10: DOWNLOAD TO CSV
+JW2  H* JW  2022.05.23 ADD PRINTER X. NOT PRINT
+     H**************************************************************************
+     FABBPW91 CF  E                    WORKSTN
+     F**ABBPL90 IF  E           K        DISK
+JW1  FABBPL90AIF  E           K        DISK
+JW2  FABBWP90 O   E                    DISK                           UC
+     FQPRINT  O   F     132     OF     PRINTER                        UC
+      **************************************************************************
+     E                    ERR     1   5 70
+     E                    CMD     1   1 75
+     E                    ARY        75  1
+      **************************************************************************
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     C**************************************************************************
+     C*                    MAIN ROUTINE
+     C**************************************************************************
+      *
+     C           @@ID      DOWNE'99'
+     C           @@ID      CASEQ'01'      #SCRN1
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+     C**************************************************************************
+     C*         INITIALIZE
+     C**************************************************************************
+     C           *INZSR    BEGSR
+      *
+     C           K#ABB     KLIST
+     C                     KFLD           D@DATE  80
+     C                     KFLD           D@LOC
+     C           P#CMD     PLIST
+     C                     PARM           P@CMD 256
+     C                     PARM           P@LEN  155
+      *
+     C                     MOVE '01'      @@ID    2
+     C                     MOVE *ALL'-'   @@LINE 82
+     C                     Z-ADD*DATE     D@DATE
+      *
+     C                     ENDSR
+     C*************************************************************************
+     C*          IST SCREEN
+     C**************************************************************************
+     C           #SCRN1    BEGSR
+      *
+     C                     EXFMTDSP01
+      *
+     C                     SELEC
+     C           *INKA     WHEQ *ON
+     C                     MOVE '99'      @@ID
+     C                     OTHER
+     C                     EXSR #CHK1
+     C           *IN99     IFEQ *OFF
+     C                     SELEC
+      * <ENTR>
+     C           *INKE     WHEQ *OFF
+     C           *INKI     ANDEQ*OFF
+JW2  C           *INKJ     ANDEQ*OFF
+     C                     MOVELERR,5     D@MSG
+      * <F5>
+     C           *INKE     WHEQ *ON
+     C                     EXSR #PRT
+JW1  C           SEQ#      IFEQ 0
+ |   C                     SETON                     6299
+ |   C                     MOVELERR,3     D@MSG
+JW1  C                     ELSE
+     C                     MOVE '99'      @@ID
+     C                     ENDIF
+      * <F9> DOWNLOAD TO S:
+     C           *INKI     WHEQ *ON
+     C                     EXSR #WRT
+JW1  C           SEQ#      IFEQ 0
+ |   C                     SETON                     6299
+ |   C                     MOVELERR,3     D@MSG
+JW1  C                     ELSE
+     C                     MOVE *ON       *IN88
+     C                     ENDIF
+JW2   * <F10> DOWNLOAD TO CSV
+ |   C           *INKJ     WHEQ *ON
+ |   C                     EXSR #WRT
+ |   C           SEQ#      IFEQ 0
+ |   C                     SETON                     6299
+ |   C                     MOVELERR,3     D@MSG
+ |   C                     ELSE
+ |   C                     CALL 'ABBC97'
+ |   C                     MOVE *ON       *IN89
+JW2  C                     ENDIF
+      *
+     C                     ENDSL
+      *
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*     CHECK
+     C**************************************************************************
+     C           #CHK1     BEGSR
+     C*
+     C                     MOVE *BLANK    D@MSG                        F5
+     C                     SETOF                     638889
+     C                     SETOF                     996162
+     C**         D@DATE    CHAINABBPL90              90
+JW1  C           D@DATE    CHAINABBPL90A             90
+     C           *IN90     IFEQ *ON
+     C                     SETON                     6199
+     C                     MOVELERR,1     D@MSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+TCHK3C*          D@LOC     IFNE *BLANK
+TCHK4C           D@LOC     IFEQ 'A'
+TCHK5C           D@LOC     OREQ 'B'
+TCHK6C           D@LOC     OREQ 'C'
+TCHK6C           D@LOC     OREQ 'D'
+TCHK6C           D@LOC     OREQ 'E'
+     C           D@LOC     OREQ 'F'
+TCHK5C                     ELSE
+     C           D@LOC     IFLT '0'
+     C           D@LOC     ORGT '9'
+     C  N99                MOVELERR,2     D@MSG
+     C                     SETON                     6299
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     ENDIF
+JW1   * CHECK PRINTER
+ |   C           *INKI     IFEQ *OFF                       ¬ F9
+JW2  C           *INKJ     ANDEQ*OFF                       ¬ F10
+ |   C           D@PRT     IFNE '1'
+ |   C           D@PRT     ANDNE'2'
+ |   C           D@PRT     ANDNE'3'
+ |   C           D@PRT     ANDNE'4'
+ |   C           D@PRT     ANDNE'5'
+ |   C           D@PRT     ANDNE'6'
+ |   C           D@PRT     ANDNE'7'
+ |   C           D@PRT     ANDNE'8'
+ |   C           D@PRT     ANDNE'9'
+ |   C           D@PRT     ANDNE'X'
+ |   C                     SETON                     6399
+ |   C                     MOVELERR,4     D@MSG
+ |   C                     GOTO XCHK1
+ |   C                     ENDIF
+JW1  C                     ENDIF
+      *
+     C           XCHK1     ENDSR
+     C**************************************************************************
+     C*       PRINT
+     C**************************************************************************
+     C           #PRT      BEGSR
+     C*
+     C                     SELEC
+     C           D@PRT     WHEQ '1'
+     C                     MOVEL'LANPRT02'@@PRT   8
+     C           D@PRT     WHEQ '2'
+     C                     MOVEL'LANPRT07'@@PRT   8
+     C           D@PRT     WHEQ '3'
+     C                     MOVEL'LANPRT08'@@PRT   8
+     C           D@PRT     WHEQ '4'
+     C                     MOVEL'LANPRT03'@@PRT   8
+     C           D@PRT     WHEQ '5'
+TCHK2C*                    MOVEL'LANPRT01'@@PRT   8
+TCHK2C                     MOVEL'LANPRT04'@@PRT   8
+     C           D@PRT     WHEQ '6'
+     C                     MOVEL'LANPRT05'@@PRT   8
+     C           D@PRT     WHEQ '7'
+     C                     MOVEL'QPRINTA '@@PRT   8
+TCHK1C           D@PRT     WHEQ '8'
+TCHK1C                     MOVEL'LANPRT10'@@PRT   8
+TCHK1C           D@PRT     WHEQ '9'
+TCHK1C                     MOVEL'QDKT    '@@PRT   8
+JW   C           D@PRT     WHEQ 'X'
+.    C                     MOVEL'QDKT    '@@PRT   8
+     C                     ENDSL
+      *
+     C                     TIME           @@TIME  60
+     C                     MOVEACMD,1     ARY
+     C                     MOVEA@@PRT     ARY,43
+     C                     MOVEAARY       P@CMD
+     C                     Z-ADD75        P@LEN
+     C                     CALL 'QCMDEXC' P#CMD
+     C                     OPEN QPRINT
+     C                     MOVE *OFF      *IN98
+      *
+JW1  C                     Z-ADD0         SEQ#    40
+     C           D@LOC     IFEQ *BLANK
+     C**         D@DATE    SETLLABBPL90
+JW1  C           D@DATE    SETLLABBPL90A
+     C                     ELSE
+     C**         K#ABB     SETLLABBPL90
+JW1  C           K#ABB     SETLLABBPL90A
+     C                     ENDIF
+      *
+     C           *IN90     DOUEQ*ON
+     C           D@LOC     IFEQ *BLANK
+     C**         D@DATE    READEABBPL90                  90
+JW1  C           D@DATE    READEABBPL90A                 90
+     C                     ELSE
+     C**         K#ABB     READEABBPL90                  90
+JW1  C           K#ABB     READEABBPL90A                 90
+     C                     ENDIF
+      *
+     C           *IN90     IFEQ *OFF
+     C           *IN98     IFEQ *OFF
+     C           *INOF     OREQ *ON
+     C                     EXCPT@HED
+     C                     ENDIF
+     C  N98                MOVE *ON       *IN98
+      *
+JW1  C                     EXSR #LOCN
+      *
+JW1  C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+JW1  C                     CLOSEQPRINT
+      *
+     C                     ENDSR
+     C**************************************************************** *********
+     C*  LOCATION NAME
+     C**************************************************************************
+     C           #LOCN     BEGSR
+      *
+     C                     SELEC
+     C           A9LCID    WHEQ '0'
+     C                     MOVEL'HD   '   @LOCN   5
+     C           A9LCID    WHEQ '1'
+     C                     MOVEL'LAN  '   @LOCN
+     C           A9LCID    WHEQ '2'
+     C                     MOVEL'RL   '   @LOCN
+     C           A9LCID    WHEQ '3'
+     C                     MOVEL'OQ-PL'   @LOCN
+     C           A9LCID    WHEQ '4'
+     C                     MOVEL'BZ1  '   @LOCN
+     C           A9LCID    WHEQ '5'
+     C                     MOVEL'BZ2  '   @LOCN
+     C           A9LCID    WHEQ '6'
+     C                     MOVEL'DS   '   @LOCN
+     C           A9LCID    WHEQ '7'
+     C                     MOVEL'MAGNI'   @LOCN
+     C           A9LCID    WHEQ '8'
+     C                     MOVEL'BZ3  '   @LOCN
+     C           A9LCID    WHEQ '9'
+     C                     MOVEL'OQ   '   @LOCN
+     C           A9LCID    WHEQ 'A'
+     C                     MOVEL'SB   '   @LOCN
+     C           A9LCID    WHEQ 'B'
+     C                     MOVEL'BZ4  '   @LOCN
+     C           A9LCID    WHEQ 'C'
+     C                     MOVEL'JC-PL'   @LOCN
+     C           A9LCID    WHEQ 'D'
+     C                     MOVEL'JC   '   @LOCN
+     C           A9LCID    WHEQ 'E'
+     C                     MOVEL'QD   '   @LOCN
+     C           A9LCID    WHEQ 'F'
+     C                     MOVEL'BZ5  '   @LOCN
+     C                     OTHER
+     C                     MOVEL'???  '   @LOCN
+     C                     ENDSL
+      *
+     C                     ENDSR
+     C**************************************************************** *********
+     C*       WRITE A RECORD
+     C**************************************************************************
+     C           #WRT      BEGSR
+     C*
+JW2  C                     OPEN ABBWP90
+      *
+JW1  C                     Z-ADD0         SEQ#    40
+     C                     CLEARABBWP901
+     C           D@LOC     IFEQ *BLANK
+     C**         D@DATE    SETLLABBPL90
+JW1  C           D@DATE    SETLLABBPL90A
+     C                     ELSE
+     C**         K#ABB     SETLLABBPL90
+JW1  C           K#ABB     SETLLABBPL90A
+     C                     ENDIF
+      *
+     C           *IN90     DOUEQ*ON
+     C           D@LOC     IFEQ *BLANK
+     C**         D@DATE    READEABBPL90                  90
+JW1  C           D@DATE    READEABBPL90A                 90
+     C                     ELSE
+     C**         K#ABB     READEABBPL90                  90
+JW1  C           K#ABB     READEABBPL90A                 90
+     C                     ENDIF
+      *
+     C           *IN90     IFEQ *OFF
+     C                     WRITEABBWP901
+JW1  C                     ADD  1         SEQ#
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+JW2  C                     CLOSEABBWP90
+      *
+     C                     ENDSR
+     C**************************************************************************
+     OQPRINT  E   02           @HED
+     O                         #PGM      10
+     O                         UDATE Y   68
+     O                         @@TIME    78 '  :  :  '
+     O        E   03           @HED
+     O                                   17 '** '
+     O                                   37 'DAILY INVENTORY LIST'
+     O                                   43 'AS OF'
+     O                         D@DATE    54 '    /  /  '
+     O                                   57 ' **'
+     O                                   74 'P.'
+     O                         PAGE  Z   78
+     O        E   05           @HED
+JW1  O                                    4 'SEQ#'
+     O                                    9 'LOC'
+     O                                   14 'NAME'
+     O                                   28 'PART NUMBER'
+     O                                   43 'QTY'
+JW1  O                                   52 'BARCODE'
+"    O                                   66 'DATE'
+"    O                                   78 'TIME'
+     O        E   06           @HED
+     O                         @@LINE    82
+     O        E 1              @DTL
+     O                         SEQ#  Z    4
+     O                         A9LCID     8
+JW1  O                         @LOCN     15
+     O                         A9PRT1    22
+     O                         A9PRT2    28
+     O                         A9PRT3    31
+     O                         A9QTY 1   43
+     O                         A9BRCD    60
+     O                         A9DATE    72 '    /  /  '
+     O                         A9TIME    82 '  :  :  '
+** ERR(70A) .......2.........3.........4.........5.........6.........7
+DATE ERROR !                                                           01
+LOCATION ERROR !                                                       02
+NO DATA !                                                              03
+PRINTER SHOULD BE 1 TO 8 OR X!                                         04
+PRESS F5, F9 OR F10 TO RUN...                                          05
+** CMD(75A)
+OVRPRTF FILE(QPRINT) PAGESIZE(66 92) OUTQ(LANPRT04)

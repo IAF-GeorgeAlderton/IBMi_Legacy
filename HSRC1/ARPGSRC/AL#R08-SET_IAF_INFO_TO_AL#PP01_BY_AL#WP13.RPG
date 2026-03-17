@@ -1,0 +1,352 @@
+     H            Y.
+     F** AL#R08  *******************************************
+     F* AL#WP13からAL#PP01へＩＡＦ情報セット           *
+     F*      ITS.        2015.05.26                        *
+     F******************************************************
+     FAL#WP13 IF  E           K        DISK
+     FAL#PL03 UF  E           K        DISK
+     FAL#PP31 IF  E           K        DISK                      A
+     FAL#PP41 O   E           K        DISK                      A
+     FAO#PP41 O   E           K        DISK                      A
+     FAL#PL31 IF  E           K        DISK
+     FAL#PP91 UF  E           K        DISK                      A
+     FAL#PP95 UF  E           K        DISK                      A
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60STIME
+     I                                        7  140SDATE
+      *
+     I            DS
+     I                                        1  12 @SHIN
+     I                                        1   5 @SHN1
+     I                                        6  10 @SHN2
+     I                                       11  12 @SHN3
+      *
+     I            DS
+     I                                        1  12 W3SHN
+     I                                        1   5 W3SHN1
+     I                                        6  10 W3SHN2
+     I                                       11  12 W3SHN3
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+      *-----------------------------------------------------
+      *  MAIN ROUTINE
+      *-----------------------------------------------------
+      *ＷＴＩＭＥはここ以降セットしないこと
+      *システム日付が必要な場合は違うフィールドにセット
+     C                     TIME           WTIME
+      *
+     C                     EXSR #SB100
+      * PALLET PULLINGから（品番ありのデータ）
+     C           *LOVAL    SETLLAL#WP131
+     C                     READ AL#WP131                 81
+     C           *IN81     DOWEQ'0'
+     C           W3SHN     IFNE *BLANK
+     C                     EXSR #SB430
+     C                     EXSR #SB401
+     C                     EXSR #SB440
+     C                     EXSR #SB441
+     C                     EXSR #SB490
+     C                     EXSR #SB495
+     C                     ENDIF
+     C                     READ AL#WP131                 81
+     C                     ENDDO
+      * 品番なしのデータ
+     C           *LOVAL    SETLLAL#WP131
+     C                     READ AL#WP131                 81
+     C           *IN81     DOWEQ'0'
+     C           W3SHN     IFEQ *BLANK
+     C                     EXSR #SB430
+     C                     EXSR #SB400
+     C                     EXSR #SB440
+     C                     EXSR #SB441
+     C                     EXSR #SB490
+     C                     EXSR #SB495
+     C                     ENDIF
+     C                     READ AL#WP131                 81
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *
+      *-----------------------------------------------------
+      * AL#PP31
+      *-----------------------------------------------------
+     CSR         #SB100    BEGSR
+      *発行回数取得
+     C                     Z-ADD0         WKTIMS  20
+     C           KEYC32    KLIST
+     C                     KFLD           K3FIXD  80
+     C                     Z-ADDSDATE     K3FIXD
+     C           KEYC32    SETGTAL#PL311
+     C           KEYC32    REDPEAL#PL311                 89
+     C           *IN89     IFEQ '0'
+     C                     Z-ADDC3TIMS    WKTIMS
+     C                     ENDIF
+     C                     ADD  1         WKTIMS
+      *
+     CSR         ESB100    ENDSR
+      *-----------------------------------------------------
+      * AL#PP01品番なしデータ
+      *-----------------------------------------------------
+     CSR         #SB400    BEGSR
+      *
+     C           KEYCA     KLIST
+     C                     KFLD           W3SHID
+     C                     KFLD           W3SHIT
+     C                     KFLD           W3SURT
+     C                     KFLD           W3NONY
+     C                     KFLD           W3NKOJ
+     C                     KFLD           W3NUKE
+     C                     KFLD           W3ORD#
+     C                     KFLD           W3PALT
+     C                     Z-ADD1         X       40
+     C           KEYCA     SETLLAL#PL031
+     C           KEYCA     READEAL#PL031                 90
+     C           *IN90     DOWEQ'0'
+     C           CASKJY    IFEQ 'D'
+     C           CASKHZ    ANDLESDATE
+     C                     ELSE
+     C           CAFIXD    IFEQ 0
+     C                     EXSR #SB410
+     C                     ENDIF
+     C                     ENDIF
+     C           KEYCA     READEAL#PL031                 90
+     C                     ENDDO
+      *
+     CSR         ESB400    ENDSR
+      *-----------------------------------------------------
+      * AL#PP01品番ありデータPALLET PULLING
+      *-----------------------------------------------------
+     CSR         #SB401    BEGSR
+      *
+     C                     Z-ADD1         X       40
+     C           KEYCA     SETLLAL#PL031
+     C           KEYCA     READEAL#PL031                 90
+     C           *IN90     DOWEQ'0'
+     C           CASKJY    IFEQ 'D'
+     C           CASKHZ    ANDLESDATE
+     C                     ELSE
+     C                     EXSR #SB700
+     C           CAFIXD    IFEQ 0
+     C           @SHIN     ANDEQW3SHN
+     C                     EXSR #SB410
+     C                     ENDIF
+     C                     ENDIF
+     C           KEYCA     READEAL#PL031                 90
+     C                     ENDDO
+      *
+     CSR         ESB401    ENDSR
+      *-----------------------------------------------------
+      *ＩＡＦ情報セット
+      *-----------------------------------------------------
+     CSR         #SB410    BEGSR
+      *
+     C                     Z-ADDSDATE     CAKOHZ
+     C                     Z-ADDSTIME     CAKOTI
+     C                     MOVELW#USER    CAKOME
+     C                     Z-ADDW3EXTR    CAEXTR
+     C                     MOVELW3TRKB    CATRKB
+     C                     MOVELW3IAFB    CAIAFB
+     C                     MOVELW3IAFP    CAIAFP
+     C                     Z-ADDSDATE     CAFIXD
+     C                     Z-ADDSTIME     CAFIXT
+     C                     Z-ADDWKTIMS    CATIMS
+     C                     MOVELW3PPUL    CAPPUL
+     C                     MOVELW3SAT     CASAT
+     C                     UPDATAL#PL031
+      *
+     CSR         ESB410    ENDSR
+      *-----------------------------------------------------
+      * AL#PP31確定時に作成
+      *-----------------------------------------------------
+     CSR         #SB430    BEGSR
+      *
+     C           KEYC3     KLIST
+     C                     KFLD           W3SHID
+     C                     KFLD           W3EXTR
+     C           KEYC3     CHAINAL#PP311             90
+     C           *IN90     IFEQ '1'
+     C                     CLEARAL#PP311
+     C                     Z-ADDSDATE     C3KOHZ
+     C                     Z-ADDSTIME     C3KOTI
+     C                     MOVELW#USER    C3KOME
+     C                     MOVELW3SHID    C3SHID
+     C                     Z-ADDW3EXTR    C3EXTR
+     C                     Z-ADDSDATE     C3FIXD
+     C                     Z-ADDSTIME     C3FIXT
+     C                     Z-ADDWKTIMS    C3TIMS
+     C                     WRITEAL#PP311
+     C                     ENDIF
+      *
+     CSR         ESB430    ENDSR
+      *-----------------------------------------------------
+      * AL#PP41
+      *-----------------------------------------------------
+     CSR         #SB440    BEGSR
+      *
+     C                     CLEARAL#PP411
+     C                     Z-ADDSDATE     C4KOHZ
+     C                     Z-ADDSTIME     C4KOTI
+     C                     MOVELW#USER    C4KOME
+     C                     MOVELW3SHID    C4SHID
+     C                     MOVELW3SHIT    C4SHIT
+     C                     Z-ADDW3NONY    C4NONY
+     C                     MOVELW3NKOJ    C4NKOJ
+     C                     MOVELW3NUKE    C4NUKE
+     C                     MOVELW3ORD#    C4ORD#
+     C                     MOVELW3SURT    C4SURT
+     C                     Z-ADDW3EXTR    C4EXTR
+     C                     Z-ADDSDATE     C4FIXD
+     C                     Z-ADDSTIME     C4FIXT
+     C                     Z-ADDWKTIMS    C4TIMS
+     C                     MOVELW3PALT    C4PALT
+     C                     Z-ADDW3BOX     C4BOX
+     C                     MOVELW3TRKB    C4TRKB
+     C                     MOVELW3IAFB    C4IAFB
+     C                     MOVELW3IAFP    C4IAFP
+     C                     Z-ADDW3PRT     C4PRT
+     C                     MOVELW3PPUL    C4PPUL
+     C                     MOVELW3SAT     C4SAT
+     C                     Z-ADD0         C4KADT
+     C                     Z-ADD0         C4KATI
+     C                     MOVELW3SHN1    C4SHN1
+     C                     MOVELW3SHN2    C4SHN2
+     C                     MOVELW3SHN3    C4SHN3
+     C                     Z-ADD0         C4STHZ
+     C                     Z-ADD0         C4STTI
+     C                     WRITEAL#PP411
+      *
+     CSR         ESB440    ENDSR
+      *-----------------------------------------------------
+      * AO#PP41
+      *-----------------------------------------------------
+     CSR         #SB441    BEGSR
+      *
+     C                     CLEARAO#PP411
+     C                     Z-ADDSDATE     O4KOHZ
+     C                     Z-ADDSTIME     O4KOTI
+     C                     MOVELW#USER    O4KOME
+     C                     MOVELW3SHID    O4SHID
+     C                     MOVELW3SHIT    O4SHIT
+     C                     Z-ADDW3NONY    O4NONY
+     C                     MOVELW3NKOJ    O4NKOJ
+     C                     MOVELW3NUKE    O4NUKE
+     C                     MOVELW3ORD#    O4ORD#
+     C                     MOVELW3SURT    O4SURT
+     C                     Z-ADDW3EXTR    O4EXTR
+     C                     Z-ADDSDATE     O4FIXD
+     C                     Z-ADDSTIME     O4FIXT
+     C                     MOVELW3PALT    O4PALT
+     C                     Z-ADDW3BOX     O4BOX
+     C                     MOVELW3TRKB    O4TRKB
+     C                     MOVELW3IAFB    O4IAFB
+     C                     MOVELW3IAFP    O4IAFP
+     C                     MOVELW3ZONE    O4ZONE
+     C                     WRITEAO#PP411
+      *
+     CSR         ESB441    ENDSR
+      *-----------------------------------------------------
+      * AL#PP91
+      *-----------------------------------------------------
+     CSR         #SB490    BEGSR
+      *
+     C           KEYC99    KLIST
+     C                     KFLD           K9FIXD  80
+     C                     KFLD           K9FIXT  60
+     C           W3EXTR    IFEQ 0
+     C                     Z-ADDSDATE     K9FIXD
+     C                     Z-ADDSTIME     K9FIXT
+     C                     ELSE
+     C                     Z-ADDW3FIXD    K9FIXD
+     C                     Z-ADDW3FIXT    K9FIXT
+     C                     ENDIF
+     C           KEYC99    CHAINAL#PP911             90
+     C           *IN90     IFEQ '0'
+     C           C9EXTR    IFLT W3EXTR
+     C                     Z-ADDW3EXTR    C9EXTR
+     C                     ENDIF
+     C           C9IAFB    IFLT W3IAFB
+     C                     MOVELW3IAFB    C9IAFB
+     C                     ENDIF
+     C                     UPDATAL#PP911
+     C                     ELSE
+     C                     CLEARAL#PP911
+     C                     Z-ADDSDATE     C9KOHZ
+     C                     Z-ADDSTIME     C9KOTI
+     C                     MOVELW#USER    C9KOME
+     C                     Z-ADDSDATE     C9FIXD
+     C                     Z-ADDSTIME     C9FIXT
+     C                     Z-ADDWKTIMS    C9TIMS
+     C                     Z-ADDW3EXTR    C9EXTR
+     C                     MOVELW3IAFB    C9IAFB
+     C                     WRITEAL#PP911
+     C                     ENDIF
+      *
+     CSR         ESB490    ENDSR
+      *-----------------------------------------------------
+      * AL#PP95
+      *-----------------------------------------------------
+     CSR         #SB495    BEGSR
+      *
+     C           KEYC95    KLIST
+     C                     KFLD           K9FIXD  80
+     C                     KFLD           K9FIXT  60
+     C*****                KFLD           W3TRKB
+     C           W3EXTR    IFEQ 0
+     C                     Z-ADDSDATE     K9FIXD
+     C                     Z-ADDSTIME     K9FIXT
+     C                     ELSE
+     C                     Z-ADDW3FIXD    K9FIXD
+     C                     Z-ADDW3FIXT    K9FIXT
+     C                     ENDIF
+     C           KEYC95    CHAINAL#PP951             90
+     C           *IN90     IFEQ '0'
+     C           D9PSEQ    IFLT W3PSEQ
+     C                     MOVELW3IAFP    D9IAFP
+     C                     Z-ADDW3PSEQ    D9PSEQ
+     C                     ENDIF
+     C                     UPDATAL#PP951
+     C                     ELSE
+     C                     CLEARAL#PP951
+     C                     Z-ADDSDATE     D9KOHZ
+     C                     Z-ADDSTIME     D9KOTI
+     C                     MOVELW#USER    D9KOME
+     C                     Z-ADDSDATE     D9FIXD
+     C                     Z-ADDSTIME     D9FIXT
+     C                     Z-ADDWKTIMS    D9TIMS
+     C                     MOVEL*BLANK    D9TRKB
+     C                     MOVELW3IAFP    D9IAFP
+     C                     Z-ADDW3PSEQ    D9PSEQ
+     C                     WRITEAL#PP951
+     C                     ENDIF
+      *
+     CSR         ESB495    ENDSR
+      *-----------------------------------------------------
+      *社内品番
+      *-----------------------------------------------------
+     CSR         #SB700    BEGSR
+      *社内品番
+     C                     MOVELCATOKU    PTOKU
+     C                     MOVELCANONY    PNONY
+     C                     MOVELCANKOJ    PNKOJ
+     C                     MOVELCANUKE    PNUKE
+     C                     MOVEL*BLANK    @MHIN
+     C                     MOVELCAMHN     @MHIN
+     C                     MOVEL*BLANK    @SHIN
+     C                     CALL 'BBHR50'
+     C                     PARM           PTOKU   4
+     C                     PARM           PNONY   4
+     C                     PARM           PNKOJ   1
+     C                     PARM           PNUKE   4
+     C                     PARM           @MHIN  20
+     C                     PARM           @SHIN  12
+     C                     PARM           @FLG    1
+      *
+     CSR         ESB700    ENDSR

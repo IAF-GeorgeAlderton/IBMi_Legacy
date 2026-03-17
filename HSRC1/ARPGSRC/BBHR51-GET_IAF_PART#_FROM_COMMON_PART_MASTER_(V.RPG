@@ -1,0 +1,386 @@
+     H            Y.
+      ** BBHR51 ***********************************************************
+      *  GET IAF PART# FROM COMMON PART MASTER (V02)
+      *  (COPIED FROM BBHR50)
+      * JW       2022.10.31 CHG THE WAY TO GET IAF PART
+      *                     STEP1 SEARCH BY ORIGINAL USER PART#
+      *                     STEP2 SEARCH BY CHANGED USRR PART3
+      *  CALLING SEQ.===========================================*
+      *                    CALL 'BBHR51'                        *
+     C*                    PARM           $TOKU   4
+     C*                    PARM           $NONY   4
+     C*                    PARM           $NKOJ   1
+     C*                    PARM           $NUKE   4
+     C*                    PARM           $MHIN  20
+     C*                    PARM           @SHIN  12
+     C*                    PARM           @FLG    1
+      *   IN  $TOKU   4A CUST#                                  *
+      *       $NONY   4A DELIV#                                 *
+      *       $NKOJ   1A FACTORY                                *
+      *       $NUKE   4A DOCK                                   *
+      *       $MHIN  20A CUST PART#                             *
+      *   OUT @SHIN  12A IAF  PART#                             *
+      *       @FLG    1A RETURN FLAG (BLANK=OK, *=ERROR)        *
+      ************************************************* BBHR50 **
+     FFAAPL05 IF  E           K        DISK
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1  20 PMHIN
+     I                                        1   5 PMHN1
+     I                                        6  10 PMHN2
+     I                                       11  15 PMHN3
+     I                                       16  20 PMHN4
+     I            DS
+     I                                        1  12 PSHIN
+     I                                        1   5 PSHN1
+     I                                        6  10 PSHN2
+     I                                       11  12 PSHN3
+      ********************************************************
+      * MAIN ROUTINE                                         *
+      ********************************************************
+     C                     EXSR #INIT
+      *
+      * 1ST TRY: SEARCH BY ORIGINAL USER PART#
+     C                     MOVELPMHN1     JMHN1
+     C                     MOVELPMHN2     JMHN2
+     C                     MOVELPMHN3     JMHN3
+     C                     MOVELPMHN4     JMHN4
+     C                     Z-ADD@TOKU     JTOKU
+     C                     Z-ADD@NONY     JNONY
+     C                     MOVEL$NKOJ     JNKOJ
+     C                     MOVEL$NUKE     JNUKE
+     C                     EXSR #GET1
+      *
+      * 2ND TRY: SEARCH BY USER PART# "00" OR "  "
+     C           OKFLG     IFEQ 'NG'
+     C                     SELEC
+     C           JMHN3     WHEQ *BLANK
+     C                     MOVEL'00   '   JMHN3
+     C                     MOVEL*BLANK    JMHN4
+     C           JMHN3     WHEQ '00'
+     C                     MOVEL*BLANK    JMHN3
+     C                     MOVEL*BLANK    JMHN4
+     C                     OTHER
+     C                     MOVEL*BLANK    JMHN3
+     C                     MOVEL*BLANK    JMHN4
+     C                     ENDSL
+     C                     EXSR #GET1
+     C                     ENDIF
+      *
+      * 3RD TRY: SEARCH BY USER PART1 AND PART2 ONLY
+     C           OKFLG     IFEQ 'NG'
+     C           PMHN3     IFEQ '0    '
+     C           PMHN3     OREQ '00   '
+     C           PMHN3     OREQ '000  '
+     C           PMHN3     OREQ '00M1 '
+     C           PMHN3     OREQ '10M1 '
+     C                     MOVEL*BLANK    JMHN3
+     C                     MOVEL*BLANK    JMHN4
+     C                     EXSR #GET3
+     C                     ENDIF
+     C                     ENDIF
+      * RESULT ------------------------------------------------
+     C                     SELEC
+     C           OKFLG     WHEQ 'OK'
+     C                     MOVELB7SHN1    PSHN1
+     C                     MOVELB7SHN2    PSHN2
+     C                     MOVELB7SHN3    PSHN3
+     C           @TOKU     WHEQ 5149
+     C           @TOKU     OREQ 5211
+     C                     MOVEL$MHIN     PSHIN
+     C                     OTHER
+     C                     MOVEL$MHIN     PSHIN
+     C                     MOVE *BLANK    PSHN3
+     C                     ENDSL
+      *
+     C                     MOVELPSHIN     @SHIN
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *========================================
+      * GET IAF PART# FROM COMMON M/F
+      *========================================
+     C           #GET1     BEGSR
+      *
+     C                     MOVE *BLANK    PSHIN
+     C                     MOVE 'NG'      OKFLG   2
+      * 1. SEARCH BY ORINAL KEY
+     C           KEY5A     SETLLFAAPL05
+     C                     DO   *HIVAL
+     C           KEY5A     READEFAAPL05                  98
+     C   98                LEAVE
+      *
+     C           B7SKBN    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVE 'OK'      OKFLG
+     C                     GOTO XGET1
+     C                     ENDDO
+      *
+      * 2. FACTORY = (WILD CARD)
+     C           KEY5B     SETLLFAAPL05
+     C                     DO   *HIVAL
+     C           KEY5B     READEFAAPL05                  98
+     C   98                LEAVE
+      *
+     C           B7SKBN    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * FACTORY
+     C           B7NKJO    IFNE ' '
+     C           B7NKJO    ANDNE'0'
+     C           B7NKJO    IFNE JNKOJ
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      * DOCK
+     C           B7NUKE    IFNE JNUKE
+     C                     ITER
+     C                     ENDIF
+      * P3
+     C           B7MHN3    IFNE '    '
+     C           B7MHN3    ANDNE'00  '
+     C           B7MHN3    IFNE JMHN2
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     MOVE 'OK'      OKFLG
+     C                     GOTO XGET1
+     C                     ENDDO
+      * 3. DOCK = (WILD CARD)
+     C           KEY5B     SETLLFAAPL05
+     C                     DO   *HIVAL
+     C           KEY5B     READEFAAPL05                  98
+     C   98                LEAVE
+      *
+     C           B7SKBN    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * FACTORY
+     C           B7NKJO    IFNE JNKOJ
+     C                     ITER
+     C                     ENDIF
+      * DOCK
+     C           B7NUKE    IFNE '    '
+     C           B7NUKE    ANDNE'0   '
+     C           B7NUKE    ANDNE'00  '
+     C           B7NUKE    ANDNE'000 '
+     C           B7NUKE    ANDNE'0000'
+     C           B7NUKE    IFNE JNUKE
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      * P3
+     C           B7MHN3    IFNE '    '
+     C           B7MHN3    ANDNE'00  '
+     C           B7MHN3    IFNE JMHN2
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     MOVE 'OK'      OKFLG
+     C                     GOTO XGET1
+     C                     ENDDO
+      * 3. FACTORY & DOCK = (WILD CARD)
+     C           KEY5B     SETLLFAAPL05
+     C                     DO   *HIVAL
+     C           KEY5B     READEFAAPL05                  98
+     C   98                LEAVE
+      *
+     C           B7SKBN    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * FACTORY
+     C           B7NKJO    IFNE ' '
+     C           B7NKJO    ANDNE'0'
+     C           B7NKJO    IFNE JNKOJ
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      * DOCK
+     C           B7NUKE    IFNE '    '
+     C           B7NUKE    ANDNE'0   '
+     C           B7NUKE    ANDNE'00  '
+     C           B7NUKE    ANDNE'000 '
+     C           B7NUKE    ANDNE'0000'
+     C           B7NUKE    IFNE JNUKE
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      * P3
+     C           B7MHN3    IFNE '    '
+     C           B7MHN3    ANDNE'00  '
+     C           B7MHN3    IFNE JMHN2
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     MOVE 'OK'      OKFLG
+     C                     GOTO XGET1
+     C                     ENDDO
+      *
+     C           XGET1     ENDSR
+      *========================================
+      * GET IAF PART# FROM COMMON M/F
+      *========================================
+     C           #GET3     BEGSR
+      *
+     C                     MOVE *BLANK    PSHIN
+     C                     MOVE 'NG'      OKFLG   2
+      * 1. SEARCH BY P1 AND P2 ONLY
+     C           KEY5C     SETLLFAAPL05
+     C                     DO   *HIVAL
+     C           KEY5C     READEFAAPL05                  98
+     C   98                LEAVE
+      *
+     C           B7SKBN    IFEQ 'D'
+     C           B7TOKU    ORNE @TOKU
+     C           B7NONY    ORNE @NONY
+     C           B7NKJO    ORNE $NONY
+     C           B7NONY    ORNE @NONY
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVE 'OK'      OKFLG
+     C                     GOTO XGET3
+     C                     ENDDO
+      *
+      * 2. FACTORY (WILD CARD)
+     C           KEY5C     SETLLFAAPL05
+     C                     DO   *HIVAL
+     C           KEY5C     READEFAAPL05                  98
+     C   98                LEAVE
+      *
+     C           B7SKBN    IFEQ 'D'
+     C           B7TOKU    ORNE @TOKU
+     C           B7NONY    ORNE @NONY
+     C                     ITER
+     C                     ENDIF
+      * FACTORY
+     C           B7NKJO    IFNE ' '
+     C           B7NKJO    ANDNE'0'
+     C           B7NKJO    IFNE JNKOJ
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      * DOCK
+     C           B7NUKE    IFNE JNUKE
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVE 'OK'      OKFLG
+     C                     GOTO XGET3
+     C                     ENDDO
+      * 3. DOCK (WILD CARD)
+     C           KEY5C     SETLLFAAPL05
+     C                     DO   *HIVAL
+     C           KEY5C     READEFAAPL05                  98
+     C   98                LEAVE
+      *
+     C           B7SKBN    IFEQ 'D'
+     C           B7TOKU    ORNE @TOKU
+     C           B7NONY    ORNE @NONY
+     C                     ITER
+     C                     ENDIF
+      * FACTORY
+     C           B7NKJO    IFNE JNKOJ
+     C                     ITER
+     C                     ENDIF
+      * DOCK
+     C           B7NUKE    IFNE '    '
+     C           B7NUKE    ANDNE'0   '
+     C           B7NUKE    ANDNE'00  '
+     C           B7NUKE    ANDNE'000 '
+     C           B7NUKE    ANDNE'0000'
+     C           B7NUKE    IFNE JNUKE
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     MOVE 'OK'      OKFLG
+     C                     GOTO XGET3
+     C                     ENDDO
+      * 4. FACTORYAND DOCK (WILD CARD)
+     C           KEY5C     SETLLFAAPL05
+     C                     DO   *HIVAL
+     C           KEY5C     READEFAAPL05                  98
+     C   98                LEAVE
+      *
+     C           B7SKBN    IFEQ 'D'
+     C           B7TOKU    ORNE @TOKU
+     C           B7NONY    ORNE @NONY
+     C                     ITER
+     C                     ENDIF
+      * FACTORY
+     C           B7NKJO    IFNE ' '
+     C           B7NKJO    ANDNE'0'
+     C           B7NKJO    IFNE JNKOJ
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      * DOCK
+     C           B7NUKE    IFNE '    '
+     C           B7NUKE    ANDNE'0   '
+     C           B7NUKE    ANDNE'00  '
+     C           B7NUKE    ANDNE'000 '
+     C           B7NUKE    ANDNE'0000'
+     C           B7NUKE    IFNE JNUKE
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     MOVE 'OK'      OKFLG
+     C                     GOTO XGET3
+     C                     ENDDO
+      *
+     C           XGET3     ENDSR
+      *========================================
+      * INITIAL SETTING
+      *========================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $NKOJ   1
+     C                     PARM           $NUKE   4
+     C                     PARM           $MHIN  20
+     C                     PARM           @SHIN  12
+     C                     PARM           @FLG    1
+      *
+     C           KEY5A     KLIST
+     C                     KFLD           JMHN1   5
+     C                     KFLD           JMHN2   5
+     C                     KFLD           JMHN3   5
+     C                     KFLD           JMHN4   5
+     C                     KFLD           JTOKU   40
+     C                     KFLD           JNONY   40
+     C                     KFLD           JNKOJ   1
+     C                     KFLD           JNUKE   4
+      *
+     C           KEY5B     KLIST
+     C                     KFLD           JMHN1
+     C                     KFLD           JMHN2
+     C                     KFLD           JMHN3
+     C                     KFLD           JMHN4
+     C                     KFLD           JTOKU
+     C                     KFLD           JNONY
+      *
+     C           KEY5C     KLIST
+     C                     KFLD           JMHN1
+     C                     KFLD           JMHN2
+      *
+     C                     TIME           WSDT
+      *
+     C                     MOVEL$TOKU     @TOKU   40
+     C                     MOVEL$NONY     @NONY   40
+     C                     MOVEL$MHIN     PMHIN
+     C                     MOVEL*BLANK    @SHIN
+     C                     MOVEL*BLANK    @FLG
+      *
+     C                     ENDSR

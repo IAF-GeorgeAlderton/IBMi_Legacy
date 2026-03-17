@@ -1,0 +1,402 @@
+     H            Y.
+     F** ABVRE2 *******************************************************
+     F*  VW ORDER PROCESS
+     F* KIRI  15.06.26
+     F*****************************************************************
+     FABVPWE2 CF  E                    WORKSTN
+     F                                              KINFDS INFDS
+     F                                        RRN   KSFILE SFREC1
+      *
+     FVWDELJITIF  F      80            DISK
+      *
+      *  ..EDI FIXED ORDER DATA..  *
+     FAB#PL19AIF  E           K        DISK
+      *
+      *  ..EDI DATA FOR VW
+     FABVEP20 O   E                    DISK
+      *================================================================
+     E                    ER      1  10 60
+      *
+     E                    @D1        80  1
+     E                    @D2        80  1
+     E                    @D3        20  1
+     E                    @H1        22  1
+     E                    @H2        20  1
+      *================================================================
+     IVWDELJITNS  01
+     I                                        1  80 VWDATA
+     I                                        1   4 VW0104
+     I                                        1   6 VW0106
+     I                                        1   7 VW0107
+     I                                        1   8 VW0108
+     I                                        9  16 VW0916
+     I                                        8  17 VW0817
+     I                                        5  80 VW0580
+     I                                        7  80 VW0780
+     I                                        8  80 VW0880
+     I                                        9  80 VW0980
+     I                                       10  80 VW1080
+     IINFDS       DS
+     I                                    B 378 3790$$RRN
+      *
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W$JBNO
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60@SYSTM
+     I                                        7  140@SYSHZ
+      *---------------------------------------------
+     I            DS
+     I                                        1  80 @D1
+     I                                        1  80 W$D1
+     I            DS
+     I                                        1  80 @D2
+     I                                        1  80 W$D2
+     I            DS
+     I                                        1  20 @D3
+     I                                        1  200W$D3
+      *---------------------------------------------
+     I            DS
+     I                                        1  20 WMHIN
+     I                                        1   5 WMHN1
+     I                                        6  10 WMHN2
+     I                                       11  15 WMHN3
+     I                                       16  20 WMHN4
+     I            DS
+     I                                        1  23 S1MHIN
+     I                                        1   5 S1MHN1
+     I                                        6   6 S1HF1
+     I                                        7  11 S1MHN2
+     I                                       12  12 S1HF2
+     I                                       13  17 S1MHN3
+     I                                       18  18 S1HF3
+     I                                       19  23 S1MHN4
+      *--------------1234567890---------------------
+     I              'VOLKSWAGEN'          C         $$VOLK
+      *================================================================
+     C           *ENTRY    PLIST
+     C                     PARM           P@CMD   1
+     C*
+     C                     MOVE '#INIT   '@STEP   8
+     C*
+     C           @STEP     DOUEQ'#END    '
+     C           @STEP     CASEQ'#INIT   '#INIT            初期処理
+     C           @STEP     CASEQ'#DSP1   '#DSP1
+     C           @STEP     CASEQ'#CRT    '#CRT
+     C                     ENDCS
+     C                     ENDDO
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+      *===============================================================
+      *  INITIALIZE
+      *===============================================================
+     C           #INIT     BEGSR
+     C                     MOVEA*ALL'0'   *IN
+      *
+     C                     TIME           @TIME
+     C                     MOVEL*BLANK    D1ERR
+      *
+     C           KEY01     KLIST
+     C                     KFLD           K@TOKU  40
+     C                     KFLD           K@INVN 16
+     C                     Z-ADD8450      K@TOKU
+     C*  SFLCLR
+     C                     SETON                     73
+     C                     WRITESFCTL1
+     C                     SETOF                     73
+     C                     Z-ADD0         RRN     40
+      *
+      *  VWDELJIT
+     C           1         SETLLVWDELJIT
+     C*-------------------------
+     C                     DO   *HIVAL
+     C                     READ VWDELJIT                 90
+     C   90                LEAVE
+     C*
+     C                     SELEC
+     C           VW0107    WHEQ 'DTM+191'
+     C                     MOVE VW0916    S1DELD
+     C           VW0107    WHEQ 'GIN+BU+'
+     C                     MOVE VW0817    S1MANF 10
+     C           VW0104    WHEQ 'LIN+'                     品番
+     C                     MOVELVW0580    W$D1
+     C                     EXSR #CV1
+     C                     EXSR #CVHIN
+     C           VW0107    WHEQ 'RFF+ON:'
+     C                     MOVELVW0880    W$D1
+     C                     EXSR #CV1
+     C                     MOVELW$D21     S1ORNO
+     C           VW0107    WHEQ 'QTY+113'
+     C                     MOVELVW0980    W$D1
+     C                     EXSR #CV1
+     C                     MOVEL*BLANK    W$D2
+     C                     MOVELW$D21     W$D2
+     C                     EXSR #CV2
+     C                     Z-ADDW$D3      S1QNTY
+     C**
+     C                     SETOF                     41
+     C                     MOVELS1MANF    K@INVN
+     C           KEY01     SETLLAB#PL19A                 41
+     C   41                SETON                     99
+     C   41                MOVELER,1      D1ERR
+     C**
+     C                     ADD  1         RRN
+     C                     WRITESFREC1
+     C                     ENDSL
+     C*
+     C                     ENDDO
+     C*-------------------------
+     C                     Z-ADD1         DSPRRN
+     C                     Z-ADDRRN       ENDRRN  40
+     C                     MOVE '#DSP1   '@STEP
+     C*
+     C                     ENDSR
+      *===============================================================
+      *  SCREEN 1
+      *===============================================================
+     C           #DSP1     BEGSR
+     C                     SETON                     71
+     C           ENDRRN    IFNE 0
+     C                     SETON                     72
+     C                     ELSE
+     C                     MOVELER,2      D1ERR
+     C                     SETON                     99
+     C                     ENDIF
+     C                     WRITEDSP01
+     C                     EXFMTSFCTL1
+     C                     SETOF                     717299
+     C                     Z-ADD$$RRN     DSPRRN
+      *----*
+     C                     SELEC
+     C* F3 *
+     C           *INKC     WHEQ *ON
+     C                     MOVE '3'       P@CMD
+     C                     MOVE '#END    '@STEP
+     C* F5 *
+     C           *INKE     WHEQ *ON
+     C           ENDRRN    ANDNE0
+     C                     MOVE '5'       P@CMD
+     C                     MOVE '#CRT    '@STEP
+     C* ROLL UP/DOWN
+     C           *IN74     WHEQ *ON
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDSL
+      *----*
+      *
+     C                     ENDSR
+      *===============================================================
+      *  CREATE ORDER
+      *===============================================================
+     C           #CRT      BEGSR
+      *  VWDELJIT
+     C           1         SETLLVWDELJIT
+     C*-------------------------
+     C                     DO   *HIVAL
+     C                     READ VWDELJIT                 90
+     C   90                LEAVE
+     C*
+     C                     EXSR ##SET
+     C**
+     C                     ENDDO
+      *-------------------------
+     C                     MOVE '#END    '@STEP
+     C                     ENDSR
+      *===============================================================
+     C           ##SET     BEGSR
+     C*
+     C                     SELEC
+     C           VW0104    WHEQ 'UNH+'
+     C                     CLEARABVEP201
+     **             'VOLKSWAGEN'          C         $$VOLK
+     C                     MOVEL$$VOLK    AEPRTR           PARTNER ID
+     C                     MOVEL'NLK'     AEDTNM           DATA NAME
+     C                     MOVEL'8450'    AETOKU           CUST
+     C                     MOVEL'8450'    AENONY           SHIP
+     C                     MOVEL'0'       AENKOJ           FACTORY
+     C                     MOVEL'00  '    AENUKE           DOCK
+     C           VW0106    WHEQ 'DTM+2:'
+     C                     MOVELVW0780    W$D1
+     C                     EXSR #CV1
+     C                     MOVELW$D21     AEDPDT           DISPATCH DATE/TIME
+     C                     MOVELW$D22     AEDPID           DATE ID
+     C           VW0108    WHEQ 'DTM+191:'
+     C                     MOVELVW0980    W$D1
+     C                     EXSR #CV1
+     C                     MOVELW$D21     AESHDT           DELI DATE/TIME
+     C                     MOVELW$D22     AESHID           DATE ID
+     C           VW0107    WHEQ 'NAD+SU+'
+     C                     MOVELVW0880    W$D1
+     C                     EXSR #CV1
+     C                     MOVELW$D21     AESUPL           SUPPLIER CODE
+     C           VW0107    WHEQ 'NAD+ST+'
+     C                     MOVELVW0880    W$D1
+     C                     EXSR #CV1
+     C                     MOVELW$D21     AEPLNT           PLANT CODE
+     C           VW0106    WHEQ 'PCI+3+'
+     C                     MOVELVW0780    W$D1
+     C                     EXSR #CV1
+     C                     MOVELW$D21     AEPLAN           P-LANE CODE
+     C                     MOVELW$D22     AEHAND           HANDLING CODE
+     C                     MOVELW$D23     AEROUT           ROUTE CODE
+     C                     MOVELW$D24     AEPONT           POINT OF USE
+     C           VW0107    WHEQ 'GIN+BU+'
+     C                     MOVELVW0880    W$D1
+     C                     EXSR #CV1
+     C                     MOVELW$D21     AEMAN#           MANIFEST#
+     C           VW0104    WHEQ 'LIN+'                     品番
+     C                     MOVELVW0580    W$D1
+     C                     EXSR #CV1
+     C                     MOVELW$D21     AELIN#           LINE#
+     C                     MOVELW$D23     AEMHIN           CUST PART#
+     C           VW0108    WHEQ 'IMD+++::'
+     C                     MOVELVW1080    W$D1
+     C                     EXSR #CV1
+     C                     MOVELW$D21     AEMHNM           CUST PART NAME
+     C           VW0107    WHEQ 'RFF+ON:'
+     C                     MOVELVW0880    W$D1
+     C                     EXSR #CV1
+     C                     MOVELW$D21     AEORNO           ORDER#
+     C           VW0106    WHEQ 'LOC+7+'
+     C                     MOVELVW0780    W$D1
+     C                     EXSR #CV1
+     C                     MOVELW$D21     AEDOC1           SHIP TO LOC
+     C           VW0107    WHEQ 'LOC+11+'
+     C                     MOVELVW0880    W$D1
+     C                     EXSR #CV1
+     C                     MOVELW$D21     AEDOC2           UNLOADING LOC
+     C           VW0108    WHEQ 'QTY+113:'
+     C                     MOVELVW0980    W$D1
+     C                     EXSR #CV1
+     C                     MOVELW$D21     W$D2
+     C                     EXSR #CV2
+     C                     Z-ADDW$D3      AEQNTY           QUANTITY
+     C           VW0108    WHEQ 'DTM+235:'
+     C                     MOVELVW0980    W$D1
+     C                     EXSR #CV1
+     C                     MOVELW$D21     AEPKDT           PICKUP DATE
+     C                     MOVELW$D22     AEPKID           DATE ID
+     C           VW0104    WHEQ 'UNT+'
+     C                     Z-ADD@SYSHZ    AEDATE           EDI DATE
+     C                     WRITEABVEP201
+     C                     ENDSL
+     C*
+     C                     ENDSR
+      *===============================================================
+      *  RETRIEVE LETTERS FROM TABLE
+      *===============================================================
+     C           #CV1      BEGSR
+     C                     MOVE *BLANK    W$D2
+     C                     MOVE *BLANK    W$D21  35
+     C                     MOVE *BLANK    W$D22  35
+     C                     MOVE *BLANK    W$D23  35
+     C                     MOVE *BLANK    W$D24  35
+     C                     Z-ADD0         Z       20
+     C                     Z-ADD0         $SET    20
+     C*
+S1   C                     DO   80        X       20
+ S2  C                     SELEC
+     C           @D1,X     WHEQ ':'
+     C           @D1,X     OREQ '+'
+     C                     EXSR #CV1MV
+     C           @D1,X     WHEQ X'7D'                      X'7D'= '
+     C                     EXSR #CV1MV
+     C                     LEAVE
+     C                     OTHER
+     C                     ADD  1         Z
+     C                     MOVE @D1,X     @D2,Z
+ E2  C                     ENDSL
+E1   C                     ENDDO
+     C*
+     C                     ENDSR
+      *===============================================================
+      *  RETRIEVE LETTERS FROM TABLE (SAVE LETTERS)
+      *===============================================================
+     C           #CV1MV    BEGSR
+     C                     ADD  1         $SET
+     C                     SELEC
+     C           $SET      WHEQ 1
+     C                     MOVELW$D2      W$D21
+     C           $SET      WHEQ 2
+     C                     MOVELW$D2      W$D22
+     C           $SET      WHEQ 3
+     C                     MOVELW$D2      W$D23
+     C           $SET      WHEQ 4
+     C                     MOVELW$D2      W$D24
+     C                     ENDSL
+     C*
+     C                     MOVEL*BLANK    W$D2
+     C                     Z-ADD0         Z
+     C                     ENDSR
+      *===============================================================
+      * CONVERT TO NUMERIC
+      *===============================================================
+     C           #CV2      BEGSR
+     C                     Z-ADD0         W$D3
+     C                     Z-ADD74        X       20
+     C                     Z-ADD20        Z       20
+     C                     DO   74
+     C           @D2,X     IFGE '0'
+     C           @D2,X     ANDLE'9'
+     C                     MOVE @D2,X     @D3,Z
+     C                     SUB  1         Z
+     C                     ENDIF
+     C                     SUB  1         X
+     C                     ENDDO
+     C                     ENDSR
+      *===============================================================
+      * EDIT PART#
+      *===============================================================
+     C           #CVHIN    BEGSR
+     C                     MOVEAW$D23     @H1       P
+     C                     MOVEL*BLANK    @H2
+     C                     Z-ADD*ZERO     Y       20
+     C*-------------------------
+     C           1         DO   22        X       20
+     C           @H1,X     IFNE '-'
+     C           @H1,X     ANDNE'/'
+     C           @H1,X     ANDNE'.'
+     C           @H1,X     ANDNE*BLANK
+     C                     ADD  1         Y
+     C           Y         IFGT 20
+     C                     LEAVE
+     C                     ENDIF
+     C                     MOVE @H1,X     @H2,Y
+     C                     ENDIF
+     C                     ENDDO
+     C*-------------------------
+     C                     MOVEA@H2       WMHIN     P
+     C                     MOVELWMHN1     S1MHN1
+     C                     MOVELWMHN2     S1MHN2
+     C                     MOVELWMHN3     S1MHN3
+     C                     MOVELWMHN4     S1MHN4
+     C                     MOVE '-'       S1HF1
+     C                     MOVE '-'       S1HF2
+     C                     MOVE '-'       S1HF3
+     C*
+     C           S1MHN4    IFEQ *BLANK
+     C                     MOVE ' '       S1HF3
+     C           S1MHN3    IFEQ *BLANK
+     C                     MOVE ' '       S1HF2
+     C           S1MHN2    IFEQ *BLANK
+     C                     MOVE ' '       S1HF1
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+     C*
+     C                     ENDSR
+      *===============================================================
+**  ERR
+REVERSED MANIFEST# INDICATES THE ORDER HAS ALREADY RECEIVED.
+NO DATA
+E-03
+E-04
+E-05
+E-06
+E-07
+E-08
+E-09
+E-10

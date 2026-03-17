@@ -1,0 +1,245 @@
+     H            Y.
+      ** AFFR32 ******************************************************
+      *  AFFWP30 --> AFFWP31                                         *
+      *  JW          2022.02.17                                      *
+     *** CAUTION !!! COMPLIE WITH "ALLOW NULL *YES"
+      ****************************************************************
+     FAFFWP30 IF  E           K        DISK
+     FAB#PL0A IF  E           K        DISK
+     FAFFWP31 O   E           K        DISK
+      *
+     E                    ERR     1  20 50
+      *-----------------------------------------------------------------
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1   80K#NOHZ
+     I                                        1   40K#NOYY
+     I                                        5   60K#NOMM
+     I                                        7   80K#NODD
+     I            DS
+     I                                        1  12 B1SHIN
+     I                                        1   5 B1SHN1
+     I                                        6  10 B1SHN2
+     I                                       11  12 B1SHN3
+     I            DS
+     I                                        1  20 K#MHIN
+     I                                        1   5 K#MHN1
+     I                                        6  10 K#MHN2
+     I                                       11  15 K#MHN3
+     I                                       16  20 K#MHN4
+      *
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *----------------------------------------------------*
+      * MAIN ROUTINE
+      *----------------------------------------------------*
+     C                     EXSR #INIT
+      *
+     C                     DO   *HIVAL
+     C                     READ AFFWP30                  98
+     C   98                LEAVE
+      *
+     C                     EXSR #CHK1
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  CHECK                                             *
+      *----------------------------------------------------*
+     C           #CHK1     BEGSR
+      *
+     C                     EXSR #PRE
+      *
+      * (A) CHECK COMMENT LINE
+     C                     MOVELFLD1      LTR1    1
+     C           LTR1      IFEQ '*'
+     C                     MOVE '*'       FL#FLG
+     C                     MOVELERR,1     FL#MSG
+     C                     WRITEAFFWP311
+     C                     GOTO CHK1X
+     C                     ENDIF
+      * (C) CHECK TMMC
+     C                     MOVELFLD3      LTR4    4
+     C           LTR4      IFNE 'TMMC'
+     C                     MOVE '*'       FL#FLG
+     C                     MOVELERR,2     FL#MSG
+     C                     WRITEAFFWP311
+     C                     GOTO CHK1X
+     C                     ENDIF
+      * (O) ERROR CODE
+     C                     MOVELFLDF      LTR2    2
+     C           LTR2      IFNE 'IB'
+     C                     MOVE '*'       FL#FLG
+     C                     MOVELERR,5     FL#MSG
+     C                     WRITEAFFWP311
+     C                     GOTO CHK1X
+     C                     ENDIF
+      * (I) PP01
+     C                     MOVE 'N'       ODFLG   1
+     C                     Z-ADD3411      K#TOKU
+     C                     Z-ADD3503      K#NONY
+     C                     MOVE *BLANK    K#MHIN
+     C                     MOVELFL#9      K#MHIN
+     C                     Z-ADDFL#5      K#NOHZ
+     C           K#L0A     SETLLAB#PL0A
+     C                     DO   *HIVAL
+     C           K#L0A     READEAB#PL0A                  97
+     C   97                LEAVE
+      *
+     C           B1SKJY    IFEQ 'D'
+     C           B1ODR1    ORNE @ODRN
+     C           B1NKOJ    ORNE @NKOJ
+     C           B1NUKE    ORNE @NUKE
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVE 'Y'       ODFLG
+     C                     LEAVE
+     C                     ENDDO
+      * ORDER NOT FOUND
+     C           ODFLG     IFEQ 'N'
+     C                     MOVE '*'       FL#FLG
+     C                     MOVELERR,3     FL#MSG
+     C                     WRITEAFFWP311
+     C                     GOTO CHK1X
+     C                     ENDIF
+      * PRICE NOT MATCH
+     C           FL#B      IFNE B1TANK
+     C                     MOVELERR,4     FL#MSG
+     C                     MOVE B1TANK    LTR6    6
+     C                     MOVEL'.'       LTR6
+     C                     MOVE LTR6      FL#MSG
+      *
+     C           FL#A      IFEQ B1TANK
+     C                     MOVE '*'       FL#FLG
+     C                     ELSE
+     C                     MOVE '1'       FL#FLG
+     C                     ENDIF
+      *
+     C                     WRITEAFFWP311
+     C                     GOTO CHK1X
+     C                     ENDIF
+      * IF NO ERROR...
+     C                     WRITEAFFWP311
+      *
+     C           CHK1X     ENDSR
+      **************************
+      * PRE SET DEFAULT VALUE
+      **************************
+     C           #PRE      BEGSR
+      *
+     C                     CLEARAFFWP311
+      * LINE ID
+     C                     MOVELFLD1      FL#1
+     C                     MOVELFLD2      FL#2
+     C                     MOVELFLD3      FL#3
+      * CRT DATE
+     C                     MOVELFLD4      $SRC
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+     C                     MOVEL$TRUE     FL#4
+      * SHIP DATE
+     C                     MOVELFLD5      $SRC
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+     C                     MOVEL$TRUE     FL#5
+      *
+     C                     MOVELFLD6      FL#6
+     C                     MOVELFLD7      FL#7
+     C                     MOVELFLD8      FL#8
+      * MHIN
+     C                     MOVELFLD9      $FLD1
+     C                     CALL 'UUUR05'
+     C                     PARM           $FLD1  25
+     C                     PARM           $FLD2  25
+     C                     MOVEL$FLD2     FL#9
+      * TMMC U/P
+     C                     MOVELFLDA      $IN
+     C                     CALL 'UTLR60'
+     C                     PARM           $IN    17
+     C                     PARM           $TRUE2 156
+     C                     PARM           $RTN    1
+     C                     Z-ADD$TRUE2    FL#A
+      * IAF U/P
+     C                     MOVELFLDB      $IN
+     C                     CALL 'UTLR60'
+     C                     PARM           $IN    17
+     C                     PARM           $TRUE2 156
+     C                     PARM           $RTN    1
+     C                     Z-ADD$TRUE2    FL#B
+      * TMMC QTY
+     C                     MOVELFLDC      $IN
+     C                     CALL 'UTLR60'
+     C                     PARM           $IN    17
+     C                     PARM           $TRUE2 156
+     C                     PARM           $RTN    1
+     C                     Z-ADD$TRUE2    FL#C
+      * IAF  QTY
+     C                     MOVELFLDD      $IN
+     C                     CALL 'UTLR60'
+     C                     PARM           $IN    17
+     C                     PARM           $TRUE2 156
+     C                     PARM           $RTN    1
+     C                     Z-ADD$TRUE2    FL#D
+      *
+     C                     MOVELFLDE      FL#E
+     C                     MOVELFLDF      FL#F
+      * DOCK
+     C                     MOVELFLD7      @NKOJ   1
+     C                     MOVELFLD7      LTR3    3
+     C                     MOVE LTR3      LTR2    2
+     C                     MOVELLTR2      @NUKE   4 P
+      * PO#
+     C                     MOVELFLD7      LTR13  13
+     C                     MOVE LTR13     @ODRN  10
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           K#L0A     KLIST
+     C                     KFLD           K#TOKU  40
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#MHN1  5
+     C                     KFLD           K#MHN2  5
+     C                     KFLD           K#MHN3  5
+     C                     KFLD           K#MHN4  5
+     C                     KFLD           K#NOYY  40
+     C                     KFLD           K#NOMM  20
+     C                     KFLD           K#NODD  20
+      *
+     C                     ENDSR
+** ERR MSG(50A)....2.........3.........4.........5
+THE LINE WAS CANCELED...                           01
+{C} ACCT# "TMMC" NOT FOUND !                       02
+{E,G,I} ORDER NOT FOUND !                          03
+{K} UNIT PRICE DOES NOT MATCH (ORIG) -->           04
+{O} ERROR CODE IS NOT "IB" !                       05
+                                                   06
+                                                   07
+                                                   08
+                                                   09
+                                                   10
+                                                   11
+                                                   12
+                                                   13
+                                                   14
+                                                   15
+                                                   16
+                                                   17
+                                                   18
+                                                   19
+                                                   20

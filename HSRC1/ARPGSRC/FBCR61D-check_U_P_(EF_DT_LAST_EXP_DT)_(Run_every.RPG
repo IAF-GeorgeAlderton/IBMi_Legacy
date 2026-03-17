@@ -1,0 +1,238 @@
+     H            Y.
+     F**************************************************************************
+     F*  PROGRAM    : FIX DATA OF FBCPP01 (SALES UNIT PRICE)                   *
+     F*             : COPIED FROM @FBCPP01D                                    *
+     F*  WRITTEN    : 12/8/2015                                                *
+     F*  WRITTEN BY : JW (SRA)                                                 *
+     F*  FUNCTION   : CHECK EF DATE <= LAST EXP DATE                           *
+     F**************************************************************************
+     FFBCPL07 IF  E           K        DISK
+     FAGDPL12 IF  E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+      *
+     E                    TXT     1   2 50
+     I            DS
+     I                                        1   80WKTS
+     I                                        1   40WKTSYY
+     I                                        5   60WKTSMM
+     I                                        7   80WKTSDD
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      **************************************************************************
+     C                     EXSR @INIT
+      *
+     C           0000      SETLLFBCPL07
+      *
+     C           *IN98     DOWEQ*OFF
+     C                     READ FBCPL07                  98
+     C           *IN98     IFEQ *OFF
+     C           FBSKJY    ANDEQ' '
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVEL'N'       FIRST
+     C                     MOVELFBTOKU    SVTOKU
+     C                     MOVELFBNONY    SVNONY
+     C                     MOVELFBMHN1    SVMHN1
+     C                     MOVELFBMHN2    SVMHN2
+     C                     MOVELFBMHN3    SVMHN3
+     C                     MOVELFBMHN4    SVMHN4
+     C                     CLEARSVTSHZ
+     C                     ENDIF
+      * BREAK?
+     C           FBTOKU    IFNE SVTOKU
+     C           FBNONY    ORNE SVNONY
+     C           FBMHN1    ORNE SVMHN1
+     C           FBMHN2    ORNE SVMHN2
+     C           FBMHN3    ORNE SVMHN3
+     C           FBMHN4    ORNE SVMHN4
+     C                     EXSR @BRK1
+     C                     ENDIF
+      * DETAIL
+      *   CHECK ERROR (EFFECTIVE =< SV-EXPIRATION)
+     C                     CLEAR#EXDAT
+     C**         FBTKHZ    IFLE SVTSHZ
+      *CALCULATE EXP DATE------------------------
+     C           K#AGDP    KLIST
+     C                     KFLD           FBTKYY
+     C                     KFLD           FBTKMM
+     C                     KFLD           FBTKDD
+     C           K#AGDP    CHAINAGDPL12              94
+     C  N94                READPAGDPL12                  94
+     C  N94                Z-ADDF8KAYY    WKTSYY
+     C  N94                Z-ADDF8KAMM    WKTSMM
+     C  N94                Z-ADDF8KADD    WKTSDD
+     C   94                Z-ADD7777      WKTSYY
+     C   94                Z-ADD77        WKTSMM
+     C   94                Z-ADD77        WKTSDD
+     C                     MOVELWKTS      #EXDAT
+      *------------------------------------------
+     C           SVTSHZ    IFNE WKTS
+     C           SVTSHZ    ANDNE0
+     C           UPDFLG    IFEQ 'Y'
+     C                     EXSR @UPD
+     C                     ENDIF
+     C                     EXSR @PRINT
+     C                     ENDIF
+      *------------------------------------------
+      *
+     C                     MOVELFBTKHZ    SVTKHZ
+     C                     MOVELFBTSHZ    SVTSHZ
+     C                     MOVELFBTKYY    SVTKYY
+     C                     MOVELFBTKMM    SVTKMM
+     C                     MOVELFBTKDD    SVTKDD
+     C                     MOVELFBKOYY    SVKOYY
+     C                     MOVELFBKOMM    SVKOMM
+     C                     MOVELFBKODD    SVKODD
+     C                     MOVELFBKOME    SVKOME
+     C                     MOVELFBNTAN    SVNTAN
+      *
+     C                     ENDIF
+     C                     ENDDO
+      * LAST BREAK?
+     C           FIRST     IFEQ 'N'
+     C                     EXSR @BRK1
+     C                     ENDIF
+      * FOOT
+     C           SEQ#      IFEQ 0
+     C                     EXCPT@FOT
+     C                     ELSE
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  UPDATE                                            *
+      *----------------------------------------------------*
+     C           @UPD      BEGSR
+     C                     MOVELSVTOKU    @CUST
+     C                     MOVELSVNONY    @DELV
+     C                     MOVELSVTKHZ    @EFDAT
+     C                     MOVELSVTSHZ    @EXDAT
+     C                     CALL 'FBCR61D2'
+     C                     PARM           @CUST   4
+     C                     PARM           @DELV   4
+     C                     PARM           SVMHN1
+     C                     PARM           SVMHN2
+     C                     PARM           SVMHN3
+     C                     PARM           SVMHN4
+     C                     PARM           @EFDAT  8
+     C                     PARM           @EXDAT  8
+     C                     PARM           #EXDAT  8
+     C                     PARM           #RTN    1
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  BREAK                                             *
+      *----------------------------------------------------*
+     C           @BRK1     BEGSR
+      *
+     C                     MOVELFBTOKU    SVTOKU
+     C                     MOVELFBNONY    SVNONY
+     C                     MOVELFBMHN1    SVMHN1
+     C                     MOVELFBMHN2    SVMHN2
+     C                     MOVELFBMHN3    SVMHN3
+     C                     MOVELFBMHN4    SVMHN4
+     C                     CLEARSVTSHZ
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           @PRINT    BEGSR
+      *
+     C                     MOVEL#EXDAT    $EXDAT  80
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           @INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           UPDFLG  1
+     C                     PARM           $RTN    1
+      *
+     C           *LIKE     DEFN FBTOKU    SVTOKU
+     C           *LIKE     DEFN FBNONY    SVNONY
+     C           *LIKE     DEFN FBMHN1    SVMHN1
+     C           *LIKE     DEFN FBMHN2    SVMHN2
+     C           *LIKE     DEFN FBMHN3    SVMHN3
+     C           *LIKE     DEFN FBMHN4    SVMHN4
+     C           *LIKE     DEFN FBTSHZ    SVTSHZ
+     C           *LIKE     DEFN FBTSHZ    SVTKHZ
+     C           *LIKE     DEFN FBTKYY    SVTKYY
+     C           *LIKE     DEFN FBTKMM    SVTKMM
+     C           *LIKE     DEFN FBTKDD    SVTKDD
+     C           *LIKE     DEFN FBKOYY    SVKOYY
+     C           *LIKE     DEFN FBKOMM    SVKOMM
+     C           *LIKE     DEFN FBKODD    SVKODD
+     C           *LIKE     DEFN FBKOME    SVKOME
+     C           *LIKE     DEFN FBNTAN    SVNTAN
+      *
+     C                     MOVE *BLANK    $RTN
+     C                     MOVEL'Y'       FIRST   1
+     C                     Z-ADD*DATE     @DATE   80
+     C                     TIME           @TIME   60
+     C                     Z-ADD0         SEQ#    40
+     C*                    MOVE *BLANK    UPDFLG  1
+      *
+     C                     EXCPT@HDR
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         TXT,2     52
+     O                                   60 '** ERROR REPORT **      '
+     O                                   63 'UPDATE='
+     O                         UPDFLG    64
+     O                                   99 'DATE'
+     O                         @DATE    102 '    .  .  '
+     O                         @TIME    112 '  :  :  '
+     O                                  115 'P.'
+     O                         PAGE  Z  119
+     O        E   02           @HDR
+     O                                   10 'CONDITION:'
+     O                                   20 'CUST=ALL'
+     O                                   65 '(EF DATE <= LAST EXP)  '
+     O                         TXT,1    132
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   10 'CUST'
+     O                                   15 'DELV'
+     O                                   25 'CUST_PART'
+     O                                   48 'EFFECTIV'
+     O                                   59 'EXP_DATE'
+     O                                   70 'UPD_DATE'
+     O                                   79 'UPD_ID'
+     O                                   95 'PRICE'
+     O                                  100 'S/B'
+     O        E 1              @DTL
+     O                         SEQ#  Z +001
+     O                         SVTOKU  +001
+     O                         SVNONY  +001
+     O                         SVMHN1  +001
+     O                         SVMHN2  +001
+     O                         SVMHN3  +001
+     O                         SVMHN4  +001
+     O                         SVTKHZ  +001 '    /  /  '
+     O                         SVTSHZ  +001 '    /  /  '
+     O                         SVKOYY  +001
+     O                                 +000 '/'
+     O                         SVKOMM  +000
+     O                                 +000 '/'
+     O                         SVKODD  +000
+     O                         SVKOME  +001
+     O                         SVNTAN1 +001
+     O                         $EXDAT  +001 '    /  /  '
+     O                                 +001 '<-- TO BE CHANGED'
+     O        E 1              @FOT
+     O                                   20 '** THERE IS NO TARGE'
+     O                                   40 'T DATA **           '
+** TXT(50A) .......2.........3.........4.........5
+USE --> CALL FBCR61G ('3411' '3557' 'Y')
+RUN FBCR61D (' ' ' ')

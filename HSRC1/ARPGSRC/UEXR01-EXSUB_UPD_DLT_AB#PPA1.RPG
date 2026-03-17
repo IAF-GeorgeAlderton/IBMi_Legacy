@@ -1,0 +1,187 @@
+     H            Y.
+     H** UTSR01 ********************************************
+     H*  PROGRAM: EXSUB - UPD/ DLT AB#PPA1                 *
+     H*  FOR SYNCHRONIZING AB#PPA1 WITH AB#PP10            *
+     H*  WRITTEN: JW (SRA)   2017.09.07                    *
+     H*----------------------------------------------------*
+      *  CALLING SEQ.
+      *                    CALL 'UEXR01'
+      *                    PARM           POPT    1
+      *                    PARM           PANONY  40
+      *                    PARM           PANKOJ  1
+      *                    PARM           PANUKE  4
+      *                    PARM           PANOHZ  80
+      *                    PARM           PANOBN  20
+      *                    PARM           PAODRN 10
+      *                    PARM           PAMHIN 20
+      *                    PARM           PAKOME 10
+      *                    PARM           PASRYO 100
+      *                    PARM           PASYOS  60
+      *                    PARM           PAPGM  10
+      *                    PARM           PARESE  4
+      *                    PARM           PRTN    1
+      *
+      *   IN K POPT    1A    OPTION (D=DELT, U=UPD)
+      *      K PANONY  4 0   DELIVERY#
+      *      K PANKOJ  1A    FACTORY
+      *      K PANUKE  4A    DOCK
+      *      K PANOHZ  8 0   SHIP DATE
+      *      K PANOBN  2 0   BIN#
+      *      K PAODRN 10A    PO#
+      *      K PAMHIN 20A    USER PART
+      *        PAKOME 10A    UPD USER
+      *        PASRYO 10 0   ORDER QTY
+      *        PASYOS  6 0   Q/C
+      *        PAPGM  10A    UPD PGM
+      *        PARESE  4A    RESERVE LOCATION
+      *   OUT  PRTN    1A    RETURN FLAG (BLANK=OK, *=ERROR)
+      ******************************************************
+     FAB#PLAJ UF  E           K        DISK
+      *--------------------------------------------------------
+     I            DS
+     I                                        1   80BAKODT
+     I                                        1   40BAKOYY
+     I                                        5   60BAKOMM
+     I                                        7   80BAKODD
+     I            DS
+     I                                        1   80BASKDT
+     I                                        1   40BASKYY
+     I                                        5   60BASKMM
+     I                                        7   80BASKDD
+     I* SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60WSTIM
+     I                                        7  140WSDAT
+     I                                        1   20WSHH
+     I                                        3   40WSMN
+     I                                        5   60WSSS
+     I                                        7  100WSYY
+     I                                       11  120WSMM
+     I                                       13  140WSDD
+     I                                        1   40WSTM4
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *--------------------------------------------------------
+      *                    MAIN PROCESS
+      *--------------------------------------------------------
+      *
+     C                     EXSR #INIT
+      *
+     C                     SELEC
+     C           POPT      WHEQ 'U'
+     C                     EXSR #UPD
+     C           POPT      WHEQ 'D'
+     C                     EXSR #DLT
+     C                     ENDSL
+      * CHECK UPDATE COUNT
+     C           @CNT      IFGE 1
+     C                     MOVE *BLANK    PRTN
+     C                     ELSE
+     C                     MOVE '*'       PRTN
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *=============================================================
+      *  UPDATE PROCESS
+      *=============================================================
+     C           #UPD      BEGSR
+      *
+     C           KEY       SETLLAB#PLAJ
+     C           *IN95     DOWEQ*OFF
+     C           KEY       READEAB#PLAJ                  95
+     C           *IN95     IFEQ *OFF
+     C                     Z-ADDPASYOS    BASYOS
+     C                     Z-ADDPASRYO    BASRYO
+     C                     Z-ADDPASRYO    BAODER
+      *
+     C           PAKOME    IFEQ *BLANK
+     C                     MOVEL#USER     BAKOME
+     C                     ELSE
+     C                     MOVELPAKOME    BAKOME
+     C                     ENDIF
+      *
+     C           PAPGM     IFEQ *BLANK
+     C                     MOVEL#PGM      BANOPG
+     C                     ELSE
+     C                     MOVELPAPGM     BANOPG
+     C                     ENDIF
+      *
+     C                     MOVELPARESE    BARESE
+     C                     Z-ADDWSDAT     BAKODT
+     C                     Z-ADDWSHH      BAKOHH
+     C                     Z-ADDWSMN      BAKOSS
+     C                     UPDATAB#PLAJ1
+     C                     ADD  1         @CNT
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *=============================================================
+      *  DELETE PROCESS
+      *=============================================================
+     C           #DLT      BEGSR
+      *
+     C           KEY       SETLLAB#PLAJ
+     C           *IN95     DOWEQ*OFF
+     C           KEY       READEAB#PLAJ                  95
+     C           *IN95     IFEQ *OFF
+     C                     MOVEL'D'       BASKJY
+     C                     MOVELPAPGM     BASKPG
+     C                     MOVELPARESE    BARESE
+     C                     Z-ADDWSDAT     BASKDT
+     C                     Z-ADDWSTIM     BASKTM
+     C                     MOVEL#USER     BASKME
+      *
+     C           PAPGM     IFEQ *BLANK
+     C                     MOVEL#PGM      BASKPG
+     C                     ELSE
+     C                     MOVELPAPGM     BASKPG
+     C                     ENDIF
+      *
+     C                     UPDATAB#PLAJ1
+     C                     ADD  1         @CNT
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *=============================================================
+      *  INITIAL PROCESS
+      *=============================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           POPT    1
+     C                     PARM           PANONY  40       KEY
+     C                     PARM           PANKOJ  1        KEY
+     C                     PARM           PANUKE  4        KEY
+     C                     PARM           PANOHZ  80       KEY
+     C                     PARM           PANOBN  20       KEY
+     C                     PARM           PAODRN 10        KEY
+     C                     PARM           PAMHIN 20        KEY
+     C                     PARM           PAKOME 10
+     C                     PARM           PASRYO 100
+     C                     PARM           PASYOS  60
+     C                     PARM           PAPGM  10
+     C                     PARM           PARESE  4
+     C                     PARM           PRTN    1
+      *
+     C           KEY       KLIST
+     C                     KFLD           PANONY
+     C                     KFLD           PANKOJ
+     C                     KFLD           PANUKE
+     C                     KFLD           PANOHZ
+     C                     KFLD           PANOBN
+     C                     KFLD           PAODRN
+     C                     KFLD           PAMHIN
+      *
+     C                     MOVE *BLANK    PRTN
+     C                     TIME           WSDT
+     C                     Z-ADD0         @CNT    30
+      *
+     C                     ENDSR

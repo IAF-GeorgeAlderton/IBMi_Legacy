@@ -1,0 +1,243 @@
+     H            Y.
+      *---------------------------------------------------------------
+      * OUTSOURCE PARTS LIST INQUIRY
+      *
+      * LEC  2022/05/04   CREATE
+      *
+      *---------------------------------------------------------------
+     FAAMPW15 CF  E                    WORKSTN
+     F                                        RRN2  KSFILE SFL02
+     F                                              KINFDS @INFDS
+     FAAMPL11 IF  E           K        DISK                           UC
+     FFGBPL01 IF  E           K        DISK
+     FAAMWP15 UF  E           K        DISK                      A    UC
+      *------------------------------------------------------------
+     E                    CMD     1   2 78
+     E                    ERR     1   5 78
+      *
+     E                    CKBM       15  4 0
+      *------------------------------------------------------------
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     I@INFDS      DS
+     I                                    B 378 3790@@REC
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   20WSSHHH
+     I                                        3   40WSSNNN
+     I                                        5   60WSSSSS
+     I                                        7  100WSSYYY
+     I                                       11  120WSSMMM
+     I                                       13  140WSSDDD
+     I                                        1   40WSSTM4
+     I                                        1   60WSSTM6
+     I                                        7  140WSSDAT
+      * PART NUMBER
+     I            DS
+     I                                        1  15 HIN
+     I                                        1   5 CKHIN1
+     I                                        6   6 DASH1
+     I                                        7  11 CKHIN2
+     I                                       12  12 DASH2
+     I                                       13  14 CKHIN3
+     I            DS
+     I                                        1  600CKBM
+     I                                        1   40CKBM01
+     I                                        5   80CKBM02
+     I                                        9  120CKBM03
+     I                                       13  160CKBM04
+     I                                       17  200CKBM05
+     I                                       21  240CKBM06
+     I                                       25  280CKBM07
+     I                                       29  320CKBM08
+     I                                       33  360CKBM09
+     I                                       37  400CKBM10
+     I                                       41  440CKBM11
+     I                                       45  480CKBM12
+     I                                       49  520CKBM13
+     I                                       53  560CKBM14
+     I                                       57  600CKBM15
+      *
+      *------------------------------------------------------------
+      *   MAIN
+      *------------------------------------------------------------
+     C           @@ID      DOWNE'99'
+     C           @@ID      CASEQ'01'      #DSP01
+     C           @@ID      CASEQ'03'      #DSP03
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *-----------------------------------------------------
+     C           *INZSR    BEGSR
+      *-----------------------------------------------------
+     C                     MOVE '01'      @@ID    2
+     C                     TIME           WSDT
+      *
+     C                     EXSR #CRTWF
+      *
+     C                     ENDSR
+      *-----------------------------------------------------
+      *  Create workfile for inquiry from Process Master file
+     C           #CRTWF    BEGSR
+      *-----------------------------------------------------
+     C                     OPEN AAMWP15
+     C                     OPEN AAMPL11
+      *
+     C           *LOVAL    SETLLAAMPL11
+     C           *IN50     DOWEQ*OFF
+      *
+     C                     READ AAMPL11                  50
+      *
+     C           *IN50     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           CKSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADD*ZERO     CURDPT
+     C                     Z-ADD*ZERO     PRVDPT
+     C                     Z-ADD*ZERO     X
+      *
+     C                     DO   15        X       20
+      *
+     C                     Z-ADDCKBM,X    CURDPT  40
+      *
+      *  if process is not by iaf or asj, then write to outsource part wf...
+     C           CKBM,X    IFEQ 0111                       IAF
+     C           CKBM,X    OREQ 8990                       ASJ
+     C           CKBM,X    OREQ *ZERO                      no process
+     C                     ITER
+     C                     ELSE
+     C           CURDPT    IFNE PRVDPT
+     C                     EXSR #OSPRT
+     C                     ENDIF
+     C                     ENDIF
+     C                     Z-ADDCKBM,X    PRVDPT  40
+     C                     ENDDO
+      *
+     C                     ENDDO
+      *
+     C                     CLOSEAAMWP15
+     C                     CLOSEAAMPL11
+      *
+      * if outsource part flag was turned on, then fill subfile and display...
+     C           FLAG      IFEQ 'Y'
+     C                     MOVEL'03'      @@ID
+     C                     EXSR #FILL
+     C                     ELSE
+     C                     MOVEL'01'      @@ID
+     C                     SETON                     61
+     C                     MOVELERR,1     D@MSG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *-----------------------------------------------------
+      *  Write to Outsource Part workfile...
+     C           #OSPRT    BEGSR
+      *-----------------------------------------------------
+      *
+     C                     MOVE 'Y'       FLAG    1
+      *
+     C                     MOVE '-'       DASH1
+     C           CKHIN3    IFNE *BLANKS
+     C                     MOVE '-'       DASH2
+     C                     ELSE
+     C                     MOVE *BLANK    DASH2
+     C                     ENDIF
+      *
+     C                     MOVELHIN       PART#
+     C                     Z-ADDCKBM,X    DEPT
+      *
+      * get vendor name...
+     C           DEPT      CHAINFGBPL01              51
+     C           *IN51     IFEQ *OFF
+     C                     MOVELB2SMEI    VENDOR
+     C                     ENDIF
+      *
+     C                     WRITEAAMWP151
+     C                     CLEARAAMWP151
+      *
+     C                     ENDSR
+      *-----------------------------------------------------
+      *  display only if no data found...
+     C           #DSP01    BEGSR
+      *-----------------------------------------------------
+     C                     MOVE CMD,1     D@CMD
+      *
+     C                     WRITEDSP99
+     C                     EXFMTDSP01
+      *
+     C           *INKA     IFEQ *ON
+     C                     MOVE '99'      @@ID
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *-----------------------------------------------------
+      *  Fill Subfile with Outsource Part data...
+     C           #FILL     BEGSR
+      *-----------------------------------------------------
+     C                     OPEN AAMWP15
+      *
+     C                     MOVE *ON       *IN57
+     C                     WRITECTL02
+     C                     MOVE *OFF      *IN57
+      *
+     C           *LOVAL    SETLLAAMWP15
+     C           *IN52     DOWEQ*OFF
+      *
+     C                     READ AAMWP15                  52
+      *
+     C           *IN52     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     MOVELVENDOR    S2VNAM
+     C                     MOVELPART#     S2SHN
+     C                     Z-ADDDEPT      S2DEPT
+      *
+     C                     ADD  1         RRN2    40
+     C                     WRITESFL02
+      *
+     C                     ENDDO
+      *
+     C                     CLOSEAAMWP15
+      *
+     C                     ENDSR
+      *-----------------------------------------------------
+      *  display outsource parts subfile...
+     C           #DSP03    BEGSR
+      *-----------------------------------------------------
+     C                     MOVE CMD,2     D@CMD
+      *
+     C                     MOVE *ON       *IN56
+     C                     WRITEDSP99
+     C                     EXFMTCTL02
+     C                     MOVE *OFF      *IN56                       C
+      *
+     C                     SELEC
+     C           *INKA     WHEQ *ON
+     C                     MOVE '99'      @@ID
+     C           *INKJ     WHEQ *ON
+     C                     MOVE '99'      @@ID
+     C                     CALL 'AAMC15D'
+      *
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *-----------------------------------------------------
+** CMD
+ F1:End
+ F1:End     F10:CSV
+** ERR
+NO DATA
+ ERROR 2
+ ERROR 3
+ ERROR 4
+ ERROR 5

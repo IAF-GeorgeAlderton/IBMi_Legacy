@@ -1,0 +1,4 @@
+PGM
+             OVRDBF     FILE(AJSWP94) TOFILE(AB950W0)
+             CALL       PGM(AJSR2B)
+ENDPGM

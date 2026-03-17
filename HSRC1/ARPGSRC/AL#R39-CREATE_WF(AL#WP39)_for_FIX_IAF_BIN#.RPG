@@ -1,0 +1,143 @@
+     H            Y.
+     F** AL#R39  *******************************************
+     F*ＩＡＦ便＃確定前のデータからワーク作成            *
+     F*      ITS.        2015.05.19                        *
+     F******************************************************
+     FAL#PL02 IF  E           K        DISK
+     FAGDPL12 IF  E           K        DISK
+     FAL#WP39 UF  E           K        DISK                      A
+     FAL#PP31 IF  E           K        DISK
+      *
+     I            DS
+     I                                        1   8 CASHID
+     I                                        1   40CASHYY
+     I                                        5   60CASHMM
+     I                                        7   80CASHDD
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60STIME
+     I                                        7  140SDATE
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+      *-----------------------------------------------------
+      *  MAIN ROUTINE
+      *-----------------------------------------------------
+     C                     TIME           WTIME
+      *
+     C           KEYC1     KLIST
+     C                     KFLD           KKFIXD  80
+     C                     KFLD           KKFIXT  60
+      *確定前
+     C                     Z-ADD0         KKFIXD
+     C                     Z-ADD0         KKFIXT
+     C           KEYC1     SETLLAL#PL021
+     C           KEYC1     READEAL#PL021                 81
+     C           *IN81     DOWEQ'0'
+     C           CASKJY    IFEQ 'D'
+     C           CASKHZ    ANDLESDATE
+     C                     ELSE
+     C                     EXSR #SB500
+     C                     ENDIF
+     C           KEYC1     READEAL#PL021                 81
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *-----------------------------------------------------
+      *  AL#WP39
+      *-----------------------------------------------------
+     CSR         #SB500    BEGSR
+      *
+     C           KEYF8     KLIST
+     C                     KFLD           CASHYY
+     C                     KFLD           CASHMM
+     C                     KFLD           CASHDD
+      *
+     C           KEYW0     KLIST
+     C                     KFLD           CASHID
+     C                     KFLD           CASHIT
+     C                     KFLD           KKTRKB  2
+     C                     KFLD           CASURT
+     C                     MOVEL*BLANK    P9TRKB
+     C                     CALL 'AL#RC9'
+     C                     PARM           CASURT
+     C                     PARM           P9TRKB  2
+     C                     MOVELP9TRKB    KKTRKB
+      *
+     C           KEYW0     CHAINAL#WP391             22
+     C           *IN22     IFEQ '0'
+     C                     ADD  1         W9BOX
+     C                     UPDATAL#WP391
+     C                     ELSE
+     C                     CLEARAL#WP391
+     C                     EXSR #SB510
+     C                     WRITEAL#WP391
+     C                     ENDIF
+      *
+     CSR         ESB500    ENDSR
+      *-----------------------------------------------------
+      *  AL#WP39
+      *-----------------------------------------------------
+     CSR         #SB510    BEGSR
+      *
+     C                     MOVEL*BLANK    W9SEL
+     C                     MOVELCASHID    W9SHID
+     C                     MOVELCASHIT    W9SHIT
+     C                     MOVELCASURT    W9SURT
+     C                     MOVELP9TRKB    W9TRKB
+     C                     Z-ADD1         W9BOX
+      *初回確定日
+     C                     EXSR #SB511
+     C***        W9EXTR    IFEQ 0
+     C***                  Z-ADD0         W9FIXD
+     C***                  Z-ADD0         W9FIXT
+     C***                  ELSE
+     C***                  EXSR #SB511
+     C***                  ENDIF
+      * EXTRA#
+     C                     Z-ADD0         W9EXTR
+     C           W9FIXD    IFNE 0
+     C                     CALL 'AL#R34'
+     C                     PARM           W9FIXD
+     C                     PARM           W9FIXT
+     C                     PARM           P9EXTR  30
+     C                     Z-ADDP9EXTR    W9EXTR
+     C                     ENDIF
+      *土曜日（稼働日違い）
+     C                     MOVEL*BLANK    W9SAT
+     C           KEYF8     CHAINAGDPL121             18
+     C           *IN18     IFEQ '0'
+     C           F8HIRU    IFEQ '*'
+     C                     MOVEL'1'       W9SAT
+     C                     ENDIF
+     C                     ENDIF
+      *
+     CSR         ESB510    ENDSR
+      *-----------------------------------------------------
+      *初回確定日
+      *-----------------------------------------------------
+     CSR         #SB511    BEGSR
+      *
+     C           KEY3      KLIST
+     C                     KFLD           W9SHID
+     C                     KFLD           K3EXTR  30
+     C                     Z-ADD0         K3EXTR
+      *
+     C           KEY3      CHAINAL#PP311             23
+     C           *IN23     IFEQ '0'
+     C           C3SKJY    ANDEQ'D'
+     C           C3SKHZ    ANDLESDATE
+     C                     SETON                     23
+     C                     ENDIF
+     C           *IN23     IFEQ '0'
+     C                     Z-ADDC3FIXD    W9FIXD
+     C                     Z-ADDC3FIXT    W9FIXT
+     C                     ENDIF
+      *
+     CSR         ESB511    ENDSR

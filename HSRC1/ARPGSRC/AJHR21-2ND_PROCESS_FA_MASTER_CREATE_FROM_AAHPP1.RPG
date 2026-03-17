@@ -1,0 +1,278 @@
+     H            Y.
+     F** AJHR21 *************************************
+     F* 2ND PROCESS FA MASTER CREATE FROM AAHPP01   *
+     F* C:T.SAKASHITA           2006.11.22          *
+     F* C:T.SAKASHITA           2011.04.11          *
+     F* C:T.SAKAKI              2016.09.20          *
+      * ADD  PROTRUST A09,A20                       *
+JW1   * ADD  D3@ FOR AR8133                         *
+%0001 * ADD  JB@ FOR JL BLUE         T.SAKAKI       *
+JW2   * ADD  PASS 20180618 (EFFECTIVE DATE)         *
+%0002 * ADD  TABLE FILE INSTEAD OF SCD              *
+     F***********************************************
+     FAJHPL01 UP  E           K        DISK
+     FAAHTL06 IF  E           K        DISK
+     FFCGPL51 IF  E           K        DISK
+%0002FAJHPPTB IT  F      22           EDISK
+     FOUTPUT  O   F     256            DISK
+     E*
+JW1  E***                 SCD     1  19  3
+%0002E    AJHPPTB         TB1     1  50  3
+     E*
+     I            DS
+     I                                        1   4 JHMEK1
+     I                                        1   2 MEK12
+     I                                        1   1 MEK1
+     I                                        2   2 MEK2
+     I                                        3   3 MEK3
+     I                                        4   4 MEK4
+     I            DS
+     I                                        1   40JHSKIY
+     I                                        3   40J@SKIY
+     I            DS
+     I                                        1   40JHBKIY
+     I                                        3   40J@BKIY
+     I            DS
+     I                                        1   40JHKOYY
+     I                                        3   40J@KOYY
+     C           *ENTRY    PLIST
+     C                     PARM           TVMENT  1
+     C                     PARM           P@MCD   1
+     C***                  MOVE P@MCD     C@MCD   1
+     C                     MOVE TVMENT    MENT    1
+     C*
+     C           *IN05     IFEQ '0'
+     C                     SETON                     05
+     C           MENT      IFEQ '2'
+     C                     EXCPTCLR
+     C                     END
+     C                     END
+     C*
+     C           JHSKJY    IFEQ 'D'
+     C                     GOTO END
+     C                     END
+     C****************************************
+     C*ＦＡの品番がメッキに無い時ＦＡを削除*
+     C****************************************
+     C           KEY1      KLIST
+     C                     KFLD           JHSHN1
+     C                     KFLD           JHSHN2
+     C                     KFLD           JHSHN3
+     C**********************************************************
+     C*引き取りかんばんからＦＡマスターの未使用品番をチェック*
+     C**********************************************************
+     C           KEY1      SETLLAAHTL061
+     C                     SETOF                     10
+     C           MELOOP    TAG
+     C           KEY1      READEAAHTL061                 10
+     C           *IN10     IFEQ '1'
+     C                     MOVE 'D'       JHSKJY
+     C                     Z-ADD*YEAR     JHSKYY
+     C                     Z-ADDUMONTH    JHSKMM
+     C                     Z-ADDUDAY      JHSKDD
+     C                     MOVEL'AJHR15'  JHKOME
+     C                     MOVE '0'       JHMENT
+     C                     UPDATAJHPL011
+     C                     GOTO END
+     C                     ELSE
+     C           L6SKJY    IFEQ 'D'
+     C           L6SKHZ    IFLE *DATE
+     C                     GOTO MELOOP
+     C                     END
+     C                     END
+     C                     END
+     C*有効日・失効日のチェック*
+JW2   * TEMP1 - IF JBD, THEN GOTO MELOOP
+ |   C           L6JOK1    IFEQ 'JB'
+ |   C           *DATE     ANDEQ20180618
+ |   C                     GOTO MELOOP
+JW2  C                     ENDIF
+      *
+JW2   * TEMP2 - IF PART=U1219-B4031, THEN GOTO MELOOP
+ |   C           L6SHN1    IFEQ 'U1219'
+ |   C           L6SHN2    ANDEQ'B4031'
+ |   C           *DATE     ANDEQ20180618
+ |   C                     GOTO MELOOP
+JW2  C                     ENDIF
+      *
+     C           L6UKHZ    IFLE *DATE
+     C           L6STHZ    ANDGT*DATE
+     C                     ELSE
+     C                     GOTO MELOOP
+     C                     END
+      *
+     C*引き取りかんばんマスターに有りの時ＯＫ*
+     C                     GOTO OK
+     C***********************************************************
+     C* xｮgに有る時ファイル出力*
+     C***********************************************************
+     C           OK        TAG
+     C*
+     C           ALLKEN    ADD  1         ALLKEN  60
+     C*
+     C           AENKEN    ADD  1         AENKEN  60
+     C*
+     C           DKTKEN    ADD  1         DKTKEN  60
+     C*
+     C                     MOVE *BLANK    W@OUT   1
+     C** 4,5,6,D ARE NOT COMMON   'KW4'=JC4  'CS5'=JC5
+     C           P@MCD     IFEQ '4'
+     C           P@MCD     OREQ '5'
+     C           P@MCD     OREQ '6'
+%0001C           P@MCD     OREQ 'D'
+     C                     MOVE P@MCD     C@MCD   1
+     C                     ELSE
+     C** OTHERS ARE COMMON  'XX@' 'VA@'
+     C                     MOVE '@'       C@MCD   1
+     C                     ENDIF
+     C*
+     C                     MOVELJH22K1    W@SCD   3
+     C                     MOVE C@MCD     W@SCD
+     C                     Z-ADD1         @X      20
+     C***        W@SCD     LOKUPSCD,@X                   77
+     C           W@SCD     LOKUPTB1,@X                   77
+     C           *IN77     IFEQ '1'
+     C                     MOVE '*'       W@OUT
+     C                     END
+     C*
+     C                     MOVELJH22K2    W@SCD   3
+     C                     MOVE C@MCD     W@SCD
+     C                     Z-ADD1         @X
+     C****       W@SCD     LOKUPSCD,@X                   77
+     C           W@SCD     LOKUPTB1,@X                   77
+     C           *IN77     IFEQ '1'
+     C                     MOVE '*'       W@OUT
+     C                     END
+     C*
+     C                     MOVELJH22K3    W@SCD   3
+     C                     MOVE C@MCD     W@SCD
+     C                     Z-ADD1         @X
+     C****       W@SCD     LOKUPSCD,@X                   77
+     C           W@SCD     LOKUPTB1,@X                   77
+     C           *IN77     IFEQ '1'
+     C                     MOVE '*'       W@OUT
+     C                     END
+     C*FCGPL51
+     C                     MOVEL*BLANK    OSHP1   1
+     C                     MOVEL*BLANK    OSHP2   1
+     C                     MOVEL*BLANK    OSHP3   1
+     C                     MOVEL*BLANK    OSHP4   1
+     C                     MOVEL*BLANK    OSHP5   1
+     C                     MOVEL*BLANK    OSHP6   1
+     C                     MOVEL*BLANK    OSIZE   4
+     C                     Z-ADD0         OKUBI   41
+     C                     SETOF                     41
+     C           KEY1      CHAINFCGPL511             41
+     C           *IN41     IFEQ '0'
+     C           E5SKJY    ANDEQ'D'
+     C                     SETON                     41
+     C                     END
+     C           *IN41     IFEQ '0'
+     C                     MOVELE5SHP1    OSHP1
+     C                     MOVELE5SHP2    OSHP2
+     C                     MOVELE5SHP3    OSHP3
+     C                     MOVELE5SHP4    OSHP4
+     C                     MOVELE5SHP5    OSHP5
+     C                     MOVELE5SHP6    OSHP6
+     C                     MOVE E5SIZE    OSIZE
+     C                     MOVEL0         OSIZE
+     C                     Z-ADDE5KUBI    OKUBI
+     C                     END
+      *
+     C           W@OUT     IFEQ '*'
+     C                     EXCPTDAT
+     C                     END
+     C*
+     C           END       TAG
+     OOUTPUT  E                DAT
+     O                         JHMENT     1
+     O                         JHZETI     5
+     O                         JHSHN1    10
+     O                         JHSHN2    15
+     O                         JHSHN3    17
+     O                         JHNSYU    22
+     O                         JHNHKS    23
+     O                         JHOSYU    28
+     O                         JHOHKS    29
+     O                         JHSKIY    33
+     O                         JHSKIM    35
+     O                         JHSKID    37
+     O                         JHTANJ    44
+     O                         JHMEK1    48
+     O                         JHMEK2    50
+     O                         JHMEK3    51
+     O                         JH21CD    55
+     O                         JH21M1    57
+     O                         JH21M2    59
+     O                         JH22CD    63
+     O                         JH22K1    65
+     O                         JH22K2    67
+     O                         JH22K3    69
+     O                         JHNS11    71
+     O                         JHNS21    73
+     O                         JHNS22    75
+     O                         JHNS23    77
+     O                         JHKDAI    78
+     O                         JHKSYO    79
+     O                         JHMKBN    82
+     O                         JHBAB1    84
+     O                         JHBAB2    87
+     O                         JHMSKB    91
+     O                         JHMSKE    93
+     O                         JHMSKJ    95
+     O                         JHMSWS    96
+     O                         JHMSNT    97
+     O                         JHMSNS    98
+     O                         JHMSZK   100
+     O                         JHMSMA   103
+     O                         JHMSCK   104
+     O                         JHMSAK   106
+     O                         JHMKRI   109
+     O                         JHMKJI   112
+     O                         JHMKSK   113
+     O                         JHNBN1   114
+     O                         JHNBN2   116
+     O                         JHNBN3   118
+     O                         JHNBN4   119
+     O                         JHOBN1   120
+     O                         JHOBN2   122
+     O                         JHOBN3   124
+     O                         JHOBN4   125
+     O                         JHBKIY   129
+     O                         JHBKIM   131
+     O                         JHBKID   133
+     O                         JHKANS   136
+     O                         JHHHAK   139
+     O                         JHKOYY   143
+     O                         JHKOMM   145
+     O                         JHKODD   147
+     O                         OSHP1    148
+     O                         OSHP2    149
+     O                         OSHP3    150
+     O                         OSHP4    151
+     O                         OSHP5    152
+     O                         OSHP6    153
+     O                         OSIZE    157
+     O                         OKUBI    161
+     O        E                CLR
+     O                                    1 '2'
+     ** SCD/MCD
+     **  DR@            SAFETY DRAW 711
+     **  LC@            LUBE CLEAR
+     **  AQ@            AQUASAFE（TRIAL）
+     **  LG@            LUBE GREEN
+     **  M1@            M RED
+     **  TN@            TNT15
+     **  MF@            M F RED
+     **  VA@            E-CONA
+     **  V9@            PROTRUST A09
+     **  VB@            PROTRUST A20
+     **  D3@            AR8133
+     **  D34            AR8133            JC4
+     **  KW4            WASHING KRO       JC4
+     **  CS5            COSMER            JC5
+     **  JL6            JL BLACK          JC6
+     **  JB6            JL BLUE           JC6
+     **  CS6            COSMER            JC6
+     **  JLD            JL BLACK          JCD
+     **  JBD            JL BLUE           JCD

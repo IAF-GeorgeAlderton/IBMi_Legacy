@@ -1,0 +1,456 @@
+     H            Y.
+     F** EJCR01 *********************************************
+     F* CREATE FORD ASN 856 EDI DATA                        *
+     F*             T.SAKAKI       2016.11.29               *
+     F*-----------------------------------------------------*
+JW1  F*  JW   2024.06.05 ADD E6RMD
+     F*******************************************************
+     FEB#EP63 UF  E           K        DISK
+     FEB#EP64 UF  E           K        DISK
+     FEB#EP65 UF  E           K        DISK
+     FEB#EP66 UF  E           K        DISK
+     FEJCWPNB UF  E           K        DISK                      A
+     FEB#EP63SO   E           K        DISK
+     FEB#EP64SO   E           K        DISK
+     FEB#EP65SO   E           K        DISK
+     FEB#EP66SO   E           K        DISK
+     FEB#WP66 O   E           K        DISK
+     FOUTPUT  O   F     165            DISK
+      *
+     I            DS
+     I                                        1  10 W1WHT
+     I                                        1   8 W1WHTL
+     I                                        9  10 W1WHTR
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60WJFB
+     I                                        1   20TIMHH
+     I                                        3   40TIMMM
+     I                                        5   60TIMSS
+     I                                        7  140WTIHZ
+     I                                        7  100WTIYY
+     I                                       11  120WTIMM
+     I                                       13  140WTIDD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     I              '0123456789'          C         WKCKSU
+     I              'PALLETLID'           C         WKPLID
+      *----------------------------------------------------*
+      *  ENTRY LIST                                        *
+      *----------------------------------------------------*
+     C           *ENTRY    PLIST
+     C                     PARM           P@PTID 12
+     C                     PARM           P@SERN 10
+     C                     PARM           P@EFLG  1
+      *----------------------------------------------------*
+      *   KEY LIST                                         *
+      *----------------------------------------------------*
+     C           KEY1      KLIST
+     C                     KFLD           E6SHID
+     C                     KFLD           E4MHIN
+     C           KEY2      KLIST
+     C                     KFLD           E6SHID
+     C                     KFLD           E6NONY
+     C           KEY3      KLIST
+     C                     KFLD           E6SHID
+     C                     KFLD           E6NONY
+     C                     KFLD           E4MHIN
+     C           KEY4      KLIST
+     C                     KFLD           E6SHID
+     C                     KFLD           E6NONY
+     C                     KFLD           E4MHIN
+     C                     KFLD           WKRF02
+      *----------------------------------------------------*
+      *   MAIN ROUTINE                                     *
+      *----------------------------------------------------*
+     C                     TIME           WTIME
+     C                     Z-ADD0         SVNONY  40
+     C                     Z-ADD0         SVCNT   50
+     C* HEADER 4/4
+     C           *LOVAL    SETLLEB#EP661
+     C                     DO   *HIVAL
+     C                     READ EB#EP661                 81
+     C   81                LEAVE
+      *
+      * KEY CHANGE
+     C           SVCNT     IFGE 1
+     C           E6NONY    ANDNESVNONY
+     C                     LEAVE
+     C                     ENDIF
+      *
+      * GET HEADER VALUE
+     C                     EXSR #SB500
+      * CHECK AND SAVE SHIP ID
+     C                     EXSR #SB501
+      * DUPLICATED
+     C           WKDUP     IFEQ '1'
+     C                     WRITEEB#E66S1
+     C                     DELETEB#EP661
+     C                     ITER
+     C                     ENDIF
+      *
+      * GET UNIQUE NUMBER FOR FILE NAME
+     C                     EXSR #SB499
+      *
+      * WRITE HEADER
+     C                     EXCPTHDWRT
+      *****
+      * GET DETAIL VALUE
+     C                     EXSR #SB510
+      *****
+      * WRITE TRAILER
+     C                     EXCPTTRWRT
+      *****
+      * SAVE VALUE
+     C                     Z-ADDE6NONY    SVNONY
+     C                     ADD  1         SVCNT
+      * WRITE TO SV FILE
+     C                     WRITEEB#E66S1
+      * WRITE TO FORD ASN CHECK FILE
+     C                     WRITEEB#WP661
+      * DELETE
+     C                     DELETEB#EP661
+      *
+     C                     ENDDO
+      *
+      * FILE END
+     C   81                MOVEL'E'       P@EFLG
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      * GET UNIQUE NUMBER FOR FILE NAME                    *
+      *----------------------------------------------------*
+     CSR         #SB499    BEGSR
+     C*
+     C                     MOVEL'856'     P1DKB   3
+     C                     MOVEL*BLANK    P1FNAM 10
+     C*
+     C                     CALL 'EJKC56'
+     C                     PARM           P1DKB   3
+     C                     PARM           P1FNAM 10
+     C*
+      * FIRST UNIQUE NUMBER IS FILE NAME
+     C           SVCNT     IFEQ 0
+     C                     MOVELP1FNAM    P@SERN
+     C                     ENDIF
+      *
+     C                     MOVE P1FNAM    P@SER6  6
+      *
+     CSR         ESB499    ENDSR
+      *----------------------------------------------------*
+      * GET HEADER VALUE                                   *
+      *----------------------------------------------------*
+     CSR         #SB500    BEGSR
+     C*
+     C* ADJUST LENGTH
+     C                     MOVELEPICK     WKPICK 11
+     C                     MOVE E6NOHZ    WKNOH6  6
+     C                     MOVELE6TRCK    WKTRCK  7
+     C*
+     C                     MOVE E6WHT     W1WHT  10
+     C                     MOVE W1WHTL    W2WHTL  70
+     C*
+     C* FIXED VALUE
+     C                     MOVEL'BOX90'   WKPACK  5
+     C*
+     C**** HEADER 1/4
+     C                     MOVEL*BLANK    WKSTCD  5
+     C                     MOVEL*BLANK    WKSFCD  5
+     C                     MOVEL*BLANK    WKICCD  5
+     C*
+     C           E6SHID    SETLLEB#EP631
+     C                     DO   *HIVAL
+     C           E6SHID    READEEB#EP631                 82
+     C   82                LEAVE
+     C**
+     C                     SELEC
+     C           E3N101    WHEQ 'ST '                      SHIP TO
+     C                     MOVELE3N104    WKSTCD  5
+     C           E3N101    WHEQ 'SF '                      SHIP FROM
+     C                     MOVELE3N104    WKSFCD  5
+     C           E3N101    WHEQ 'IC '                      IC CODE
+     C                     MOVELE3N104    WKICCD  5
+     C                     ENDSL
+      *
+      * WRITE TO SV FILE
+     C                     WRITEEB#E63S1
+      * DELETE
+     C                     DELETEB#EP631
+      *
+     C                     ENDDO
+      *
+      * GET PARTNER ID
+     C**                   MOVEL*BLANK    WKPTID 12
+JW1  C                     MOVEL*BLANK    WKPTID 10
+     C                     MOVELWKSTCD    WKPTID
+      * HARD CODING FROM AB#R0K AND G.P.REFERENCE
+     C                     SELEC
+    1C           WKSTCD    WHEQ 'CE4BP'
+     C                     MOVEL'AP10A'   WKPTID
+    2C           WKSTCD    WHEQ 'D3QZL'
+     C                     MOVEL'AP05A'   WKPTID
+    3C           WKSTCD    WHEQ 'DSB0E'
+     C                     MOVEL'AP09A'   WKPTID
+    4C           WKSTCD    WHEQ 'EJAAH'
+     C                     MOVEL'G9W1A'   WKPTID
+    5C           WKSTCD    WHEQ 'IE0MA'
+     C                     MOVEL'IE0GA'   WKPTID
+    6C           WKSTCD    WHEQ 'MS01A'
+     C                     MOVEL'AP01A'   WKPTID
+    7C           WKSTCD    WHEQ 'S4ASG'
+     C                     MOVEL'AP22A'   WKPTID
+    8C           WKSTCD    WHEQ 'APNAA'
+     C                     MOVEL'FM1QB'   WKPTID
+     C                     ENDSL
+      *
+      *
+     CSR         ESB500    ENDSR
+      *----------------------------------------------------*
+      * CHECK SHIP ID                                      *
+      *----------------------------------------------------*
+     CSR         #SB501    BEGSR
+     C*
+     C                     MOVEL*BLANK    WKDUP   1
+     C*
+     C           KEY2      CHAINEJCWPNB              85
+     C           *IN85     IFEQ '0'
+     C                     MOVEL'1'       WKDUP
+     C                     ENDIF
+      *
+     CSR         ESB501    ENDSR
+      *----------------------------------------------------*
+      * CHECK SHIP ID AND PART ID                          *
+      *----------------------------------------------------*
+     CSR         #SB502    BEGSR
+     C*
+     C                     MOVEL*BLANK    WKDUP   1
+     C*
+     C           KEY3      CHAINEJCWPNB              86
+     C           *IN86     IFEQ '0'
+     C                     MOVEL'1'       WKDUP
+     C                     ENDIF
+      *
+     CSR         ESB502    ENDSR
+      *----------------------------------------------------*
+      * CHECK SHIP ID AND PART ID AND SERIAL NUMBER        *
+      *----------------------------------------------------*
+     CSR         #SB503    BEGSR
+     C*
+     C                     MOVEL*BLANK    WKDUP   1
+     C*
+     C           KEY4      CHAINEJCWPNB              87
+     C           *IN87     IFEQ '0'
+     C                     MOVEL'1'       WKDUP
+     C                     ELSE
+     C                     MOVELE6SHID    ENSHID
+     C                     Z-ADDE6NONY    ENNONY
+     C                     MOVELWKPTID    ENPTID
+     C                     MOVELWKSTCD    ENSTCD
+     C                     MOVELWKICCD    ENICCD
+     C                     MOVELE4MHIN    ENMHIN
+     C                     Z-ADDE4SRYO    ENSRYO
+     C                     Z-ADDE4BOX#    ENBOX#
+     C                     Z-ADDE4CUMQ    ENCUMQ
+     C                     MOVELWKRF02    ENRF02
+     C                     MOVELEPICK     ENPICK
+     C                     MOVELP@SERN    ENSERN
+     C                     MOVELP@SER6    ENRECN
+     C                     Z-ADDWTIHZ     ENCRDT
+     C                     Z-ADDWJFB      ENCRTM
+     C                     WRITEEJCWPNB1
+     C                     ENDIF
+      *
+     CSR         ESB503    ENDSR
+      *----------------------------------------------------*
+      * GET DETAIL VALUE 1                                 *
+      *----------------------------------------------------*
+     CSR         #SB510    BEGSR
+     C*
+     C**** HEADER 2/4
+     C*
+     C           E6SHID    SETLLEB#EP641
+     C                     DO   *HIVAL
+     C           E6SHID    READEEB#EP641                 83
+     C   83                LEAVE
+     C**
+     C**
+      * CHECK AND SAVE SHIP ID  VER2
+     C                     EXSR #SB502
+      * DUPLICATED
+     C           WKDUP     IFEQ '1'
+     C                     WRITEEB#E64S1
+     C                     DELETEB#EP641
+     C                     ITER
+     C                     ENDIF
+      * READ EB#EP65
+     C                     EXSR #SB511
+      *
+      * WRITE TO SV FILE
+     C                     WRITEEB#E64S1
+      * DELETE
+     C                     DELETEB#EP641
+      *
+     C                     ENDDO
+      *
+     CSR         ESB510    ENDSR
+      *----------------------------------------------------*
+      * GET DETAIL VALUE 2                                 *
+      *----------------------------------------------------*
+     CSR         #SB511    BEGSR
+     C*
+     C* ADJUST LENGTH
+     C                     MOVEL*BLANK    WKFILR  2
+     C                     MOVELE4FILR    WKFILR
+     C                     Z-ADDE4SYOS    WKSYOS  70
+     C*
+     C* FIXED VALUE
+     C           E4MHIN    IFEQ WKPLID
+     C                     MOVEL'PLT90'   WKPCCD  5
+     C                     ELSE
+     C                     MOVEL'BOX90'   WKPCCD
+     C                     ENDIF
+     C* INITIALIZE
+     C                     MOVEL*BLANK    WKRF01  2
+     C                     MOVEL*BLANK    WKRF02 20
+     C                     Z-ADD*ZERO     WKCNT1  40
+     C**** DETAIL 3/4
+     C*
+     C           KEY1      SETLLEB#EP651
+     C                     DO   *HIVAL
+     C           KEY1      READEEB#EP651                 84
+     C   84                LEAVE
+      *
+     C                     ADD  1         WKCNT1
+      * GET VALUE
+     C                     MOVELE5RF01    WKRF01  2
+     C                     MOVELE5RF02    WKRF02 20
+      *
+      * CHECK AND SAVE SHIP ID  VER3
+     C                     EXSR #SB503
+      * DUPLICATED
+     C           WKDUP     IFEQ '1'
+     C                     WRITEEB#E65S1
+     C                     DELETEB#EP651
+     C                     ITER
+     C                     ENDIF
+      * WRITE DETAIL
+     C                     EXCPTDTWRT
+      *
+      * WRITE TO SV FILE
+     C                     WRITEEB#E65S1
+      * DELETE
+     C                     DELETEB#EP651
+     C                     ENDDO
+      *
+      ** NO SERAIL # MEANS CONTAINER SHIPPED DATA ?
+     C           *IN84     IFEQ '1'
+     C           WKCNT1    ANDEQ*ZERO
+      * CHECK AND SAVE SHIP ID  VER3
+     C                     EXSR #SB503
+      * WRITE DETAIL
+     C                     EXCPTDTWRT
+     C                     ENDIF
+      *
+     CSR         ESB511    ENDSR
+      *================================================================
+      * OUTPUT  HEADER
+      *================================================================
+     OOUTPUT  E                HDWRT
+     O* RECORD ID                                      1 -  1  (1)
+     O                                    1 'H'
+     O* RECORD ID2                                     2 -  7  (6)
+     O                         P@SER6     7
+     O* APPLICATION ID                                 8 - 10  (3)
+     O                                   10 'SH '
+     O* APPLICATION ALIAS                             11 - 13  (3)
+     O                                   13 '856'
+     O* PARTNER ID                                    14 - 23  (10)
+     O**JW1                    WKPTID    25
+JW1  O                         WKPTID    25
+     O*------------------------------------------------
+     O* EB#EP66 , EB#EP63
+     O*------------------------------------------------
+JW1  O* BSN01 : PURPOSE CODE                          24 - 25  (2)
+ .   O**                       E6RMD     25
+     O* BSN02 : ASN NUMBER                            26 - 36  (11)
+     O                         WKPICK    36
+     O* DTM02 : SHIP DATE                             37 - 42  (6)
+     O                         WKNOH6    42
+     O* DTM03 : SHIP TIME                             43 - 46  (4)
+     O                         E6NOTM    46
+     O* MEA03 : MEASUREMENT VALUE                     47 - 56  (10)
+     O                         W2WHTL    53
+     O                                   54 '.'
+     O                         W1WHTR    56
+     O* TD101 : PACKING CODE                          57 - 61  (5)
+     O                         WKPACK    61
+     O* TD102 : NUMBER OF PACKAGES                    62 - 68  (7)
+     O                         E6BOX     68
+     O* TD503 : CARRIER SCAC CODE                     69 - 72  (4)
+     O                         ESCAC     72
+     O* TD504 : TRANSPORTAION METHOD                  73 - 74  (2)
+     O                         ECMOD     74
+     O* TD508 : LOCATION IDENTIFIER                   75 - 79  (5)
+     O                         EPPCD     79
+     O* TD302 : EQUIPMENT INITIAL                     80 - 83  (4)
+     O                         EPSCAC    83
+     O* TD303 : EQUIPMENT NUMBER                      84 - 90  (7)
+     O                         WKTRCK    90
+     O* REF02 : PACKING SLIP NUMBER (15)              91 -120  (30)
+     O                         EPICK    105
+     O* REF02 : REFERENCE ID FOR BM (20)             121 -150  (30)
+     O                         E6BLN#   140
+     O* N104  : ID CODE FOR IC                       151 -155  (5)
+     O                         WKICCD   155
+     O* N104  : ID CODE FOR SF                       156 -160  (5)
+     O                         WKSFCD   160
+     O* N104  : ID CODE FOR ST                       161 -165  (5)
+     O                         WKSTCD   165
+      *================================================================
+      * OUTPUT  DETAIL
+      *================================================================
+     OOUTPUT  E                DTWRT
+     O* RECORD ID                                      1 -  1
+     O                                    1 'D'
+     O* RECORD ID2                                     2 -  7
+     O                         P@SER6     7
+     O*------------------------------------------------
+     O* EB#EP64
+     O*------------------------------------------------
+     O* LIN02 : PURCHASE ORDER NUMBER                  8 -  9
+     O                         E4MHID     9
+     O* LIN03 : PURCHASE NUMBER(20)                   10 - 39
+     O                         E4MHIN    29
+     O* SN102 : QTY SHIPPED                           40 - 46
+     O                         E4SRYO    46
+     O* SN103 : UNIT SHIPPED                          47 - 48
+     O                         WKFILR    48
+     O* SN104 : NUMBER OF UNIT SHIPPED TO DATE        49 - 57
+     O                         E4CUMQ    57
+     O* CLD01 : NUMBER OF LOADS                       58 - 62
+     O                         E4BOX#    62
+     O* CLD02 : NUMBER OF UNIT SHIPPED                63 - 69
+     O                         WKSYOS    69
+     O* CLD03 : PACKAGING CODE  70-PED                70 - 74
+     O                         WKPCCD    74
+     O*------------------------------------------------
+     O* EB#EP65
+     O*------------------------------------------------
+     O* REF01 : REFERENCE ID QUALIFIER                75 - 76
+     O                         WKRF01    76
+     O* REF02 : SHIPPING LABEL SERIAL NUMBER (96)     77 - 106
+     O                         WKRF02    96
+      *================================================================
+      * OUTPUT  TRAILER
+      *================================================================
+     OOUTPUT  E                TRWRT
+     O* RECORD ID                                      1 -  1
+     O                                    1 'T'
+     O* RECORD ID2                                     2 -  7
+     O                         P@SER6     7

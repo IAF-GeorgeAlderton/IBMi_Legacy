@@ -1,0 +1,491 @@
+     H            Y.
+     F** A#R0681F(A#R5K,AB#R5K) ****************************
+     F*  PMO FORECAST PROCESSING                           *
+     F*                                                    *
+     F* TCHK1 04/25/06 CREATE                              *
+     F* TCHK2 05/09/06 CHG CALC. TERM-END DATE             *
+     F* TCHK3 04/25/08 CHG USER PART# FORMAT               *
+     F* TCHK4 02/16/10 CHG FORMAT                          *
+     F* TCHK5 07/25/13 CHG FORMAT                          *
+JW1  F* JW    04/01/19 ADD IMAX                            *
+JW2  F* JW    09/16/19 CHG FORMAT (SKIP 5 DATES)           *
+JW3  F* JW    01/06/20 ADD TENNESSEE (0682)                *
+JW4  F* JW    07/29/20 CHG FORMAT (SKIP 3 DATES)           *
+     F******************************************************
+     FPMO     IP  F     800            DISK
+     FABAWPMF O   E                    DISK
+     FAGDPL12 IF  E           K        DISK
+      *--------------------------------------------------------
+     E                    AY        800  1
+     E                    DAT       100  8 0
+     E                    A2          2  1
+     E                    A9          9  1
+     E                    A9X         9  1
+     E                    A20        20  1
+      *--------------------------------------------------------
+     IPMO     AA  01
+     I                                        1  12 SEQ
+     I                                       13 268 DAT1
+     I                                      269 524 DAT2
+     I                                      525 780 DAT3
+     I            DS
+     I                                        1   80YMD
+     I                                        1   4 YEAR@
+     I                                        1   2 CNTRY
+     I                                        3   4 YEAR
+     I                                        5   6 MONTH
+     I                                        7   8 DAY
+     I            DS
+     I                                        1   8 ORDR
+     I                                        1   2 MM
+     I                                        3   4 DD
+     I                                        5   8 YY
+     I            DS
+     I                                        1   80WWENDD
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+     I            DS
+     I                                        1  20 AWMHIN
+     I                                        1   5 AWMHN1
+     I                                        6  10 AWMHN2
+     I                                       11  15 AWMHN3
+     I*****                                  16  20 AWMHN4
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           PID     1
+      *
+      * ORDER NUMBER
+     C                     MOVEADAT1      AY,1
+     C                     MOVEADAT2      AY,257
+     C                     MOVEADAT3      AY,513
+      * HEADER
+     C           *IN70     IFEQ *OFF
+JW3   *===============
+ |    * SET SHIPTO FLAG (SFLAG=O: PMO, T: PMT)
+ |    *===============
+ |   C                     Z-ADD1         X       30
+ |   C           'OHIO'    SCAN DAT1      X              10
+ |   C   10                MOVE 'O'       SFLAG   1
+ |   C                     Z-ADD1         X
+ |   C           'TENNE'   SCAN DAT1      X              10
+JW3  C   10                MOVE 'T'       SFLAG
+      *
+     C                     Z-ADD1         IX      30
+     C           'DUE DAT' SCAN DAT1      IX             10
+     C  N10                GOTO @END
+      *
+     C                     EXSR #HDR
+     C                     MOVE *ON       *IN70
+     C                     GOTO @END
+     C                     ENDIF
+      *
+      * DETAIL ---------------------------------------
+     C           *IN70     IFEQ *ON
+     C                     EXSR #DTL
+     C                     ENDIF
+      *
+     C           @END      TAG
+      *======================================
+      * HEADER (SET DATE TABLE)
+      *======================================
+     C           #HDR      BEGSR
+      *
+      * SKIP 1 FIELD
+     C                     ADD  1         IX
+     C           ','       LOKUPAY,IX                    10
+     C  N10                GOTO XHDR
+JW2   * SKIP 5 FIELDS (DATE)
+   JW4* SKIP 3 FIELDS (DATE)
+ |   C                     ADD  1         IX
+ |   C           ','       LOKUPAY,IX                    10
+ |   C  N10                GOTO XHDR
+ |   C                     ADD  1         IX
+ |   C           ','       LOKUPAY,IX                    10
+ |   C  N10                GOTO XHDR
+ |   C                     ADD  1         IX
+ |   C           ','       LOKUPAY,IX                    10
+ |   C  N10                GOTO XHDR
+ | JW4**                   ADD  1         IX
+ |  | **         ','       LOKUPAY,IX                    10
+ |  | **N10                GOTO XHDR
+ |  | **                   ADD  1         IX
+ |  | **         ','       LOKUPAY,IX                    10
+JW2JW4**N10                GOTO XHDR
+      *
+     C                     Z-ADD*ZERO     DAT
+     C                     Z-ADD*ZERO     IY      30
+     C                     Z-ADD*ZERO     II      30
+JW1  C                     Z-ADD0         IMAX    30
+      *
+     C                     DO   *HIVAL
+      *
+     C                     ADD  1         IX
+     C           ','       LOKUPAY,IX                    10
+     C  N10                LEAVE
+      *
+     C                     MOVEL*ZERO     YMD
+     C                     Z-ADDIX        IZ      30
+     C* MM
+     C                     ADD  1         IZ
+     C           '/'       LOKUPAY,IZ                    10
+     C  N10                LEAVE
+     C           IZ        SUB  2         IY
+     C                     MOVEAAY,IY     A2
+     C           A2,2      IFGE '0'
+     C           A2,2      ANDLE'9'
+     C                     MOVE A2,2      MONTH
+     C           A2,1      IFGE '0'
+     C           A2,1      ANDLE'9'
+     C                     MOVELA2,1      MONTH
+     C                     END
+     C                     ELSE
+     C           A2,1      IFGE '0'
+     C           A2,1      ANDLE'9'
+     C                     MOVE A2,1      MONTH
+     C                     END
+     C                     END
+     C* DD
+     C                     ADD  1         IZ
+     C           '/'       LOKUPAY,IZ                    10
+     C  N10                LEAVE
+     C           IZ        SUB  2         IY
+     C                     MOVEAAY,IY     A2
+     C           A2,2      IFGE '0'
+     C           A2,2      ANDLE'9'
+     C                     MOVE A2,2      DAY
+     C           A2,1      IFGE '0'
+     C           A2,1      ANDLE'9'
+     C                     MOVELA2,1      DAY
+     C                     END
+     C                     ELSE
+     C           A2,1      IFGE '0'
+     C           A2,1      ANDLE'9'
+     C                     MOVE A2,1      DAY
+     C                     END
+     C                     END
+     C* YY
+     C           IZ        ADD  1         IY
+     C                     MOVEAAY,IY     A2
+     C           A2,2      IFGE '0'
+     C           A2,2      ANDLE'9'
+     C                     MOVE A2,2      YEAR
+     C           A2,1      IFGE '0'
+     C           A2,1      ANDLE'9'
+     C                     MOVELA2,1      YEAR
+     C                     END
+     C                     ELSE
+     C           A2,1      IFGE '0'
+     C           A2,1      ANDLE'9'
+     C                     MOVE A2,1      YEAR
+     C                     END
+     C                     END
+     C*
+     C                     MOVEL'20'      CNTRY
+      *
+     C                     ADD  1         II
+     C                     Z-ADDYMD       DAT,II
+      *
+     C                     ENDDO
+      *
+     C                     Z-ADDII        IMAX
+      *
+     C           XHDR      ENDSR
+      *======================================
+      * DETAIL
+      *======================================
+     C           #DTL      BEGSR
+      *
+     C                     Z-ADD*ZERO     IW      30
+     C                     Z-ADD1         IX
+     C           '-'       LOKUPAY,IX                    10
+      * GET PART#
+     C           *IN10     CABEQ*OFF      @END
+     C                     Z-ADD*ZERO     IX
+     C                     Z-ADD*ZERO     IZ
+     C                     MOVEL*BLANK    A20
+      *
+     C                     DO   *HIVAL
+     C                     ADD  1         IX
+     C           AY,IX     IFEQ ','
+     C           AY,IX     OREQ *BLANK
+     C                     LEAVE
+     C                     END
+     C           AY,IX     IFEQ '-'
+     C                     ITER
+     C                     END
+     C                     ADD  1         IZ
+     C                     MOVELAY,IX     A20,IZ
+     C                     ENDDO
+      *
+     C                     MOVEAA20       AWMHIN
+     C           AWMHIN    IFEQ *BLANK
+     C                     GOTO XDTL
+     C                     END
+      * KANBAN NUMBER
+     C                     ADD  1         IX
+     C           '-'       LOKUPAY,IX                    10
+     C           *IN10     CABEQ*OFF      @END
+      *
+     C           IX        SUB  3         IZ
+     C           6         SUBSTDAT1:IZ   AWSBAN
+      * QTY/BOX
+     C                     ADD  1         IX
+     C           ','       LOKUPAY,IX                    10
+     C  N10                GOTO XDTL
+      *
+     C                     Z-ADDIX        IZ
+     C                     Z-ADD*ZERO     IW
+     C                     MOVEL*BLANK    A9
+      *
+     C                     DO   *HIVAL
+     C                     ADD  1         IZ
+     C           AY,IZ     IFEQ ','
+     C                     LEAVE
+     C                     END
+     C                     ADD  1         IW
+     C                     MOVELAY,IZ     A9,IW
+     C                     ENDDO
+      *
+     C                     MOVE '0'       A9X
+     C                     Z-ADD9         IW
+     C                     Z-ADD9         IY      30
+     C                     DO   9
+     C           A9,IW     IFNE *BLANK
+     C                     MOVE A9,IW     A9X,IY
+     C                     SUB  1         IY
+     C                     END
+     C                     SUB  1         IW
+     C           IW        IFEQ *ZERO
+     C                     LEAVE
+     C                     END
+     C                     ENDDO
+      *
+     C                     MOVEAA9X       @9C     9
+     C                     MOVE @9C       @9      90
+     C                     Z-ADD@9        AWSYOS
+      * GET QTY (SKIP 3 FIELDS FROM Q/C)
+     C                     ADD  1         IX
+     C           ','       LOKUPAY,IX                    10
+     C  N10                GOTO XDTL
+     C                     ADD  1         IX
+     C           ','       LOKUPAY,IX                    10
+     C  N10                GOTO XDTL
+      *
+     C                     ADD  1         IX
+     C           ','       LOKUPAY,IX                    10
+     C  N10                GOTO XDTL
+      *
+     C                     Z-ADD*ZERO     IY
+     C                     Z-ADD*ZERO     II
+     C                     Z-ADD*ZERO     IW
+     C                     MOVE *BLANK    A9
+JW2   * SKIP 5 DAYS
+   JW4* SKIP 3 DAYS
+ |   C                     ADD  1         IX
+ |   C           ','       LOKUPAY,IX                    10
+ |   C  N10                GOTO XDTL
+ |   C                     ADD  1         IX
+ |   C           ','       LOKUPAY,IX                    10
+ |   C  N10                GOTO XDTL
+ | JW4**                   ADD  1         IX
+ |  | **         ','       LOKUPAY,IX                    10
+ |  | **N10                GOTO XDTL
+ |  | **                   ADD  1         IX
+ |  | **         ','       LOKUPAY,IX                    10
+ | JW4**N10                GOTO XDTL
+ |   C**                   ADD  1         IX
+ |   C**         ','       LOKUPAY,IX                    10
+JW2  C**N10                GOTO XDTL
+      *
+     C                     DO   *HIVAL
+      *
+JW2  C                     ADD  1         IX
+     C           ','       LOKUPAY,IX                    10
+     C  N10                GOTO XDTL
+      *
+     C                     Z-ADDIX        IZ
+     C                     Z-ADD*ZERO     IW
+     C                     MOVEL*BLANK    A9
+      *
+     C                     DO   *HIVAL
+     C                     ADD  1         IZ
+     C           AY,IZ     IFEQ ','
+     C           AY,IZ     OREQ ' '
+     C                     LEAVE
+     C                     END
+     C                     ADD  1         IW
+     C                     MOVELAY,IZ     A9,IW
+     C                     ENDDO
+      *
+     C                     MOVE '0'       A9X
+     C                     Z-ADD9         IW
+     C                     Z-ADD9         IV      30
+     C                     DO   9
+     C           A9,IW     IFNE *BLANK
+     C                     MOVE A9,IW     A9X,IV
+     C                     SUB  1         IV
+     C                     END
+     C                     SUB  1         IW
+     C           IW        IFEQ *ZERO
+     C                     LEAVE
+     C                     END
+     C                     ENDDO
+      *
+     C                     MOVEAA9X       @9C     9
+     C                     MOVE @9C       @9      90
+     C                     Z-ADD@9        AWSRYO
+     C*
+     C                     ADD  1         II
+     C*
+JW1  C           II        IFGT IMAX
+"    C                     LEAVE
+"    C                     ENDIF
+      *
+     C                     Z-ADD0681      AWTOKU
+     C                     Z-ADD0681      AWNONY
+JW3   * FOR PMT
+ |   C           SFLAG     IFEQ 'T'
+ |   C                     Z-ADD0682      AWNONY
+JW3  C                     ENDIF
+      *
+     C                     MOVE '0'       AWNKOJ
+     C                     MOVE '00  '    AWNUKE
+      *
+     C**TEMP1    DAT,II    IFGT *DATE
+     C                     Z-ADDDAT,II    AWSTRD
+     C                     Z-ADDDAT,II    YMD
+     C                     MOVELYEAR      YY
+     C                     MOVELMONTH     MM
+     C                     MOVELDAY       DD
+     C                     MOVELORDR      AWORDN
+      * FOR END   DATE
+     C                     MOVE '0'       *IN44
+     C                     MOVELYEAR@     NAYY
+     C                     MOVELMONTH     NAMM
+     C                     MOVELDAY       NADD
+     C           II        ADD  1         IK      50
+     C           IK        IFGT 100
+     C                     Z-ADD99999999  W@NXTD  80
+     C                     ELSE
+     C                     Z-ADDDAT,IK    W@NXTD
+     C           W@NXTD    IFEQ *ZERO
+     C                     Z-ADD99999999  W@NXTD
+     C                     END
+     C                     END
+     C           KEY3      KLIST
+     C                     KFLD           NAYY    40
+     C                     KFLD           NAMM    20
+     C                     KFLD           NADD    20
+     C           KEY3      SETLLAGDPL121
+     C                     READ AGDPL121                 44
+     C           WWENDD    IFLT W@NXTD
+     C                     Z-ADDWWENDD    AWENDD
+     C                     END
+     C                     Z-ADDF8YOBI    W@YOBI  10
+     C                     DO
+     C                     READ AGDPL121                 44
+     C           W@NXTD    IFEQ 99999999
+     C           W@YOBI    IFEQ 1
+     C           F8YOBI    ANDEQ3
+     C                     Z-ADDWWENDD    AWENDD
+     C                     LEAVE
+     C                     END
+     C           W@YOBI    IFEQ 4
+     C           F8YOBI    ANDEQ7
+     C                     Z-ADDWWENDD    AWENDD
+     C                     LEAVE
+     C                     END
+     C                     END
+     C           WWENDD    IFLT W@NXTD
+     C                     Z-ADDWWENDD    AWENDD
+     C                     END
+     C                     READ AGDPL121                 44
+     C           W@NXTD    IFEQ 99999999
+     C           W@YOBI    IFEQ 1
+     C           F8YOBI    ANDEQ3
+     C                     Z-ADDWWENDD    AWENDD
+     C                     LEAVE
+     C                     END
+     C           W@YOBI    IFEQ 4
+     C           F8YOBI    ANDEQ7
+     C                     Z-ADDWWENDD    AWENDD
+     C                     LEAVE
+     C                     END
+     C                     END
+     C           WWENDD    IFLT W@NXTD
+     C                     Z-ADDWWENDD    AWENDD
+     C                     END
+     C                     READ AGDPL121                 44
+     C           W@NXTD    IFEQ 99999999
+     C           W@YOBI    IFEQ 1
+     C           F8YOBI    ANDEQ3
+     C                     Z-ADDWWENDD    AWENDD
+     C                     LEAVE
+     C                     END
+     C           W@YOBI    IFEQ 4
+     C           F8YOBI    ANDEQ7
+     C                     Z-ADDWWENDD    AWENDD
+     C                     LEAVE
+     C                     END
+     C                     END
+     C           WWENDD    IFLT W@NXTD
+     C                     Z-ADDWWENDD    AWENDD
+     C                     END
+     C                     READ AGDPL121                 44
+     C           W@NXTD    IFEQ 99999999
+     C           W@YOBI    IFEQ 1
+     C           F8YOBI    ANDEQ3
+     C                     Z-ADDWWENDD    AWENDD
+     C                     LEAVE
+     C                     END
+     C           W@YOBI    IFEQ 4
+     C           F8YOBI    ANDEQ7
+     C                     Z-ADDWWENDD    AWENDD
+     C                     LEAVE
+     C                     END
+     C                     END
+     C           WWENDD    IFLT W@NXTD
+     C                     Z-ADDWWENDD    AWENDD
+     C                     END
+     C                     READ AGDPL121                 44
+     C           W@NXTD    IFEQ 99999999
+     C           W@YOBI    IFEQ 1
+     C           F8YOBI    ANDEQ3
+     C                     Z-ADDWWENDD    AWENDD
+     C                     LEAVE
+     C                     END
+     C           W@YOBI    IFEQ 4
+     C           F8YOBI    ANDEQ7
+     C                     Z-ADDWWENDD    AWENDD
+     C                     LEAVE
+     C                     END
+     C                     END
+     C           WWENDD    IFLT W@NXTD
+     C                     Z-ADDWWENDD    AWENDD
+     C                     END
+     C                     READ AGDPL121                 44
+     C           W@NXTD    IFEQ 99999999
+     C           W@YOBI    IFEQ 1
+     C           F8YOBI    ANDEQ3
+     C                     Z-ADDWWENDD    AWENDD
+     C                     LEAVE
+     C                     END
+     C           W@YOBI    IFEQ 4
+     C           F8YOBI    ANDEQ7
+     C                     Z-ADDWWENDD    AWENDD
+     C                     LEAVE
+     C                     END
+     C                     END
+     C           WWENDD    IFLT W@NXTD
+     C                     Z-ADDWWENDD    AWENDD
+     C                     END
+     C                     ENDDO
+      *
+     C                     WRITEABAWPMF1
+     C                     MOVE '1'       PID
+     C**TEMP1              END
+      *
+     C                     ENDDO
+      *
+     C           XDTL      ENDSR

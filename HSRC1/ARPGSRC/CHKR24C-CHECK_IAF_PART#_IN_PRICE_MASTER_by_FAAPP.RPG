@@ -1,0 +1,239 @@
+     H            Y.
+     F** CHKR24C ***************************************************************
+     F*  CHECK IAF PART# IN PRICE MASTER BY FAAPP04                            *
+     F*  WRITTEN BY JW (SRA)  2023.08.22                                       *
+     F**************************************************************************
+     FFAAPL14 IF  E           K        DISK
+     FQPRINT  O   F     198     OF     PRINTER
+     F**************************************************************************
+     I            DS
+     I                                        1  14 MSHIN
+     I                                        1   5 FBSHN1
+     I                                        6   6 SP1
+     I                                        7  11 FBSHN2
+     I                                       12  12 SP2
+     I                                       13  14 FBSHN3
+     I            DS
+     I                                        1  14 BSHIN
+     I                                        1   5 BSHN1
+     I                                        6   6 SP3
+     I                                        7  11 BSHN2
+     I                                       12  12 SP4
+     I                                       13  14 BSHN3
+     I            DS
+     I                                        1  12 XSHIN
+     I                                        1   5 XSHN1
+     I                                        6  10 XSHN2
+     I                                       11  12 XSHN3
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+     C                     DO   *HIVAL
+     C                     READ FBCPL01                  98
+     C   98                LEAVE
+      * IGNORE
+     C           FBSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * GET IAF PART#
+     C                     MOVELFBTOKU    $TOKU
+     C                     MOVELFBNONY    $NONY
+     C                     MOVELFBNKOJ    $NKOJ
+     C                     MOVELFBNUKE    $NUKE
+     C                     MOVELFBMHIN    $MHIN
+     C                     CALL 'BBHR50'
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $NKOJ   1
+     C                     PARM           $NUKE   4
+     C                     PARM           $MHIN  20
+     C                     PARM           @SHIN  12
+     C                     PARM           @RTN    1
+      *
+     C                     MOVEL@RTN      SFLG    1
+     C           @RTN      IFEQ '*'
+     C                     EXSR #ADJ
+     C                     ENDIF
+     C           FBSHIN    IFNE @SHIN
+     C                     EXSR #PRINT
+      * UPDATE
+     C           $UPD      IFEQ 'Y'
+     C                     EXSR #UPD1
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           SEQ#      IFEQ 0
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  ADJ IAF PART#                                     *
+      *----------------------------------------------------*
+     C           #ADJ      BEGSR
+      *
+     C                     MOVELFBMHIN    XSHIN
+     C                     MOVE FBMHN3    LTR3    3
+     C                     SELEC
+     C           LTR3      WHNE *BLANK
+     C                     MOVE *BLANK    XSHN3
+     C           XSHN3     WHEQ '0 '
+     C           XSHN3     OREQ '00'
+     C                     MOVE *BLANK    XSHN3
+     C           FBSHN1    WHEQ XSHN1
+     C           FBSHN2    ANDEQXSHN2
+     C                     MOVELFBSHN3    XSHN3
+     C           FBMHN1    WHEQ XSHN1
+     C           FBMHN2    ANDEQXSHN2
+     C                     MOVELFBMHN3    XSHN3
+     C                     ENDSL
+      *
+     C                     MOVELXSHIN     @SHIN
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  UPDATE IAF PART#                                  *
+      *----------------------------------------------------*
+     C           #UPD1     BEGSR
+      *
+     C                     Z-ADDFBTOKU    K1TOKU
+     C                     Z-ADDFBNONY    K1NONY
+     C                     MOVELFBNKOJ    K1NKOJ
+     C                     MOVELFBNUKE    K1NUKE
+     C                     MOVELFBMHN1    K1MHN1
+     C                     MOVELFBMHN2    K1MHN2
+     C                     MOVELFBMHN3    K1MHN3
+     C                     MOVELFBMHN4    K1MHN4
+     C           K#PL01    SETLLFBCPL01X
+     C                     DO   *HIVAL
+     C           K#PL01    READEFBCPL01X                 97
+     C   97                LEAVE
+      *
+     C           FBSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+     C           FBSHIN    IFNE @SHIN
+     C                     MOVEL@SHIN     XSHIN
+     C                     MOVELXSHN1     FBSHN1
+     C                     MOVELXSHN2     FBSHN2
+     C                     MOVELXSHN3     FBSHN3
+     C                     MOVE '*'       FBKOME
+     C                     UPDATFBCPL01X
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD4         LIN#
+     C                     ENDIF
+      * EDIT
+     C                     MOVEL@SHIN     XSHIN
+     C                     MOVELXSHN1     BSHN1
+     C                     MOVELXSHN2     BSHN2
+     C                     MOVELXSHN3     BSHN3
+      * DETAIL
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $UPD    1
+     C                     PARM           $RTN    1
+      *
+     C           K#PL01    KLIST
+     C                     KFLD           K1TOKU  40
+     C                     KFLD           K1NONY  40
+     C                     KFLD           K1NKOJ  1
+     C                     KFLD           K1NUKE  4
+     C                     KFLD           K1MHN1  5
+     C                     KFLD           K1MHN2  5
+     C                     KFLD           K1MHN3  5
+     C                     KFLD           K1MHN4  5
+      *
+     C           $UPD      IFNE 'Y'
+     C                     MOVE 'N'       $UPD
+     C                     ENDIF
+      *
+     C                     TIME           SDATE
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+     C                     MOVE ' '       $RTN
+     C                     MOVE ' '       SP1
+     C                     MOVE ' '       SP2
+     C                     MOVE ' '       SP3
+     C                     MOVE ' '       SP4
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   45 '** CHECK IAF_PART# I'
+     O                                   65 'N PRICE MASTER **   '
+     O                                  106 'DATE'
+     O                         TODAY    109 '    .  .  '
+     O                         NOW      119 '0 :  :  '
+     O                                  122 'P.'
+     O                         PAGE  Z  126
+     O        E   02           @HDR
+     O                                    1 '.'
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   11 'CUST'
+     O                                   16 'DELV'
+     O                                   18 'F'
+     O                                   23 'DOCK'
+     O                                   33 'USER_PART'
+     O                                   53 'IAF_PART'
+     O                                   70 'TRUE_PART'
+     O                                   85 'UNIT_PRICE'
+     O                                   97 'EFF_DATE'
+     O                                  109 'EXP_DATE'
+     O                                  121 'UPD_DATE'
+     O        E   04           @HDR
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+     O        E 1              @DTL
+     O                         SEQ#    +001
+     O                         FBTOKU  +002
+     O                         FBNONY  +001
+     O                         FBNKOJ  +001
+     O                         FBNUKE  +001
+     O                         FBMHN1  +001
+     O                         FBMHN2  +001
+     O                         FBMHN3  +001
+     O                         MSHIN   +001
+      *
+     O                         BSHIN   +001
+     O                         SFLG    +001
+      *
+     O                         FBNTAN1 +000
+     O                         FBTKHZ  +002 '    /  /  '
+     O                         FBTSHZ  +002 '    /  /  '
+     O                         FBKOHZ  +002 '    /  /  '

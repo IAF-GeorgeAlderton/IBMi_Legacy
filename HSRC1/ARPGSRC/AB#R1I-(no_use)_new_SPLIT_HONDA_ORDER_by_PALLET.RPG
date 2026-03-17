@@ -1,0 +1,271 @@
+     H            Y.
+     F** AB#R1I ***************************************************
+     F*  SPLIT HONDA ORDER OVER 60 BOX  BY PALLET                 *
+     F*  J.WATANABE  2017.09.22                                   *
+     F*                                                           *
+     F*************************************************************
+     FAB#PP2M UF  E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+      *============================================================
+     E                    MSG     1   9 70
+     I            DS
+     I                                        1   80WDATE
+     I                                        1   40WYY
+     I                                        5   60WMM
+     I                                        7   80WDD
+     I            DS
+     I                                        1   80BANOHZ
+     I                                        1   40BANOYY
+     I                                        5   60BANOMM
+     I                                        7   80BANODD
+     I            DS
+     I                                        1  20 M2MHIN
+     I                                        1   5 W2MHN1
+     I                                        6  10 W2MHN2
+     I                                       11  15 W2MHN3
+     I                                       16  20 W2MHN4
+     I            DS
+     I                                        1  140D#TIME
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *============================================================
+      *
+     C                     EXSR #INIT
+      * LOOP AB#PP2M
+     C           *IN90     DOWEQ*OFF
+     C                     READ AB#PP2M                  90
+     C           *IN90     IFEQ *OFF
+     C           M2FIL2    ANDEQ*BLANK
+      *+++++++++++++++++++++++++++++++
+      * IGNORE IF TARGET ORDER IS INSUFFICIENT
+     C           M2NONY    IFEQ XXNONY
+     C           M2NKOJ    ANDEQXXNKOJ
+     C           M2NUKE    ANDEQXXNUKE
+     C           M2NOHZ    ANDEQXXNOHZ
+     C                     MOVELMSG,9     XMSG
+     C                     EXSR #PRNT
+     C                     MOVE '9'       M2FIL2
+     C                     MOVEL@DATE     M2SPDT
+     C                     MOVEL'AB#R1I9 'M2PGID
+     C                     UPDATAB#PP2M1
+     C                     ITER
+     C                     ENDIF
+      *+++++++++++++++++++++++++++++++
+      * IGNORE IF TARGET ORDER QTY/BOX=0 OR 1
+     C                     Z-ADDM2SYOS    SVSYOS  60
+     C           SVSYOS    IFEQ 0
+     C           SVSYOS    OREQ 1
+     C                     EXSR #SYOS
+     C           WSYOS     IFEQ 0
+     C           WSYOS     OREQ 1
+     C                     MOVE 'E'       M2FIL2
+     C                     MOVEL@DATE     M2SPDT
+     C                     MOVEL'AB#R1I5 'M2PGID
+     C                     UPDATAB#PP2M1
+     C                     MOVELMSG,5     XMSG
+     C                     EXSR #PRNT
+     C                     ITER
+     C                     ELSE
+     C                     Z-ADDWSYOS     SVSYOS
+     C                     ENDIF
+     C                     ENDIF
+      * FIRST? ---------------------------------
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELM2NONY    SVNONY
+     C                     MOVELM2NKOJ    SVNKOJ
+     C                     MOVELM2NUKE    SVNUKE
+     C                     MOVELM2NOHZ    SVNOHZ
+     C                     MOVELM2NOBN    SVNOBN
+     C                     MOVELM2ODRN    SVODRN
+     C                     MOVELM2MHIN    SVMHIN
+     C                     ENDIF
+      * BREAK? ----------------------------------
+     C           M2NONY    IFNE SVNONY
+     C           M2NKOJ    ORNE SVNKOJ
+     C           M2NUKE    ORNE SVNUKE
+     C           M2NOHZ    ORNE SVNOHZ
+     C           M2NOBN    ORNE SVNOBN
+     C           M2ODRN    ORNE SVODRN
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * DETAIL PROCESS --------------------------
+      * COUNT DETAIL RECORD
+     C                     ADD  1         DT@CNT
+      * ADD BOX COUNT
+     C           M2SURY    DIV  SVSYOS    WBOX    50
+     C                     MVR            MVR1    53
+     C           MVR1      IFNE 0
+     C                     ADD  1         WBOX
+     C                     ENDIF
+     C                     ADD  WBOX      BX@CNT
+     C                     Z-ADDWBOX      LASTBX  50
+      * IF BOX > 60, GO TO SPLIT PROCESS
+     C                     Z-ADD0         PT@CNT  30
+     C           BX@CNT    DOWGT60
+     C**                   CALL 'AB#R1N'
+     C**                   PARM           X
+     C                     ENDDO
+      * UPDATE AN#PP2M
+     C           M2FIL2    IFEQ ' '
+     C           SP@CNT    IFEQ 0
+     C                     MOVE '*'       M2FIL2
+     C                     ELSE
+     C                     MOVE 'S'       M2FIL2
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     MOVEL@DATE     M2SPDT
+     C                     MOVEL'AB#R1I  'M2PGID
+     C                     UPDATAB#PP2M1
+      * ------------------------------------------
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *============================================================
+      * GET LATEST QTY/BOX FROM MASTER  --> WSYOS
+      *============================================================
+     C           #SYOS     BEGSR
+      *
+     C                     Z-ADD0         WSYOS   60
+     C                     MOVELM2TOKU    $TOKU
+     C                     MOVELM2NONY    $NONY
+     C                     MOVELM2MHIN    $MHIN
+     C                     MOVELM2NOHZ    $DATE
+     C                     CALL 'UTLR09'
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $DATE   8
+     C                     PARM           $SYOS   6
+     C                     PARM           $RTN    1
+     C           $RTN      IFNE '*'
+     C                     MOVEL$SYOS     WSYOS
+     C                     ENDIF
+      *
+     C           WSYOS     IFEQ 0
+     C                     Z-ADDM2USYS    WSYOS
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *============================================================
+      * BREAK
+      *============================================================
+     C           #BRK1     BEGSR
+      * RESET
+     C                     Z-ADD0         SP@CNT
+     C                     Z-ADD0         PT@CNT
+     C                     Z-ADD0         BX@CNT
+     C                     Z-ADD0         DT@CNT
+     C                     Z-ADD0         LASTBX
+     C                     MOVELM2NONY    SVNONY
+     C                     MOVELM2NKOJ    SVNKOJ
+     C                     MOVELM2NUKE    SVNUKE
+     C                     MOVELM2NOHZ    SVNOHZ
+     C                     MOVELM2NOBN    SVNOBN
+     C                     MOVELM2ODRN    SVODRN
+     C                     MOVELM2MHIN    SVMHIN
+     C                     MOVE *BLANK    XXNONY
+     C                     MOVE *BLANK    XXNKOJ
+     C                     MOVE *BLANK    XXNUKE
+     C                     Z-ADD0         XXNOHZ
+      *
+     C                     ENDSR
+      *============================================================
+      * PRINT ERROR MSG
+      *============================================================
+     C           #PRNT     BEGSR
+      *
+     C           LCNT      IFGE 60
+     C                     EXCPT@HDR1
+     C                     Z-ADD4         LCNT
+     C                     ENDIF
+      *
+     C                     EXCPT@DTL1
+     C                     ADD  1         LCNT
+      *
+     C                     ENDSR
+      *============================================================
+      * INITIAL SET
+      *============================================================
+     C           #INIT     BEGSR
+      *
+     C                     Z-ADD*DATE     @DATE   80
+     C                     TIME           @TIME   60
+     C                     TIME           D#TIME
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD90        LCNT    30
+     C                     MOVE *BLANK    XMSG   51
+     C                     Z-ADD0         XQTY    60
+      * CUMULATE BOX COUNT
+     C                     Z-ADD0         BX@CNT  40
+      * CUMULATE SPLITTING COUNT
+     C                     Z-ADD0         SP@CNT  20
+      * CUMULATE UNPROCESS DETAIL COUNT
+     C                     Z-ADD0         DT@CNT  30
+      * BAD TRANSACTION
+     C                     MOVE *BLANK    XXNONY  4
+     C                     MOVE *BLANK    XXNKOJ  1
+     C                     MOVE *BLANK    XXNUKE  4
+     C                     Z-ADD0         XXNOHZ  80
+      *
+     C           *LIKE     DEFN M2NONY    SVNONY
+     C           *LIKE     DEFN M2NKOJ    SVNKOJ
+     C           *LIKE     DEFN M2NUKE    SVNUKE
+     C           *LIKE     DEFN M2NOHZ    SVNOHZ
+     C           *LIKE     DEFN M2NOBN    SVNOBN
+     C           *LIKE     DEFN M2ODRN    SVODRN
+     C           *LIKE     DEFN M2MHIN    SVMHIN
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR1
+     O                         #PGM       9
+     O                                   99 'DATE'
+     O                         @DATE    102 '    .  .  '
+     O                         @TIME    112 '  :  :  '
+     O                                  115 'P.'
+     O                         PAGE  Z  119
+     O        E   02           @HDR1
+     O                                   40 '** SPLIT HONDA ORDER'
+     O                                   60 ' BY PALETTE ERROR RE'
+     O                                   80 'PORT (NEW) **       '
+      *
+     O        E   04           @HDR1
+     O                                    5 'DLV#'
+     O                                    7 'F'
+     O                                    9 'D'
+     O                                   20 'SHIP_DATE'
+     O                                   24 'BIN'
+     O                                   30 'PART#'
+     O                                   51 'ORDER#'
+     O                                   65 'QTY'
+     O                                   74 'QTY/BOX'
+     O                                   83 'MESSAGE'
+     O        E 1              @DTL1
+     O                         M2NONY  + 01
+     O                                 + 01 '0'
+     O                                 + 01 '00'
+     O                         M2NOHZ  + 01
+     O                         M2NOBN  + 02
+     O                         M2MHIN  + 02
+     O                         M2ODRN  + 00
+     O**                       W2SURY1 + 01
+     O**                       WSYOS 1 + 02
+     O                         XMSG    + 02
+** MSG
+ERR1:
+ERR2:
+ERR3:
+ERR4:
+ERR5: CURRENT QTY/BOX=0 OR 1 (RECORD IGNORED)
+ERR6:
+ERR7:
+ERR8:
+ERR9: SKIP SPLIT BECAUSE INSUFFICIENT CONDITION!

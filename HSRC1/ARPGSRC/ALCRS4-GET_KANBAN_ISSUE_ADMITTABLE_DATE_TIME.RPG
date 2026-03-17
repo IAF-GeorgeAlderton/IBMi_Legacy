@@ -1,0 +1,117 @@
+     H            Y
+     F*** ALCRS4 ******************************************************
+     F*  GET KANBAN ISSUE ADMITTABLE DATE/TIME                        *
+     F*---------------------------------------------------------------*
+     F*   DATE   |CO.LTD| NAME     | THE CONTENTS                     *
+     F*---------------------------------------------------------------*
+     F*2021.01.21|DCS   |T.MITSUI  |INITIAL VERSION                   *
+     F*2021.03.12|DCS   |T.MITSUI  |ADD PARM                          *
+     F*****************************************************************
+     F*        INPUT/OUTPUT DEFINED                       *
+     F*****************************************************
+     F*==< CONVEYANCE PULL SCAN RESULT >==*
+     FALCPL03 IF  E           K        DISK
+     F*
+     E*****************************************************
+     E*        ARRAY STRUCTURE DEFINED                    *
+     E*****************************************************
+     E*
+     I*****************************************************
+     I*        DATA STRUCTURE DEFINED                     *
+     I*****************************************************
+     I*==< ALCPL03 >==*
+     I*         ( BARCODE1 )
+     IA8BRC1      DS
+     I                                        1   1 A8BRCA
+     I                                        2   5 A8BRCB
+     I                                        6   8 A8BRCC
+     I                                        9  10 A8BRCD
+     I                                       11  11 A8BRCE
+     I                                       12  12 A8BRCF
+     I                                       13  13 A8BRCG
+     I                                       14  14 A8BRCH
+     I                                       15  15 A8BRCI
+     I*
+     C*****************************************************
+     C*          PARAMETER DEFINED                        *
+     C*****************************************************
+     C           *ENTRY    PLIST
+     C*                   ( IN )
+     C                     PARM           P#PR11  5        PART11
+     C                     PARM           P#PR12  5        PART12
+     C                     PARM           P#PR13  2        PART13
+     C                     PARM           P#THAI  3
+     C                     PARM           P#PAGE  2
+     C                     PARM           P#MAIS  30
+     C                     PARM           P#HTHZ  80       DATE OF KANBAN PUB.
+     C                     PARM           P#HTTM  60       TIME OF KANBAN PUB.
+     C*                   ( OUT )
+     C                     PARM           P#DATE  80       PICKING DATE
+     C                     PARM           P#TIME  60       PICKING TIME
+     C*
+     C*****************************************************
+     C*          KEY ITEM DEFINED                         *
+     C*****************************************************
+     C*==< ALCPL03 : CONVEYANCE PULL SCAN RESULT >==*
+     C           K@C03S    KLIST
+     C                     KFLD           K@PR11  5        PART11
+     C                     KFLD           K@PR12  5        PART12
+     C                     KFLD           K@PR13  2        PART13
+     C                     KFLD           K@DATE  80
+     C                     KFLD           K@TIME  60
+     C           K@C03R    KLIST
+     C                     KFLD           K@PR11           PART11
+     C                     KFLD           K@PR12           PART12
+     C                     KFLD           K@PR13           PART13
+     C*
+     C*****************************************************
+     C*          MAIN ROUTINE                             *
+     C*****************************************************
+     C*==< INIT CLEAR >==*
+     C                     Z-ADD*ZERO     P#DATE
+     C                     Z-ADD*ZERO     P#TIME
+     C*
+     C*==< KEY SET >==*
+     C                     MOVELP#PR11    K@PR11           PART11
+     C                     MOVELP#PR12    K@PR12           PART12
+     C                     MOVELP#PR13    K@PR13           PART13
+     C                     Z-ADDP#HTHZ    K@DATE
+     C                     Z-ADDP#HTTM    K@TIME
+      *
+     C                     Z-ADD1         @X      20
+     C                     MOVE P#PAGE    @PAGE   2
+     C                     MOVE P#PAGE    @PAGEX  20
+     C           1         DO   P#MAIS    @X
+     C           P#DATE    IFEQ 0
+     C                     EXSR #SET
+     C                     END
+     C                     ADD  1         @PAGEX
+     C                     MOVE @PAGEX    @PAGE
+     C                     ENDDO
+     C*==< FINL >==*
+     C                     SETON                     LR
+     C                     RETRN
+     C*-----------------------------------------------------------------
+     C           #SET      BEGSR
+     C*==< GET FROM ALCPP01 >==*
+     C                     SETOF                     91
+     C           K@C03S    SETGTALCPL03
+     C           K@C03R    READEALCPL03                  91
+     C*
+D----C           *IN91     DOWEQ'0'
+|    C           P#DATE    ANDEQ*ZERO
+||   C           A8BRCC    IFEQ P#THAI
+||   C           A8BRCD    ANDEQ@PAGE
+||   C           A8ERR     ANDNE'E'
+     C           A8BRC2    ANDEQ'SRT'
+||   C                     Z-ADDA8DATE    P#DATE
+||   C                     Z-ADDA8TIME    P#TIME
+||   C*
+|+---C                     ELSE
+||   C*                    ____________
+||   C           K@C03R    READEALCPL03                  91
+||   C*                    ~~~~~~~~~~~~
+|E---C                     ENDIF
+E----C                     ENDDO
+     C*
+     C                     ENDSR

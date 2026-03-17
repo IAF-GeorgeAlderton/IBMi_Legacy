@@ -1,0 +1,252 @@
+     H            Y.
+      ** KFAR30 *****************************************************
+      *  UPDATE OPEN LOCATION DATE BY CSV                           *
+      *  JW     2024.08.20                                          *
+      ***************************************************************
+     FKFAWP30 IF  E           K        DISK
+     FAAJPL11 UF  E           K        DISK
+     FAAJPP11SO   E                    DISK
+     FQPRINT  O   F     132     OF     PRINTER
+      *------------------------------------------------------------
+     E                    MSG     1   5 60
+     I            DS
+     I                                        1  20 KPART
+     I                                        1   5 KPRT1
+     I                                        6  10 KPRT2
+     I                                       11  15 KPRT3
+     I                                       16  20 KPRT4
+     I            DS
+     I                                        1  20 K3PART
+     I                                        1   5 K3PRT1
+     I                                        6   6 XX1
+     I                                        7  11 K3PRT2
+     I                                       12  12 XX2
+     I                                       13  17 K3PRT3
+     I                                       18  18 XX3
+     I                                       19  20 K3PRT4
+     I            DS
+     I                                        1  10 K3LOC
+     I                                        1   1 K3LOC1
+     I                                        2   2 YY1
+     I                                        3   4 K3LOC2
+     I                                        5   5 YY2
+     I                                        6   7 K3LOC3
+     I                                        8   8 YY3
+     I                                        9   9 K3LOC4
+     I            DS
+     I                                        1   6 W3LOC
+     I                                        1   1 W3LOC1
+     I                                        2   3 W3LOC2
+     I                                        4   5 W3LOC3
+     I                                        6   6 W3LOC4
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *=============================================================
+      *                ** MAIN ROUTINE **
+      *=============================================================
+      * INITIALIZE
+     C                     EXSR #INIT
+      * MAIN PROCESS
+     C                     DO   *HIVAL
+     C                     READ KFAWP30                  91
+     C   91                LEAVE
+      * IGNORE HEADER
+     C                     MOVELK3PART    LTR1    1
+     C           LTR1      IFEQ 'P'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     EXSR #PROC
+     C                     ENDDO
+      *
+     C                     MOVELUPCNT     $UPCNT
+     C                     MOVELERCNT     $ERCNT
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *-------------------------------------------------------------
+      * PROCESS
+      *-------------------------------------------------------------
+     C           #PROC     BEGSR
+      *
+     C                     MOVE *BLANK    XMSG   40
+     C                     Z-ADD0         RCCNT   50
+      * CONVERT PART
+     C           XX1       IFNE '-'
+     C                     MOVELK3PART    $SHIN     P
+     C                     CALL 'EDTR02'
+     C                     PARM           $SHIN  12
+     C                     PARM           $SHIN2 14
+     C                     MOVEL$SHIN2    K3PART    P
+     C                     ENDIF
+      * CONVERT LOCATION
+     C           YY1       IFNE '-'
+     C                     MOVELK3LOC     $LOC6     P
+     C                     CALL 'EDTR06B'
+     C                     PARM           $LOC6   6
+     C                     PARM           $LOC9   9
+     C                     MOVEL$LOC9     K3LOC     P
+     C                     ENDIF
+      *
+     C                     MOVELK3PRT1    KPRT1
+     C                     MOVELK3PRT2    KPRT2
+     C                     MOVELK3PRT3    KPRT3
+     C                     MOVELK3PRT4    KPRT4
+      *
+     C                     MOVELK3LOC1    KLOC1
+     C                     MOVELK3LOC2    KLOC2
+     C                     MOVELK3LOC3    KLOC3
+     C                     MOVELK3LOC4    KLOC4
+      *
+     C           K#JPL     SETLLAAJPL11
+     C                     DO   *HIVAL
+     C           K#JPL     READEAAJPL11                  98
+     C   98                LEAVE
+      *
+     C           CJCHYY    IFNE 9999
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ADD  1         RCCNT
+      *
+     C           CJAKHZ    IFNE 0
+     C           CJHBAN    ANDEQ*BLANK
+     C                     ITER
+     C                     ENDIF
+      *
+     C           CJHBAN    IFNE KPART
+     C           CJAKHZ    ANDEQ0
+     C                     MOVE '1'       $STS
+     C                     MOVELMSG,4     XMSG             NOT OPEN, BUT PART X
+     C                     ADD  1         ERCNT
+     C                     EXSR #PRINT
+     C                     GOTO XPROC
+     C                     ENDIF
+      *
+     C           CJHBAN    IFNE KPART
+     C           CJAKHZ    ANDNE0
+     C                     MOVE '1'       $STS
+     C                     MOVELMSG,1     XMSG             PART X
+     C                     ADD  1         ERCNT
+     C                     EXSR #PRINT
+     C                     GOTO XPROC
+     C                     ENDIF
+      *
+     C                     ADD  1         UPCNT
+     C           $UPD      IFEQ 'Y'
+     C                     Z-ADDCJCHYY    CJORYY
+     C                     Z-ADDCJCHMM    CJORMM
+     C                     Z-ADDCJCHDD    CJORDD
+      *
+     C                     Z-ADD0         CJCHYY
+     C                     Z-ADD0         CJCHMM
+     C                     Z-ADD0         CJCHDD
+     C                     UPDATAAJPL111
+      *
+     C                     Z-ADDTODAY     CJCRHZ
+     C                     Z-ADDNOW       CJCRTM
+     C                     MOVEL#USER     CJCRUR
+     C                     MOVEL#WSID     CJCRWS
+     C                     MOVEL#PGM      CJCRPG
+     C                     WRITEAAJP11S1
+      * MSG: UPDATED..
+     C                     MOVELMSG,3     XMSG
+     C                     EXSR #PRINT
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           RCCNT     IFEQ 0
+     C                     MOVE '1'       $STS             LOCATION NOT FOUND
+     C                     MOVELMSG,2     XMSG
+     C                     ADD  1         ERCNT
+     C                     EXSR #PRINT
+     C                     GOTO XPROC
+     C                     ENDIF
+      *
+     C           XPROC     ENDSR
+      *-------------------------------------------------------------
+     C           #PRINT    BEGSR
+      *-------------------------------------------------------------
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      * CONVERT MASTER PART#
+     C                     MOVELCJHBAN    $SHIN     P
+     C                     CALL 'EDTR02'
+     C                     PARM           $SHIN  12
+     C                     PARM           $SHIN2 14
+     C                     MOVEL$SHIN2    XJHBAN 14
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------
+     C           #INIT     BEGSR
+      *-------------------------------------------------------------
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $UPD    1
+     C                     PARM           $STS    1
+     C                     PARM           $UPCNT  5
+     C                     PARM           $ERCNT  5
+      *
+     C           K#JPL     KLIST
+     C                     KFLD           KLOC1   1
+     C                     KFLD           KLOC2   2
+     C                     KFLD           KLOC3   2
+     C                     KFLD           KLOC4   1
+      *
+     C                     MOVE ' '       $STS
+     C                     MOVE '00000'   $UPCNT
+     C                     MOVE '00000'   $ERCNT
+     C                     TIME           SDATE
+     C                     Z-ADD0         UPCNT   50
+     C                     Z-ADD0         ERCNT   50
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+      *
+     C           $UPD      IFNE 'Y'
+     C                     MOVE 'N'       $UPD
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   40 '** UPDATE AAJPP11 **'
+     O                                   60 '                    '
+     O                                   89 'DATE'
+     O                         TODAY     92 '    .  .  '
+     O                         NOW      102 '  :  :  '
+     O                                  106 'P.'
+     O                         PAGE  Z  110
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   18 'EXCEL(PART#)'
+     O                                   42 'EXCEL(LOCATION)'
+     O                                   60 'MASTER(PART#)'
+     O                                   80 'MASTER(OPN_DATE)'
+     O                                   90 'ERROR'
+     O        E 1              @DTL
+     O                         SEQ#  1 +000
+     O                         K3PART  +001
+     O                         K3LOC   +001
+     O                         XJHBAN  +010
+     O                         CJAKHZ  +006 '    /  /  '
+     O                         XMSG    +008
+** MSG   1.........2.........3.........4
+PART DOES NOT MATCHED !
+LOCATION NOT FOUND !
+UPDATED...
+NOT OPEN, BUT PART DOES NOT MATCHED!
+

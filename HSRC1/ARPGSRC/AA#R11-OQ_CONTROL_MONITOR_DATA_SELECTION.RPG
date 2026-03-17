@@ -1,0 +1,651 @@
+     H            Y.
+     F** AA#R11 *******************************************************
+     F* ＯＱ特急品管理モニター：データ抽出                          *
+     F*----------+-----+----------+-----------------------------------*
+     F*2021.04.01|DCS. |T.MITSUI  | 20-316 INITIAL VERSION            *
+JW2  F*2021.08.03|DCS. |J.WATAN   | ADD NONY 3770 (MTMUS)             *
+     F*****************************************************************
+     F*         ファイル定義                            *
+     F*****************************************************
+     F*==< EDI FIXED ORDER DATA >==*
+     FAB#PL1E IF  E           K        DISK
+     F*
+     F*==< AOYAMA PRODUCTION PLACE CALENDAR >==*
+     FAGDPL12 IF  E           K        DISK
+     F*
+     F*==< PART INFORMATION M/F >==*
+     FFCEPL01 IF  E           K        DISK
+     F*
+     F*==< EKANBAN SERIAL NUMBER FILE >==*
+     FAB#PL70 IF  E           K        DISK
+     F*
+     FALCPL03 IF  E           K        DISK
+     FALGPL01 IF  E           K        DISK
+     F*==< CONTAINER SHIPMENT VS INVENTORY (WORK) IAF PART >==*
+     FAA#WP11 O   E                    DISK
+     F*
+     E*****************************************************
+     E*         配列定義                                *
+     E*****************************************************
+     E**                  @NONY   1  42  4 0
+JW2  E                    @NONY   1  44  4 0
+     E*
+     I*****************************************************
+     I*         データ構造                              *
+     I*****************************************************
+     I           SDS
+     I                                     *PROGRAM ##PGM
+     I                                      244 253 ##WSID
+     I                                      254 263 ##USER
+     I                                      264 269 ##JBNO
+     I*
+     I*==< AB#PL1E >==*
+     I*         ( DELETE DUE DATE )
+     I            DS
+     I                                        1   80BASKH8
+     I                                        1   40BASKYY
+     I                                        5   60BASKMM
+     I                                        7   80BASKDD
+     I*         ( INTRA PART-NO. )
+     I            DS
+     I                                        1  12 BASHN@
+     I                                        1   5 BASHN1
+     I                                        6  10 BASHN2
+     I                                       11  12 BASHN3
+     I*         ( SHIP DATE )
+     I            DS
+     I                                        1   80BANOH8
+     I                                        1   40BANOYY
+     I                                        5   60BANOMM
+     I                                        7   80BANODD
+     I*==< FCEPL01>>==*
+     I*         ( ACCOMMODATED QUANTITY CHANGE DATE )
+     I            DS
+     I                                        1   80A2SYH8
+     I                                        1   40A2SYYY
+     I                                        5   60A2SYMM
+     I                                        7   80A2SYDD
+     I*==< AA#WP11  >==*
+     I*         ( IAF PART-NO. )
+     I            DS
+     I                                        1  12 P7SHN@
+     I                                        1   5 P7SHN1
+     I                                        6  10 P7SHN2
+     I                                       11  12 P7SHN3
+     I*==< WORK >==*
+     I*         ( AGDPL12 KEY )
+     I            DS
+     I                                        1   80K@DAT@
+     I                                        1   40K@DTYY
+     I                                        5   60K@DTMM
+     I                                        7   80K@DTDD
+     I*         ( PROCESS DATE )
+     I            DS
+     I                                        1   80S@DAT@
+     I                                        1   40S@DTYY
+     I                                        5   60S@DTMM
+     I                                        7   80S@DTDD
+     I*         ( 10 DAYS BEFORE )
+     I            DS
+     I                                        1   80S@10DB
+     I                                        1   40S@10DY
+     I                                        5   60S@10DM
+     I                                        7   80S@10DD
+     I*
+     I            DS
+     I                                        1  140A8SC
+     I                                        1   80A8DATE
+     I                                        9  140A8TIME
+     I*         ( DELETE DUE DATE )
+     I            DS
+     I                                        1   80A1SKH8
+     I                                        1   40A1SKYY
+     I                                        5   60A1SKMM
+     I                                        7   80A1SKDD
+     I*
+     I            DS
+     I                                        1  140A1SC
+     I                                        1   40A1SCYY
+     I                                        5   60A1SCMM
+     I                                        7   80A1SCDD
+     I                                        9  140A1SCTM
+      *
+     I            DS
+     I                                        1   80F8KAHZ
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+     I*
+     I            DS
+     I                                        1  140WTIME
+     I                                        7  140SDATE
+     I                                        1   60STIME
+     I*
+     I            DS
+     I                                        1  140W@4MAE
+     I                                        1   80W@4DAT
+     I                                        1   40W@4DYY
+     I                                        5   60W@4DMM
+     I                                        7   80W@4DDD
+     I                                        9  100W@4TIH
+     I                                        9  140W@4TIM
+     I*
+     C*****************************************************
+     C*          PARAMETER LIST                           *
+     C*****************************************************
+     C*
+     C*
+     C*****************************************************
+     C*          KEY LIST                                 *
+     C*****************************************************
+     C*==< AGDPL12 : AOYAMA PRODUCTION PLACE CALENDAR >==*
+     C           K@GD12    KLIST
+     C                     KFLD           K@DTYY
+     C                     KFLD           K@DTMM
+     C                     KFLD           K@DTDD
+     C*
+     C*==< AB#PL1E : EDI FIXED ORDER DATA >==*
+     C           K@P10S    KLIST
+     C                     KFLD           K@SHN1  5         INT PART1
+     C                     KFLD           K@SHN2  5         INT PART2
+     C                     KFLD           K@SHN3  2         INT PART3
+     C                     KFLD           K@NOYY  40        SHIP YEAR
+     C                     KFLD           K@NOMM  20        SHIP MONTH
+     C                     KFLD           K@NODD  20        SHIP DAY
+     C*
+     C           K@P10R    KLIST
+     C                     KFLD           K@SHN1            INT PART1
+     C                     KFLD           K@SHN2            INT PART2
+     C                     KFLD           K@SHN3            INT PART3
+     C*
+     C*
+     C*==< AB#PL70 : EKANBAN SERIAL NUMBER FILE >==*
+     C           K@P70R    KLIST
+     C                     KFLD           BATOKU
+     C                     KFLD           K@NONY  4
+     C                     KFLD           BANKOJ
+     C                     KFLD           BANUKE
+     C                     KFLD           BAMHN1
+     C                     KFLD           BAMHN2
+     C                     KFLD           BAMHN3
+     C                     KFLD           BAMHN4
+     C                     KFLD           K@ODRN 10
+     C                     KFLD           BANOYY
+     C                     KFLD           BANOMM
+     C                     KFLD           BANODD
+     C                     KFLD           K@NOBN  2
+     C                     KFLD           BADEYY
+     C                     KFLD           BADEMM
+     C                     KFLD           BADEDD
+     C*
+     C*****************************************************
+     C*          WORKING STORAGE                          *
+     C*****************************************************
+     C                     Z-ADD*ZERO     S@SYSU  50
+     C                     Z-ADD*ZERO     W@TBOX  50
+     C                     Z-ADD*ZERO     W@KANN  50
+     C                     Z-ADD*ZERO     W@USCN  50
+     C                     Z-ADD*ZERO     W@1DAY  81
+     C                     Z-ADD*ZERO     W@HAKO  81
+     C                     Z-ADD*ZERO     W@DAYS  31
+     C                     Z-ADD*ZERO     W@DAY2  81
+     C*
+     C*****************************************************
+     C*          M A I N                                  *
+     C*****************************************************
+     C                     TIME           WTIME
+     C*
+     C                     Z-ADD*ZERO     S@DAT@
+     C                     Z-ADDSDATE     K@DAT@
+     C*１日前
+     C                     Z-ADD0         M@DT    80
+     C           K@GD12    SETLLAGDPL12
+     C                     READPAGDPL12                  89
+     C           *IN89     IFEQ '0'
+     C                     Z-ADDF8KAHZ    M@DT
+     C                     ENDIF
+     C*６時間前
+     C                     Z-ADD0         W@4MAE
+     C                     Z-ADDSDATE     W@4DAT
+     C                     Z-ADDSTIME     W@4TIM
+     C                     SUB  6         W@4TIH
+     C           W@4TIH    IFLT 0
+     C                     Z-ADDM@DT      W@4DAT
+     C                     ADD  24        W@4TIH
+     C                     ENDIF
+      *
+     C                     Z-ADD0         @X      30
+     C*                    ____________
+     C           K@GD12    SETGTAGDPL12
+     C                     READ AGDPL12                  89
+     C*                    ~~~~~~~~~~~~
+D----C           *IN89     DOWEQ'0'
+|    C           @X        ANDLT2
+|I---C           F8HIRU    IFEQ *BLANK
+||   C                     ADD  1         @X
+||   C                     Z-ADDF8KAYY    S@DTYY
+||   C                     Z-ADDF8KAMM    S@DTMM
+||   C                     Z-ADDF8KADD    S@DTDD
+|E---C                     ENDIF
+|    C*                    ____________
+|    C                     READ AGDPL12                  89
+|    C*                    ~~~~~~~~~~~~
+E----C                     ENDDO
+     C*                    ____________
+     C           *LOVAL    SETLLAB#PL1E
+     C                     READ AB#PL1E                  90
+     C*                    ~~~~~~~~~~~~
+D----C           *IN90     DOWEQ'0'
+|    C*        ( INTRA PART-NO. )
+|    C                     MOVELBASHN1    K@SHN1            INT PART1
+|    C                     MOVELBASHN2    K@SHN2            INT PART2
+|    C                     MOVELBASHN3    K@SHN3            INT PART3
+|    C*                    ____________
+|    C           K@P10R    CHAINFCEPL01              91
+|    C*                    ~~~~~~~~~~~~
+|I---C           *IN91     IFEQ '0'
+||   C           A2GSKD    ANDEQ*BLANK
+||I--C           A2SYH8    IFLE SDATE
+|||  C                     Z-ADDA2SSYS    S@SYSU
+||+--C                     ELSE
+|||  C                     Z-ADDA2KSYS    S@SYSU
+||E--C                     ENDIF
+||   C*
+||   C*        ( FIRST POSITION OF INTRA PART-NO. )
+||   C                     CLEARAA#WP111
+||   C                     MOVELBASHN@    P7SHN@
+||   C*
+||   C                     Z-ADDK@DTYY    K@NOYY            SHIP YEAR
+||   C                     Z-ADDK@DTMM    K@NOMM            SHIP MONTH
+||   C                     Z-ADDK@DTDD    K@NODD            SHIP DAY
+||   C                     Z-ADD0         W@SRYO 110
+||   C                     Z-ADD0         ##KANN 110
+||   C*                    ____________
+||   C           K@P10S    SETLLAB#PL1E
+||   C                     EXSR ##P10                       AB#PL1E READE
+||   C*                    ~~~~~~~~~~~~
+||D--C           *IN90     DOWEQ'0'
+|||  C                     EXSR #SMRY
+|||  C*                    __________
+|||  C                     EXSR ##P10                       AB#PL1E READE
+|||  C*                    ~~~~~~~~~~
+||E--C                     ENDDO
+||   C*
+||   C                     EXSR #OUT1                       AA#WP11  WRITE
+|E---C                     ENDIF
+|    C*
+|    C*        ( GET NEXT INTRA PART-NO. )
+|    C                     Z-ADD9999      K@NOYY            SHIP YEAR
+|    C                     Z-ADD99        K@NOMM            SHIP MONTH
+|    C                     Z-ADD99        K@NODD            SHIP DAY
+|    C*                    ____________
+|    C           K@P10S    SETGTAB#PL1E
+|    C                     READ AB#PL1E                  90
+|    C*                    ~~~~~~~~~~~~
+E----C                     ENDDO
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+     C*
+     C*****************************************************
+     C*  ##P10   AB#PL1E READE                            *
+     C*****************************************************
+     C           ##P10     BEGSR
+     C*
+     C           ##P101    TAG
+     C*                    ____________
+     C           K@P10R    READEAB#PL1E                  90
+     C*                    ~~~~~~~~~~~~
+     C*==< EOF >==*
+I----C           *IN90     IFEQ '0'
+|    C           BANOH8    ANDGTS@DAT@
+|    C                     SETON                     90
+E----C                     ENDIF
+     C           *IN90     CABEQ'1'       ##P10E
+     C*
+     C*==< SKIP RECORD >==*
+I----C           BASKJY    IFEQ 'D'
+|    C           BASKH8    ANDLESDATE
+|    C                     GOTO ##P101
+E----C                     ENDIF
+     C*
+     C           BANONY    LOKUP@NONY                    88
+     C**N88                GOTO ##P101
+     C*
+     C           ##P10E    ENDSR
+     C*****************************************************
+     C*  #SMRY                                            *
+     C*****************************************************
+     C           #SMRY     BEGSR
+     C*
+     C*
+     C*==< GET BOX NUMBER >==*
+     C                     ADD  BASRYO    W@SRYO
+     C                     Z-ADD*ZERO     W@TBOX
+I----C           BAUSYS    IFNE *ZERO
+|    C           BAUSYS    ANDNE1
+|    C           BASRYO    DIV  BAUSYS    W@TBOX
+|    C*
++----C                     ELSE
+|I---C           BASYOS    IFNE *ZERO
+||   C           BASRYO    DIV  BASYOS    W@TBOX
+||   C*
+|+---C                     ELSE
+||   C                     Z-ADD1         W@TBOX
+|E---C                     ENDIF
+E----C                     ENDIF
+     C*
+     C*==< GET ISSUE NUMBER OF KANBAN >==*
+     C                     Z-ADD*ZERO     W@KANN
+     C                     MOVELBANONY    K@NONY
+     C                     MOVELBAODRN    K@ODRN
+     C                     MOVELBANOBN    K@NOBN
+     C*                    ____________
+     C           K@P70R    SETLLAB#PL70
+     C           K@P70R    READEAB#PL70                  92
+     C*                    ~~~~~~~~~~~~
+D----C           *IN92     DOWEQ'0'
+|I---C           EKSKJY    IFEQ *BLANK
+||   C           EKSRYO    ANDNE*ZERO
+||   C                     ADD  1         W@KANN
+|E---C                     ENDIF
+|    C*                    ____________
+|    C           K@P70R    READEAB#PL70                  92
+|    C*                    ~~~~~~~~~~~~
+E----C                     ENDDO
+     C*
+     C                     MOVELBAINVN    K@ODRN
+     C*                    ____________
+     C           K@P70R    SETLLAB#PL70
+     C           K@P70R    READEAB#PL70                  92
+     C*                    ~~~~~~~~~~~~
+D----C           *IN92     DOWEQ'0'
+|I---C           EKSKJY    IFEQ *BLANK
+||   C           EKSRYO    ANDNE*ZERO
+||   C                     ADD  1         W@KANN
+|E---C                     ENDIF
+|    C*                    ____________
+|    C           K@P70R    READEAB#PL70                  92
+|    C*                    ~~~~~~~~~~~~
+E----C                     ENDDO
+     C*
+     C*==< AA#WP11  ADD >==*
+     C                     ADD  W@KANN    ##KANN 110
+I----C           W@KANN    IFLT W@TBOX
+|    C           W@TBOX    SUB  W@KANN    W@USCN
++----C                     ELSE
+|    C                     Z-ADD*ZERO     W@USCN
+E----C                     ENDIF
+     C*
+     C                     ADD  W@USCN    P7UNS             UNSCAN COUNT
+     C*
+     C           #SMRYE    ENDSR
+     C*****************************************************
+     C*  #OUT1   AA#WP11  WRITE                           *
+     C*****************************************************
+     C           #OUT1     BEGSR
+     C*
+     C                     Z-ADD*ZERO     W@TBOX
+     C           A2GEKN    DIV  20        W@1DAY
+I----C           S@SYSU    IFEQ *ZERO
+|    C                     Z-ADD*ZERO     W@HAKO
++----C                     ELSE
+|    C           W@1DAY    DIV  S@SYSU    W@HAKO    H
+|    C           W@SRYO    DIV  S@SYSU    W@TBOX
+E----C                     ENDIF
+I----C           ##KANN    IFLT W@TBOX
+|    C           W@TBOX    SUB  ##KANN    W@USCN
++----C                     ELSE
+|    C                     Z-ADD*ZERO     W@USCN
+E----C                     ENDIF
+     C                     Z-ADDW@USCN    P7UNS             UNSCAN COUNT
+     C*
+     C*==< 10 DAYS BEFORE >==*
+     C                     MOVE SDATE     P@DATE
+     C                     CALL 'DATR1A'
+     C                     PARM           P@DATE  8
+     C                     PARM '-'       P@PORM  1        + OR -
+     C                     PARM '0040'    P@DAYS  4
+     C                     PARM *BLANK    P@RDAT  8
+     C                     PARM *BLANK    P@RTN1  1
+     C                     MOVE P@RDAT    S@10DB
+     C*
+S----C                     SELEC
++----C           W@HAKO    WHGE 4
+|    C                     ADD  *ZERO     S@10DM
++----C           W@HAKO    WHGE 0.5
+|    C                     SUB  2         S@10DM
++----C                     OTHER
+|    C                     SUB  11        S@10DM
+E----C                     ENDSL
+     C*
+I----C           S@10DM    IFLE *ZERO
+|    C                     ADD  12        S@10DM
+|    C                     SUB  1         S@10DY
+E----C                     ENDIF
+     C*
+     C                     MOVE S@10DY    P@HAYY
+     C                     MOVE S@10DM    P@HAMM
+     C                     MOVE S@10DD    P@HADD
+     C                     CALL 'NYUR21'
+     C                     PARM P7SHN1    P@HIN1  5
+     C                     PARM P7SHN2    P@HIN2  5
+     C                     PARM P7SHN3    P@HIN3  2
+     C                     PARM           P@HAYY  4
+     C                     PARM           P@HAMM  2
+     C                     PARM           P@HADD  2
+     C                     PARM '01'      P@HABB  2
+     C*                   ( OUT )
+     C                     PARM           P@HKSU  5
+     C                     PARM           P@SISU  5
+     C                     PARM           P@NYSU  5
+     C                     PARM           P@SYSU  5
+     C                     PARM           P@KISU  5
+     C                     PARM           P@INV   5
+     C                     MOVELP@INV     W@INV   50
+     C*
+I----C           W@HAKO    IFEQ *ZERO
+|    C                     Z-ADD*ZERO     W@DAYS
+|    C*
++----C                     ELSE
+|    C           W@INV     DIV  W@HAKO    W@DAY2    H
+|I---C           W@DAY2    IFGE 100
+||   C                     Z-ADD99.9      W@DAYS
+|+---C                     ELSE
+||   C                     Z-ADDW@DAY2    W@DAYS
+|E---C                     ENDIF
+E----C                     ENDIF
+     C*
+     C                     CALL 'UEXR12'
+     C                     PARM P7SHN@    P@PART 12
+     C                     PARM           P@APCS  1
+     C                     PARM           P@RTN2  1
+     C*
+     C                     Z-ADDW@INV     P7INV             INVENTORY
+     C                     Z-ADDW@DAYS    P7DAYS    H       INVENTORY DAYS
+     C                     MOVELP@APCS    P7APCS            APICS Y:SHORT, N=FUL
+     C                     Z-ADDW@HAKO    P7HAKO            ONE DAY DEMAND')
+     C*
+     C***        P7TDYS    IFLE 1.5
+I----C***        P7UNS     IFGT P7INV
+|    C                     CALL 'ALOR28'
+|    C                     PARM P7SHN1    P1SHN1  5
+|    C                     PARM P7SHN2    P1SHN2  5
+|    C                     PARM P7SHN3    P1SHN3  2
+|    C                     PARM           P9ALD3  40       出荷照合済み
+|    C                     PARM           P9ADA1  40       再手配
+|    C                     PARM           P9NYKO  40       入庫済み
+|    C                     PARM           P9SRT   40        SRT(CONVEYANCE)
+|    C                     PARM           P9OUK   40        OUTSOURCE処理後
+|    C                     PARM           P9BZK   40        BZ計量済み
+|    C                     PARM           P9DSK   40        DS計量済み
+|    C                     PARM           P9JCK   40        JC計量済み
+|    C                     PARM           P9SBK   40        SB計量済み
+|    C                     PARM           P9LOQK  40        LOQ排出済み
+|    C                     PARM           P9OUI   40        OUTSOURCE処理中
+|    C                     PARM           P9BZI   40        BZ投入中
+|    C                     PARM           P9DSI   40        DS投入中
+|    C                     PARM           P9JCI   40        JC投入中
+|    C                     PARM           P9SBI   40        SB投入中
+|    C                     PARM           P9LOQI  40        LOQ投入中
+|    C                     PARM           P9PLOU  40        OUTSOURCE処理前
+|    C                     PARM           P9PLBZ  40        BZ投入中
+|    C                     PARM           P9PLDS  40        JC投入中
+|    C                     PARM           P9PLJC  40        DS投入中
+|    C                     PARM           P9PLSB  40        SB投入中
+|    C                     PARM           P9PLLO  40        LOQ設備前
+|    C                     PARM           P9PRE   40       ＣＶ集荷後
+|    C                     PARM           P9CVS   40       ＣＶ集荷前
+|    C                     PARM           P9LPLD  80        LAST PL DATE
+|    C                     PARM           P9LPLT  60        LAST PL TIME
+|    C                     PARM           P9ALL   40       発行枚数
+|    C                     PARM           P9PLPD  80       PT BF OUT DATE
+|    C                     PARM           P9PLPS  40       PT SHIP PRELOAD
+|    C*
+|    C           P7INV     ADD  P9SRT     P7QTY
+|    C                     ADD  P9BZK     P7QTY
+|    C                     ADD  P9JCK     P7QTY
+|    C                     ADD  P9DSK     P7QTY
+|    C                     ADD  P9SBK     P7QTY
+|    C                     ADD  P9OUK     P7QTY
+|    C                     ADD  P9LOQK    P7QTY
+|    C                     ADD  P9OUI     P7QTY
+|    C                     ADD  P9LOQI    P7QTY
+|    C                     ADD  P9PLOU    P7QTY
+|    C                     ADD  P9PLLO    P7QTY
+|    C                     ADD  P9BZI     P7QTY
+|    C                     ADD  P9JCI     P7QTY
+|    C                     ADD  P9DSI     P7QTY
+|    C                     ADD  P9SBI     P7QTY
+|    C                     ADD  P9PLBZ    P7QTY
+|    C                     ADD  P9PLDS    P7QTY
+|    C                     ADD  P9PLJC    P7QTY
+|    C                     ADD  P9PLSB    P7QTY
+|    C                     ADD  P9PRE     P7QTY
+     C                     EXSR #ALG
+|    C*
+|I---C           P7HAKO    IFEQ *ZERO
+||   C                     Z-ADD*ZERO     P7TDYS
+|+---C                     ELSE
+||   C           P7QTY     DIV  P7HAKO    W@NM81  81H
+||I--C           W@NM81    IFGE 100
+|||  C                     Z-ADD99.9      P7TDYS
+||+--C                     ELSE
+|||  C                     Z-ADDW@NM81    P7TDYS
+||E--C                     ENDIF
+|E---C                     ENDIF
+|    C*
+|I---C           P7TDYS    IFLE 1.5
+||   C           P7UNS     ANDGTP7QTY
+||   C*                    _____________
+||   C                     WRITEAA#WP111
+||   C*                    ~~~~~~~~~~~~~
+|E---C                     ENDIF
+E----C***                  ENDIF
+     C*
+     C           #OUT1E    ENDSR
+     C*
+      *----------------------------------------------------*
+      * CONVEYANCE                                         *
+      *----------------------------------------------------*
+     CSR         #ALG      BEGSR
+      *
+     C           K@ALG1    KLIST
+     C                     KFLD           K@SHN1            INT PART1
+     C                     KFLD           K@SHN2            INT PART2
+     C                     KFLD           K@SHN3            INT PART3
+      *
+     C           K@ALC2    KLIST
+     C                     KFLD           K@SHN1            INT PART1
+     C                     KFLD           K@SHN2            INT PART2
+     C                     KFLD           K@SHN3            INT PART3
+     C                     KFLD           K@SCDT  80
+     C                     KFLD           K@SCTM  60
+      *
+     C           K@ALG2    KLIST
+     C                     KFLD           K@SHN1            INT PART1
+     C                     KFLD           K@SHN2            INT PART2
+     C                     KFLD           K@SHN3            INT PART3
+     C                     KFLD           K@SCYY  40
+     C                     KFLD           K@SCMM  20
+     C                     KFLD           K@SCDD  20
+     C                     KFLD           K@SCTM  60
+     C                     Z-ADDW@4DYY    K@SCYY
+     C                     Z-ADDW@4DMM    K@SCMM
+     C                     Z-ADDW@4DDD    K@SCDD
+     C                     Z-ADDW@4TIM    K@SCTM
+     C                     Z-ADDW@4DAT    K@SCDT
+     C                     Z-ADDW@4TIM    K@SCTM
+      *
+     C           K@ALG2    SETLLALGPL01
+     C           K@ALG1    READEALGPL01                  82
+     C           *IN82     DOWEQ'0'
+     C           A1SKJY    IFEQ 'D'
+     C           A1SKH8    ANDLESDATE
+     C                     ELSE
+     C           A1SC      IFGE W@4MAE
+     C                     ADD  A1CONT    P7QTY
+     C                     ENDIF
+     C                     ENDIF
+     C           K@ALG1    READEALGPL01                  82
+     C                     ENDDO
+      *
+     C           K@ALC2    SETLLALCPL03
+     C           K@ALG1    READEALCPL03                  82
+     C           *IN82     DOWEQ'0'
+     C           A8SKJY    IFEQ 'D'
+     C           A8SKDT    ANDLESDATE
+     C                     ELSE
+     C           A8SC      IFGE W@4MAE
+     C                     ADD  4         P7QTY
+     C                     ENDIF
+     C                     ENDIF
+     C           K@ALG1    READEALCPL03                  82
+     C                     ENDDO
+      *
+     CSR         EALG      ENDSR
+**  @NONY
+3953
+3952
+0541
+0542
+3423
+3424
+3797
+3798
+3796
+3764
+3765
+3503
+3504
+3804
+3805
+3347
+3348
+3220
+3421
+3481
+3482
+3851
+3226
+3227
+3852
+3931
+3932
+3560
+3561
+3557
+3554
+3555
+3612
+3428
+3429
+9001
+9002
+9003
+9004
+9005
+9006
+9007
+3770
+3941

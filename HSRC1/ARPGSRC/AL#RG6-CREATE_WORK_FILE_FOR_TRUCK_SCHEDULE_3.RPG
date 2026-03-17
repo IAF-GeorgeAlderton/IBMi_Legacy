@@ -1,0 +1,488 @@
+     H            Y.
+     F** AL#RG6  *******************************************
+     F* CREATE WORK FILE FOR TRUCK SCHEDULE 3              *
+     F*      T.SAKAKI    2016.08.16                        *
+     F******************************************************
+     FAL#WPG4 IF  E           K        DISK
+     FAL#WPGB IF  E           K        DISK
+     FAL#WPG5 UF  E           K        DISK                      A
+      *
+     E                    BTM     1   3  4 0             BREAK TIME
+     E                    TIM        84  4 0             2 DAYS TIME
+     E                    DAY        84  3               2 DAYS DAY
+     E                    CAL        84  1               2 DAYS CAL
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60STIME
+     I                                        7  140SDATE
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *-----------------------------------------------------
+      *  KEY LIST
+      *-----------------------------------------------------
+     C           KEY1      KLIST
+     C                     KFLD           K1EGBC  1
+     C           KEY2      KLIST
+     C                     KFLD           K1EGBC
+     C                     KFLD           K1TRKB  2
+      *-----------------------------------------------------
+      *  MAIN ROUTINE
+      *-----------------------------------------------------
+      * INITIALIZE
+     C                     TIME           WTIME
+     C                     CLEARTIM
+     C                     CLEARDAY
+     C                     CLEARCAL
+     C                     Z-ADD0600      TME1    40
+     C                     Z-ADD0000      TME2    40
+      * CREATE TIME TABLE
+     C           1         DO   84        X       20
+      *
+     C           X         DIV  2         WKX     20
+     C                     MVR            REM     10       MVR
+      *
+     C           X         IFLE 36
+     C                     MOVEL'N-1'     DAY,X
+      * N-1 DAY
+     C           REM       IFEQ 0
+     C                     ADD  TME1      TIM,X
+     C                     ADD  70        TME1
+     C                     ELSE
+     C                     ADD  TME1      TIM,X
+     C                     ADD  30        TME1
+     C                     ENDIF
+      * N DAY
+     C                     ELSE
+     C                     MOVEL'N'       DAY,X
+     C           REM       IFEQ 0
+     C                     ADD  TME2      TIM,X
+     C                     ADD  70        TME2
+     C                     ELSE
+     C                     ADD  TME2      TIM,X
+     C                     ADD  30        TME2
+     C                     ENDIF
+      *
+     C                     ENDIF
+      * BREAK TIME
+     C                     Z-ADD1         Y       20
+     C           TIM,X     LOKUPBTM,Y                    70
+     C           *IN70     IFEQ *ON
+     C                     MOVEL'B'       CAL,X
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+      * 24 HOURS MINUTE - BREAK TIME
+     C           1440      SUB  90        WKMIN   40
+      *
+      * E.G.BOLT
+     C                     EXSR #SB400                     EACH
+     C   88                EXSR #SB405                     ADJUST
+     C                     EXSR #SB410                     ALL
+      * REGULAR PACKING
+     C                     EXSR #SB500                     EACH
+     C   89                EXSR #SB505                     ADJUST
+     C                     EXSR #SB510                     ALL
+      * REGULAR PULLING
+     C                     EXSR #SB520                     ALL
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *-----------------------------------------------------
+      *  CALCULATE E.G.BOLT
+      *-----------------------------------------------------
+     CSR         #SB400    BEGSR
+      *
+     C                     MOVEL'1'       K1EGBC
+     C                     Z-ADD0         TOTL1   20
+      *
+     C           KEY1      SETLLAL#WPG4
+     C           *IN80     DOUEQ*ON
+     C           KEY1      READEAL#WPG4                  80
+     C   80                LEAVE
+      *
+     C           *IN80     IFEQ '0'
+      *
+     C           WKMIN     MULT W2PERC    WKTIME  73
+     C           WKTIME    DIV  30        WKTPHH  20
+     C                     MVR            REM1    73
+     C           REM1      IFGE 15
+     C                     ADD  1         WKTPHH
+     C                     ENDIF
+      * WRITE
+     C                     EXSR #SB401
+     C                     ADD  WKTPHH    TOTL1
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           TOTL1     IFNE 45
+     C           45        SUB  TOTL1     REM3    20
+     C                     SETON                     88
+     C                     ENDIF
+      *
+     CSR         ESB400    ENDSR
+      *-----------------------------------------------------
+      *  WRITE AL#WPG5 FOR E.G.BOLT
+      *-----------------------------------------------------
+     CSR         #SB401    BEGSR
+      *
+     C                     CLEARAL#WPG51
+     C                     MOVELW2TRKB    W3TRKB
+     C                     MOVELW2SURT    W3SURT
+     C                     Z-ADDW2STTN    W3STTN
+     C                     Z-ADDW2EDTN    W3EDTN
+     C                     Z-ADDW2BOX     W3BOX
+     C                     Z-ADDW2PERC    W3PERC
+     C                     Z-ADDWKTIME    W3TIME
+     C                     Z-ADDWKTPHH    W3TPHH
+     C                     Z-ADD*ZERO     W3PLST
+     C                     Z-ADD*ZERO     W3PLED
+     C                     MOVEL'1'       W3WDIV
+     C                     WRITEAL#WPG51
+      *
+     CSR         ESB401    ENDSR
+      *-----------------------------------------------------
+      *  ADJUST E.G.BOLT
+      *-----------------------------------------------------
+     CSR         #SB405    BEGSR
+      *
+     C                     MOVEL'1'       K1EGBC
+      *
+     C           REM3      IFGT 0                          ADD
+      *
+     C           KEY1      SETLLAL#WPGB
+     C           *IN80     DOUEQ*ON
+     C           KEY1      READEAL#WPGB                  80
+     C   80                LEAVE
+     C           *IN80     IFEQ '0'
+      * UPDATE
+     C                     MOVELWBTRKB    K1TRKB
+      *
+     C           KEY2      CHAINAL#WPG51             85
+     C           *IN85     IFEQ *OFF
+     C                     ADD  1         W3TPHH
+     C                     SUB  1         REM3
+     C                     UPDATAL#WPG51
+     C                     ENDIF
+      *
+     C           REM3      IFEQ 0
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      * MINUS
+     C                     ELSE                            MINUS
+     C           KEY1      SETGTAL#WPGB
+     C           *IN80     DOUEQ*ON
+     C           KEY1      REDPEAL#WPGB                  80
+     C   80                LEAVE
+     C           *IN80     IFEQ '0'
+      * UPDATE
+     C                     MOVELWBTRKB    K1TRKB
+      *
+     C           KEY2      CHAINAL#WPG51             85
+     C           *IN85     IFEQ *OFF
+     C                     SUB  1         W3TPHH
+     C                     ADD  1         REM3
+     C                     UPDATAL#WPG51
+     C                     ENDIF
+      *
+     C           REM3      IFEQ 0
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDIF
+      *
+     CSR         ESB405    ENDSR
+      *-----------------------------------------------------
+      *  CALCULATE ALL E.G.BOLT
+      *-----------------------------------------------------
+     CSR         #SB410    BEGSR
+      *
+     C                     Z-ADD0         XST     20
+     C                     MOVEL'1'       K1EGBC
+      *
+     C           KEY1      SETLLAL#WPG5
+     C           *IN80     DOUEQ*ON
+     C           KEY1      READEAL#WPG5                  80
+     C   80                LEAVE
+      *
+   S1C           *IN80     IFEQ '0'
+     C                     Z-ADDW3TPHH    @X      20
+      *
+  S2 C           XST       IFEQ 0
+      * E.G.BOLT START TIME  3 = 7:00
+     C                     Z-ADD3         XST
+  S2 C                     ENDIF
+     C                     Z-ADDTIM,XST   W3PLST
+      *
+     C                     Z-ADD0         @Y      20
+   D1C           @Y        DOWLE@X
+      * SKIP BREAK TIME
+  S2 C           CAL,XST   IFEQ 'B'
+     C                     ADD  1         XST
+     C                     ITER
+  E2 C                     ENDIF
+     C                     Z-ADDTIM,XST   W3PLED
+  S2 C           @Y        IFNE @X
+     C                     ADD  1         XST
+  E2 C                     ENDIF
+     C                     ADD  1         @Y
+   D1C                     ENDDO
+      * UPDATE
+     C                     UPDATAL#WPG51
+   S1C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     CSR         ESB410    ENDSR
+      *-----------------------------------------------------
+      *  CALCULATE REGULAR PACKING
+      *-----------------------------------------------------
+     CSR         #SB500    BEGSR
+      *
+     C                     MOVEL' '       K1EGBC
+     C                     Z-ADD0         TOTL2   20
+      *
+     C           KEY1      SETLLAL#WPG4
+     C           *IN80     DOUEQ*ON
+     C           KEY1      READEAL#WPG4                  80
+     C   80                LEAVE
+      *
+     C           *IN80     IFEQ '0'
+      *
+     C           WKMIN     MULT W2PERC    WKTIME  73
+     C           WKTIME    DIV  30        WKTPHH  20
+     C                     MVR            REM1    73
+     C           REM1      IFGE 15
+     C                     ADD  1         WKTPHH
+     C                     ENDIF
+      * WRITE
+     C                     EXSR #SB501
+     C                     ADD  WKTPHH    TOTL2
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C           TOTL2     IFNE 45
+     C           45        SUB  TOTL2     REM4    20
+     C                     SETON                     89
+     C                     ENDIF
+      *
+     CSR         ESB500    ENDSR
+      *-----------------------------------------------------
+      *  WRITE AL#WPG5 FOR REGULAR PACKING
+      *-----------------------------------------------------
+     CSR         #SB501    BEGSR
+      *
+     C                     CLEARAL#WPG51
+     C                     MOVELW2TRKB    W3TRKB
+     C                     MOVELW2SURT    W3SURT
+     C                     Z-ADDW2STTN    W3STTN
+     C                     Z-ADDW2EDTN    W3EDTN
+     C                     Z-ADDW2BOX     W3BOX
+     C                     Z-ADDW2PERC    W3PERC
+     C                     Z-ADDWKTIME    W3TIME
+     C                     Z-ADDWKTPHH    W3TPHH
+     C                     Z-ADD*ZERO     W3PLST
+     C                     Z-ADD*ZERO     W3PLED
+     C                     MOVEL'3'       W3WDIV
+     C                     WRITEAL#WPG51
+      *
+     CSR         ESB501    ENDSR
+      *-----------------------------------------------------
+      *  ADJUST REGULAR
+      *-----------------------------------------------------
+     CSR         #SB505    BEGSR
+      *
+     C                     MOVEL' '       K1EGBC
+      *
+     C           REM4      IFGT 0                          ADD
+      *
+     C           KEY1      SETLLAL#WPGB
+     C           *IN80     DOUEQ*ON
+     C           KEY1      READEAL#WPGB                  80
+     C   80                LEAVE
+     C           *IN80     IFEQ '0'
+      * UPDATE
+     C                     MOVEL'3'       K1EGBC
+     C                     MOVELWBTRKB    K1TRKB
+     C           KEY2      CHAINAL#WPG51             85
+     C           *IN85     IFEQ *OFF
+     C                     ADD  1         W3TPHH
+     C                     SUB  1         REM4
+     C                     UPDATAL#WPG51
+     C                     ENDIF
+      *
+     C           REM4      IFEQ 0
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      * MINUS
+     C                     ELSE                            MINUS
+     C           KEY1      SETGTAL#WPGB
+     C           *IN80     DOUEQ*ON
+     C           KEY1      REDPEAL#WPGB                  80
+     C   80                LEAVE
+     C           *IN80     IFEQ '0'
+      * UPDATE
+     C                     MOVEL'3'       K1EGBC
+     C                     MOVELWBTRKB    K1TRKB
+     C           KEY2      CHAINAL#WPG51             85
+     C           *IN85     IFEQ *OFF
+     C                     SUB  1         W3TPHH
+     C                     ADD  1         REM4
+     C                     UPDATAL#WPG51
+     C                     ENDIF
+      *
+     C           REM4      IFEQ 0
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDIF
+      *
+     CSR         ESB505    ENDSR
+      *-----------------------------------------------------
+      *  CALCULATE ALL REGULAR PACKING
+      *-----------------------------------------------------
+     CSR         #SB510    BEGSR
+      *
+     C                     Z-ADD0         XED     20
+     C                     MOVEL'3'       K1EGBC
+      *
+     C           KEY1      SETGTAL#WPG5
+     C           *IN80     DOUEQ*ON
+     C           KEY1      REDPEAL#WPG5                  80
+     C   80                LEAVE
+      *
+   S1C           *IN80     IFEQ '0'
+     C                     Z-ADDW3TPHH    @X      20
+      *
+      * GET FINAL PACKING TIME WITH ROUND UP
+  S2 C           XED       IFEQ 0
+     C           W3STTN    DIV  100       WSTN1   20
+     C                     MVR            REM2    20
+     C           WSTN1     MULT 100       WSTN2   40
+ S3  C           REM2      IFGE 0
+     C           REM2      ANDLE29
+     C                     ELSE
+     C           WSTN2     ADD  30        WSTN2
+ E3  C                     ENDIF
+      * 8 HOURS AGO
+     C                     Z-ADD84        @Z      20
+   D1C           @Z        DOWGE1
+ S3  C           WSTN2     IFEQ TIM,@Z
+     C           @Z        SUB  16        XED
+     C                     LEAVE
+     C                     ELSE
+     C                     SUB  1         @Z
+ E3  C                     ENDIF
+   D1C                     ENDDO
+      *
+  E2 C                     ENDIF
+      *
+     C                     Z-ADDTIM,XED   W3PLED
+      *
+     C                     Z-ADD0         @Y      20
+   D1C           @Y        DOWLE@X
+      * SKIP BREAK TIME
+  S2 C           CAL,XED   IFEQ 'B'
+     C                     SUB  1         XED
+     C                     ITER
+  E2 C                     ENDIF
+     C                     Z-ADDTIM,XED   W3PLST
+  S2 C           @Y        IFNE @X
+     C                     SUB  1         XED
+  E2 C                     ENDIF
+     C                     ADD  1         @Y
+     C           XED       IFEQ 0
+     C                     LEAVE
+     C                     ENDIF
+   D1C                     ENDDO
+      * UPDATE
+     C                     UPDATAL#WPG51
+   S1C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     CSR         ESB510    ENDSR
+      *-----------------------------------------------------
+      *  CALCULATE ALL REFULAR PULLING
+      *-----------------------------------------------------
+     CSR         #SB520    BEGSR
+      *
+     C                     Z-ADD0         XED     20
+     C                     MOVEL'3'       K1EGBC
+      *
+     C           KEY1      SETGTAL#WPG5
+     C           *IN80     DOUEQ*ON
+     C           KEY1      REDPEAL#WPG5                  80
+     C   80                LEAVE
+      *
+   S1C           *IN80     IFEQ '0'
+     C                     Z-ADDW3TPHH    @X      20
+      *
+      * GET FINAL PACKING TIME WITH ROUND UP
+  S2 C           XED       IFEQ 0
+     C           W3STTN    DIV  100       WSTN1   20
+     C                     MVR            REM2    20
+     C           WSTN1     MULT 100       WSTN2   40
+ S3  C           REM2      IFGE 0
+     C           REM2      ANDLE29
+     C                     ELSE
+     C           WSTN2     ADD  30        WSTN2
+ E3  C                     ENDIF
+      * 8.5 HOURS AGO
+     C                     Z-ADD84        @Z      20
+   D1C           @Z        DOWGE1
+ S3  C           WSTN2     IFEQ TIM,@Z
+     C           @Z        SUB  17        XED
+     C                     LEAVE
+     C                     ELSE
+     C                     SUB  1         @Z
+ E3  C                     ENDIF
+   D1C                     ENDDO
+      *
+  E2 C                     ENDIF
+      *
+     C                     Z-ADDTIM,XED   W3PLED
+      *
+     C                     Z-ADD0         @Y      20
+   D1C           @Y        DOWLE@X
+      * SKIP BREAK TIME
+     C           XED       IFEQ 0
+     C                     LEAVE
+     C                     ENDIF
+  S2 C           CAL,XED   IFEQ 'B'
+     C                     SUB  1         XED
+     C                     ITER
+  E2 C                     ENDIF
+     C                     Z-ADDTIM,XED   W3PLST
+  S2 C           @Y        IFNE @X
+     C                     SUB  1         XED
+  E2 C                     ENDIF
+     C                     ADD  1         @Y
+   D1C                     ENDDO
+      * UPDATE
+     C                     MOVEL'2'       W3WDIV
+     C                     WRITEAL#WPG51
+   S1C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     CSR         ESB520    ENDSR
+      *-----------------------------------------------------
+** BTM
+0300
+1100
+1830

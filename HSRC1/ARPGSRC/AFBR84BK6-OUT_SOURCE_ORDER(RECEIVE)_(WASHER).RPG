@@ -1,0 +1,613 @@
+     H            Y.                                    1
+     H** AFBR84 *******************************************************
+     H* OUT SOURCE ORDER(RECEIVE) (WASHER)                            *
+     H*                                                               *
+     H* TCH 2000.12.04                                                *
+     H* TCH 2001.06.06 ADD CHECK                                      *
+     H* TCHK1 03/13/07 ADD PART# READING & CHECK                      *
+     H* TCHK2 01/17/08 ADD PART# FORMAT                               *
+     H* TCHK3 01/21/08 ADD PATCH                                      *
+     H* TCHK4 09/23/11 ADD LOT#  SCREEN                               *
+     H* TCHK5 01/20/14 CHG TL CODE                                    *
+     H**************************************************************************
+     H*
+     H* *INKC = 1(CF03)
+     H* *IN30 = 1(ERROR)
+     H* *IN90 = 1(NOT READ AFBPL82 ORDER DETAIL FILE)
+     H* *IN91 = 1(NOT READ AFBPL95 ORDER SUMMARY FILE)
+     H**************************************************************************
+     FAFBPW84 CF  E                    WORKSTN
+     FAFBPL82 UF  E           K        DISK
+     FAFBPL95 UF  E           K        DISK
+     FAFBPP9A IF  E           K        DISK                      A
+     I**************************************************************************
+     E                    BCD        13  1
+TCHK4E                    LOT       100 25
+     E                    ER      1  30 15
+     I**************************************************************************
+     I* BARCODE
+     I*(UPDATE CODE + ABSOLUTE # + PURCHASE CODE + KANBAN TYPE + HAKKO #
+     I            DS
+     I                                        1  13 BCD
+     I                                        1  13 BARCD
+     I                                        1   1 BCOCD
+     I                                        2   5 BZETI
+     I                                        6   90BSIRE
+     I                                        6   9 WSIRE
+     I                                       10  10 BTYPE
+     I                                       11  13 BPAGE
+TCHK1I* BARCODE
+TCHK1I*('P' + IAF PART#1 + '-' + IAF PART#2 + '-' + IAF PART#3)
+TCHK1I            DS
+TCHK1I                                        1  15 I@SHN
+TCHK1I                                        2   6 I@SHN1
+TCHK1I                                        8  12 I@SHN2
+TCHK1I                                       14  15 I@SHN3
+TCHK1I                                        1   5 I@SHNA
+TCHK1I                                        7  11 I@SHNB
+TCHK1I                                       13  14 I@SHNC
+     I*
+     I            DS
+     I                                        1  120WTMDT
+     I                                        1   20WHHHH
+     I                                        3   40WSSSS
+     I                                        7   80WYYYY
+     I                                        9  100WMMMM
+     I                                       11  120WDDDD
+     I* AFBPP80(RECEIVED DATE)
+     I            DS
+     I                                        1   80B8NODT
+     I                                        1   40B8NOYY
+     I                                        5   60B8NOMM
+     I                                        7   80B8NODD
+     I* AFBPP80(SUMMARY  DATE)
+     I            DS
+     I                                        1   80B8SUDT
+     I                                        1   40B8SUYY
+     I                                        5   60B8SUMM
+     I                                        7   80B8SUDD
+     I* AFBPP90(RECEIVED DATE)
+     I            DS
+     I                                        1   80B9NODT
+     I                                        1   40B9NOYY
+     I                                        5   60B9NOMM
+     I                                        7   80B9NODD
+     I* AFBPP90(COMPLETED DATE)
+     I            DS
+     I                                        1   80B9KNDT
+     I                                        1   40B9KNYY
+     I                                        5   60B9KNMM
+     I                                        7   80B9KNDD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     I**************************************************************************
+     C*
+     C           *ENTRY    PLIST
+     C                     PARM           PUSR   10
+     C                     PARM           PWKCD   6
+     C* AFBPL95
+     C           KEY3      KLIST
+     C                     KFLD           B8ODNO           ORDER #
+     C                     KFLD           B8PAR1           PART 1
+     C                     KFLD           B8PAR2                2
+     C                     KFLD           B8PAR3                3
+     C                     KFLD           B8ZETI           ABSOLUTE #
+     C* AFBPL82
+     C           KEY4      KLIST
+     C                     KFLD           BCOCD            CONTROL CD
+     C                     KFLD           BZETI            ABSOLUTE #
+     C                     KFLD           WSIRE            TEHAI
+     C                     KFLD           BTYPE            PAGE
+     C                     KFLD           BPAGE            2ND.TREATEMENT
+     C**************************************************************************
+     C*                    MAIN ROUTINE
+     C**************************************************************************
+     C                     EXSR @INT
+     C                     EXSR @MAIN
+     C                     EXSR @END
+     C**************************************************************************
+     C*                    @INT
+     C**************************************************************************
+     C           @INT      BEGSR
+     C*
+     C                     SETOF                     30
+     C                     MOVE *BLANK    MSG
+     C*
+     C                     TIME           WTMDT
+     C*
+     C                     Z-ADD*ZERO     I       20
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @MAIN
+     C**************************************************************************
+     C           @MAIN     BEGSR
+     C*
+B01  C           *INKC     DOUEQ'1'
+     C* DISPLAY ERROR
+B03  C           *IN30     IFEQ '1'
+     C                     EXFMTAFBPW899
+     C*
+     C                     SETOF                     30
+     C                     MOVE *BLANK    MSG
+     C*
+     C                     ELSE
+     C                     EXFMTAFBPW841
+B02  C           *INKC     IFEQ '1'
+     C*
+     C                     ELSE
+     C                     EXSR @CHK1
+     C*
+     C           *IN30     IFEQ '0'
+TCHK1C                     EXSR @SCRN2
+TCHK1C           *INKC     IFEQ *OFF
+TCHK1C           *INKD     ANDEQ*OFF
+TCHK4C           W@F05     ANDEQ*OFF
+     C                     EXSR @UPD1
+     C                     EXSR @UPD2
+TCHK4C                     EXSR @UPD3
+     C                     MOVE *BLANK    BARCD
+TCHK1C                     END
+     C                     END
+TCHK1C*
+     C                     END
+     C                     END
+     C                     END
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @CHK1
+     C**************************************************************************
+     C           @CHK1     BEGSR
+     C*
+     C* READ ALL DATA?
+     C                     Z-ADD1         I
+     C           1         DO   13        I
+     C           BCD,I     IFEQ *BLANK
+     C                     SETON                     30
+     C                     MOVE ER,1      MSG
+     C                     GOTO #ECHK1
+     C                     END
+     C                     END
+     C*
+     C* ORDER DETAIL FILE
+     C           KEY4      SETGTAFBPL821
+     C*
+     C           #READ1    TAG
+     C           KEY4      REDPEAFBPL821                 90
+     C*
+     C           *IN90     IFEQ '0'
+     C           B8SKJY    ANDEQ'D'
+     C                     GOTO #READ1
+     C                     END
+     C*
+     C           *IN90     IFEQ '1'
+     C                     SETON                     30
+     C                     MOVE ER,2      MSG
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C*
+     C* ORDER SUMMARY PROCESSED ?
+     C           B8SUDT    IFEQ *ZERO
+     C                     SETON                     30
+     C                     MOVE ER,3      MSG
+     C                     UPDATAFBPL821
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C* ALREADY ORDERED ?
+     C           B8ODNO    IFEQ *ZERO
+     C                     SETON                     30
+     C                     MOVE ER,7      MSG
+     C                     UPDATAFBPL821
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C* ALREADY SCANNED ?
+     C           B8NODT    IFNE *ZERO
+     C                     GOTO #READ1
+     C*                    SETON                     30
+     C*                    MOVE ER,4      MSG
+     C*                    UPDATAFBPL821
+     C*                    GOTO #ECHK1
+     C                     END
+     C*
+     C* EXIST ORDER FILE ?
+     C           KEY3      CHAINAFBPL951             91
+     C           *IN91     IFEQ '1'
+     C                     SETON                     30
+     C                     MOVE ER,5      MSG
+     C                     UPDATAFBPL821
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C                     SETON                     30
+     C* ALREADY ALL KANBAN RECEIVED ?
+     C           KEY3      SETLLAFBPL951
+     C           *IN91     DOUEQ*ON
+     C           KEY3      READEAFBPL951            N    91
+     C           *IN91     IFEQ *OFF
+     C           B9SKJY    ANDEQ*BLANK
+     C           B9KNDT    IFEQ *ZERO
+     C                     SETOF                     30
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           *IN30     IFEQ *ON
+     C                     MOVE ER,6      MSG
+     C                     UPDATAFBPL821
+     C**********           UPDATAFBPL951
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C           #ECHK1    ENDSR
+TCHK1C**************************************************************************
+TCHK1C* @SCRN2 : 2ND SCREEN  READING PART#
+TCHK1C**************************************************************************
+TCHK1C           @SCRN2    BEGSR
+TCHK1C*
+TCHK1C                     MOVEL*BLANK    D@SHN
+TCHK1C                     MOVE *BLANK    MSG
+TCHK4C                     Z-ADD*ZERO     W@2RCV  30
+TCHK4C                     CLEARLOT
+TCHK4C                     MOVEL*OFF      W@F05   1
+TCHK1C*
+TCHK1C                     DO   *HIVAL
+TCHK1C*
+TCHK1C                     EXFMTAFBPW842
+TCHK1C   KC
+TCHK1COR KD                LEAVE
+TCHK4C*
+TCHK4C           *INKE     IFEQ *ON
+TCHK4C           W@2RCV    IFEQ *ZERO
+TCHK4C                     MOVELER,13     MSG
+TCHK4C                     EXFMTAFBPW899
+TCHK4C                     MOVE *BLANK    MSG
+TCHK4C                     ITER
+TCHK4C                     ELSE
+TCHK4C                     EXSR @SCRN9
+TCHK4C   KC                LEAVE
+TCHK4C   KD                ITER
+TCHK4C           W@F05     IFEQ *ON
+TCHK4C                     MOVEL*BLANK    BARCD
+TCHK4C                     LEAVE
+TCHK4C                     END
+TCHK4C                     END
+TCHK4C                     END
+TCHK1C*
+TCHK1C                     MOVEL*OFF      *IN31
+TCHK1C                     EXSR @CHK2
+TCHK1C           *IN31     IFEQ *OFF
+TCHK4C                     ADD  1         W@2RCV
+TCHK4C                     EXSR @SCRN3
+TCHK4C   KC                LEAVE
+TCHK4C           *INKD     IFEQ *ON
+TCHK4C                     MOVE *BLANK    MSG
+TCHK4C                     MOVEL*BLANK    D@SHN
+TCHK4C                     CLEARLOT
+TCHK4C                     Z-ADD*ZERO     W@2RCV
+TCHK4C                     ITER
+TCHK4C                     END
+TCHK4C           B8ROTO    IFEQ W@2RCV
+TCHK4C                     LEAVE
+TCHK4C                     ELSE
+TCHK4C                     MOVEL*BLANK    D@SHN
+TCHK4C                     END
+TCHK1C                     ELSE
+TCHK1C                     EXFMTAFBPW899
+TCHK1C                     MOVEL*OFF      *IN31
+TCHK1C                     MOVE *BLANK    MSG
+TCHK1C                     END
+TCHK1C*
+TCHK1C                     ENDDO
+TCHK1C*
+TCHK1C                     ENDSR
+TCHK1C**************************************************************************
+TCHK1C*  @CHK2 : PART#,KANBAN# COMBINATION CHECK
+TCHK1C**************************************************************************
+TCHK1C           @CHK2     BEGSR
+TCHK1C*
+TCHK1C           D@SHN     IFEQ *BLANK
+TCHK1C                     MOVEL*ON       *IN31
+TCHK1C                     MOVELER,8      MSG
+TCHK1C                     END
+TCHK1C*
+TCHK1C                     MOVELD@SHN     I@SHN
+TCHK3C           I@SHN1    IFEQ 'A9461'
+TCHK3C           I@SHN2    ANDEQ'20080'
+TCHK3C           I@SHN3    ANDEQ'OS'
+TCHK3C                     MOVEL'0S'      I@SHN3
+TCHK3C                     END
+TCHK3C           I@SHNA    IFEQ 'A9461'
+TCHK3C           I@SHNB    ANDEQ'20080'
+TCHK3C           I@SHNC    ANDEQ'OS'
+TCHK3C                     MOVEL'0S'      I@SHNC
+TCHK3C                     END
+TCHK2C*TCHK1     B8PAR1    IFNE I@SHN1
+TCHK2C*TCHK1     B8PAR2    ORNE I@SHN2
+TCHK2C*TCHK1     B8PAR3    ORNE I@SHN3
+TCHK2C           B8PAR1    IFEQ I@SHN1
+TCHK2C           B8PAR2    ANDEQI@SHN2
+TCHK2C           B8PAR3    ANDEQI@SHN3
+TCHK2C                     ELSE
+TCHK2C           B8PAR1    IFEQ I@SHNA
+TCHK2C           B8PAR2    ANDEQI@SHNB
+TCHK2C           B8PAR3    ANDEQI@SHNC
+TCHK2C                     ELSE
+TCHK1C                     MOVEL*ON       *IN31
+TCHK1C           MSG       IFEQ *BLANK
+TCHK1C                     MOVELER,9      MSG
+TCHK1C                     END
+TCHK1C                     END
+TCHK2C                     END
+TCHK1C*
+TCHK1C                     ENDSR
+TCHK4C**************************************************************************
+TCHK4C* @SCRN3 : 3RD SCREEN  READING LOT#
+TCHK4C**************************************************************************
+TCHK4C           @SCRN3    BEGSR
+TCHK4C*
+TCHK4C                     MOVEL*BLANK    D@LOT
+TCHK4C                     MOVE *BLANK    MSG
+TCHK4C                     Z-ADDW@2RCV    X       30
+TCHK4C*
+TCHK4C                     DO   *HIVAL
+TCHK4C*
+TCHK4C                     EXFMTAFBPW843
+TCHK4C   KC
+TCHK4COR KD                LEAVE
+TCHK4C*
+TCHK4C                     MOVEL*OFF      *IN32
+TCHK4C                     EXSR @CHK3
+TCHK4C           *IN32     IFEQ *OFF
+TCHK4C                     MOVELD@LOT     LOT,X
+TCHK4C                     LEAVE
+TCHK4C                     ELSE
+TCHK4C                     EXFMTAFBPW899
+TCHK4C                     MOVEL*OFF      *IN32
+TCHK4C                     MOVE *BLANK    MSG
+TCHK4C                     END
+TCHK4C*
+TCHK4C                     ENDDO
+TCHK4C*
+TCHK4C                     ENDSR
+TCHK4C**************************************************************************
+TCHK4C*  @CHK3 : LOT# CHECK
+TCHK4C**************************************************************************
+TCHK4C           @CHK3     BEGSR
+TCHK4C*
+TCHK4C           D@LOT     IFEQ *BLANK
+TCHK4C                     MOVEL*ON       *IN32
+TCHK4C                     MOVELER,10     MSG
+     C                     GOTO #ECHK3
+TCHK4C                     END
+TCHK4C*
+      * check washer supplier lot id
+     C                     CALL 'UEXR71'
+     C                     PARM           B9SUPP
+     C                     PARM           D@LOT
+     C                     PARM           RTN     1
+      *
+     C           RTN       IFEQ 'N'
+     C           RTN       OREQ *BLANK
+     C                     MOVEL*ON       *IN32
+     C                     MOVELER,14     MSG
+     C                     MOVE *BLANKS   D@LOT
+     C                     GOTO #ECHK3
+     C                     ENDIF
+      *
+TCHK4C           K#P9A1    KLIST
+TCHK4C                     KFLD           B9SUPP
+TCHK4C                     KFLD           B9ODNO
+TCHK4C                     KFLD           B9PAR1
+TCHK4C                     KFLD           B9PAR2
+TCHK4C                     KFLD           B9PAR3
+TCHK4C                     KFLD           K@LOT  25
+TCHK4C                     MOVELD@LOT     K@LOT     P
+TCHK4C           K#P9A1    CHAINAFBPP9A              98
+TCHK4C           *IN98     IFEQ *OFF
+TCHK4C                     MOVEL*ON       *IN32
+TCHK4C                     MOVELER,11     MSG
+     C                     MOVE *BLANKS   D@LOT
+     C                     GOTO #ECHK3
+TCHK4C                     END
+TCHK4C*
+TCHK4C           D@LOT     LOKUPLOT                      89
+TCHK4C           *IN89     IFEQ *ON
+TCHK4C                     MOVEL*ON       *IN32
+TCHK4C                     MOVELER,11     MSG
+     C                     MOVE *BLANKS   D@LOT
+     C                     GOTO #ECHK3
+TCHK4C                     END
+TCHK4C*
+TCHK4C           #ECHK3    ENDSR
+TCHK4C**************************************************************************
+TCHK4C* @SCRN9 : 9TH SCREEN  READING TM LEADER ID FOR IGNORE UPDATE
+TCHK4C**************************************************************************
+TCHK4C           @SCRN9    BEGSR
+TCHK4C*
+TCHK4C                     Z-ADD*ZERO     D@IDCD
+TCHK4C                     MOVE *BLANK    MSG
+TCHK4C*
+TCHK4C                     DO   *HIVAL
+TCHK4C*
+TCHK4C                     EXFMTAFBPW849
+TCHK4C   KC
+TCHK4COR KD                LEAVE
+TCHK4C*
+TCHK4C                     MOVEL*OFF      *IN39
+TCHK4C                     EXSR @CHK9
+TCHK4C           *IN39     IFEQ *OFF
+TCHK4C                     MOVEL*ON       W@F05
+TCHK4C                     EXSR @UPD1
+TCHK4C                     EXSR @UPD2
+TCHK4C                     EXSR @UPD3
+TCHK4C                     LEAVE
+TCHK4C                     ELSE
+TCHK4C                     EXFMTAFBPW899
+TCHK4C                     MOVEL*OFF      *IN39
+TCHK4C                     MOVE *BLANK    MSG
+TCHK4C                     END
+TCHK4C*
+TCHK4C                     ENDDO
+TCHK4C*
+TCHK4C                     ENDSR
+TCHK4C**************************************************************************
+TCHK4C*  @CHK9 : TM LEADER ID
+TCHK4C**************************************************************************
+TCHK4C           @CHK9     BEGSR
+TCHK4C*
+TCHK4C*          D@IDCD    IFEQ 862239                     ANTHONY
+TCHK4C*          D@IDCD    OREQ 965306                     KEVIN
+TCHK4C*          D@IDCD    OREQ 967391                     TONY
+TCHK4C*          D@IDCD    OREQ 881778                     HOLLY
+TCHK4C*          D@IDCD    OREQ 884875                     KEI SATO
+TCHK5C           D@IDCD    IFEQ 965306                     KEVIN
+TCHK5C           D@IDCD    OREQ 967391                     TONY
+TCHK5C           D@IDCD    OREQ 962214                     ELLJAH LITTLE
+TCHK5C           D@IDCD    OREQ 765912                     TROY JARVIS
+TCHK5C           D@IDCD    OREQ 947860                     RICK PATEL
+TCHK5C           D@IDCD    OREQ 110889                     DANIEL HARTMAN
+     C           D@IDCD    OREQ 121500                     JESSICA MCCAS
+     C           D@IDCD    OREQ 120612                     JEREMY GRUBBS
+TCHK5C           D@IDCD    OREQ 114558                     RYAN DUVALL'S
+     C           D@IDCD    OREQ 948547                     KEVIN FANNIN
+TCHK4C                     ELSE
+TCHK4C                     MOVEL*ON       *IN39
+TCHK4C                     MOVELER,12     MSG
+TCHK4C                     END
+TCHK4C*
+TCHK4C                     ENDSR
+     C**************************************************************************
+     C*                    @UPD1:AFBPP80
+     C**************************************************************************
+     C           @UPD1     BEGSR
+     C*
+TCHK4C                     TIME           WTMDT
+     C                     Z-ADD2000      B8KOYY           UPDATE YEAR
+     C                     ADD  WYYYY     B8KOYY
+     C                     Z-ADDWMMMM     B8KOMM                  MONTH
+     C                     Z-ADDWDDDD     B8KODD                  DAY
+     C                     Z-ADDWHHHH     B8KOHH                  HOUR
+     C                     Z-ADDWSSSS     B8KOSS                  MINUTE
+     C                     MOVE PUSR      B8KOME                  USER
+     C                     MOVEL'AFBR84'  B8KOPG                  PGM-ID
+     C                     MOVE PWKCD     B8WORK                  WORKER CD
+     C                     Z-ADD*DATE     B8NODT
+     C                     UPDATAFBPL821
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @UPD2:AFBPP90
+     C**************************************************************************
+     C           @UPD2     BEGSR
+     C*
+TCHK4C                     TIME           WTMDT
+     C           KEY3      SETLLAFBPL951
+     C           *IN91     DOUEQ*ON
+     C           KEY3      READEAFBPL951                 91
+     C           *IN91     IFEQ *OFF
+     C           B9SKJY    ANDEQ*BLANK
+     C           B9KNDT    ANDEQ*ZERO
+     C                     Z-ADD2000      B9KOYY           UPDATE YEAR
+TCHK4C                     ADD  WYYYY     B9KOYY
+     C                     Z-ADDWMMMM     B9KOMM                  MONTH
+     C                     Z-ADDWDDDD     B9KODD                  DAY
+     C                     Z-ADDWHHHH     B9KOHH                  HOUR
+     C                     Z-ADDWSSSS     B9KOSS                  MINUTE
+     C                     MOVE PUSR      B9KOME                  USER
+     C                     MOVEL'AFBR84'  B9KOPG                  PGM-ID
+     C                     Z-ADD*DATE     B9NODT
+TCHK4C*                    ADD  1         B9NOSU
+TCHK4C           W@F05     IFEQ *ON
+TCHK4C                     ADD  W@2RCV    B9NOSU
+TCHK4C                     ELSE
+TCHK4C                     ADD  B8ROTO    B9NOSU
+TCHK4C                     END
+     C           B9HAKO    IFEQ B9NOSU
+     C                     Z-ADD*DATE     B9KNDT
+     C                     END
+     C                     UPDATAFBPL951
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+     C*
+     C                     ENDSR
+TCHK4C**************************************************************************
+TCHK4C*                    @UPD3:AFBPP9A
+TCHK4C**************************************************************************
+TCHK4C           @UPD3     BEGSR
+TCHK4C*
+TCHK4C                     TIME           WTMDT
+TCHK4C                     CLEARAFBPP9A1
+TCHK4C*
+TCHK4C                     Z-ADD2000      BAKOYY           UPDATE YEAR
+TCHK4C                     ADD  WYYYY     BAKOYY
+TCHK4C                     Z-ADDWMMMM     BAKOMM                  MONTH
+TCHK4C                     Z-ADDWDDDD     BAKODD                  DAY
+TCHK4C                     Z-ADDWHHHH     BAKOHH                  HOUR
+TCHK4C                     Z-ADDWSSSS     BAKOSS                  MINUTE
+TCHK4C                     MOVE PUSR      BAKOME                  USER
+TCHK4C                     MOVEL'AFBR84'  BAKOPG                  PGM-ID
+TCHK4C*
+TCHK4C                     MOVELB9SUPP    BASUPP
+TCHK4C                     Z-ADDB9ODNO    BAODNO
+TCHK4C                     MOVELB9PAR1    BAPAR1
+TCHK4C                     MOVELB9PAR2    BAPAR2
+TCHK4C                     MOVELB9PAR3    BAPAR3
+TCHK4C                     MOVELPWKCD     BAWORK
+TCHK4C*
+TCHK4C                     Z-ADD*ZERO     X
+TCHK4C                     DO   *HIVAL
+TCHK4C                     ADD  1         X
+TCHK4C           LOT,X     IFEQ *BLANK
+TCHK4C                     LEAVE
+TCHK4C                     END
+TCHK4C                     MOVELLOT,X     BALOT#
+TCHK4C                     WRITEAFBPP9A1
+      *
+     C                     MOVELBARCD     POKBN     P
+     C                     MOVELBALOT#    PLOTID
+     C                     CALL 'IWAR77U1'
+     C                     PARM           POKBN  20
+     C                     PARM           PLOTID 20
+     C                     PARM 'QD'      PLOCN   6
+     C                     PARM           PWKCD
+     C                     PARM           W#PGM
+     C                     PARM '1'       PSTEP   1
+     C                     PARM ' '       #RTNC   1
+      *
+TCHK4C                     ENDDO
+TCHK4C*
+TCHK4C                     ENDSR
+     C**************************************************************************
+     C*                    @END
+     C**************************************************************************
+     C           @END      BEGSR
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+     C*
+     C                     ENDSR
+** ERROR MESSAGE
+KANBAN BLANK                                                         1
+NO DETAIL FILE                                                       2
+NOT SUMMARIZED                                                       3
+ALREADY SCANNED                                                      4
+NOT ORDER FILE                                                       5
+ALL DAT RECEIVE                                                      6
+NOT ORDERED                                                          7
+PART# BLANK                                                          8
+UNMATCHED                                                            9
+LOT# BLANK                                                          10
+DUPLICATE                                                           11
+NOT LEADER'S ID                                                     12
+NO DAT SCAN YET                                                     13
+WRONG BARCODE                                                       14

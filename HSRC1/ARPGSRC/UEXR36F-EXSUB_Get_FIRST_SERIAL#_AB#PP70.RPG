@@ -1,0 +1,186 @@
+     H            Y.
+     F** UEXR36F ********************************************
+     F*  PROGRAM: EXSUB - GET FIRST SERIAL#                 *
+     F*  WRITTEN: JW (SRA) 2021.12.06                       *
+     F* ** FUTABA NEEDS FIRST SERIAL# FOR EP61 & EP77       *
+     F*-----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UEXR36F'
+     F*                    PARM           $NONY   4
+     F*                    PARM           $NKOJ   1
+     F*                    PARM           $NUKE   4
+     F*                    PARM           $NOHZ   8
+     F*                    PARM           $NOBN   2
+     F*                    PARM           $ODRN  10
+     F*                    PARM           $SERL  20
+     F*                    PARM           $PAL    2
+     F*                    PARM           $RTN    1
+     F*  IN  $NONY   4A  IAF PART
+     F*      $NKOJ   1A  FACTORY
+     F*      $NUKE   4A  DOCK
+     F*      $NOHZ   8A  SHIP DATE
+     F*      $NOBN   2A  BIN#         M
+     F*      $ODRN  10A  PO#
+     F*  OUT $SERL  20A  MASTER SERIAL#
+     F*      $PAL    2A  # OF PALLET
+     F*      $RTN    1A  RETURN CODE (OK:BLANK, *:ERROR)
+     F******************************************************
+     FAB#PL7I IF  E           K        DISK
+     FAB#PL1A IF  E           K        DISK
+      *===================================================
+      * SYSTEM DATE
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      * KEY FIELDS
+     I            DS
+     I                                        1   80@NOHZ
+     I                                        1   40@NOYY
+     I                                        5   60@NOMM
+     I                                        7   80@NODD
+      *===================================================
+      *           MAIN ROUTINE
+      *===================================================
+     C                     EXSR #INIT
+      *
+     C           K#PL7I    SETLLAB#PL7I
+      *
+     C                     DO   *HIVAL
+     C           K#PL7I    READEAB#PL7I                  97
+     C   97                LEAVE
+      *
+     C           EKSKJY    IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+      *
+     C           EKODRN    IFNE $ODRN
+     C                     ITER
+     C                     ENDIF
+      *
+     C**         EKLOC1    IFNE ' '
+     C**                   ITER
+     C**                   END
+      *
+     C                     MOVELEKSERL    $SERL
+     C                     LEAVE
+      *
+     C                     ENDDO
+      * SET # OF PALLET
+     C                     EXSR #PAL
+      * SET TTAI
+     C**         $SERL     IFNE *BLANK
+     C**                   MOVE $SERL     LTR8    8
+     C**                   MOVE '01'      LTR8
+     C**                   MOVEL'IF'      LTR10  10
+     C**                   MOVE LTR8      LTR10
+     C**                   MOVE LTR10     $TTAI     P
+     C**                   ENDIF
+      *
+     C           $SERL     IFEQ *BLANK
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *======================================================
+      * GET # OF PALLET
+      *======================================================
+     C           #PAL      BEGSR
+      *
+     C           K#PL1A    SETLLAB#PL1A
+     C                     DO   *HIVAL
+     C           K#PL1A    READEAB#PL1A                  97
+     C   97                LEAVE
+      *
+     C           BASKJY    IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+      *
+     C           BASRYO    IFEQ 0
+     C                     ITER
+     C                     ENDIF
+      *
+     C           BASYOS    IFNE 0
+     C                     Z-ADDBASYOS    @QPC    60
+     C                     ELSE
+     C           BAUSYS    IFNE 0
+     C                     Z-ADDBAUSYS    @QPC
+     C                     ELSE
+     C                     Z-ADDBASRYO    @QPC
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           BASRYO    DIV  @QPC      SHO     60
+     C                     MVR            RMT     60
+     C           RMT       IFNE 0
+     C                     ADD  1         SHO
+     C                     ENDIF
+      *
+     C                     ADD  SHO       @BOX
+     C                     ENDDO
+      *
+     C           @BOX      DIV  60        SHO
+     C                     MVR            RMT
+     C           RMT       IFNE 0
+     C                     ADD  1         SHO
+     C                     ENDIF
+     C                     Z-ADDSHO       @PAL
+     C                     MOVEL@PAL      $PAL
+      *
+     C                     ENDSR
+      *======================================================
+      * INITIAL SET
+      *======================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $NONY   4
+     C                     PARM           $NKOJ   1
+     C                     PARM           $NUKE   4
+     C                     PARM           $NOHZ   8
+     C                     PARM           $NOBN   2
+     C                     PARM           $ODRN  10
+     C                     PARM           $SERL  20
+     C                     PARM           $PAL    2
+     C                     PARM           $RTN    1
+      *
+     C           K#PL7I    KLIST
+     C                     KFLD           KKNONY  4
+     C                     KFLD           KKNKOJ  1
+     C                     KFLD           KKNUKE  4
+     C                     KFLD           KKNOYY  40
+     C                     KFLD           KKNOMM  20
+     C                     KFLD           KKNODD  20
+     C                     KFLD           KKNOBN  2
+      *
+     C           K#PL1A    KLIST
+     C                     KFLD           KKNOHZ  80
+     C                     KFLD           K#NOBN  20
+     C                     KFLD           K#NONY  40
+     C                     KFLD           KKNKOJ  1
+     C                     KFLD           KKNUKE  4
+     C                     KFLD           KKODRN 10
+      * SET KEY
+     C                     MOVEL$NONY     KKNONY
+     C                     MOVEL$NONY     K#NONY
+     C                     MOVEL$NKOJ     KKNKOJ
+     C                     MOVEL$NUKE     KKNUKE
+     C                     MOVEL$NOHZ     @NOHZ
+     C                     MOVEL$NOHZ     KKNOHZ
+     C                     MOVEL@NOYY     KKNOYY
+     C                     MOVEL@NOMM     KKNOMM
+     C                     MOVEL@NODD     KKNODD
+     C                     MOVEL$NOBN     KKNOBN
+     C                     MOVEL$NOBN     K#NOBN
+     C                     MOVEL$ODRN     KKODRN
+     C                     Z-ADD0         @CNT    40
+     C                     Z-ADD0         @PAL    20
+      *
+     C                     MOVE *BLANK    $SERL
+     C**                   MOVE *BLANK    $TTAI
+     C                     MOVE '00'      $PAL
+     C                     MOVE *BLANK    $RTN
+     C                     Z-ADD0         @BOX    40
+      *
+     C                     ENDSR

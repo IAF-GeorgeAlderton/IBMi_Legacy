@@ -1,0 +1,431 @@
+     H            Y.
+      ** GAHR30 *******************************************************
+      *  UPDATE OF TRANSPORTATION M/F
+      *  KIRI                                            2017.06.28
+      *****************************************************************
+     FGAHPW30 CF  E                    WORKSTN
+      *
+      * TRANSPORTATION M/F                         *
+     FGAHPL30 UF  E           K        DISK                      A
+      *
+      * CARRIER M/F  LF1
+     FGAHPL35 IF  E           K        DISK
+      * ROUTE M/F  LF1
+     FGAHPL37 IF  E           K        DISK
+      *===============================================================
+     E                    ER      1  20 60
+      *===============================================================
+      *---（時刻）
+     I            DS
+     I                                        1   40W$TM
+     I                                        1   20W$JJ
+     I                                        3   40W$FF
+     I            DS
+     I                                        1  10 D2TRCD
+     I                                        1   2 D2CARR
+     I                                        3   3 D2HF1
+     I                                        4   7 D2ROUT
+     I                                        8   8 D2HF2
+     I                                        9  10 D2BIN#
+     I****************************
+      *プログラム状況データ構造*
+     I****************************
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W$WSID
+     I                                      254 263 W$USER
+     I                                      264 269 W$JBNO
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60@SYSTM
+     I                                        7  140@SYSHZ
+     C*===============================================================
+     C*
+     C*===============================================================
+     C                     MOVE '#INIT   '@STEP   8
+     C*
+     C           @STEP     DOUEQ'#END    '
+     C           @STEP     CASEQ'#INIT   '#INIT            初期処理
+     C           @STEP     CASEQ'#DSP1   '#DSP1
+     C           @STEP     CASEQ'#CHK1   '#CHK1
+     C           @STEP     CASEQ'#DSP2   '#DSP2
+     C           @STEP     CASEQ'#CHK2   '#CHK2
+     C           @STEP     CASEQ'#CHK2U  '#CHK2
+     C           @STEP     CASEQ'#UPDAT  '#UPDAT
+     C                     ENDCS
+     C                     ENDDO
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+     C*===============================================================
+      * 初期ﾈｮmb
+     C*===============================================================
+     C           #INIT     BEGSR
+     C                     MOVEA*ALL'0'   *IN
+     C                     TIME           @TIME
+      *
+     C                     MOVE *BLANK    D1KKBN           更新区分
+     C                     MOVE *BLANK    D1CARR            CARRIER
+     C                     MOVE *BLANK    D1ROUT            ROUTE
+     C                     Z-ADD0         D1BIN#            BIN #
+     C                     MOVE *BLANK    D1ERR            d[ｰxｮﾈｰﾆﾞ
+     C                     MOVE *BLANK    D2KKBN           更新区分
+     C                     MOVE *BLANK    D2CARR            CARRIER
+     C                     MOVE *BLANK    D2ROUT            ROUTE
+     C                     MOVE *BLANK    D2BIN#            BIN #
+      *
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDSR
+     C*===============================================================
+      *画面１*
+     C*===============================================================
+     C           #DSP1     BEGSR
+     C*
+     C                     EXFMTGAHPW301
+     C                     MOVEA'00000000'*IN,21
+     C                     SETOF                     99
+     C                     MOVE '#CHK1   '@STEP
+      *-------*
+      * (F1)  *
+      *-------*
+     C   KA                MOVE '#END    '@STEP
+      *-------*
+      * (F20) * CARRIER MASTER
+      *-------*
+     C           *INKU     IFEQ *ON
+     C                     CALL 'GAHC35'
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDIF
+      *-------*
+      * (F22) * ROUTE MASTER
+      *-------*
+     C           *INKW     IFEQ *ON
+     C                     CALL 'GAHC37'
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDIF
+      *-------*
+      * (F24) * DOWNLOAD
+      *-------*
+     C           *INKY     IFEQ *ON
+     C                     CALL 'GAHC31'
+     C                     MOVE '#END    '@STEP
+     C                     ENDIF
+     C*
+     C                     ENDSR
+     C*===============================================================
+      *画面１チェック
+     C*===============================================================
+     C           #CHK1     BEGSR
+      *----------------------*
+      * UPDATE更新区分
+      *----------------------*
+S1   C                     SELEC
+ 1   C           D1KKBN    WHEQ '0'                        :取消
+     C                     MOVEL'0-CANCEL'D2KKBN
+     C                     SETON                     29    (PR)
+ 1   C           D1KKBN    WHEQ '1'                        :変更
+     C                     MOVEL'1-CHANGE'D2KKBN
+     C                     SETOF                     29    (CS)
+ 1   C           D1KKBN    WHEQ '2'                        :追加
+     C                     MOVEL'2-ADD   'D2KKBN
+     C                     SETOF                     29    (CS)
+ 1   C                     OTHER
+     C                     SETON                     2199
+     C                     MOVELER,1      D1ERR
+     C                     GOTO $CHK1Z
+E1   C                     ENDSL
+      *----------------------*
+      * CARRIER (22)
+      *----------------------*
+     C           D1CARR    IFEQ *BLANK
+     C                     SETON                     2299
+     C                     MOVELER,2      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C*
+     C           D1CARR    CHAINGAHPL35              91
+     C  N91      G5SKJY    IFEQ 'D'
+     C           G5SKHZ    ANDLE@SYSHZ
+     C                     SETON                     91
+     C                     ENDIF
+     C           *IN91     IFEQ *ON
+     C                     SETON                     2299
+     C                     MOVELER,3      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+      *----------------------*
+      * ROUTE   (23)
+      *----------------------*
+     C           D1ROUT    IFEQ *BLANK
+     C                     SETON                     2399
+     C                     MOVELER,4      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C*
+     C           D1ROUT    CHAINGAHPL37              91
+     C  N91      G7SKJY    IFEQ 'D'
+     C           G7SKHZ    ANDLE@SYSHZ
+     C                     SETON                     91
+     C                     ENDIF
+     C           *IN91     IFEQ *ON
+     C                     SETON                     2399
+     C                     MOVELER,5      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+      *----------------------*
+      * BIN #   (24)
+      *----------------------*
+     C           D1BIN#    IFEQ 0
+     C                     SETON                     2399
+     C                     MOVELER,6      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+      *----------------------*
+      *----------------------*
+      *----------------------*
+     C           KEY01     KLIST
+     C                     KFLD           D1CARR
+     C                     KFLD           D1ROUT
+     C                     KFLD           D1BIN#
+     C*
+     C                     MOVE D1CARR    D2CARR
+     C                     MOVE D1ROUT    D2ROUT
+     C                     MOVE D1BIN#    D2BIN#
+     C                     MOVE '-'       D2HF1
+     C                     MOVE '-'       D2HF2
+     C*
+     C           KEY01     CHAINGAHPL30             N90
+      **
+S1   C                     SELEC
+     C*
+-1   C           D1KKBN    WHEQ '0'                        :CANCEL
+     C           *IN90     IFEQ *ON
+     C                     SETON                     212223
+     C                     SETON                     24  99
+     C                     MOVELER,7      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C           G3SKJY    IFEQ 'D'
+     C           G3SKHZ    ANDLE*DATE
+     C                     SETON                     212223
+     C                     SETON                     24  99
+     C                     MOVELER,8      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C*
+-1   C           D1KKBN    WHEQ '1'                        :CHANGE
+     C           *IN90     IFEQ *ON
+     C                     SETON                     212223
+     C                     SETON                     24  99
+     C                     MOVELER,9      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C           G3SKJY    IFEQ 'D'
+     C           G3SKHZ    ANDLE*DATE
+     C                     SETON                     212223
+     C                     SETON                     24  99
+     C                     MOVELER,8      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C*
+-1   C           D1KKBN    WHEQ '2'                        :ADD
+     C           *IN90     IFEQ *OFF
+     C           G3SKJY    ANDEQ' '
+     C                     SETON                     212223
+     C                     SETON                     24  99
+     C                     MOVELER,10     D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+E1   C                     ENDSL
+      *----------------------*
+      *----------------------*
+     C                     MOVEA'00000000'*IN,31
+     C                     MOVEL*BLANK    D2FREQ           FREQUENCY SHIPMENT
+     C                     Z-ADD0         D2NSTM           NEW SHIPMENTASTART
+     C                     Z-ADD0         D2OSTM           OLD SHIPMENTASTART
+     C                     Z-ADD*DATE     D2CHDT           CHANGE OVER DATE
+     C                     MOVEL*BLANK    D2ERR
+S1   C                     SELEC
+ 1   C           D1KKBN    WHEQ '0'                        :CANCEL
+     C                     MOVELG3FREQ    D2FREQ           FREQUENCY SHIPMENT
+     C                     Z-ADDG3NSTM    D2NSTM           NEW SHIPMENTASTART
+     C                     Z-ADDG3OSTM    D2OSTM           OLD SHIPMENTASTART
+     C                     Z-ADDG3CHDT    D2CHDT           CHANGE OVER DATE
+ 1   C           D1KKBN    WHEQ '1'                        :CHANGE
+     C                     MOVELG3FREQ    D2FREQ           FREQUENCY SHIPMENT
+     C                     Z-ADDG3NSTM    D2OSTM           OLD SHIPMENTASTART
+     C                     Z-ADD*DATE     D2CHDT           CHANGE OVER DATE
+E1   C                     ENDSL
+     C*
+      *----------------------*
+     C           $CHK1Z    TAG
+      *----------------------*
+     C           *IN99     IFEQ *ON
+     C                     MOVE '#DSP1   '@STEP
+     C                     ELSE
+     C                     MOVE '#DSP2   '@STEP
+     C                     ENDIF
+      *----------------------*
+     C                     ENDSR
+      *===============================================================
+      *画面２表示
+      *===============================================================
+     C           #DSP2     BEGSR
+     C                     EXFMTGAHPW302
+     C                     MOVEA'0'       *IN,99
+     C                     MOVEA'00000000'*IN,31
+     C                     MOVE '#CHK2   '@STEP
+      *----*
+      * F3 *
+      *----*
+     C           *INKC     IFEQ *ON
+     C                     SETOF                     202122
+     C                     SETOF                         99
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDIF
+      *----*
+      * F5 *
+      *----*
+     C           *INKE     IFEQ *ON
+     C                     MOVE '#CHK2U  '@STEP
+     C                     ENDIF
+     C                     ENDSR
+     C*===============================================================
+      *画面２チェック
+     C*===============================================================
+     C           #CHK2     BEGSR
+     C*
+      *
+      *  追加・変更のみチェック
+S1   C           D1KKBN    IFEQ '0'                        :CANCEL
+     C                     GOTO $CHK2Z
+E1   C                     ENDIF
+     C*-------------------------
+      *  FREQUENCY SHIPMENT
+     C           D2FREQ    IFNE '1'                        1=DAILY
+     C           D2FREQ    ANDNE'2'                        2=OTHER
+     C                     SETON                     3199
+     C                     MOVELER,11     D2ERR
+     C                     GOTO $CHK2Z
+     C                     ENDIF
+      *
+      * SHIPMENT START TIME
+     C                     Z-ADDD2NSTM    W$TM
+     C                     EXSR ##TIM
+     C   99                SETON                     32
+     C   99                GOTO $CHK2Z
+      *
+      *
+      * CHANGE OVER DATE
+     C           D2CHDT    IFEQ 0
+     C                     SETON                     3699
+     C                     MOVELER,14     D2ERR
+     C                     GOTO $CHK2Z
+     C                     ENDIF
+     C*
+     C                     MOVELD2CHDT    P1DATE
+     C                     CALL 'DATR10'
+     C                     PARM           P1DATE  8
+     C                     PARM           P1RTN   1
+     C           P1RTN     IFEQ '1'
+     C                     SETON                     3699
+     C                     MOVELER,15     D2ERR
+     C                     GOTO $CHK2Z
+     C                     ENDIF
+      *----------------------*
+     C           $CHK2Z    TAG
+      *----------------------*
+S1   C           *IN99     IFEQ *OFF
+     C           @STEP     ANDEQ'#CHK2U  '
+     C                     MOVE '#UPDAT  '@STEP
+     C                     ELSE
+     C                     MOVE '#DSP2   '@STEP
+E1   C                     ENDIF
+     C                     ENDSR
+      *================================================================
+      *===============================================================
+     C           ##TIM     BEGSR
+      *
+     C           W$TM      IFNE 9999
+      *時刻　時
+     C           W$JJ      IFLT 00
+     C           W$JJ      ORGT 24
+     C                     SETON                     99
+     C                     ENDIF
+      *時刻　分
+     C           W$FF      IFLT 00
+     C           W$FF      ORGT 60
+     C                     SETON                     99
+     C                     ENDIF
+      *
+     C   99                MOVELER,13     D2ERR
+      *
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C*===============================================================
+      *ファイル更新処理
+     C*===============================================================
+     C           #UPDAT    BEGSR
+     C*
+     C           KEY01     CHAINGAHPL30              90
+     C   90                CLEARGAHPL301
+     C*
+S1   C                     SELEC
+-1   C           D1KKBN    WHEQ '0'                        :CANCEL
+     C                     MOVEL'D'       G3SKJY           DELETE CODE D
+     C                     Z-ADD@SYSHZ    G3SKHZ           DELETE DATE
+     C                     Z-ADD@SYSTM    G3SKTM           DELETE TIME
+     C                     MOVELW$USER    G3SKNM           DELETE PERSON
+-1   C                     OTHER                           :ADD CHANGE
+     C                     MOVEL' '       G3SKJY           DELETE CODE D
+     C                     Z-ADD0         G3SKHZ           DELETE DATE
+     C                     Z-ADD0         G3SKTM           DELETE TIME
+     C                     MOVEL*BLANK    G3SKNM           DELETE PERSON
+     C                     Z-ADD@SYSHZ    G3KOHZ           UPDATE DATE
+     C                     Z-ADD@SYSTM    G3KOTM           UPDATE TIME
+     C                     MOVELW$PGM     G3KOPG           UPDATE PROGRAM
+     C                     MOVELW$USER    G3KONM           UPDATE PERSON
+     C                     MOVELD1CARR    G3CARR           CARRIER
+     C                     MOVELD1ROUT    G3ROUT           ROUTE
+     C                     Z-ADDD1BIN#    G3BIN#           BIN #
+     C                     MOVELD2FREQ    G3FREQ           FREQUENCY SHIPMENT
+     C                     Z-ADDD2NSTM    G3NSTM           NEW SIHPMENT START
+     C                     Z-ADDD2OSTM    G3OSTM           NEW SIHPMENT START
+     C                     Z-ADDD2CHDT    G3CHDT           CHANGE OVER DATE
+E1   C                     ENDSL
+      *
+     C   90                WRITEGAHPL301
+     C  N90                UPDATGAHPL301
+     C*
+     C*
+     C                     MOVE *BLANK    D1KKBN           更新区分
+     C                     MOVEL*BLANK    D1CARR            CARRIER
+     C                     MOVEL*BLANK    D1ROUT            ROUTE
+     C                     Z-ADD0         D1BIN#            BIN #
+     C                     SETON                     20
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDSR
+      *================================================================
+      *================================================================
+**  ERROR
+E-01 UPDATE INSTRUCTION <0 1 2>
+E-02 INPUT CARRIER CODE
+E-03 NOT IN CARRIER MASTER
+E-04 INPUT ROUTE CODE
+E-05 NOT IN ROUTE MASTER
+E-06 INPUT # OF BIN
+E-07 THERE ISN'T CANCEL DATA
+E-08 DATA IS CANCELLED ALREADY
+E-09 NO DATA
+E-10 DATA EXIST
+E-11 "1"-DAILY  OR  "2"-OTHER
+E-12 INPUT TIME
+E-13 RANGE IS 00:00 -- 23:59  OR  99:99
+E-14 INPUT DATE
+E-15 DATE ERROR
+E-16
+E-17
+E-18
+E-19
+E-20

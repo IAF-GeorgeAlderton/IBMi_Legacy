@@ -1,0 +1,619 @@
+             PGM
+             /** ABACP1 ******************************************/
+             /*PRODUCT DEMAND FORECAST ACCUMULATION DATA CREATE  */
+             /*   USER KANBAN M/F CREATE                         */
+             /* I-HASADA                  86.10.01               */
+             /* TCH 00.06.16 CHANGE FORD PROGRAM                 */
+             /* TCH 00.07.27 RELEASE D-MAX,ISUZU                 */
+             /* TCH 00.08.29 CORRECT PARM SIRE -> DATE(YYYYMM)   */
+             /* TCH 01.05.10 ADD ARVIN SANGO                     */
+             /* TCH 01.05.21 ADD PARAMETER FOR FORD              */
+             /* TCH 02.05.08 ADD TEXTRON                         */
+             /******************************** ABACP1 ************/
+             DCLF       FILE(ABAPW32)
+             DCL        VAR(&ABADS1) TYPE(*CHAR) LEN(48)
+             DCL        VAR(&ABBDS1) TYPE(*CHAR) LEN(54)
+             DCL        VAR(&WSID)   TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT)    TYPE(*CHAR) LEN(7)
+             DCL        VAR(&TYPE)   TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG)   TYPE(*CHAR) LEN(10)
+             DCL        VAR(&MBAN)   TYPE(*CHAR) LEN(4)
+             DCL        VAR(&KOTAE)  TYPE(*CHAR) LEN(1)
+             DCL        VAR(&BHIZ)   TYPE(*CHAR) LEN(6)
+             DCL        VAR(&PYMD)   TYPE(*CHAR) LEN(6)
+             DCL        VAR(&WYMD)   TYPE(*CHAR) LEN(8)
+             DCL        VAR(&PDEVT)  TYPE(*CHAR) LEN(6)
+             DCL        VAR(&PIGCD)  TYPE(*CHAR) LEN(4)
+             DCL        VAR(&FILE1)  TYPE(*CHAR) LEN(9)
+             DCL        VAR(&FILE2)  TYPE(*CHAR) LEN(9)
+             DCL        VAR(&PSIRE)  TYPE(*CHAR) LEN(4)
+             DCL        VAR(&WS)     TYPE(*CHAR) LEN(2)
+             DCL        VAR(&REC)    TYPE(*DEC)  LEN(10 0)
+             DCL        VAR(&USR)    TYPE(*CHAR) LEN(10)
+             DCL        VAR(&WLIB)   TYPE(*CHAR) LEN(8)
+             DCL        VAR(&FLAG)   TYPE(*CHAR) LEN(1)
+             DCL        VAR(&TOKU)   TYPE(*DEC) LEN(4 0)
+             DCL        VAR(&NONY)   TYPE(*DEC) LEN(4 0)
+
+             RTVDTAARA  DTAARA(ABADS1) RTNVAR(&ABADS1)
+             RTVSYSVAL  SYSVAL(QDATE) RTNVAR(&PYMD)
+
+             IF         ((%SST(&ABADS1 7 1)) *EQ '1') CHGVAR +
+                          VAR(&IN01) VALUE('1')
+             IF         ((%SST(&ABADS1 8 1)) *EQ '1') CHGVAR +
+                          VAR(&IN02) VALUE('1')
+             IF         ((%SST(&ABADS1 9 1)) *EQ '1') CHGVAR +
+                          VAR(&IN03) VALUE('1')
+             IF         ((%SST(&ABADS1 10 1)) *EQ '1') CHGVAR +
+                          VAR(&IN04) VALUE('1')
+             IF         ((%SST(&ABADS1 11 1)) *EQ '1') CHGVAR +
+                          VAR(&IN05) VALUE('1')
+             IF         ((%SST(&ABADS1 12 1)) *EQ '1') CHGVAR +
+                          VAR(&IN06) VALUE('1')
+             IF         ((%SST(&ABADS1 13 1)) *EQ '1') CHGVAR +
+                          VAR(&IN07) VALUE('1')
+   /*        IF         ((%SST(&ABADS1 14 1)) *EQ '1') CHGVAR +
+                          VAR(&IN08) VALUE('1')               */
+             IF         ((%SST(&ABADS1 15 1)) *EQ '1') CHGVAR +
+                          VAR(&IN09) VALUE('1')
+             IF         ((%SST(&ABADS1 16 1)) *EQ '1') CHGVAR +
+                          VAR(&IN10) VALUE('1')
+             IF         ((%SST(&ABADS1 17 1)) *EQ '1') CHGVAR +
+                          VAR(&IN11) VALUE('1')
+             IF         ((%SST(&ABADS1 18 1)) *EQ '1') CHGVAR +
+                          VAR(&IN12) VALUE('1')
+             IF         ((%SST(&ABADS1 19 1)) *EQ '1') CHGVAR +
+                          VAR(&IN13) VALUE('1')
+
+ /*          RTVJOBA    JOB(&WSID)                                */
+             RTVJOBA    JOB(&WSID) USER(&USR)
+
+             CALL       PGM(AGAR01) PARM(&WSID &PDEVT &PIGCD)
+
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+
+             CALL       PGM(ALBC00) PARM(&USR  &WLIB)
+
+             CHKOBJ     OBJ(HFILE1/ABAACT) OBJTYPE(*DTAARA)
+             MONMSG     MSGID(CPF9801) EXEC(GOTO CMDLBL(YTP1))
+
+ YTP2:       SNDPGMMSG  MSG('( G ) USER KANBAN M/F UPDATE HANDLING +
+                          IS ACTIVE, WAIT FOR A WHILE. < G= +
+                          EXECUTION >') TOMSGQ(&WSID) MSGTYPE(*INQ) +
+                          KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTAE)
+             IF         COND((&KOTAE *NE 'G') *AND (&KOTAE *NE 'g')) +
+                          THEN(GOTO CMDLBL(YTP2))
+             GOTO       SEND
+
+ YTP1:       CRTDTAARA  DTAARA(HFILE1/ABAACT) TYPE(*CHAR) LEN(10) +
+                          TEXT('DURING USER PROD DEMAND FORECAST +
+                          DATA UPD HANDLING') AUT(*ALL)
+
+             CHGJOB     RUNPTY(30) SWS(00000000)
+
+             CHGVAR     VAR(%SST(&WYMD 3 6)) VALUE(&PYMD)
+             CHGVAR     VAR(%SST(&WYMD 1 2)) VALUE('19')
+             IF         (%SST(&WYMD 3 2) *LT '97') DO
+             CHGVAR     VAR(%SST(&WYMD 1 2)) VALUE('20')
+             ENDDO
+
+             CHGVAR     VAR(&AYM) VALUE(%SST(&WYMD 1 6))
+
+             CALL       PGM(ABAR01) PARM(&AYM)
+
+             CHGVAR     VAR(&BHIZ) VALUE(%SST(&ABADS1 1 6))
+
+ STP1:       SNDRCVF    DEV(&WSID) RCDFMT(ABAPW321)
+
+             CHGVAR     VAR(&IN01) VALUE('0')
+             CHGVAR     VAR(&IN02) VALUE('0')
+             CHGVAR     VAR(&IN03) VALUE('0')
+             CHGVAR     VAR(&IN04) VALUE('0')
+             CHGVAR     VAR(&IN05) VALUE('0')
+             CHGVAR     VAR(&IN06) VALUE('0')
+             CHGVAR     VAR(&IN07) VALUE('0')
+             CHGVAR     VAR(&IN08) VALUE('0')
+             CHGVAR     VAR(&IN09) VALUE('0')
+             CHGVAR     VAR(&IN10) VALUE('0')
+             CHGVAR     VAR(&IN11) VALUE('0')
+             CHGVAR     VAR(&IN12) VALUE('0')
+             CHGVAR     VAR(&IN13) VALUE('0')
+             CHGVAR     VAR(&IN14) VALUE('0')
+             CHGVAR     VAR(&IN15) VALUE('0')
+             CHGVAR     VAR(&IN16) VALUE('0')
+             CHGVAR     VAR(&IN17) VALUE('0')
+             CHGVAR     VAR(&IN18) VALUE('0')
+             CHGVAR     VAR(&IN19) VALUE('0')
+             CHGVAR     VAR(&IN20) VALUE('0')
+             CHGVAR     VAR(&IN21) VALUE('0')
+             CHGVAR     VAR(&IN22) VALUE('0')
+             CHGVAR     VAR(&IN23) VALUE('0')
+             CHGVAR     VAR(&IN24) VALUE('0')
+             CHGVAR     VAR(&IN25) VALUE('0')
+             CHGVAR     VAR(&IN26) VALUE('0')
+             CHGVAR     VAR(&IN27) VALUE('0')
+             CHGVAR     VAR(&IN28) VALUE('0')
+             CHGVAR     VAR(&IN29) VALUE('0')
+             CHGVAR     VAR(&IN30) VALUE('0')
+             CHGVAR     VAR(&IN31) VALUE('0')
+             CHGVAR     VAR(&IN32) VALUE('0')
+             CHGVAR     VAR(&IN33) VALUE('0')
+             CHGVAR     VAR(&IN34) VALUE('0')
+             CHGVAR     VAR(&IN35) VALUE('0')
+             CHGVAR     VAR(&IN36) VALUE('0')
+             CHGVAR     VAR(&IN37) VALUE('0')
+             CHGVAR     VAR(&IN38) VALUE('0')
+             CHGVAR     VAR(&IN39) VALUE('0')
+             CHGVAR     VAR(&IN40) VALUE('0')
+             CHGVAR     VAR(&IN41) VALUE('0')
+             CHGVAR     VAR(&IN42) VALUE('0')
+             CHGVAR     VAR(&IN92) VALUE('0')
+             CHGVAR     VAR(&IN99) VALUE('0')
+
+             IF         (&IN90 *EQ '1') GOTO END
+
+             IF         COND((&ANO *LT '01') *OR (&ANO *GT '13')) +
+                          THEN(DO)
+             CHGVAR     VAR(&IN92) VALUE('1')
+             CHGVAR     VAR(&IN99) VALUE('1')
+             CHGVAR     VAR(&MSG) VALUE('INPUT  NO. APPOINTED  ')
+             GOTO       STP1
+             ENDDO
+
+             IF         (%SST(&ABADS1 1 6) *EQ &AYM) GOTO STP7
+             IF         ((%SST(&ABADS1 1 6)) *LT &AYM) GOTO STP8
+
+             CHGVAR     VAR(&IN01) VALUE('1')
+             CHGVAR     VAR(&IN02) VALUE('1')
+             CHGVAR     VAR(&IN03) VALUE('1')
+             GOTO       STP8
+
+ STP7:       IF         ((%SST(&ABADS1 7 1)) *EQ '1') CHGVAR +
+                          VAR(&IN01) VALUE('1')
+             IF         ((%SST(&ABADS1 8 1)) *EQ '1') CHGVAR +
+                          VAR(&IN02) VALUE('1')
+             IF         ((%SST(&ABADS1 9 1)) *EQ '1') CHGVAR +
+                          VAR(&IN03) VALUE('1')
+             IF         ((%SST(&ABADS1 10 1)) *EQ '1') CHGVAR +
+                          VAR(&IN04) VALUE('1')
+             IF         ((%SST(&ABADS1 11 1)) *EQ '1') CHGVAR +
+                          VAR(&IN05) VALUE('1')
+             IF         ((%SST(&ABADS1 12 1)) *EQ '1') CHGVAR +
+                          VAR(&IN06) VALUE('1')
+             IF         ((%SST(&ABADS1 13 1)) *EQ '1') CHGVAR +
+                          VAR(&IN07) VALUE('1')
+   /*        IF         ((%SST(&ABADS1 14 1)) *EQ '1') CHGVAR +
+                          VAR(&IN08) VALUE('1')          */
+             IF         ((%SST(&ABADS1 15 1)) *EQ '1') CHGVAR +
+                          VAR(&IN09) VALUE('1')
+             IF         ((%SST(&ABADS1 16 1)) *EQ '1') CHGVAR +
+                          VAR(&IN10) VALUE('1')
+             IF         ((%SST(&ABADS1 17 1)) *EQ '1') CHGVAR +
+                          VAR(&IN11) VALUE('1')
+             IF         ((%SST(&ABADS1 18 1)) *EQ '1') CHGVAR +
+                          VAR(&IN12) VALUE('1')
+             IF         ((%SST(&ABADS1 19 1)) *EQ '1') CHGVAR +
+                          VAR(&IN13) VALUE('1')
+
+ STP8:       IF         (&IN91 *EQ '0') GOTO STP1
+
+             IF         ((%SST(&ABADS1 1 6)) *GT &AYM) GOTO SAP1
+             IF         (%SST(&ABADS1 1 6) *EQ &AYM) GOTO SAP1
+
+             CHGVAR     VAR(%SST(&ABADS1 7 42)) +
+                          VALUE('000000000000000000000000000000000000+
+                          000000')
+             CHGDTAARA  DTAARA(ABADS1) VALUE(&ABADS1)
+
+             CHGVAR     VAR(%SST(&ABBDS1 27 1)) VALUE(' ')
+             CHGDTAARA  DTAARA(ABBDS1) VALUE(&ABBDS1)
+
+ SAP1:       DLTF       FILE(ABAWP42)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/ABAWP42) RCDLEN(300) +
+                          OPTION(*NOLIST) SIZE(15000 2000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             IF         (&ANO *EQ '01') GOTO ATP0
+             IF         (&ANO *EQ '02') GOTO ATP1
+             IF         (&ANO *EQ '03') GOTO ATP2
+             IF         (&ANO *EQ '04') GOTO ATP3
+             IF         (&ANO *EQ '05') GOTO ATP4
+             IF         (&ANO *EQ '06') GOTO ATP5
+             IF         (&ANO *EQ '07') GOTO ATP6
+  /*         IF         (&ANO *EQ '08') GOTO ATP7       */
+             IF         (&ANO *EQ '09') GOTO ATP5
+             IF         (&ANO *EQ '10') GOTO ATPH1
+             IF         (&ANO *EQ '11') GOTO ATPH2
+             IF         (&ANO *EQ '12') GOTO ATP9
+             IF         (&ANO *EQ '13') GOTO ATP13
+
+
+             /*----------------------------*/
+             /*  ..TOYOTA EDI(830) TMMC..  */
+             /*----------------------------*/
+
+ ATP0:       OVRPRTF    FILE(QPRINT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             OVRPRTF    FILE(QPRINT2) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             CALL       PGM(ABAR18)
+
+             DLTF       FILE(ABAWP19)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/ABAWP19) RCDLEN(300) +
+                          OPTION(*NOLIST) SIZE(15000 2000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CALL       PGM(ABAR19) PARM(&AYM)
+
+             CALL       PGM(ABAR20)
+             DLTF       FILE(ABAWP19)
+             DLTOVR     FILE(*ALL)
+
+             GOTO       OK
+
+
+             /*-----------------------------*/
+             /*  ..TOYOTA EDI(830) NUMMI..  */
+             /*-----------------------------*/
+
+ ATP1:       OVRPRTF    FILE(QPRINT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             OVRPRTF    FILE(QPRINT2) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             CALL       PGM(ABAR21)
+
+             DLTF       FILE(ABAWP22)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/ABAWP22) RCDLEN(300) +
+                          OPTION(*NOLIST) SIZE(15000 2000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CALL       PGM(ABAR22) PARM(&AYM)
+
+             CALL       PGM(ABAR23)
+          /* DLTF       FILE(ABAWP22)  */
+             DLTOVR     FILE(*ALL)
+
+             GOTO       OK
+
+
+             /*----------------------------*/
+             /*  ..TOYOTA EDI(830) TMMK..  */
+             /*----------------------------*/
+
+ ATP2:       OVRPRTF    FILE(QPRINT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             OVRPRTF    FILE(QPRINT2) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             CALL       PGM(ABAR24)
+
+             DLTF       FILE(ABAWP25)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/ABAWP25) RCDLEN(300) +
+                          OPTION(*NOLIST) SIZE(15000 2000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CALL       PGM(ABAR25) PARM(&AYM)
+
+             CALL       PGM(ABAR26)
+             DLTF       FILE(ABAWP25)
+             DLTOVR     FILE(*ALL)
+
+             GOTO       OK
+
+             /*----------------------------*/
+             /*  ..TOYOTA EDI(830) TMMI..  */
+             /*----------------------------*/
+
+ ATP3:       OVRPRTF    FILE(QPRINT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             OVRPRTF    FILE(QPRINT2) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             CALL       PGM(ABAR27)
+
+             DLTF       FILE(ABAWP28)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/ABAWP28) RCDLEN(300) +
+                          OPTION(*NOLIST) SIZE(15000 2000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CALL       PGM(ABAR28) PARM(&AYM)
+
+             CALL       PGM(ABAR29)
+             DLTF       FILE(ABAWP28)
+             DLTOVR     FILE(*ALL)
+
+             GOTO       OK
+
+             /*----------------------------*/
+             /*  ..TOYOTA EDI(830) TMMWV..  */
+             /*----------------------------*/
+
+ ATP4:       OVRPRTF    FILE(QPRINT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             OVRPRTF    FILE(QPRINT2) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             CALL       PGM(ABAR2A)
+
+             DLTF       FILE(ABAWP2B)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/ABAWP2B) RCDLEN(300) +
+                          OPTION(*NOLIST) SIZE(15000 2000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CALL       PGM(ABAR2B) PARM(&AYM)
+
+             CALL       PGM(ABAR2C)
+             DLTF       FILE(ABAWP2B)
+             DLTOVR     FILE(*ALL)
+
+             GOTO       OK
+
+             /*------------------------*/
+             /*  ..ISUZU  EDI(830) ..  */
+             /*------------------------*/
+
+ ATP5:       IF         COND(&ANO *EQ '06') THEN(DO)
+             CHGVAR     VAR(&PSIRE) VALUE('0437')
+             ENDDO
+
+             IF         (&ANO *EQ '09') THEN(DO)
+             CHGVAR     VAR(&PSIRE) VALUE('0590')
+             ENDDO
+
+             OVRPRTF    FILE(QPRINT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             OVRPRTF    FILE(QPRINT2) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             CALL       PGM(ABAR2D) PARM(&PSIRE)
+
+             DLTF       FILE(ABAWP2E)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/ABAWP2E) RCDLEN(300) +
+                          OPTION(*NOLIST) SIZE(15000 2000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CALL       PGM(ABAR2E) PARM(&AYM)
+
+             CALL       PGM(ABAR2F)
+             DLTF       FILE(ABAWP2E)
+             DLTOVR     FILE(*ALL)
+
+             GOTO       OK
+
+             /*------------------------*/
+             /*  ..FORD   EDI(830) ..  */
+             /*------------------------*/
+
+ ATP6:
+             CHGVAR     VAR(&WS) VALUE(%SST(&WSID 1 2))
+             CHGVAR     VAR(&FILE1) VALUE('OUT' *CAT &WS)
+             DLTF       FILE(&WLIB/&FILE1)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/&FILE1) RCDLEN(256) +
+                          OPTION(*NOLIST) LVLCHK(*NO) AUT(*ALL)
+             OVRDBF     FILE(OUTFILE) TOFILE(&WLIB/&FILE1)
+             CALL       PGM(ABAR2G) PARM(&USR &FLAG)
+
+             IF         COND(&FLAG *NE '1') THEN(GOTO CMDLBL(ATP601))
+             CALL       PGM(ABAR2L) PARM(&USR)
+             CALL       PGM(ABAR2K) PARM(&USR)
+             DLTOVR     FILE(OUTFILE)
+
+             CHGVAR     VAR(&REC) VALUE('0')
+             RTVMBRD    FILE(&WLIB/&FILE1) NBRCURRCD(&REC)
+             IF         COND(&REC = 0) THEN(GOTO CMDLBL(ATP601))
+
+             CHGVAR     VAR(&FILE2) VALUE('IN' *CAT &WS)
+             DLTF       FILE(&WLIB/&FILE2)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/&FILE2) RCDLEN(256) +
+                          OPTION(*NOLIST) LVLCHK(*NO) AUT(*ALL)
+             FMTDTA     INFILE((&WLIB/&FILE1)) OUTFILE(&WLIB/&FILE2) +
+                          SRCFILE(FMTSRC) SRCMBR(ABAS2J) OPTION(*NOPRT)
+
+             OVRPRTF    FILE(QPRINT) DEVTYPE(&PDEVT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(K6H1) +
+                          HOLD(*YES) IGCDTA(&PIGCD)
+             OVRPRTF    FILE(QPRINT2) DEVTYPE(&PDEVT) PAGESIZE(66 +
+                          198) LPI(6) CPI(15) OUTQ(&PRTG) +
+                          HOLD(*NO)  IGCDTA(&PIGCD)
+             OVRPRTF    FILE(QPRINT3) DEVTYPE(&PDEVT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(K6H1) +
+                          HOLD(*YES) IGCDTA(&PIGCD)
+
+             OVRDBF     FILE(INFILE) TOFILE(&WLIB/&FILE2)
+             CALL       PGM(ABAR2J)
+
+ ATP601:     DLTF       FILE(ABAWP2H)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/ABAWP2H) RCDLEN(300) +
+                          OPTION(*NOLIST) SIZE(15000 2000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CALL       PGM(ABAR2H) PARM(&AYM)
+
+             CALL       PGM(ABAR2I)
+             DLTF       FILE(ABAWP2H)
+             DLTOVR     FILE(*ALL)
+
+             GOTO       OK
+
+             /*-----------------------*/
+             /*  ..HCM   EDI(850) ..  */
+             /*-----------------------*/
+
+ ATP7:       OVRPRTF    FILE(QPRINT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             OVRPRTF    FILE(QPRINT2) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             CALL       PGM(ABAR2M) PARM(&BHIZ)
+
+             DLTF       FILE(ABAWP2N)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/ABAWP2N) RCDLEN(300) +
+                          OPTION(*NOLIST) SIZE(15000 2000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CALL       PGM(ABAR2N) PARM(&AYM)
+
+             CALL       PGM(ABAR2O)
+             DLTF       FILE(ABAWP2N)
+             DLTOVR     FILE(*ALL)
+
+             GOTO       OK
+
+             /*------------------------*/
+             /*  ..HONDA           ..  */
+             /*------------------------*/
+
+ ATPH1:       IF         COND(&ANO *EQ '10') THEN(DO)
+             OVRPRTF    FILE(QPRINT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             OVRPRTF    FILE(QPRINT2) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             CRTDUPOBJ  OBJ(ABAWP2W) FROMLIB(HWFILE1) OBJTYPE(*FILE) +
+                          TOLIB(QTEMP)
+             MONMSG     MSGID(CPF0000)
+             CLRPFM QTEMP/ABAWP2W
+             OVRDBF     FILE(ABAWP2W) TOFILE(QTEMP/ABAWP2W)
+             CALL       PGM(ABAR2V) PARM(&AYM)
+             CALL       PGM(ABAR2Z)
+
+             DLTF       FILE(QTEMP/ABAWP2X)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(QTEMP/ABAWP2X) RCDLEN(300) +
+                          OPTION(*NOLIST) SIZE(15000 2000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CALL       PGM(ABAR2W) PARM(&AYM)
+
+             CALL       PGM(ABAR2X)
+             DLTF       FILE(ABAWP2X)
+             DLTOVR     FILE(*ALL)
+
+             GOTO       OK
+             ENDDO
+ ATPH2:
+             IF         COND(&ANO *EQ '11') THEN(DO)
+             OVRPRTF    FILE(QPRINT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             OVRPRTF    FILE(QPRINT2) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             CRTDUPOBJ  OBJ(ABAWP2W) FROMLIB(HWFILE1) OBJTYPE(*FILE) +
+                          TOLIB(QTEMP)
+             MONMSG     MSGID(CPF0000)
+             CLRPFM QTEMP/ABAWP2W
+             OVRDBF     FILE(ABAWP2W) TOFILE(QTEMP/ABAWP2W)
+             CALL       PGM(ABAR2Y)
+             CALL       PGM(ABAR2Z)
+
+             DLTF       FILE(QTEMP/ABAWP2X)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(QTEMP/ABAWP2X) RCDLEN(300) +
+                          OPTION(*NOLIST) SIZE(15000 2000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CALL       PGM(ABAR2W) PARM(&AYM)
+
+             CALL       PGM(ABAR2X)
+             DLTF       FILE(ABAWP2X)
+             DLTOVR     FILE(*ALL)
+
+             GOTO       OK
+             ENDDO
+
+             /*------------------------*/
+             /*  ..ARVIN SANGO(830)..  */
+             /*------------------------*/
+
+ ATP9:       IF         COND(&ANO *EQ '12') THEN(DO)
+             CHGVAR     VAR(&PSIRE) VALUE('0873')
+             OVRDBF     FILE(INPUT) TOFILE(EDI830AS)
+             ENDDO
+
+             OVRPRTF    FILE(QPRINT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             OVRPRTF    FILE(QPRINT2) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             CALL       PGM(ABAR2S) PARM(&PSIRE)
+
+             DLTF       FILE(ABAWP2T)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/ABAWP2T) RCDLEN(300) +
+                          OPTION(*NOLIST) SIZE(15000 2000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CALL       PGM(ABAR2T) PARM(&AYM)
+
+             CALL       PGM(ABAR2U)
+             DLTF       FILE(ABAWP2T)
+             DLTOVR     FILE(*ALL)
+
+             GOTO       OK
+             /*----------------------------*/
+             /*  ..TEXTRON                  */
+             /*----------------------------*/
+
+ ATP13:       OVRPRTF    FILE(QPRINT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             OVRPRTF    FILE(QPRINT2) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(FORECAST) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+
+             CALL       PGM(ABAR16)
+
+             DLTF       FILE(QTEMP/ABAWP2B)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(QTEMP/ABAWP2B) RCDLEN(300) +
+                          OPTION(*NOLIST) SIZE(15000 2000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             OVRDBF     FILE(ABAWP2B) TOFILE(QTEMP/ABAWP2B)
+             CHGVAR     VAR(&TOKU) VALUE(5535)
+             CHGVAR     VAR(&NONY) VALUE(5535)
+
+             CALL       PGM(ABAR17) PARM(&TOKU &NONY &AYM)
+
+             CALL       PGM(ABAR2C)
+             DLTF       FILE(QTEMP/ABAWP2B)
+             DLTOVR     FILE(*ALL)
+
+             GOTO       OK
+
+ OK:         CALL       PGM(ABACJ1) PARM(&ANO &AYM &BHIZ)
+
+ END:        DLTF       FILE(ABAWP42)
+             MONMSG     MSGID(CPF3261 CPF2105)
+
+             DLTDTAARA  DTAARA(HFILE1/ABAACT)
+             MONMSG     MSGID(CPF2105)
+
+ SEND:       CHGJOB     RUNPTY(20)
+
+             ENDPGM

@@ -1,0 +1,330 @@
+     H            Y.
+     F** AK#R04 *********************************************
+     F*  PRIORITY LIST - SRT                                *
+     F*  COPY FROM AK#R01  2018.02.21                       *
+     F*  J.WATANABE                                         *
+     H*  --------------------------                         *
+JW1  H*  JW  2018.03.26 ADD SCAN DATE                       *
+JW2  H*  JW  2019.02.20 SELECT SCAN DATE = WITHIN 1 MONTH   *
+     F*******************************************************
+     FALCPL09 IF  E           K        DISK
+     FNZUPL05 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+     FAK#WP04 O   E                    DISK
+      *
+     I            DS
+     I                                        1  12 A8PR1
+     I                                        1   5 A8PR11
+     I                                        6  10 A8PR12
+     I                                       11  12 A8PR13
+      *
+     I            DS
+     I                                        1   80P@IDAT
+     I                                        1   40P@YY
+     I                                        5   60P@MM
+     I                                        7   80P@DD
+     I* SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I                                        1   20WSHH
+     I                                        3   40WSMN
+     I                                        5   60WSSS
+     I                                        7  100WSYY
+     I                                       11  120WSMM
+     I                                       13  140WSDD
+     I                                        1   40WSTM4
+     I           SDS
+     I                                     *PROGRAM #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      ******************************************************
+      *                   MAIN ROUTINE                     *
+      ******************************************************
+      *
+     C                     EXSR #INIT
+      * READ   ALCPL09 : KEY=SRT
+      * OUTPUT AK#WP04
+     C           K#09      SETLLALCPL09
+     C           *IN95     DOWEQ'0'
+     C           K#09      READEALCPL09                  95
+     C           *IN95     IFEQ *OFF
+     C           A8PR11    ANDNE*BLANK
+     C           A8BRC2    ANDEQ'SRT'
+     C           A8ORD     ANDNESVORD
+JW2  C           A8DATE    ANDGEP@IDAT
+ |    * CHECK INVENTORY
+ |   C                     EXSR #INV
+ |   C           OKFLG     IFNE 'Y'
+ |   C                     MOVELA8ORD     SVORD
+ |   C                     ITER
+JW2  C                     ENDIF
+      *
+      * CHECK SORTING MACHINE
+     C                     MOVELA8PR1     $SHIN
+     C                     CALL 'UTLR57'
+     C                     PARM           $SHIN  12
+     C                     PARM           $SRTN  20
+     C                     PARM           $SRT#  20
+     C                     PARM           $RTN    1
+      *
+     C           $SRTN     IFNE *BLANK
+     C                     EXSR #LOC
+     C           PRTFLG    IFEQ 'Y'
+     C                     EXSR #OUT
+     C                     MOVELA8ORD     SVORD
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *--------------------------------------------------*
+      * CHECK INVENTORY                                  *
+      *--------------------------------------------------*
+     C           #INV      BEGSR
+      *
+     C                     MOVE *BLANK    OKFLG   1
+     C                     Z-ADD0         BCNT1   30
+     C                     Z-ADD0         SCNT1   30
+      * GET STOCK INFO
+     C                     MOVELP@IDAT    K@IDAT
+     C                     MOVE *OFF      *IN96
+     C           K@NZU     SETLLNZUPL05
+      *
+     C           *IN96     DOWEQ*OFF
+     C           K@NZ2     READENZUPL05                  96
+     C           *IN96     IFEQ *OFF
+     C           N2TEHI    ANDEQA8ORD
+     C           N2SKJY    ANDNE'D'
+     C           N2NYHZ    IFEQ 0
+     C           N2DEHZ    ANDEQ0
+     C                     ADD  1         BCNT1
+     C                     ELSE
+     C                     ADD  1         SCNT1
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      * FLAG: BLANK_CNT<>0 AND STORE_CNT=0
+     C           SCNT1     IFEQ 0
+     C           BCNT1     ANDNE0
+     C                     MOVE 'Y'       OKFLG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *--------------------------------------------------*
+      * CHECK STORE IN/OUT LOCATION                      *
+      *--------------------------------------------------*
+     C           #LOC      BEGSR
+      *
+     C                     MOVE 'N'       PRTFLG  1
+     C                     Z-ADD0         BCNT2   30
+     C                     Z-ADD0         SCNT2   30
+     C                     Z-ADD0         L1IDAT  80
+     C                     Z-ADD0         L1IBIN  20
+     C                     MOVE *BLANK    L1IORD  3
+      * GET STOCK INFO
+     C                     MOVELP@IDAT    K@IDAT
+     C                     MOVE *OFF      *IN96
+     C           K@NZU     SETLLNZUPL05
+      *
+     C           *IN96     DOWEQ*OFF
+     C           K@NZ2     READENZUPL05                  96
+     C           *IN96     IFEQ *OFF
+     C           N2TEHI    ANDEQA8ORD
+     C           N2SKJY    ANDNE'D'
+     C           N2NYHZ    IFEQ 0
+     C           N2DEHZ    ANDEQ0
+     C                     ADD  1         BCNT2
+     C                     Z-ADDN2HAHZ    L1IDAT
+     C                     Z-ADDN2HABB    L1IBIN
+     C                     MOVELN2TEHI    L1IORD
+     C                     ELSE
+     C                     ADD  1         SCNT2
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      * PRINT: BLANK_CNT<>0 AND STORE_CNT=0
+     C           SCNT2     IFEQ 0
+     C           BCNT2     ANDNE0
+     C                     MOVE 'Y'       PRTFLG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *--------------------------------------------------*
+      * OUTPUT AK#WP04                                   *
+      *--------------------------------------------------*
+     C           #OUT      BEGSR
+      *
+     C           K@FCE     CHAINFCEPL01              99
+     C           *IN99     IFEQ *ON
+     C                     MOVE *BLANK    A2MEK1           MEKI
+     C                     MOVE *BLANK    A2MEK2
+     C                     MOVE *BLANK    A2MEK3
+     C                     ENDIF
+      *
+     C                     CALL 'UTLR21'
+     C                     PARM           $SHIN  12
+     C                     PARM           $LLOC   6
+     C                     PARM           $LQC    50
+     C                     PARM           $LPRC   3
+     C                     PARM           $LDPT   40
+     C                     PARM           $ZETI   4
+     C                     PARM           $RTN    1
+      * GET PRELOAD QTY
+     C                     MOVELL1IDAT    X1IDAT
+     C                     CALL 'UEXR04'
+     C                     PARM           $SHIN
+     C                     PARM           X1IDAT  8
+     C                     PARM           L1IORD
+     C                     PARM           P@MINO 11
+     C                     PARM           P@MINA 11
+     C                     PARM           P@PRE  11
+     C                     PARM           P@UNS   5
+     C                     PARM           P@BARL  2
+     C                     PARM           P@RTN   1
+      *
+     C           P@RTN     IFEQ *BLANK
+     C                     MOVELP@MINO    X1MINO 110
+     C                     MOVELP@MINA    X1MINA 110
+     C                     MOVELP@PRE     X1PRE  110
+     C                     MOVELP@UNS     X1UNS   50
+     C                     MOVELP@BARL    X1BARL  20
+      *
+     C                     CLEARAK#WP041
+      *
+     C                     MOVEL$LLOC     W1LOC            LAST LOCATION
+     C                     MOVELX1MINA    W1QTY
+     C                     Z-ADDX1PRE     W1PRE
+     C                     Z-ADDX1MINO    W1MINO
+     C                     Z-ADDX1UNS     W1UNS
+     C                     MOVELA8PR11    W1SHN1           PART1
+     C                     MOVELA8PR12    W1SHN2           PART2
+     C                     MOVELA8PR13    W1SHN3           PART3
+     C                     Z-ADD$LQC      W1SSYS           Q/C
+     C                     Z-ADDX1BARL    W1BARL
+     C*                    MOVELX         W1BMON           LAST DEPT
+     C                     MOVEL'SRT'     W1KOTE           'SRT'
+     C*                    MOVELX         W1SDAT           SHIP DATE
+     C*                    MOVELX         W1STIM           SHIP TIME
+     C                     MOVELA2MEK1    W1MEK1           MEKI
+     C                     MOVELA2MEK2    W1MEK2
+     C                     MOVELA2MEK3    W1MEK3
+     C                     MOVE *BLANK    W1JNAM           '  '
+     C                     MOVEL$SRTN     W1SRTN           SORT NAME
+     C                     MOVEL$SRT#     W1SRT#           SORT#
+      *
+     C           $SRT#     IFEQ *BLANK
+     C                     EXSR #ADJ1
+     C                     MOVELXSRT#     W1KIBN           MACHINE
+     C                     ELSE
+     C                     MOVEL$SRT#     W1KIBN
+     C                     ENDIF
+      * SCAN DATE/TIME
+JW1  C                     Z-ADDA8DATE    W1DYMD
+ "   C                     Z-ADDA8TIME    W1THMS
+      *
+     C                     Z-ADDL1IDAT    W1IDAT
+     C                     Z-ADDL1IBIN    W1IBIN
+     C                     MOVELL1IORD    W1IORD
+      * GET SHIP DATE/TIME
+     C                     MOVE TODAY     P@DATE
+     C                     MOVE '99999999'PRDAT
+     C                     MOVE *BLANK    P@CRTD  1
+     C                     CALL 'AB#RS3'
+     C                     PARM           W1SHN1
+     C                     PARM           W1SHN2
+     C                     PARM           W1SHN3
+     C                     PARM           P@DATE  8
+     C                     PARM           PRDAT   8
+     C                     PARM           @@TDYN  90
+     C                     PARM           @@SDAT  80
+     C                     PARM           @@STIM  40
+     C                     PARM           P@DAT1  80
+     C                     PARM           P@NON1  40
+     C                     PARM           P@DAT2  80
+     C                     PARM           P@NON2  40
+     C                     PARM           P@DAT3  80
+     C                     PARM           P@NON3  40
+     C                     PARM           P@DAT4  80
+     C                     PARM           P@NON4  40
+     C                     PARM           P@CRTD  1
+     C                     Z-ADD@@SDAT    W1SDAT
+     C                     Z-ADD@@STIM    W1STIM
+      *
+     C                     WRITEAK#WP041
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *--------------------------------------------------*
+      * ADJUST MACHINE#                                  *
+      *--------------------------------------------------*
+     C           #ADJ1     BEGSR
+      *
+     C                     MOVE *BLANK    XSRT#  10
+     C                     MOVEL$SRTN     LTR4    4
+     C                     MOVE LTR4      LTR1    1
+     C           LTR1      IFEQ '0'
+     C           LTR1      OREQ '1'
+     C           LTR1      OREQ '2'
+     C           LTR1      OREQ '3'
+     C           LTR1      OREQ '4'
+     C           LTR1      OREQ '5'
+     C           LTR1      OREQ '6'
+     C           LTR1      OREQ '7'
+     C           LTR1      OREQ '8'
+     C           LTR1      OREQ '9'
+     C                     MOVELLTR1      XSRT#     P
+     C                     ELSE
+     C                     MOVEL'SORT'    XSRT#     P
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *--------------------------------------------------*
+      * INITIAL PROCESS                                  *
+      *--------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           K#09      KLIST
+     C                     KFLD           K@B2L1  1
+     C                     KFLD           K@B2L2  2
+      *
+     C           K@NZU     KLIST
+     C                     KFLD           A8PR11
+     C                     KFLD           A8PR12
+     C                     KFLD           A8PR13
+     C                     KFLD           A8ORD
+     C                     KFLD           K@IDAT  80
+      *
+     C           K@NZ2     KLIST
+     C                     KFLD           A8PR11
+     C                     KFLD           A8PR12
+     C                     KFLD           A8PR13
+     C                     KFLD           A8ORD
+      *
+     C           K@FCE     KLIST
+     C                     KFLD           A8PR11
+     C                     KFLD           A8PR12
+     C                     KFLD           A8PR13
+      * RETRIEVE SYSTEM TIME
+     C                     TIME           WSDT
+     C                     MOVE *BLANK    SVORD   3
+     C                     MOVEL'S'       K@B2L1
+     C                     MOVEL'RT'      K@B2L2
+      * SET BACK 30 DAYS
+     C                     Z-ADDWSYY      P@YY
+     C                     Z-ADDWSMM      P@MM
+     C                     Z-ADDWSDD      P@DD
+      *
+     C                     SUB  1         P@MM
+     C           P@MM      IFLE 0
+     C                     SUB  1         P@YY
+     C                     Z-ADD12        P@MM
+     C                     ENDIF
+      *
+     C                     ENDSR

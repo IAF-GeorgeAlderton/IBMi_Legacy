@@ -1,0 +1,206 @@
+     H            Y.
+     F** CHKR78 ****************************************************************
+     F*  PROGRAM    : PRINT POSTING ERROR REPORT (UNPOST)                      *
+     F*             : ADD JOB TO VJBC71  (JOB SCHEDULE  05:45 AM)              *
+     F*  WRITTEN    : 1/30/2020                                                *
+     F*  WRITTEN BY : JW (SRA)                                                 *
+     F**************************************************************************
+     FAB#PL78AIF  E           K        DISK
+     FAB#PL0M IF  E           K        DISK
+     FAB#PL08 IF  E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+      **************************************************************************
+     I            DS
+     I                                        1   80P8NOHZ
+     I                                        1   40P8NOYY
+     I                                        5   60P8NOMM
+     I                                        7   80P8NODD
+     I            DS
+     I                                        1  140@SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+     C           FDATE     SETLLAB#PL78A
+     C                     DO   *HIVAL
+     C                     READ AB#PL78A                 98
+     C   98                LEAVE
+     C           P8SKJY    IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+      * CHECK PP10
+     C                     EXSR #PP10
+     C           P10FLG    IFEQ 'N'
+     C                     ITER
+     C                     ENDIF
+      * CHECK PP01
+     C                     EXSR #PP01
+     C           P01FLG    IFEQ 'N'
+     C                     EXSR #PRINT
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C           SEQ#      IFEQ 0
+     C                     EXCPT@FOT
+     C                     MOVE ' '       $RTN
+     C                     ELSE
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  CHECK PP10                                        *
+      *----------------------------------------------------*
+     C           #PP10     BEGSR
+      *
+     C                     MOVE 'N'       P10FLG  1
+     C           K#PP10    SETLLAB#PL08
+     C                     DO   *HIVAL
+     C           K#PP10    READEAB#PL08                  97
+     C   97                LEAVE
+      *
+     C           BASKJY    IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+      *
+     C           P8ODRN    IFNE *BLANK
+     C           P8ODRN    ANDEQBAODRN
+     C                     MOVE 'Y'       P10FLG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           P8ODRN    IFEQ *BLANK
+     C                     MOVE 'Y'       P10FLG
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  CHECK PP01                                        *
+      *----------------------------------------------------*
+     C           #PP01     BEGSR
+      *
+     C                     MOVE 'N'       P01FLG  1
+     C           K#PP01    SETLLAB#PL0M
+     C                     DO   *HIVAL
+     C           K#PP01    READEAB#PL0M                  97
+     C   97                LEAVE
+      *
+     C           B1SKJY    IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+      *
+     C           P8ODRN    IFNE *BLANK
+     C           P8ODRN    ANDEQB1ODR1
+     C                     MOVE 'Y'       P01FLG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           P8ODRN    IFEQ *BLANK
+     C                     MOVE 'Y'       P01FLG
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      * PRINT HEADER
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD4         LIN#
+     C                     ENDIF
+      * PRINT DETAIL
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $FDATE  8
+     C                     PARM           $RTN    1
+      *
+     C           K#PP10    KLIST
+     C                     KFLD           P8NONY
+     C                     KFLD           P8NKOJ
+     C                     KFLD           P8NUKE
+     C                     KFLD           P8NOYY
+     C                     KFLD           P8NOMM
+     C                     KFLD           P8NODD
+     C                     KFLD           P8BINN
+      *
+     C           K#PP01    KLIST
+     C                     KFLD           P8NOYY
+     C                     KFLD           P8NOMM
+     C                     KFLD           P8NODD
+     C                     KFLD           P8CUST
+     C                     KFLD           P8NONY
+     C                     KFLD           P8NKOJ
+     C                     KFLD           P8NUKE
+     C                     KFLD           P8BINN
+      *
+     C                     MOVEL$FDATE    FDATE   80
+     C                     TIME           @SDATE
+     C                     Z-ADD0         SEQ#    40
+      * PRINT HEADER
+     C                     EXCPT@HDR
+     C                     Z-ADD4         LIN#    30
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   40 '** POSTING ERROR REP'
+     O                                   60 'ORT **              '
+     O                                   99 'DATE'
+     O                         TODAY     92 '    .  .  '
+     O                         NOW      102 '  :  :  '
+     O                         PAGE  Z  109
+     O                                  106 'P.'
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   11 'CUST'
+     O                                   17 'DELV'
+     O                                   27 'SHP_DATE'
+     O                                   34 'BN#'
+     O                                   36 'F'
+     O                                   41 'DOCK'
+     O                                   49 'ORDER#'
+     O                                   61 'SERIAL#'
+     O        E   04           @HDR
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+     O                                  130 '----------'
+     O        E 1              @DTL
+     O                         SEQ#  Z +001
+     O                         P8CUST  +002
+     O                         P8NONY  +002
+     O                         P8NOHZ  +002 '    /  /  '
+     O                         P8BINN  +002
+     O                         P8NKOJ  +002
+     O                         P8NUKE  +002
+     O                         P8ODRN  +001
+     O                         P8SERL  +001
+      *
+     O        E 2              @FOT
+     O                                   20 '  ** POSTING DOES NO'
+     O                                   40 'T HAVE ANY ERRORS **'

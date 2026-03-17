@@ -1,0 +1,196 @@
+     H            Y.
+     F** UEXR40 *********************************************
+     F*  EXSUB- GET SALES AMOUNT BY PART AND SHIP DATE      *
+     F*  WRITTEN: JW (SRA) 2021.01.21                       *
+     F*-----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UEXR40'
+     F*                    PARM           $TOKU   4
+     F*                    PARM           $NONY   4
+     F*                    PARM           $MHIN  20
+     F*                    PARM           $FROM   6
+     F*                    PARM           $TO     6
+     F*                    PARM           $TQTY  10
+     F*                    PARM           $TAMT  12
+     F*  IN  $TOKU   4A  CUSTOMER CODE
+     F*      $NONY   4A  DELIVERY CODE
+     F*      $MHIN  20A  USER PART
+     F*      $FROM   6A  SALES FROM   (YYYYMM)
+     F*      $TO     6A  SALES TO     (YYYYMM)
+     F*  OUT $TQTY  10A  TATAL QTY    (10,0)
+     F*      $TAMT  12A  TOTAL AMOUNT (12,5)
+     F******************************************************
+     FMBDPL11AIF  E           K        DISK
+     FUEXWP40 IF  E           K        DISK                      A
+      *===================================================
+     E                    TS         12  7 0
+     E                    TN         12 11 5
+     I            DS
+     I                                        1  840TS
+     I                                        1   70F4TS01
+     I                                        8  140F4TS02
+     I                                       15  210F4TS03
+     I                                       22  280F4TS04
+     I                                       29  350F4TS05
+     I                                       36  420F4TS06
+     I                                       43  490F4TS07
+     I                                       50  560F4TS08
+     I                                       57  630F4TS09
+     I                                       64  700F4TS10
+     I                                       71  770F4TS11
+     I                                       78  840F4TS12
+     I            DS
+     I                                        1 1325TN
+     I                                        1  115F4TN01
+     I                                       12  225F4TN02
+     I                                       23  335F4TN03
+     I                                       34  445F4TN04
+     I                                       45  555F4TN05
+     I                                       56  665F4TN06
+     I                                       67  775F4TN07
+     I                                       78  885F4TN08
+     I                                       89  995F4TN09
+     I                                      100 1105F4TN10
+     I                                      111 1215F4TN11
+     I                                      122 1325F4TN12
+      * SYSTEM DATE
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      * KEY FIELDS
+     I            DS
+     I                                        1  20 WKMHIN
+     I                                        1   5 WKMHN1
+     I                                        6  10 WKMHN2
+     I                                       11  15 WKMHN3
+     I                                       16  20 WKMHN4
+     I            DS
+     I                                        1  12 F4SHIN
+     I                                        1   5 F4SHN1
+     I                                        6  10 F4SHN2
+     I                                       11  12 F4SHN3
+      *===================================================
+      *           MAIN ROUTINE
+      *===================================================
+     C                     EXSR #INIT
+      *
+     C                     EXSR #CRT
+      *
+     C                     EXSR #CALC
+      * RESULT
+     C                     MOVEL@TQTY     $TQTY
+     C                     MOVEL@TAMT     $TAMT
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *======================================================
+      * CREATE WF
+      *======================================================
+     C           #CRT      BEGSR
+      *
+     C           K#11A     SETLLMBDPL11A
+      *
+     C                     DO   *HIVAL
+     C           K#11B     READEMBDPL11A                 98
+     C   98                LEAVE
+      * END
+     C           F4TNEN    IFGT @TOYY
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           F4SKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           1         DO   12        IX      20
+     C           TS,IX     IFNE 0
+     C                     CLEARUEXWP401
+     C                     MOVEL$TOKU     U4TOKU
+     C                     MOVEL$NONY     U4NONY
+     C                     MOVEL$MHIN     U4MHIN
+     C                     MOVELF4SHIN    U4SHIN
+     C                     MOVEL@FROM     U4YYMM
+     C                     MOVE IX        U4YYMM
+     C                     Z-ADDTS,IX     U4QTY
+     C                     Z-ADDTN,IX     U4UP
+     C           TS,IX     MULT TN,IX     U4AMT
+     C                     WRITEUEXWP401
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *======================================================
+      * CALCULATE SALES
+      *======================================================
+     C           #CALC     BEGSR
+      *
+     C           *LOVAL    SETLLUEXWP40
+      *
+     C                     DO   *HIVAL
+     C                     READ UEXWP40                  97
+     C   97                LEAVE
+      * END
+     C           U4YYMM    IFLT @FROM
+     C           U4YYMM    ORGT @TO
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ADD  U4QTY     @TQTY
+     C                     ADD  U4AMT     @TAMT
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *======================================================
+      * INITIAL SETTING
+      *======================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $FROM   6
+     C                     PARM           $TO     6
+     C                     PARM           $TQTY  10
+     C                     PARM           $TAMT  12
+      *
+     C           K#11A     KLIST
+     C                     KFLD           K4TOKU  40
+     C                     KFLD           K4NONY  40
+     C                     KFLD           K4MHN1  5
+     C                     KFLD           K4MHN2  5
+     C                     KFLD           K4MHN3  5
+     C                     KFLD           K4MHN4  5
+     C                     KFLD           K4TNEN  40
+      *
+     C           K#11B     KLIST
+     C                     KFLD           K4TOKU
+     C                     KFLD           K4NONY
+     C                     KFLD           K4MHN1
+     C                     KFLD           K4MHN2
+     C                     KFLD           K4MHN3
+     C                     KFLD           K4MHN4
+      * SET KEY
+     C                     MOVEL$TOKU     K4TOKU
+     C                     MOVEL$NONY     K4NONY
+     C                     MOVEL$MHIN     WKMHIN
+     C                     MOVELWKMHN1    K4MHN1
+     C                     MOVELWKMHN2    K4MHN2
+     C                     MOVELWKMHN3    K4MHN3
+     C                     MOVELWKMHN4    K4MHN4
+     C                     MOVEL$FROM     K4TNEN
+      *
+     C                     MOVEL$FROM     @FROM   60
+     C                     MOVEL$FROM     @FRYY   40
+     C                     MOVEL$TO       @TO     60
+     C                     MOVEL$TO       @TOYY   40
+     C                     MOVE *ALL'0'   $TQTY  10
+     C                     MOVE *ALL'0'   $TAMT  12
+     C                     TIME           SDATE
+     C                     Z-ADD0         @TQTY  100
+     C                     Z-ADD0         @TAMT  125
+      *
+     C                     ENDSR

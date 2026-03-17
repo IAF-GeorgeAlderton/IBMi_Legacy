@@ -1,0 +1,468 @@
+     H            Y.
+     F** ABMR27 *********************************************
+     F*設定数自動処理IMPORT UNIT PRICE M/F & ABBPP50
+     F*  HOTTA.            2018.07.05                       *
+     F*******************************************************
+     FABMWP21 UF  E                    DISK
+     FAAPTL01 IF  E           K        DISK
+     FAANPL06 IF  E           K        DISK
+     FGDKPL02 IF  E           K        DISK
+     FABBPL54 IF  E           K        DISK
+     FABBPL59 IF  E           K        DISK
+     F            ABBPP501                          KRENAMEABBPL591
+     FAGDPL12 IF  E           K        DISK
+     FABMWP23 O   E           K        DISK                      A
+     FABMWP27 O   E           K        DISK                      A
+      *
+     I            DS
+     I                                        1   80L7SKHZ
+     I                                        1   40L7SKYY
+     I                                        5   60L7SKMM
+     I                                        7   80L7SKDD
+      *
+     I            DS
+     I                                        1   80L7STHZ
+     I                                        1   40L7STYY
+     I                                        5   60L7STMM
+     I                                        7   80L7STDD
+      *
+     I            DS
+     I                                        1  12 W2SHN
+     I                                        1   5 W2SHN1
+     I                                        6  10 W2SHN2
+     I                                       11  12 W2SHN3
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60WJFB
+     I                                        1   20WTITH
+     I                                        3   40WTITM
+     I                                        5   60WTITS
+     I                                        7  140WTIHZ
+     I                                        7  120WDTYM
+     I                                        7  100WTIYY
+     I                                       11  120WTIMM
+     I                                       13  140WTIDD
+      *
+     I            DS
+     I                                        1   80WNDAT
+     I                                        1   40WNYYY
+     I                                        5   60WNMMM
+     I                                        7   80WNDDD
+      *
+     I            DS
+     I                                        1   80F8KAHZ
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+      *
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W$WSID
+     I                                      254 263 W$USER
+     I                                      264 269 W$JBNO
+      *
+     I              '0123456789'          C         WKCKSU
+     I              'OVER 1000'           C         ERR01
+     I              'CURRENT 999'         C         ERR03
+     I              'ACCOMMODATED-        C         ERR02
+     I              ' QUANTITY=0'
+     I              'NOT IN IMPORT-       C         ERR04
+     I              ' UNIT PRICE M/F'
+      *
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     TIME           WTIME
+      *
+      *-- GET N-2 MONTH  FOR CHECKING ABBPP50---
+     C                     Z-ADDWTIHZ     WNDAT
+     C                     Z-ADD1         WNDDD
+     C           WNMMM     IFLE 2
+     C                     SUB  1         WNYYY
+     C           WNMMM     IFEQ 1
+     C                     Z-ADD11        WNMMM
+     C                     ENDIF
+     C           WNMMM     IFEQ 2
+     C                     Z-ADD12        WNMMM
+     C                     ENDIF
+     C                     ELSE
+     C                     SUB  2         WNMMM
+     C                     ENDIF
+      *-- GET N MONTH 1ST WEEK ---
+     C           KEYF8     KLIST
+     C                     KFLD           K#YY    40
+     C                     KFLD           K#MM    20
+     C                     KFLD           K#DD    20
+     C                     Z-ADDWTIYY     K#YY
+     C                     Z-ADDWTIMM     K#MM
+     C                     Z-ADD1         K#DD
+     C                     Z-ADD0         F@KAHZ  80
+     C           KEYF8     SETLLAGDPL12
+     C                     READ AGDPL12                  74
+     C           *IN74     DOWEQ'0'
+     C           F@KAHZ    ANDEQ0
+     C           F8YOBI    IFEQ 5
+     C                     Z-ADDF8KAHZ    F@KAHZ
+     C                     ENDIF
+     C                     READ AGDPL12                  74
+     C                     ENDDO
+     C*-----------------------------------------
+     C*
+     C           1         SETLLABMWP211
+     C                     READ ABMWP211                 21
+     C           *IN21     DOWEQ'0'
+     C           W2OMIT    IFEQ '0'
+     C           W2PAS     ANDEQ'0'
+     C*
+     C                     MOVEL*BLANK    WAPAS   1
+     C* IMPORT PART UNIT M/F
+     C                     EXSR #SB150
+     C* FINISHED PARTS M/F
+     C                     EXSR #SB200
+     C* HALF FINISHED PARTS M/F
+     C           W2OMIT    IFEQ '0'
+     C                     EXSR #SB210
+     C                     ENDIF
+     C* BUILD OUT FLAG IN FORECAST
+     C           W2OMIT    IFEQ '0'
+     C                     EXSR #SB220
+     C                     ENDIF
+     C                     UPDATABMWP211
+     C                     ENDIF
+     C                     READ ABMWP211                 21
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      * GDKPP01                                            *
+      *----------------------------------------------------*
+     CSR         #SB150    BEGSR
+      *
+     C                     MOVEL'0'       GETGDK  1
+     C                     MOVELW2SHN     HINB   20
+     C           HINB      SETLLGDKPL02
+     C           HINB      READEGDKPL02                  74
+     C           *IN74     DOWEQ'0'
+     C           ISSKJY    IFEQ 'D'
+     C           ISSKHZ    ANDLE*DATE
+     C                     ELSE
+     C           ISENHZ    IFEQ 99999999
+     C                     MOVEL'1'       GETGDK
+     C                     ENDIF
+     C                     ENDIF
+     C           HINB      READEGDKPL02                  74
+     C                     ENDDO
+      *
+     CSR         ESB150    ENDSR
+      *---------------------------*
+      *完成品かんばん検索       *
+      *---------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C           KEYL51    KLIST
+     C                     KFLD           #K1HB5  5
+     C                     KFLD           #K2HB5  5
+     C                     KFLD           #K3HB2  2
+      *
+     C                     MOVELW2SHN1    #K1HB5
+     C                     MOVELW2SHN2    #K2HB5
+     C                     MOVELW2SHN3    #K3HB2
+     C           KEYL51    SETGTAAPTL011
+     C           KEYL51    REDPEAAPTL011                 82
+     C           *IN82     DOWEQ'0'
+     C           L5SKJY    IFEQ 'D'
+     C           L5SKHZ    ANDLE*DATE
+     C                     ELSE
+     C           L5STHZ    IFEQ 99999999
+     C                     EXSR #SB330
+     C                     ENDIF
+     C                     ENDIF
+     C           KEYL51    REDPEAAPTL011                 82
+     C                     ENDDO
+      *
+     CSR         ESB200    ENDSR
+      *---------------------------*
+      *更新
+      *---------------------------*
+     CSR         #SB330    BEGSR
+      *  PT PARTS
+     C           L5BMON    IFEQ 8990
+     C                     MOVEL'*'       WAPAS   1
+     C           GETGDK    IFEQ '0'
+     C                     MOVEL'7'       W2OMIT
+     C                     CLEARABMWP231
+     C                     MOVELERR04     ABTXT
+     C                     EXSR #SB803
+     C                     ENDIF
+     C                     ENDIF
+      *
+     CSR         ESB330    ENDSR
+      *---------------------------*
+      *半製品かんばん検索       *
+      *---------------------------*
+     CSR         #SB210    BEGSR
+      *
+     C           KEYL71    KLIST
+     C                     KFLD           #K1HB5  5
+     C                     KFLD           #K2HB5  5
+     C                     KFLD           #K3HB2  2
+      *
+     C                     MOVELW2SHN1    #K1HB5
+     C                     MOVELW2SHN2    #K2HB5
+     C                     MOVELW2SHN3    #K3HB2
+     C           KEYL71    SETGTAANPL061
+     C           KEYL71    REDPEAANPL061                 82
+     C           *IN82     DOWEQ'0'
+     C           L7SKJY    IFEQ 'D'
+     C           L7SKHZ    ANDLE*DATE
+     C                     ELSE
+     C           L7STHZ    IFEQ 99999999
+     C                     EXSR #SB340
+     C                     ENDIF
+     C                     ENDIF
+     C           KEYL71    REDPEAANPL061                 82
+     C                     ENDDO
+      *
+     CSR         ESB210    ENDSR
+      *---------------------------*
+      *更新
+      *---------------------------*
+     CSR         #SB340    BEGSR
+      *
+     C*  PT PARTS
+     C           L7BMON    IFEQ 8990
+     C                     MOVEL'*'       WAPAS   1
+     C           GETGDK    IFEQ '0'
+     C                     MOVEL'7'       W2OMIT
+     C                     CLEARABMWP231
+     C                     MOVELERR04     ABTXT
+     C                     EXSR #SB813
+     C                     ENDIF
+     C                     ENDIF
+      *
+     CSR         ESB340    ENDSR
+      *----------------------------------------------------*
+      * ABBPP50                                            *
+      *----------------------------------------------------*
+     CSR         #SB220    BEGSR
+      *
+     C           KEYABB    KLIST
+     C                     KFLD           W2SHN1
+     C                     KFLD           W2SHN2
+     C                     KFLD           W2SHN3
+     C                     KFLD           WNDAT   80
+      *
+     C           KEYAB2    KLIST
+     C                     KFLD           W2SHN1
+     C                     KFLD           W2SHN2
+     C                     KFLD           W2SHN3
+      *
+     C           KEYABB    SETLLABBPL54
+     C           KEYAB2    READEABBPL54                  74
+     C           *IN74     DOWEQ'0'
+     C           BBBFLG    IFNE *BLANK
+     C                     EXSR #SB221
+     C                     LEAVE
+     C                     ENDIF
+     C           KEYAB2    READEABBPL54                  74
+     C                     ENDDO
+      *
+     CSR         ESB220    ENDSR
+      *----------------------------------------------------*
+      * ABBPP50                                            *
+      * BUILD OUT対象品でも、最終内示がＮ月第１週目以前で*
+      *あれば更新対象とする（BUILD OUT完了とみなす）   *
+      *----------------------------------------------------*
+     CSR         #SB221    BEGSR
+      *
+     C           KEYL59    KLIST
+     C                     KFLD           BBTOKU
+     C                     KFLD           BBNONY
+     C                     KFLD           BBNKOJ
+     C                     KFLD           BBNUKE
+     C                     KFLD           BBMHN1
+     C                     KFLD           BBMHN2
+     C                     KFLD           BBMHN3
+     C                     KFLD           BBMHN4
+     C                     MOVEL'0'       GETL59  1
+     C           KEYL59    SETGTABBPL591
+     C           KEYL59    REDPEABBPL591                 74
+     C           *IN74     DOWEQ'0'
+     C           GETL59    ANDEQ'0'
+     C           BBBFLG    IFEQ *BLANK
+     C           BBSQTY    ANDNE0
+     C                     MOVEL'1'       GETL59
+     C           BBSDAT    IFGT F@KAHZ
+     C                     MOVEL'8'       W2OMIT
+     C                     CLEARABMWP271
+     C                     EXSR #SB808
+     C                     ENDIF
+     C                     ENDIF
+     C           KEYL59    REDPEABBPL591                 74
+     C                     ENDDO
+      *
+     CSR         ESB221    ENDSR
+      *---------------------------*
+      *エラーファイル           *
+      *---------------------------*
+     CSR         #SB803    BEGSR
+      *
+     C                     MOVELL5SHN1    ABJHN1
+     C                     MOVELL5SHN2    ABJHN2
+     C                     MOVELL5SHN3    ABJHN3
+     C                     MOVELL5TKR1    ABATK1
+     C                     MOVELL5TKR2    ABATK2
+     C                     MOVELL5TKR3    ABATK3
+     C                     MOVELL5TKR4    ABATK4
+     C                     MOVELL5KCD1    ABKCD1
+     C                     MOVELL5KCD2    ABKCD2
+     C                     EXSR #SB819
+     C                     WRITEABMWP231
+      *
+     CSR         ESB803    ENDSR
+      *---------------------------*
+      *エラーファイル           *
+      *---------------------------*
+     CSR         #SB813    BEGSR
+      *
+     C                     MOVELL7SHN1    ABJHN1
+     C                     MOVELL7SHN2    ABJHN2
+     C                     MOVELL7SHN3    ABJHN3
+     C                     MOVELL7TKR1    ABATK1
+     C                     MOVELL7TKR2    ABATK2
+     C                     MOVELL7TKR3    ABATK3
+     C                     MOVELL7TKR4    ABATK4
+     C                     MOVELL7KCD1    ABKCD1
+     C                     MOVELL7KCD2    ABKCD2
+     C                     EXSR #SB819
+     C                     WRITEABMWP231
+      *
+     CSR         ESB813    ENDSR
+      *---------------------------*
+      *エラーファイル           *
+      *---------------------------*
+     CSR         #SB819    BEGSR
+      *
+     C                     Z-ADDW2NSRY    ABNSRY
+     C                     Z-ADDW2NSRD    ABNSRD
+     C                     Z-ADDW2NTYM    ABNTYM
+     C                     MOVELW2OMIT    ABOMIT
+     C                     Z-ADDW2FSMN    ABFSMN
+     C                     Z-ADDW2FSM1    ABFSM1
+     C                     Z-ADDW2USM1    ABUSM1
+     C                     Z-ADDW2USM2    ABUSM2
+     C                     Z-ADDW2USM3    ABUSM3
+     C                     Z-ADDW2FSDN    ABFSDN
+     C                     Z-ADDW2FSD1    ABFSD1
+     C                     Z-ADDW2USD1    ABUSD1
+     C                     Z-ADDW2USD2    ABUSD2
+     C                     Z-ADDW2USD3    ABUSD3
+     C                     Z-ADDW2NWDY    ABNWDY
+     C                     Z-ADDW21WDY    AB1WDY
+     C                     MOVELW2PAS     ABPAS
+     C                     Z-ADDW2GEKN    ABGEKN
+     C                     Z-ADDW2HIKN    ABHIKN
+     C                     Z-ADDW2STDY    ABSTDY
+     C                     Z-ADD0         W4NBXD
+     C           W2SSYS    IFNE 0
+     C           W2NSRD    DIV  W2SSYS    W4NBXD  72
+     C                     ENDIF
+     C           W4NBXD    ADD  0.09      ABNBXD
+     C           ABNBXD    IFEQ 0
+     C                     Z-ADD0.1       ABNBXD
+     C                     ENDIF
+     C                     Z-ADD0         W4BOXD
+     C           W2SSYS    IFNE 0
+     C           W2HIKN    DIV  W2SSYS    W4BOXD  72
+     C                     ENDIF
+     C           W4BOXD    ADD  0.09      ABBOXD
+     C           ABBOXD    IFEQ 0
+     C                     Z-ADD0.1       ABBOXD
+     C                     ENDIF
+     C                     Z-ADDW2SSYS    ABSSYS
+     C                     Z-ADD0         W4BOXP  73
+     C           ABBOXD    IFNE 0
+     C           ABNBXD    DIV  ABBOXD    W4BOXP  73
+     C                     ENDIF
+     C           W4BOXP    ADD  0.009     ABBOXP
+     C           ABNBXD    SUB  ABBOXD    ABBOXS
+     C                     Z-ADDW2YMD3    ABYMD3
+     C                     Z-ADD0         ABRITU
+     C           ABBOXP    IFGE 1
+     C           ABBOXP    SUB  1         ABRITU
+     C                     ELSE
+     C           1         SUB  ABBOXP    ABRITU
+     C                     ENDIF
+      *
+     CSR         ESB819    ENDSR
+      *---------------------------*
+      *エラーファイル           *
+      *---------------------------*
+     CSR         #SB808    BEGSR
+      *
+     C                     MOVELW2SHN1    ACJHN1
+     C                     MOVELW2SHN2    ACJHN2
+     C                     MOVELW2SHN3    ACJHN3
+     C                     MOVELBBTOKU    ACTOKU
+     C                     MOVELBBNONY    ACNONY
+     C                     MOVELBBNKOJ    ACNKOJ
+     C                     MOVELBBNUKE    ACNUKE
+     C                     MOVELBBMHN1    ACMHN1
+     C                     MOVELBBMHN2    ACMHN2
+     C                     MOVELBBMHN3    ACMHN3
+     C                     MOVELBBMHN4    ACMHN4
+     C                     Z-ADDW2NSRY    ACNSRY
+     C                     Z-ADDW2NSRD    ACNSRD
+     C                     Z-ADDW2NTYM    ACNTYM
+     C                     MOVELW2OMIT    ACOMIT
+     C                     Z-ADDW2FSMN    ACFSMN
+     C                     Z-ADDW2FSM1    ACFSM1
+     C                     Z-ADDW2USM1    ACUSM1
+     C                     Z-ADDW2USM2    ACUSM2
+     C                     Z-ADDW2USM3    ACUSM3
+     C                     Z-ADDW2FSDN    ACFSDN
+     C                     Z-ADDW2FSD1    ACFSD1
+     C                     Z-ADDW2USD1    ACUSD1
+     C                     Z-ADDW2USD2    ACUSD2
+     C                     Z-ADDW2USD3    ACUSD3
+     C                     Z-ADDW2NWDY    ACNWDY
+     C                     Z-ADDW21WDY    AC1WDY
+     C                     MOVELWAPAS     ACPAS
+     C                     Z-ADDW2GEKN    ACGEKN
+     C                     Z-ADDW2HIKN    ACHIKN
+     C                     Z-ADDW2STDY    ACSTDY
+     C                     Z-ADD0         W4NBXD
+     C           W2SSYS    IFNE 0
+     C           W2NSRD    DIV  W2SSYS    W4NBXD  72
+     C                     ENDIF
+     C           W4NBXD    ADD  0.09      ACNBXD
+     C           ACNBXD    IFEQ 0
+     C                     Z-ADD0.1       ACNBXD
+     C                     ENDIF
+     C                     Z-ADD0         W4BOXD
+     C           W2SSYS    IFNE 0
+     C           W2HIKN    DIV  W2SSYS    W4BOXD  72
+     C                     ENDIF
+     C           W4BOXD    ADD  0.09      ACBOXD
+     C           ACBOXD    IFEQ 0
+     C                     Z-ADD0.1       ACBOXD
+     C                     ENDIF
+     C                     Z-ADDW2SSYS    ACSSYS
+     C                     Z-ADD0         W4BOXP  73
+     C           ACBOXD    IFNE 0
+     C           ACNBXD    DIV  ACBOXD    W4BOXP  73
+     C                     ENDIF
+     C           W4BOXP    ADD  0.009     ACBOXP
+     C           ACNBXD    SUB  ACBOXD    ACBOXS
+     C                     Z-ADDW2YMD3    ACYMD3
+     C                     Z-ADD0         ACRITU
+     C           ACBOXP    IFGE 1
+     C           ACBOXP    SUB  1         ACRITU
+     C                     ELSE
+     C           1         SUB  ACBOXP    ACRITU
+     C                     ENDIF
+     C                     WRITEABMWP271
+      *
+     CSR         ESB808    ENDSR

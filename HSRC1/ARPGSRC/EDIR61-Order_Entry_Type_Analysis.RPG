@@ -1,0 +1,151 @@
+     H            Y/                                    1
+     H** EDIR61 *******************************************************
+     H*  ORDER ENTRY TYPE ANALYSIS                                    *
+     H*  J.WATANABE  2019.06.10                                       *
+     H*****************************************************************
+     FEDIPW61 CF  E                    WORKSTN
+     FAB#PLA1 IF  E           K        DISK
+     FFGBPL01 IF  E           K        DISK
+     FRGAPL11 IF  E           K        DISK
+     FEDIWP61 O   E           K        DISK
+     FQPRINT  O   F     198     OF     PRINTER
+      *================================================================
+     E                    MSG     1   8 60
+      *
+     I            DS
+     I                                        1  17 @MHIN
+     I                                        1   5 BAMHN1
+     I                                        6   6 @MH1
+     I                                        7  11 BAMHN2
+     I                                       12  12 @MH2
+     I                                       13  17 BAMHN3
+      *
+     I            DS
+     I                                        1  14 @SHIN
+     I                                        1   5 BASHN1
+     I                                        6   6 @SH1
+     I                                        7  11 BASHN2
+     I                                       12  12 @SH2
+     I                                       13  14 BASHN3
+      *
+     I            DS
+     I                                        1  140@SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *
+     I           SDS
+     I                                     *PROGRAM #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     I                                      264 269 #JBNO
+     C*===============================================================
+     C*  START  PROGRAM
+     C*===============================================================
+     C                     EXSR #INIT
+      *
+     C                     DO   *HIVAL
+      *
+     C                     EXFMTDSP01
+     C                     SETOF                     414243
+     C                     SETOF                     85
+     C                     MOVE *BLANK    XMSG
+     C* F1: END
+     C           *INKA     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     EXSR #CHK1
+      * F5: OUTPUT
+     C           *IN85     IFEQ *OFF
+     C           *INKE     ANDEQ*ON
+     C                     EXSR #OUT
+      * ERROR: NO DATA
+     C           SEQ#      IFEQ 0
+     C                     MOVELMSG,6     XMSG
+     C                     ITER
+     C                     ELSE
+     C                     EXSR #PRINT
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+      * ENTER:
+     C           *IN85     IFEQ *OFF
+     C           *INKG     ANDEQ*OFF
+     C                     MOVELMSG,5     XMSG
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+     C*===============================================================
+     C*   CHECK ENTRY
+     C*===============================================================
+     C           #CHK1     BEGSR
+     C                     MOVE *OFF      *IN85
+      * CHECK FROM DATE
+     C           XFROM     IFEQ *BLANK
+     C                     MOVELMSG,1     XMSG
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVELXFROM     @FROM   80
+     C                     MOVE '01'      @FROM
+      * CHECK TO DATE
+     C           XTO       IFEQ *BLANK
+     C                     MOVELMSG,2     XMSG
+     C                     MOVE *ON       *IN42
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVELXTO       @TO     80
+     C                     MOVE '31'      @TO
+      * CHECK FROM > TO
+     C           XFROM     IFGT XTO
+     C                     MOVE *ON       *IN41
+     C                     MOVELMSG,8     XMSG
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XCHK1     ENDSR
+     C*===============================================================
+     C* OUTPUT EDIWP62 (WORK)
+     C*===============================================================
+     C           #OUT      BEGSR
+      *
+     C                     Z-ADD0         SEQ#
+      * BY DATE ------------------------
+     C           @FROM     SETLLAB#PLA1
+      *
+     C                     DO   *HIVAL
+     C                     READ AB#PLA1                  98
+     C   98                LEAVE
+      * END
+     C           BACRHZ    IFGT @TO
+     C                     LEAVE
+     C                     ENDIF
+      * SELECT ORDER
+     C           BASKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     WRITEEDIWP611
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+** MSG   +.........+.........+.........+.........+.........+
+ENTER DATE "FROM" !                                          01
+ENTER DATE "TO" !                                            02
+DATE "FROM" IS NOT IN CALENDAR MASTER !                      03
+DATE "TO" IS NOT IN CALENDAR MASTER !                        04
+PRESS F5 TO PRINT...                                         05
+THERE IS NO TARGET DATA !                                    06
+                                                             07
+DATE "FROM" IS GREATER THAN "TO" !                           08

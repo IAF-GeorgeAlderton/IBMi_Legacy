@@ -1,0 +1,152 @@
+     H            Y.
+     F** AL#RT3  *******************************************
+     F*  AL#WP12                                           *
+     F*      ITS.        2015.05.19                        *
+     F******************************************************
+     FAL#WP10 IF  E           K        DISK
+     FAL#PP00 IF  E           K        DISK
+     FAL#WP12 O   E                    DISK                      A
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60STIME
+     I                                        7  140SDATE
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+      *-----------------------------------------------------
+      *  MAIN ROUTINE
+      *-----------------------------------------------------
+     C                     TIME           WTIME
+      *
+     C                     Z-ADD12        PLTSTD  30
+     C                     MOVEL'PLTSTD'  KEY    10
+     C           KEY       CHAINAL#PP001             20
+     C           *IN20     IFEQ '0'
+     C                     Z-ADDC0VALU    PLTSTD
+     C                     ENDIF
+      *
+     C                     Z-ADD14        PLTMAX  30
+     C                     MOVEL'PLTMAX'  KEY    10
+     C           KEY       CHAINAL#PP001             20
+     C           *IN20     IFEQ '0'
+     C                     Z-ADDC0VALU    PLTMAX
+     C                     ENDIF
+      *
+     C                     Z-ADD0         WKIAFB  30
+     C                     READ AL#WP101                 81
+     C           *IN81     DOWEQ'0'
+     C                     EXSR #SB399
+     C                     READ AL#WP101                 81
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *-----------------------------------------------------
+      *
+      *-----------------------------------------------------
+     CSR         #SB399    BEGSR
+      *
+     C           W0KPLT    IFLT PLTSTD
+     C                     Z-ADDW0KPLT    WKCNT
+     C                     EXSR #SB500
+     C                     ELSE
+     C                     EXSR #SB400
+     C                     ENDIF
+      *
+     CSR         ESB399    ENDSR
+      *-----------------------------------------------------
+      *ＩＡＦ便＃　基準１２、ＭＡＸ１４の場合
+      *  ＭＡＸ－基準＝Ｆ
+      *  パレット種類÷１２＝Ａ・・・Ｂ
+      *  Ａ×Ｆ＝Ｃとして、余りＢと比較
+      *  Ｂ＝０便数＝Ａで確定
+      *  Ｂ＞Ｃ便数＝Ａ＋１で確定
+      *  Ｂ＜Ｃ便数＝Ａで確定、余りのＢを前からＦ種類ずつ足す
+      *-----------------------------------------------------
+     CSR         #SB400    BEGSR
+      *
+     C                     Z-ADD0         WKCNT   80
+     C                     Z-ADD0         A       70
+     C                     Z-ADD0         B       70
+     C                     Z-ADD0         C       70
+     C                     Z-ADD0         D       70
+     C                     Z-ADD0         E       70
+     C           PLTMAX    SUB  PLTSTD    F       70
+      *
+     C           W0KPLT    DIV  PLTSTD    A
+     C                     MVR            B
+     C           A         MULT F         C
+      *
+     C                     SELEC
+      * B = 0
+     C           B         WHEQ 0
+     C                     Z-ADDPLTSTD    WKCNT
+     C                     Z-ADD1         X       30
+     C           X         DOWLEA
+     C                     EXSR #SB500
+     C                     ADD  1         X
+     C                     ENDDO
+      * B > C
+     C           B         WHGT C
+      * 商の分
+     C                     Z-ADDPLTSTD    WKCNT
+     C                     Z-ADD1         X       30
+     C           X         DOWLEA
+     C                     EXSR #SB500
+     C                     ADD  1         X
+     C                     ENDDO
+      * 余りの分
+     C                     Z-ADDB         WKCNT
+     C                     EXSR #SB500
+      * B <= C
+     C           B         WHLE C
+     C           B         DIV  F         D
+     C                     MVR            E
+      *Ｄの分は１４種類で作成
+     C                     Z-ADDPLTMAX    WKCNT
+     C                     Z-ADD1         X       30
+     C                     SUB  D         A
+     C           X         DOWLED
+     C                     EXSR #SB500
+     C                     ADD  1         X
+     C                     ENDDO
+      *Ｅの分は１３種類で１回作成
+     C           E         IFNE 0
+     C                     SUB  1         A
+     C*********            Z-ADD13        WKCNT
+     C           PLTSTD    ADD  E         WKCNT
+     C                     EXSR #SB500
+     C                     ENDIF
+      *
+     C                     Z-ADDPLTSTD    WKCNT
+     C                     Z-ADD1         X       30
+     C           X         DOWLEA
+     C                     EXSR #SB500
+     C                     ADD  1         X
+     C                     ENDDO
+      *
+     C                     ENDSL
+      *
+     CSR         ESB400    ENDSR
+      *-----------------------------------------------------
+      *  AL#WP12
+      *-----------------------------------------------------
+     CSR         #SB500    BEGSR
+      *
+     C                     CLEARAL#WP121
+     C                     MOVELW0SHID    W2SHID
+     C                     MOVELW0SHIT    W2SHIT
+     C                     MOVELW0SURT    W2SURT
+     C                     MOVELW0EXTR    W2EXTR
+     C                     MOVELW0TRKB    W2TRKB
+     C                     ADD  1         WKIAFB
+     C                     MOVE WKIAFB    W2IAFB
+     C                     Z-ADDWKCNT     W2KPLT
+     C                     WRITEAL#WP121
+      *
+     CSR         ESB500    ENDSR

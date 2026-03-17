@@ -1,0 +1,156 @@
+     H            Y.
+      ** UTLR61A **********************************************************
+      *  GET IAF PART# FROM USER PART (SIMPLE)                            *
+      *  JW      2024.05.01                                               *
+      *********************************************************************
+      *  CALLING SEQ.                                                     *
+     C*                    CALL 'UTLR61A'
+     C*                    PARM           $NONY   4
+     C*                    PARM           $MHIN  20
+     C*                    PARM           $SHIN  12
+     C*   IN  $NONY   4A  DELIV#                                          *
+     C*       $MHIN  20A  CUST PART#                                      *
+     C*   OUT $SHIN  12A  IAF  PART#                                      *
+     C*   ** IF MHIN NOT FOUND IN COMMON PART MASTER --> SHIN = MHIN      *
+     C*   ** IF SHIN NOT FOUND IN PART MASTER        --> SHIN = BLANK     *
+      *********************************************************************
+     FFAAPL02AIF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+      ***********************************************************
+     I            DS
+     I                                        1  20 @MHIN
+     I                                        1   5 @MHN1
+     I                                        6  10 @MHN2
+     I                                       11  15 @MHN3
+     I                                       16  20 @MHN4
+     I            DS
+     I                                        1  12 @SHIN
+     I                                        1   5 @SHN1
+     I                                        6  10 @SHN2
+     I                                       11  12 @SHN3
+     I            DS
+     I                                        1  12 PSHIN
+     I                                        1   5 PSHN1
+     I                                        6  10 PSHN2
+     I                                       11  12 PSHN3
+      ****************************************************
+      * MAIN ROUTINE
+      ****************************************************
+     C                     EXSR #INIT
+      *
+      * CHECK COMMON PART M/F BY MHN1/2/3/4
+      *
+     C           KEY1A     SETLLFAAPL02A
+     C                     DO   *HIVAL
+     C           KEY1A     READEFAAPL02A                 98
+     C   98                LEAVE
+      * IGNORE
+     C           B7SKBN    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * IGNORE
+     C           @NONY     IFNE 0
+     C           @NONY     ANDNEB7NONY
+     C                     ITER
+     C                     ENDIF
+      * NO ERROR
+     C                     MOVE B7SHN1    PSHN1
+     C                     MOVE B7SHN2    PSHN2
+     C                     MOVE B7SHN3    PSHN3
+     C                     MOVELPSHIN     $SHIN
+     C                     LEAVE
+     C                     ENDDO
+      *
+      * CHECK COMMON PART M/F BY MHN1/2
+      *
+     C           $SHIN     IFEQ *BLANK
+     C           KEY1B     SETLLFAAPL02A
+     C                     DO   *HIVAL
+     C           KEY1B     READEFAAPL02A                 98
+     C   98                LEAVE
+      * IGNORE
+     C           B7SKBN    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * IGNORE
+     C           @NONY     IFNE 0
+     C           @NONY     ANDNEB7NONY
+     C                     ITER
+     C                     ENDIF
+      * NO ERROR
+     C                     MOVE B7SHN1    PSHN1
+     C                     MOVE B7SHN2    PSHN2
+     C                     MOVE B7SHN3    PSHN3
+     C                     MOVELPSHIN     $SHIN
+     C                     LEAVE
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C           $SHIN     IFEQ *BLANK
+     C                     MOVEL$MHIN     $SHIN
+     C                     ENDIF
+      * CHECK SHIN
+     C                     EXSR #CHK
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      ****************************************************
+      * CHECK SHIN IS IN PART MASTER C
+      ****************************************************
+     C           #CHK      BEGSR
+      *
+     C                     MOVEL$SHIN     @SHIN
+     C           KEY2      CHAINFCEPL01              99
+     C           *IN99     IFEQ *OFF
+     C           A2GSKD    ANDEQ' '
+     C                     GOTO XCHK
+     C                     ENDIF
+      *
+     C                     MOVE *BLANK    @SHN3
+     C           KEY2      CHAINFCEPL01              99
+     C           *IN99     IFEQ *OFF
+     C           A2GSKD    ANDEQ' '
+     C                     MOVEL@SHIN     $SHIN
+     C                     GOTO XCHK
+     C                     ENDIF
+      *
+     C                     MOVE *BLANK    $SHIN
+      *
+     C           XCHK      ENDSR
+      ****************************************************
+      * INITIALIZE
+      ****************************************************
+     C           #INIT     BEGSR
+     C*
+     C           *ENTRY    PLIST
+     C                     PARM           $NONY   4        IN
+     C                     PARM           $MHIN  20        IN
+     C                     PARM           $SHIN  12        OUT
+      *
+     C           KEY1A     KLIST
+     C                     KFLD           @MHN1
+     C                     KFLD           @MHN2
+     C                     KFLD           @MHN3
+     C                     KFLD           @MHN4
+      *
+     C           KEY1B     KLIST
+     C                     KFLD           @MHN1
+     C                     KFLD           @MHN2
+      *
+     C           KEY2      KLIST
+     C                     KFLD           @SHN1
+     C                     KFLD           @SHN2
+     C                     KFLD           @SHN3
+      *
+     C                     MOVE *BLANK    PSHIN
+      * DEFAULT
+     C           $NONY     IFEQ *BLANK
+     C                     Z-ADD0         @NONY   40
+     C                     ELSE
+     C                     MOVE $NONY     @NONY
+     C                     ENDIF
+      *
+     C                     MOVEL$MHIN     @MHIN
+     C                     MOVE *BLANK    $SHIN
+      *
+     C                     ENDSR

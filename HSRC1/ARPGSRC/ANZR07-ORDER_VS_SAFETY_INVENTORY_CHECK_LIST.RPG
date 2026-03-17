@@ -1,0 +1,333 @@
+     H            Y.
+     F***ANZR07*****************************************************************
+     F*  PROGRAM    : ORDER VS SAFETY INVENTORY CHECK LIST                     *
+     F*             :                                                          *
+     F*  WRITTEN    : 2018.12.21                                               *
+     F*  WRITTEN BY : JW (SRA)                                                 *
+     F*-----------------------                                                 *
+JW1  F*  JW         : 2019.11.13 CHG UTLR21A TO 21B                            *
+     F**************************************************************************
+     FAB#PL18AIF  E           K        DISK
+     FAB#PLY9 IF  E           K        DISK
+     FRGAPL11 IF  E           K        DISK
+     FANZWP07 O   E           K        DISK
+      *---------------------------------------------------
+     E                    NON       100  4 0
+     E                    QTY       100  7 0
+      *---------------------------------------------------
+     I            DS
+     I                                        1  140@DATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1  12 BASHIN
+     I                                        1   5 BASHN1
+     I                                        6  10 BASHN2
+     I                                       11  12 BASHN3
+     I            DS
+     I                                        1   80BANOHZ
+     I                                        1   40BANOYY
+     I                                        5   60BANOMM
+     I                                        7   80BANODD
+     I            DS
+     I                                        1  12 Z7SHN
+     I                                        1   5 Z7SHN1
+     I                                        6  10 Z7SHN2
+     I                                       11  12 Z7SHN3
+     I            DS
+     I                                        1   6 Z7LOC
+     I                                        1   1 Z7LOC1
+     I                                        2   3 Z7LOC2
+     I                                        4   5 Z7LOC3
+     I                                        6   6 Z7LOC4
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      ***********************************************************
+     C                     EXSR #INIT
+      *
+     C           *LOVAL    SETLLAB#PL18A
+      *
+     C                     DO   *HIVAL
+     C                     READ AB#PL18A                 98
+     C   98                LEAVE
+      *** DEBUG
+     C**         BASHN1    IFEQ '90080'
+     C**         BASHN2    ANDEQ'11641'
+     C**                   MOVE '1'       JW      1
+     C**                   ENDIF
+      * SELECT DATA
+     C           BASKJY    IFEQ 'D'
+     C           BASRYO    OREQ 0
+     C           BANOHZ    ORLT TODAY
+     C           BAURYY    ORNE 0
+     C                     ITER
+     C                     ENDIF
+      * CHECK PART + LOT SIZE
+     C                     EXSR #CKLOT
+     C           LOTFLG    IFEQ 'N'
+     C                     ITER
+     C                     ENDIF
+      * FIRST ?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELBASHIN    SVSHN
+     C                     MOVELBANOHZ    SVNOHZ
+     C                     Z-ADDBANONY    SVNONY
+     C                     ENDIF
+      * BREAK ?
+     C           BASHIN    IFNE SVSHN
+     C           BANOHZ    ORNE SVNOHZ
+     C           BANONY    ORNE SVNONY
+     C                     EXSR #BRK
+     C                     ENDIF
+      * DETAIL
+     C                     ADD  BASRYO    @SRYO
+     C                     Z-ADDBASRYO    SVSRYO  60
+     C                     Z-ADDBAUSYS    SVUSYS  60
+     C                     Z-ADDBASYOS    SVSYOS  60
+     C                     ADD  1         IX
+     C                     Z-ADDBANONY    NON,IX
+     C                     Z-ADDBASRYO    QTY,IX
+      *
+     C                     ENDDO
+      * LAST BREAK
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK
+     C                     ENDIF
+      * PRINT FLAG
+     C           PCNT      IFEQ 0
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  BREAK PROCESS                                     *
+      *----------------------------------------------------*
+     C           #BRK      BEGSR
+      * GET LOCATION
+     C                     MOVELSVSHN     $SHN
+     C**JW1                CALL 'UTLR21A'
+     C**                   PARM           $SHN   12
+     C**                   PARM           $LLOC   6
+     C**                   PARM           $LQC    50
+     C**                   PARM           $LPRC   3
+     C**                   PARM           $LDPT   40
+     C**                   PARM           $ZETI   4
+     C**                   PARM           $MQTY   90
+     C**                   PARM           $RTN3   1
+      *
+JW1  C                     MOVELSVSHN     $SHIN
+ |   C                     MOVE *BLANK    $DATE
+ |   C                     CALL 'UTLR21B'
+ |   C                     PARM           $SHIN  12
+ |   C                     PARM           $DATE   8
+ |   C                     PARM           $LLOC   6
+ |   C                     PARM           $LQC    50
+ |   C                     PARM           $LPRC   3
+ |   C                     PARM           $LDPT   40
+ |   C                     PARM           $LMCN   3
+ |   C                     PARM           $ZETI   4
+ |   C                     PARM           $MQTY   90
+JW1  C                     PARM           $RTN    1
+      *
+     C                     MOVEL$LLOC     @LOC
+     C                     Z-ADD$LQC      @SYOS
+     C           @SYOS     IFEQ 0
+     C           SVSYOS    IFNE 0
+     C                     Z-ADDSVSYOS    @SYOS
+     C                     ELSE
+     C           SVUSYS    IFNE 0
+     C                     Z-ADDSVUSYS    @SYOS
+     C                     ELSE
+     C                     Z-ADDSVSRYO    @SYOS
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           $MQTY     DIV  20        @DQTY   90
+     C           @DQTY     DIV  @SYOS     @DBOX     H
+      * GET SAFETY INVENTORY
+     C                     MOVE *BLANK    $DATE
+     C                     CALL 'UTLR67'
+     C                     PARM           $SHN
+     C                     PARM           $DATE   8
+     C                     PARM           $MAXH   3
+     C                     PARM           $RTN4   1
+     C                     MOVEL$MAXH     @SINV
+      * TOTAL ORDER BOX
+     C           @SRYO     DIV  @SYOS     @TBOX
+      * TARGET BOX
+     C           @DBOX     MULT 1.25      NUM62   62
+     C           @DBOX     MULT 1.25      @TINV   40
+      * ROUND UP
+     C           NUM62     IFGT @TINV
+     C                     ADD  1         @TINV
+     C                     ENDIF
+      *
+     C                     ADD  @SINV     @TINV
+      * COMPARE
+     C           $LLOC     IFNE *BLANK
+     C           @TBOX     IFGT @TINV
+     C           @TBOX     ANDNE0
+     C                     EXSR #WRT
+     C                     ENDIF
+     C                     ENDIF
+      * RESET
+     C                     MOVELBASHIN    SVSHN
+     C                     MOVELBANOHZ    SVNOHZ
+     C                     Z-ADD0         @SRYO
+     C                     Z-ADD0         IX
+     C                     Z-ADD0         NON
+     C                     Z-ADD0         QTY
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  WRITE                                             *
+      *----------------------------------------------------*
+     C           #WRT      BEGSR
+      *
+     C                     Z-ADD0         IY      30
+     C                     MOVE 'Y'       FIRST2  1
+      * LOOP
+     C                     DO   *HIVAL
+     C                     ADD  1         IY
+     C           NON,IY    IFEQ 0
+     C                     LEAVE
+     C                     ENDIF
+      * FIRST ?
+     C           FIRST2    IFEQ 'Y'
+     C                     MOVE 'N'       FIRST2
+     C                     Z-ADDNON,IY    SVNON   40
+     C                     ENDIF
+      * BREAK ?
+     C           NON,IY    IFNE SVNON
+     C                     EXSR #BRK2
+     C                     ENDIF
+      * DETAIL
+     C                     ADD  QTY,IY    @QTY   100
+     C                     ADD  1         OCNT
+      *
+     C                     ENDDO
+      * LAST BREAK ?
+     C           FIRST2    IFEQ 'N'
+     C                     EXSR #BRK2
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  BREAK 2                                           *
+      *----------------------------------------------------*
+     C           #BRK2     BEGSR
+      *
+      * OUT
+     C                     CLEARANZWP071
+     C                     Z-ADDSVNOHZ    Z7NOHZ
+     C                     MOVELSVSHN     Z7SHN
+     C                     MOVEL@LOC      Z7LOC
+     C                     Z-ADD@SYOS     Z7SYOS
+     C                     Z-ADD@DBOX     Z7DBOX
+     C                     Z-ADD@SINV     Z7SINV
+     C                     Z-ADD@TINV     Z7TINV
+     C                     Z-ADD@TBOX     Z7TBOX
+     C                     MOVELSVNON     Z7NONY
+     C                     Z-ADDOCNT      Z7OBOX
+      * GET ASSIGNED USER
+     C           SVNON     CHAINAB#PLY9              99
+     C           *IN99     IFEQ *OFF
+     C                     MOVELUAUSER    @USER  10
+     C                     ELSE
+     C                     MOVE *BLANK    @USER
+     C                     ENDIF
+     C                     MOVEL@USER     Z7PRSN
+     C           @USER     IFNE *BLANK
+     C           @USER     CHAINRGAPL11              98
+     C           *IN98     IFEQ *OFF
+     C           J8SKJY    ANDNE'D'
+     C                     MOVELJ8NAME    Z7PRSN
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     WRITEANZWP071
+     C                     ADD  1         PCNT
+     C                     Z-ADD0         @QTY
+     C                     Z-ADD0         OCNT
+     C                     Z-ADDNON,IY    SVNON
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  CHECK  ORDER QTY VS LOT SIZE                      *
+      *----------------------------------------------------*
+     C           #CKLOT    BEGSR
+      * GET ORDER QTY
+     C                     MOVELBANONY    $NONY
+     C                     MOVELBASHIN    $SHN
+     C                     MOVELBANOHZ    $DATE
+     C                     CALL 'UEXR07'
+     C                     PARM           $NONY   4
+     C                     PARM           $SHN   12
+     C                     PARM           $DATE   8
+     C                     PARM           $OQTY   8
+     C                     PARM           $BOX    3
+     C                     PARM           $RTN1   1
+      *
+     C           $RTN1     IFEQ *BLANK
+     C                     MOVEL$OQTY     @OQTY   80
+     C                     MOVEL$BOX      @BOX    30
+     C                     ELSE
+     C                     Z-ADD0         @OQTY
+     C                     Z-ADD0         @BOX
+     C                     ENDIF
+      * GET LOT SIZE
+     C                     MOVELBASHIN    $SHN
+     C                     MOVELTODAY     $DATE
+     C                     CALL 'UTLR68'
+     C                     PARM           $SHN   12
+     C                     PARM           $DATE   8
+     C                     PARM           $LOT    2
+     C                     PARM           $RTN2   1
+      *
+     C           $RTN2     IFEQ *BLANK
+     C                     MOVEL$LOT      @LOT    20
+     C                     ELSE
+     C                     Z-ADD0         @LOT
+     C                     ENDIF
+      * SET LOT FLAG
+     C           @BOX      IFGE @LOT
+     C                     MOVE 'Y'       LOTFLG  1
+     C                     ELSE
+     C                     MOVE 'N'       LOTFLG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $RTN    1
+      *
+     C                     MOVE *BLANK    $RTN
+     C                     TIME           @DATE
+     C                     Z-ADD0         PCNT    40
+     C                     Z-ADD0         OCNT    40
+     C                     Z-ADD88        LIN#    30
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD0         @SRYO  100
+     C                     MOVE *BLANK    SVSHN  12
+     C                     Z-ADD0         SVNOHZ  80
+     C                     Z-ADD0         SVNONY  40
+     C                     Z-ADD0         IX      40
+     C                     Z-ADD0         NON
+     C                     Z-ADD0         QTY
+     C                     Z-ADD0         @DBOX   51
+     C                     MOVE *BLANK    @LOC    6
+     C                     Z-ADD0         @SINV   30
+     C                     Z-ADD0         @SYOS   60
+     C                     Z-ADD0         @TBOX   40
+      *
+     C                     ENDSR
+      ************************************************************

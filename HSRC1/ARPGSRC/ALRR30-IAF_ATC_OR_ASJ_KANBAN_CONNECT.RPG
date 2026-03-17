@@ -1,0 +1,450 @@
+     H            Y.
+     F** ALRR30 **************************************
+     F* IAF <-> ATC OR ASJ KANBAN CONNECT            *
+     F*   MAEDA.           2020.07.01                *
+     F* LEC 2025.01.29  CHG TO ALLOW QR SCAN ON APICS*
+     F************************************************
+     FALRPW30 CF  E                    WORKSTN
+      *
+     FALRPP30 IF  E           K        DISK
+     FFCETL11 IF  E           K        DISK
+     FALRPP35 O   E                    DISK                      A
+      *
+     E                    ER      1   8 20
+     E                    TI      1   2 16
+     E                    T2      1   2 14
+      *
+     I            DS
+     I                                        1   80A2GSHZ
+     I                                        1   40A2GSYY
+     I                                        5   60A2GSMM
+     I                                        7   80A2GSDD
+      *
+     I            DS
+     I                                        1  15 D1SBAR
+     I                                        2   5 D1SZET
+     I                                       15  15 D1CD
+      *
+     I            DS
+     I                                        1 120 D2UBAR
+     I                                        1   4 D2UZET
+     I*                                       5   5 D2CD1
+     I*                                       6  15 D2BLK1
+     I*                                      13  13 D2CD2
+     I*                                      14  15 D2BLK2
+     **
+      *
+     I            DS
+     I                                        1  14 D2SHN
+     I                                        1   5 D2SHN1
+     I                                        6   6 D2F1
+     I                                        7  11 D2SHN2
+     I                                       12  12 D2F2
+     I                                       13  14 D2SHN3
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   20WTIJJ
+     I                                        3   40WTIHH
+     I                                        5   60WTIBB
+     I                                        7  140WTIHZ
+     I                                        7  100WTIYY
+     I                                       11  120WTIMM
+     I                                       13  140WTIDD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *----------------------------------------------------*
+      *   PARAMETER  TRANSFER                              *
+      *----------------------------------------------------*
+     C           *ENTRY    PLIST
+     C                     PARM           POPR    6
+     C                     PARM           PUSR2  20
+      *----------------------------------------------------*
+      * KLIST                                              *
+      *----------------------------------------------------*
+      *
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     EXSR #SB100
+     C           DSPSW     DOUEQ'99'
+     C                     EXSR #SB200
+     C                     ENDDO
+     C                     EXSR #SB300
+      *----------------------------------------------------*
+      * INIT                                               *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     MOVELW#WSID    D1ID
+     C                     MOVELPUSR2     D1NAME
+     C                     MOVEL*BLANK    D1SBAR
+     C                     MOVEL'01'      DSPSW   2
+     C                     TIME           WTIME
+     C                     MOVEL*BLANK    D1ERR
+     C                     MOVE 'ATC'     P1KOJO  3
+      *
+     C                     SELEC
+     C           P1KOJO    WHEQ 'ATC'
+     C                     MOVELTI,1      D1TITL
+     C                     MOVELTI,1      D1TIT2
+     C                     MOVELT2,1      D2TITL
+     C           P1KOJO    WHEQ 'ASJ'
+     C                     MOVELTI,2      D1TITL
+     C                     MOVELTI,2      D1TIT2
+     C                     MOVELT2,2      D2TITL
+     C                     ENDSL
+      *
+     CSR         ESB100    ENDSR
+      *----------------------------------------------------*
+      * CONTROL                                            *
+      *----------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *  IAF A-PICS
+     C           DSPSW     DOWEQ'01'
+     C                     EXSR #SB210
+     C                     ENDDO
+      *  ATC TAG
+     C           DSPSW     DOWEQ'02'
+     C                     EXSR #SB220
+     C                     ENDDO
+      *
+     CSR         ESB200    ENDSR
+      *----------------------------------------------------*
+      * 1ST.(IAF A-PICS KANBAN)
+      *----------------------------------------------------*
+     CSR         #SB210    BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     TIME           WTIME
+     C                     SETOF                     9931
+     C                     MOVEL*BLANK    D1ERR
+     C           *IN02     IFEQ '1'
+     C           *IN03     OREQ '1'
+     C           *IN04     OREQ '1'
+     C           *IN05     OREQ '1'
+     C           *IN06     OREQ '1'
+     C           *IN07     OREQ '1'
+     C           *IN08     OREQ '1'
+     C           *IN09     OREQ '1'
+     C           *IN10     OREQ '1'
+     C           *IN11     OREQ '1'
+     C           *IN12     OREQ '1'
+     C                     GOTO ESB210
+     C                     ENDIF
+      * CMD-1
+     C           *IN01     IFEQ '1'
+     C                     MOVEL'99'      DSPSW
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+      * convert QR code to 1D barcode....
+     C                     MOVELD1QRC     KTYPE   3
+      *
+     C           KTYPE     IFEQ 'C01'
+     C                     MOVELD1QRC     P1QR1 256
+     C                     MOVEL*BLANK    P1QR2 256
+     C                     MOVEL*BLANK    P9BAR  20
+     C                     CALL 'UEXR13'
+     C                     PARM           P1QR1
+     C                     PARM           P1QR2
+     C                     PARM           P9BAR
+      *
+     C                     MOVELP9BAR     D1SBAR
+     C                     MOVEL*BLANK    P9BAR
+     C                     ELSE
+     C                     MOVELD1QRC     D1SBAR
+     C                     ENDIF
+     C                     MOVEL*BLANK    D1QRC
+      *
+     C           D1SBAR    IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,1      DZERR
+     C                     EXSR #SBZZZ
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C                     MOVEL'014'     WKLEN   3
+     C                     MOVELD1SBAR    WKBAR  20
+     C                     EXSR #DIGIT
+     C           D1CD      IFNE PMCHK
+     C                     SETON                     3199
+     C                     MOVELER,2      DZERR
+     C                     EXSR #SBZZZ
+     C                     MOVEL*BLANK    D1SBAR
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    WKSHN1  5
+     C                     MOVEL*BLANK    WKSHN2  5
+     C                     MOVEL*BLANK    WKSHN3  2
+     C           D1SZET    CHAINFCETL111             20
+     C           *IN20     IFEQ '0'
+     C           A2GSKD    ANDEQ'D'
+     C           A2GSHZ    ANDLEWTIHZ
+     C                     SETON                     20
+     C                     ENDIF
+     C           *IN20     IFEQ '1'
+     C                     SETON                     3199
+     C                     MOVELER,3      DZERR
+     C                     EXSR #SBZZZ
+     C                     MOVEL*BLANK    D1SBAR
+     C                     GOTO ESB210
+     C                     ELSE
+     C                     MOVELA2BHB1    WKSHN1
+     C                     MOVELA2BHB2    WKSHN2
+     C                     MOVELA2BHB3    WKSHN3
+     C                     ENDIF
+      * CONNECT M/F
+     C           KEYY0     KLIST
+     C                     KFLD           K1IAFZ  4
+     C                     KFLD           K1KOJO  3
+     C*
+     C                     MOVELD1SZET    K1IAFZ
+     C                     MOVELP1KOJO    K1KOJO
+     C                     SETOF                     81
+     C                     MOVEL*BLANK    WGET    1
+     C                     MOVEL*BLANK    WYZETI  4
+     C                     MOVEL*BLANK    WYZET2  4
+     C                     MOVEL*BLANK    WYZET3  4
+     C                     Z-ADD0         WCNT    10
+     C           KEYY0     SETLLALRPP30
+     C                     DO   *HIVAL
+     C           KEYY0     READEALRPP30                  81
+     C   81                LEAVE
+     C           AYSKJY    IFEQ 'D'
+     C                     ITER
+     C                     END
+     C           WCNT      IFEQ 2
+     C                     MOVELAYZETI    WYZET3
+     C                     LEAVE
+     C                     END
+     C           WCNT      IFEQ 1
+     C                     MOVELAYZETI    WYZET2
+     C                     ADD  1         WCNT
+     C                     END
+     C           WCNT      IFEQ 0
+     C                     MOVELAYZETI    WYZETI
+     C                     ADD  1         WCNT
+     C                     END
+     C                     ENDDO
+      *
+     C           WYZETI    IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,5      DZERR
+     C                     EXSR #SBZZZ
+     C                     MOVEL*BLANK    D1SBAR
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    D2SHN
+     C                     MOVELW#WSID    D2ID
+     C                     MOVEL*BLANK    D2SHN
+     C                     MOVELWKSHN1    D2SHN1
+     C                     MOVEL'-'       D2F1
+     C                     MOVELWKSHN2    D2SHN2
+     C                     MOVEL'-'       D2F2
+     C                     MOVELWKSHN3    D2SHN3
+     C                     MOVEL*BLANK    D2UBAR
+     C                     MOVEL'02'      DSPSW
+      *
+     CSR         ESB210    ENDSR
+      *----------------------------------------------------*
+      * 2ND.(ASJ OR ATC KANBAN)                            *
+      *----------------------------------------------------*
+     CSR         #SB220    BEGSR
+      *
+     C                     EXFMTDSP02
+     C                     SETOF                     9931
+     C                     MOVEL*BLANK    D2ERR
+     C           *IN01     IFEQ '1'
+     C           *IN03     OREQ '1'
+     C           *IN04     OREQ '1'
+     C           *IN05     OREQ '1'
+     C           *IN06     OREQ '1'
+     C           *IN07     OREQ '1'
+     C           *IN08     OREQ '1'
+     C           *IN09     OREQ '1'
+     C           *IN10     OREQ '1'
+     C           *IN11     OREQ '1'
+     C           *IN12     OREQ '1'
+     C                     GOTO ESB220
+     C                     ENDIF
+      * CMD-2
+     C           *IN02     IFEQ '1'
+     C                     MOVEL'01'      DSPSW
+     C                     MOVEL*BLANK    D1SBAR
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+     C           D2UBAR    IFEQ *BLANK
+     C                     SETON                     3199
+     C                     SELEC
+     C           P1KOJO    WHEQ 'ATC'
+     C                     MOVELER,6      DZERR
+     C           P1KOJO    WHEQ 'ASJ'
+     C                     MOVELER,8      DZERR
+     C                     ENDSL
+     C                     EXSR #SBZZZ
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+      *ATC TAG
+      *                                       1   4 D2ZETI
+     C*                    SELEC
+     C*          D2BLK1    WHEQ *BLANK
+     C*                    MOVEL'004'     WKLEN   3
+     C*                    MOVELD2CD1     WKCD    1
+     C*          D2BLK2    WHEQ *BLANK
+     C*                    MOVEL'012'     WKLEN   3
+     C*                    MOVELD2CD2     WKCD    1
+     C*                    OTHER
+     C*                    SETON                     3199
+     C*                    MOVELER,6      DZERR
+     C*                    EXSR #SBZZZ
+     C*                    GOTO ESB220
+     C*                    ENDSL
+     **********************
+     C*                    MOVELD2UBAR    WKBAR  20
+     C*                    EXSR #DIGIT
+     **********************
+     C*          WKCD      IFNE PMCHK
+     C*                    SETON                     3199
+     C*                    MOVELER,2      DZERR
+     C*                    EXSR #SBZZZ
+     C*                    MOVEL*BLANK    D2UBAR
+     C*                    GOTO ESB220
+     C*                    ENDIF
+      *
+      *  D2UZET
+     C           D2UZET    IFEQ WYZETI
+     C           D2UZET    OREQ WYZET2
+     C           D2UZET    OREQ WYZET3
+     C                     MOVEL'OK'      WKHNTE  2
+     C                     ELSE
+     C                     MOVEL'NG'      WKHNTE  2
+     C                     SETON                     3199
+     C                     ENDIF
+      *
+     C                     EXSR #SB500
+      *
+     C           *IN99     IFEQ '0'
+     C                     MOVEL*BLANK    D1SBAR
+     C                     MOVEL'01'      DSPSW
+     C                     ELSE
+     C                     SETON                     3199
+     C                     MOVELER,4      DZERR
+     C                     EXSR #SBZZZ
+     C                     MOVEL*BLANK    D2UBAR
+     C                     EXSR #SB290
+     C                     ENDIF
+      *
+     CSR         ESB220    ENDSR
+      *----------------------------------------------------*
+      * PASS WORD                                          *
+      *----------------------------------------------------*
+     CSR         #SB290    BEGSR
+      *
+     C*                    MOVEL'ALDC00'  P@MENU
+     C*                    CALL 'ALDRZ1'
+     C*                    PARM           P@MENU 10
+      *
+     CSR         ESB290    ENDSR
+      *----------------------------------------------------*
+      * END                                                *
+      *----------------------------------------------------*
+     CSR         #SB300    BEGSR
+     C                     SETON                     LR
+     C                     RETRN
+     CSR         ESB300    ENDSR
+      *----------------------------------------------------*
+      * ERR                                                *
+      *----------------------------------------------------*
+     CSR         #SBZZZ    BEGSR
+      *
+     C                     MOVEL'0'       RETN    1
+     C           RETN      DOWEQ'0'
+     C                     EXFMTDSP99
+     C                     SELEC
+     C           *IN01     WHEQ '1'
+     C           *IN02     OREQ '1'
+     C           *IN03     OREQ '1'
+     C           *IN04     OREQ '1'
+     C           *IN05     OREQ '1'
+     C           *IN06     OREQ '1'
+     C           *IN07     OREQ '1'
+     C           *IN08     OREQ '1'
+     C           *IN09     OREQ '1'
+     C           *IN10     OREQ '1'
+     C           *IN11     OREQ '1'
+     C           *IN12     OREQ '1'
+     C                     OTHER
+     C                     MOVEL'1'       RETN
+     C                     ENDSL
+     C                     ENDDO
+      *
+     CSR         ESBZZZ    ENDSR
+      *----------------------------------------------------*
+      * OUTPUT RESULT DATA.                                *
+      *----------------------------------------------------*
+     CSR         #SB500    BEGSR
+      *
+     C                     TIME           WTIME
+     C                     CLEARALRPP351
+     C                     Z-ADDWTIHZ     R1KOHZ
+     C                     TIME           R1KOTI
+     C                     MOVELPUSR2     R1KOUS
+     C                     MOVELW#PGM     R1KOPG
+     C                     Z-ADDWTIHZ     R1COHZ
+     C                     TIME           R1COTI
+     C                     MOVELPUSR2     R1COUS
+     C                     MOVELWKHNTE    R1HNTE
+     C                     MOVELP1KOJO    R1KOJO
+     C                     MOVELD1SBAR    R1SBAR
+     C                     MOVELD1SZET    R1SZET
+     C                     MOVELWKSHN1    R1SHN1
+     C                     MOVELWKSHN2    R1SHN2
+     C                     MOVELWKSHN3    R1SHN3
+     C                     MOVELWYZETI    R1ZETI
+     C                     MOVELD2UBAR    R1UBAR
+     C                     MOVELD2UZET    R1UZET
+     C                     WRITEALRPP351
+      *
+     CSR         ESB500    ENDSR
+      *----------------------------------------------------*
+      * CHECK DIGIT                                        *
+      *----------------------------------------------------*
+     CSR         #DIGIT    BEGSR
+      *
+     C                     MOVELWKBAR     PMAREA
+     C                     MOVELWKLEN     PMBYTE
+     C                     MOVE *BLANK    PMCHK            * CHECK DIJIT
+     C                     MOVE *BLANK    PNRTCD           * RTN
+     C                     CLOSEALRPW30
+     C                     CALL 'ALBRCC'
+     C                     PARM           PMAREA100        * FIELD
+     C                     PARM           PMBYTE  3        * LENGTH
+     C                     PARM           PMCHK   1        * CHECK DIJIT
+     C                     PARM           PNRTCD  1        * RTN
+     C                     OPEN ALRPW30
+      *
+     CSR         EDIGIT    ENDSR
+** ER
+ INPUT A-PICS KANBAN.
+ CHECK DIGIT ERR.
+ PART M/F ERR.
+ COLLATION ERR.
+ NO CONNECT M/F.
+ INPUT ATC KANBAN.
+ ALREADY SCANNED.
+ INPUT ASJ KANBAN.
+**
+* ATC SHIPPING *
+* ASJ SHIPPING *
+**
+ ATC KANBAN
+ ASJ KANBAN

@@ -1,0 +1,344 @@
+     H            Y.
+     F** UTLR35C *******************************************
+     F*  GET QPC BY IAF OR USR PART / DATE                 *
+     F*      (MASS PRODUCTION ONLY)                        *
+     F*  WRITTEN: JW (SRA) 2022.01.21                      *
+     F*----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UTLR35C'
+     F*                    PARM           $TOKU   4
+     F*                    PARM           $NONY   4
+     F*                    PARM           $MHIN  20
+     F*                    PARM           $HTYP   3
+     F*                    PARM           $DATE   8
+     F*                    PARM           $SYOS   6
+     F*                    PARM           $RTN    1
+     F*  IN  $TOKU :  4A CUST# (BLANK=ALL)
+     F*      $NONY :  4A DELIVERY CODE (BLANK=ALL)
+     F*      $MHIN : 20A USER PART
+     F*      $HTYP :  3A PART TYPE (USR=USER, IAF=IAF)
+     F*      $DATE :  8A TARGET DATE
+     F*  OUT $SYOS :  6A QTY/BOX (QPC)
+     F*      $RTN  :  1A RETURN CODE (BLANK=OK, *=ERROR, 1=NOT EFFECTIVE)
+     F******************************************************
+     FFAAPL05 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+      *--------------------------------------------------------
+     I            DS
+     I                                        1  20 @MHIN
+     I                                        1   5 $MHN1
+     I                                        6  10 $MHN2
+     I                                       11  15 $MHN3
+     I                                       16  20 $MHN4
+     I            DS
+     I                                        1  20 K@MHIN
+     I                                        1   5 K@MHN1
+     I                                        6  10 K@MHN2
+     I                                       11  15 K@MHN3
+     I                                       16  20 K@MHN4
+      *
+     I            DS
+     I                                        1   80A2SYHZ
+     I                                        1   40A2SYYY
+     I                                        5   60A2SYMM
+     I                                        7   80A2SYDD
+      *
+     I            DS
+     I                                        1   80A2TAHZ
+     I                                        1   40A2TAYY
+     I                                        5   60A2TAMM
+     I                                        7   80A2TADD
+      *
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *--------------------------------------------------------
+      *                    MAIN PROCESS
+      *--------------------------------------------------------
+      *
+     C                     EXSR #INIT
+      *
+     C           $HTYP     IFNE 'USR'
+     C           $HTYP     ANDNE'IAF'
+     C                     GOTO ENDP
+     C                     ENDIF
+      * DEFAULT
+     C                     MOVEL$MHN1     K@SHN1
+     C                     MOVEL$MHN2     K@SHN2
+     C                     MOVEL$MHN3     K@SHN3
+      *
+     C           $HTYP     IFEQ 'IAF'
+     C                     EXSR #FCEP
+     C                     GOTO ENDP
+     C                     ENDIF
+      *
+      * USR PART
+     C                     SELEC
+     C           $TOKU     WHEQ *BLANK
+     C           $NONY     ANDEQ*BLANK
+     C                     EXSR #CASE1
+     C           $TOKU     WHNE *BLANK
+     C           $NONY     ANDEQ*BLANK
+     C                     EXSR #CASE2
+     C           $TOKU     WHEQ *BLANK
+     C           $NONY     ANDNE*BLANK
+     C                     EXSR #CASE3
+     C           $TOKU     WHNE *BLANK
+     C           $NONY     ANDNE*BLANK
+     C                     EXSR #CASE4
+     C                     ENDSL
+      * END PROCESS
+     C           ENDP      TAG
+     C           WSYOS     IFEQ 0
+     C                     MOVEL'*'       $RTN
+     C                     ELSE
+     C                     MOVELWSYOS     $SYOS
+     C                     ENDIF
+      *
+     C           E#FLG     IFEQ 'N'
+     C           WSYOS     ANDNE0
+     C                     MOVEL'1'       $RTN
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *=============================================================
+      * IAF PART
+      *=============================================================
+     C           #FCEP     BEGSR
+      *
+     C                     Z-ADD0         EFDATE  80
+      *
+     C           KEY2      SETLLFCEPL01
+     C                     DO   *HIVAL
+     C           KEY2      READEFCEPL01                  98
+     C   98                LEAVE
+      *
+     C           A2GSKD    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           A2SYHZ    IFGT PDATE
+     C                     Z-ADDA2KSYS    WSYOS            OLD
+     C                     ELSE
+     C                     Z-ADDA2SSYS    WSYOS            NEW
+     C                     ENDIF
+      *
+     C                     Z-ADDA2TAHZ    EFDATE
+      *
+     C                     LEAVE
+     C                     ENDDO
+      * EFFECTIVE FLAG
+     C           EFDATE    IFNE 0
+     C           EFDATE    ANDLEPDATE
+     C                     MOVE 'Y'       E#FLG   1
+     C                     ELSE
+     C                     MOVE 'N'       E#FLG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *=============================================================
+      * CASE1: TOKU: BLANK, NONY: BLANK
+      *=============================================================
+     C           #CASE1    BEGSR
+      *
+     C                     MOVEL$MHIN     K@MHIN
+     C                     MOVE '0000'    K@TOKU
+     C                     MOVE '0000'    K@NONY
+      *
+     C           KEY1      SETLLFAAPL05
+     C                     DO   *HIVAL
+     C           KEY1B     READEFAAPL05                  91
+     C   91                LEAVE
+     C           B7SKBN    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELB7SHN1    K@SHN1
+     C                     MOVELB7SHN2    K@SHN2
+     C                     MOVELB7SHN3    K@SHN3
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C                     EXSR #FCEP
+      *
+     C                     ENDSR
+      *=============================================================
+      * CASE2: TOKU: NOT BLANK, NONY: BLANK
+      *=============================================================
+     C           #CASE2    BEGSR
+      *
+     C                     MOVEL$MHIN     K@MHIN
+     C                     MOVEL$TOKU     K@TOKU
+     C                     MOVE '0000'    K@NONY
+      *
+     C           KEY1      SETLLFAAPL05
+     C                     DO   *HIVAL
+     C           KEY1B     READEFAAPL05                  92
+     C   92                LEAVE
+     C           B7SKBN    IFEQ 'D'
+     C           B7TOKU    ORNE K@TOKU
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELB7SHN1    K@SHN1
+     C                     MOVELB7SHN2    K@SHN2
+     C                     MOVELB7SHN3    K@SHN3
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C                     EXSR #FCEP
+      *
+     C                     ENDSR
+      *=============================================================
+      * CASE3: TOKU: BLANK, NONY: NOT BLANK
+      *=============================================================
+     C           #CASE3    BEGSR
+      *
+     C                     MOVEL$MHIN     K@MHIN
+     C                     MOVE '0000'    K@TOKU
+     C                     MOVEL$NONY     K@NONY
+      *
+     C           KEY1B     SETLLFAAPL05
+     C                     DO   *HIVAL
+     C           KEY1B     READEFAAPL05                  93
+     C   93                LEAVE
+     C           B7SKBN    IFEQ 'D'
+     C           B7NONY    ORNE K@NONY
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELB7SHN1    K@SHN1
+     C                     MOVELB7SHN2    K@SHN2
+     C                     MOVELB7SHN3    K@SHN3
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C                     EXSR #FCEP
+      *
+     C                     ENDSR
+      *=============================================================
+      * CASE4: TOKU: NOT BLANK, NONY: NOT BLANK
+      *=============================================================
+     C           #CASE4    BEGSR
+      *
+     C                     MOVEL$MHIN     K@MHIN
+     C                     MOVEL$TOKU     K@TOKU
+     C                     MOVEL$NONY     K@NONY
+     C           KEY1      SETLLFAAPL05
+     C                     DO   *HIVAL
+     C           KEY1      READEFAAPL05                  94
+     C   94                LEAVE
+     C           B7SKBN    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELB7SHN1    K@SHN1
+     C                     MOVELB7SHN2    K@SHN2
+     C                     MOVELB7SHN3    K@SHN3
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C           *IN94     IFEQ *OFF
+     C                     EXSR #FCEP
+     C                     GOTO XCASE4
+     C                     ENDIF
+      * TOYOTA?
+     C           *IN94     IFEQ *ON
+     C           $TOKU     ANDEQ'3411'
+     C           K@MHN3    ANDEQ'00   '
+     C           K@MHN4    ANDEQ*BLANK
+     C                     EXSR #TOYO
+     C                     ENDIF
+      *
+     C           XCASE4    ENDSR
+      *=============================================================
+      * TOYOTA CASE
+      *=============================================================
+     C           #TOYO     BEGSR
+      *
+     C                     MOVEL$MHIN     K@MHIN
+     C                     MOVE *BLANK    K@MHN3
+     C                     MOVEL$TOKU     K@TOKU
+     C                     MOVEL$NONY     K@NONY
+     C           KEY1      SETLLFAAPL05
+     C                     DO   *HIVAL
+     C           KEY1      READEFAAPL05                  94
+     C   94                LEAVE
+     C           B7SKBN    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELB7SHN1    K@SHN1
+     C                     MOVELB7SHN2    K@SHN2
+     C                     MOVELB7SHN3    K@SHN3
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C           *IN94     IFEQ *OFF
+     C                     EXSR #FCEP
+     C                     GOTO XTOYO
+     C                     ENDIF
+      *
+     C           XTOYO     ENDSR
+      *=============================================================
+      * INITIAL SETING
+      *=============================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $HTYP   3
+     C                     PARM           $DATE   8
+     C                     PARM           $SYOS   6
+     C                     PARM           $RTN    1
+      *
+     C           KEY1      KLIST
+     C                     KFLD           K@MHN1  5
+     C                     KFLD           K@MHN2  5
+     C                     KFLD           K@MHN3  5
+     C                     KFLD           K@MHN4  5
+     C                     KFLD           K@TOKU  40
+     C                     KFLD           K@NONY  40
+      *
+     C           KEY1B     KLIST
+     C                     KFLD           K@MHN1  5
+     C                     KFLD           K@MHN2  5
+     C                     KFLD           K@MHN3  5
+     C                     KFLD           K@MHN4  5
+      *
+     C           KEY2      KLIST
+     C                     KFLD           K@SHN1  5
+     C                     KFLD           K@SHN2  5
+     C                     KFLD           K@SHN3  2
+      *
+     C                     CLEAR$RTN
+     C                     Z-ADD0         WSYOS   60
+     C                     MOVEL'000000'  $SYOS
+     C                     MOVE *BLANK    $RTN
+     C                     MOVEL$TOKU     K@TOKU  40
+     C                     MOVEL$NONY     K@NONY  40
+     C                     MOVEL$MHIN     K@MHIN
+     C                     MOVEL$MHIN     @MHIN
+      *
+     C           $HTYP     IFEQ *BLANK
+     C                     MOVEL'USR'     $HTYP
+     C                     ENDIF
+      *
+     C                     TIME           SDATE
+     C           $DATE     IFEQ *BLANK
+     C           $DATE     OREQ *ZERO
+     C                     Z-ADDTODAY     PDATE   80
+     C                     ELSE
+     C                     MOVEL$DATE     PDATE
+     C                     ENDIF
+      *
+     C                     ENDSR

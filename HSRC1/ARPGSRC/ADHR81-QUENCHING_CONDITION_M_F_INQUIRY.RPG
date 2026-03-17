@@ -1,0 +1,270 @@
+     H            Y.
+      ** ADHR81 *******************************************************
+      * QUENCHING CONDITION M/F INQUIRY
+      *  KIRI                                            2017.08.10
+      *****************************************************************
+     FADHPW81 CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFREC1
+     F                                              KINFDS INFDS
+      *
+      * QUENCHING CONDITION M/F      *
+     FADHPL80 IF  E           K        DISK
+      *===============================================================
+     E                    ER      1  10 60
+      *===============================================================
+     IINFDS       DS
+     I                                    B 378 3790$$RRN
+     I****************************
+      *プログラム状況データ構造*
+     I****************************
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W$WSID
+     I                                      254 263 W$USER
+     I                                      264 269 W$JBNO
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60@SYSTM
+     I                                        7  140@SYSHZ
+      *
+      *
+     I              '1: OQ       '        C         $TYP1
+     I              '2: AOQ      '        C         $TYP2
+     I              '3: LAN(HAN) '        C         $TYP3
+     I              '4: NUT      '        C         $TYP4
+     I              '5: OQ WASHER'        C         $TYP5
+     C*===============================================================
+     C*
+      *===============================================================
+      *  START  PROGRAM
+      *===============================================================
+     C           *ENTRY    PLIST
+     C                     PARM           P@TYPE  1
+     C*
+     C                     MOVE '#INIT   '@STEP   8
+      *
+     C           @STEP     DOUEQ'#END    '
+     C           @STEP     CASEQ'#INIT   '#INIT            初期処理
+     C           @STEP     CASEQ'#DSP1   '#DSP1
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *===============================================================
+      * 初期ﾈｮmb
+      *===============================================================
+     C           #INIT     BEGSR
+     C                     MOVEA*ALL'0'   *IN
+     C                     TIME           @TIME
+      *
+     C                     MOVE *BLANK    D1TYPE           区分
+     C                     MOVE *BLANK    D1ERR
+     C*
+     C                     SELEC
+     C           P@TYPE    WHEQ '1'
+     C                     MOVEL$TYP1     D1TYPE
+     C           P@TYPE    WHEQ '2'
+     C                     MOVEL$TYP2     D1TYPE
+     C           P@TYPE    WHEQ '3'
+     C                     MOVEL$TYP3     D1TYPE
+     C           P@TYPE    WHEQ '4'
+     C                     MOVEL$TYP4     D1TYPE
+     C           P@TYPE    WHEQ '5'
+     C                     MOVEL$TYP5     D1TYPE
+     C                     OTHER
+     C                     MOVEL'ALL     'D1TYPE
+     C                     ENDSL
+      *
+     C           *LOVAL    SETLLADHPL80
+     C                     Z-ADD16        @@MAX   20       表示件数
+     C                     SETON                     91
+     C                     EXSR #SFSET
+     C*
+     C                     MOVE '#DSP1   '@STEP
+      *-------------------------*
+     C           $INIT9    TAG
+      *-------------------------*
+     C                     ENDSR
+      *===============================================================
+      *  照会画面作成(PAGE UP/DOWN)
+      *===============================================================
+     C           #SFSET    BEGSR
+     C*
+     C                     SETON                     73    SFLCLR
+     C                     WRITESFCTL1
+     C                     SETOF                     73
+     C*
+     C                     Z-ADD0         RRN1    40
+     C                     Z-ADD0         ENDRRN  40
+     C*-------------------------
+     C*-------------------------
+S1   C                     DO   *HIVAL
+     C                     READ ADHPL80                  90
+     C   90                LEAVE
+     C           J8SKJY    IFEQ 'D'                         DELETE CODE
+     C           J8SKHZ    ANDLE@SYSHZ                      DELETE DATE
+     C                     ITER
+     C                     ENDIF
+     C*
+     C                     EXSR #SEL
+     C           @NG       IFEQ '*'
+     C                     ITER
+     C                     ENDIF
+     C*
+     C                     MOVEL$$TYPE    S1TYPE           TYPE
+     C                     MOVELJ8ZACD    S1ZACD           MATERIAL CODE
+     C                     MOVELJ8ZANM    S1ZANM           MATERIAL NAME
+     C                     Z-ADDJ8KIKI    S1KIKI           MATERIAL PROPERTIES
+     C                     Z-ADDJ8HOJI    S1HOJI           TIME
+     C                     Z-ADDJ8ONDO    S1ONDO           TEMP.
+     C                     Z-ADDJ8CO2P    S1CO2P           CO 2
+     C                     Z-ADDJ8KIK1    S1KIK1           HARDNESS STANDARD 1
+     C                     Z-ADDJ8KIK2    S1KIK2           HARDNESS STANDARD 2
+     C                     MOVELJ8ATOK    S1ATOK           PRESENT PROCESS CODE
+     C                     MOVELJ8PCLS    S1PCLS           PART CLASS
+     C                     MOVELJ8SHN1    S1SHN1           PART #1
+     C                     MOVELJ8SHN2    S1SHN2           2
+     C                     MOVELJ8SHN3    S1SHN3           3
+     C*
+     C                     ADD  1         RRN1
+     C                     WRITESFREC1
+     C*
+     C           RRN1      IFGE @@MAX
+     C                     LEAVE
+     C                     ENDIF
+     C*---------------
+E1   C                     ENDDO
+     C*-------------------------
+     C*-------------------------
+     C                     Z-ADDRRN1      ENDRRN  40
+     C*--------------------
+     C                     ENDSR
+      *===============================================================
+      *
+      *===============================================================
+     C           #SEL      BEGSR
+      *
+     C                     MOVE ' '       @NG     1
+      *
+     C                     SELEC
+     C           J8ATOK    WHEQ 'OQ '                      PRESENT PROCESS CODE
+     C           J8PCLS    ANDEQ'   '                      PART CLASS
+     C                     MOVE $TYP1     $$TYPE
+     C                     MOVE '1'       @@TYPE
+     C           J8ATOK    WHEQ 'AOQ'                      PRESENT PROCESS CODE
+     C           J8PCLS    ANDEQ'   '                      PART CLASS
+     C                     MOVE $TYP2     $$TYPE
+     C                     MOVE '2'       @@TYPE
+     C           J8ATOK    WHEQ 'LAN'                      PRESENT PROCESS CODE
+     C           J8PCLS    ANDEQ'   '                      PART CLASS
+     C                     MOVEL$TYP3     $$TYPE
+     C                     MOVE '3'       @@TYPE
+     C           J8ATOK    WHEQ '   '                      PRESENT PROCESS CODE
+     C           J8PCLS    ANDEQ'NUT'                      PART CLASS
+     C                     MOVE $TYP4     $$TYPE
+     C                     MOVE '4'       @@TYPE
+     C           J8ATOK    WHEQ '   '                      PRESENT PROCESS CODE
+     C           J8PCLS    ANDEQ'OQW'                      PART CLASS
+     C                     MOVE $TYP5     $$TYPE
+     C                     MOVE '5'       @@TYPE
+     C                     OTHER
+     C                     MOVE *BLANK    $$TYPE  9
+     C                     MOVE ' '       @@TYPE  1
+     C                     ENDSL
+      *
+     C           P@TYPE    IFNE ' '
+     C           P@TYPE    ANDNE@@TYPE
+     C                     MOVE '*'       @NG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *===============================================================
+      *===============================================================
+      *  画面１　表示
+      *===============================================================
+     C           #DSP1     BEGSR
+     C*
+     C                     WRITEADHPW811
+     C*
+     C                     SETON                     71
+     C           ENDRRN    IFNE 0
+     C                     SETON                     72
+     C                     ENDIF
+     C                     EXFMTSFCTL1
+     C                     SETOF                     717299
+     C                     MOVE *BLANK    D1ERR
+     C*
+      *
+S1   C                     SELEC
+     C*  < F3 > 前画面
+     C           *INKC     WHEQ *ON
+     C                     MOVE '#END    '@STEP
+     C*  < ROLL/UP >
+-1   C           *IN75     WHEQ *ON
+ S2  C           *IN90     IFEQ *ON
+     C                     MOVELER,02     D1ERR            エラー
+     C                     SETON                     99
+ X2  C                     ELSE
+     C                     EXSR #SFSET
+     C                     SETOF                     91
+  S3 C           ENDRRN    IFEQ 0
+     C                     EXSR #DOWN
+     C                     SETON                     90  99
+     C                     MOVELER,02     D1ERR            エラー
+  E3 C                     ENDIF
+ E2  C                     ENDIF
+     C                     MOVE '#DSP1   '@STEP
+     C*  < ROLL/DOWN >
+-1   C           *IN76     WHEQ *ON
+ S2  C           *IN91     IFEQ *ON
+     C                     MOVELER,01     D1ERR            エラー
+     C                     SETON                     99
+ X2  C                     ELSE
+     C                     EXSR #DOWN
+     C                     MOVE '#DSP1   '@STEP
+ E2  C                     ENDIF
+     C*
+-1   C                     OTHER
+     C                     MOVE '#DSP1   '@STEP
+E1   C                     ENDSL
+      *
+     C                     ENDSR
+      *===============================================================
+      *
+      *===============================================================
+     C           #DOWN     BEGSR
+     C           ENDRRN    ADD  @@MAX     @@BACK  40
+     C                     Z-ADD0         @@KEN   40
+     C*
+     C   90                ADD  1         @@BACK
+     C   90      *HIVAL    SETGTADHPL80
+     C   90                SETOF                     90
+      *-------------------------
+      *-------------------------
+S1   C           @@KEN     DOUEQ@@BACK
+     C                     READPADHPL80                  91
+     C   91                LEAVE
+     C           J8SKJY    IFEQ 'D'                         DELETE CODE
+     C           J8SKHZ    ANDLE@SYSHZ                      DELETE DATE
+     C                     ITER
+     C                     ENDIF
+     C*
+     C                     EXSR #SEL
+     C           @NG       IFEQ '*'
+     C                     ITER
+     C                     ENDIF
+     C*
+     C*
+     C                     ADD  1         @@KEN
+E1   C                     ENDDO
+      *-------------------------
+      *-------------------------
+     C   91      *LOVAL    SETLLADHPL80
+     C                     EXSR #SFSET
+     C                     ENDSR
+      *===============================================================
+      *===============================================================
+**  ERROR
+E-01 THE FIRST DATA.
+E-02 THE LAST DATA.

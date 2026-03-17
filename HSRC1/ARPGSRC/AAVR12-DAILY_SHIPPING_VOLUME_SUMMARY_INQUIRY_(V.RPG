@@ -1,0 +1,512 @@
+     H            Y.
+      ** AAVR11 ******************************************************
+      *  TOTAL DAILY SHIPPING VOLUME INQUIRY                         *
+      *  J.WATANABE  12.05.2017                                      *
+JW1   *  J.WATANABE  04.05.2018 REVERSE PART FIELD IF SCAN SKIPPED   *
+JW2   *  J.WATANABE  05.14.2021 REMOVE P/T DATA                      *
+JW3   *  J.WATANABE  05.27.2021 USE GHCPL22 FOR SET QTY (SUBROUTINE) *
+      ****************************************************************
+     FAAVPW12 CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     FFCEPL01 IF  E           K        DISK
+     FABHPL01 IF  E           K        DISK
+     FAAVWP13 UF  E           K        DISK                      A
+     FAAVWP14 IF  E           K        DISK                      A
+     FFCEWP01 O   E           K        DISK
+      ******
+     E                    SIZ     1   7  3   SRT     1
+     E                    ERR     1   4 60
+      ******
+     I            DS
+     I                                        1   6 LOC6
+     I                                        1   1 LOC1
+     I                                        2   3 LOC2
+     I                                        4   5 LOC3
+     I                                        6   6 LOC4
+     I            DS
+     I                                        1   9 XLOC
+     I                                        1   1 XLOC1
+     I                                        2   2 XPH1
+     I                                        3   4 XLOC2
+     I                                        5   5 XPH2
+     I                                        6   7 XLOC3
+     I                                        8   8 XPH3
+     I                                        9   9 XLOC4
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1  12 A2BHB
+     I                                        1   5 A2BHB1
+     I                                        6  10 A2BHB2
+     I                                       11  12 A2BHB3
+      *-----------------------------------------------------------*
+      *     M  A  I  N  L  I  N  E                                *
+      *-----------------------------------------------------------*
+      *
+     C                     EXSR #INIT
+      *
+     C           W@ID      DOWNE'99'
+     C           W@ID      CASEQ'01'      #DSP1
+     C           W@ID      CASEQ'02'      #DSP2
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *
+      *************************************************************
+      * SCREEN 1
+      *************************************************************
+     C           #DSP1     BEGSR
+      *
+     C                     Z-ADDXSUM1     XSUM      H
+     C                     EXFMTDSP01
+      * F1/3: END
+     C           *INKA     IFEQ *ON
+     C           *INKC     OREQ *ON
+     C                     MOVEL'99'      W@ID
+     C                     GOTO @END1
+     C                     ENDIF
+      *
+     C                     EXSR #CHK1
+      * ENTER
+     C           *IN85     IFEQ *OFF
+     C           *INKE     ANDEQ*OFF
+     C                     MOVELERR,3     XMSG
+     C                     GOTO @END1
+     C                     ENDIF
+      * F5 : DETAIL SCREEN
+     C           *IN85     IFEQ *OFF
+     C           *INKE     ANDEQ*ON
+     C                     EXSR #SFL1
+      *
+     C           RRN1      IFGT 0
+     C                     MOVEL'02'      W@ID
+     C                     ELSE
+     C                     MOVELERR,2     XMSG
+     C                     SETON                     313285
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           @END1     ENDSR
+      *************************************************************
+      * CHECK SCREEN 1
+      *************************************************************
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE *BLANK    XMSG
+     C                     MOVE *OFF      *IN41
+     C                     MOVE *OFF      *IN85
+     C                     Z-ADD0         XRATE
+     C                     Z-ADD0         XRATE2  62
+      *
+     C           XSCHD     IFEQ 0
+     C                     MOVELERR,1     XMSG
+     C                     SETON                     41  85
+     C                     GOTO @EDSP1
+     C                     ENDIF
+      * IF NO ERROR....
+     C           XSUM      IFEQ 0
+     C                     Z-ADD1         XRATE
+     C                     Z-ADD1         XRATE2
+     C                     ELSE
+     C           XSCHD     MULT 100       NUM10  100
+     C           NUM10     DIV  XSUM      XRATE     H
+     C           NUM10     DIV  XSUM      XRATE2    H
+     C                     ENDIF
+      *
+     C           @EDSP1    ENDSR
+      *************************************************************
+      * CHECK SCREEN 1
+      *************************************************************
+     C           #SFL1     BEGSR
+      * CREATE DETAIL DATA
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     EXSR #DTL
+     C                     ENDIF
+      *
+     C                     Z-ADD0         TBOX1   60
+     C                     Z-ADD0         TQTY1   90
+     C                     Z-ADD0         TBOX2   60
+     C                     Z-ADD0         TQTY2   90
+     C                     Z-ADD0         TBOX3   60
+     C                     Z-ADD0         TQTY3   90
+      * READ AAVWP13
+     C                     Z-ADD0         RRN1
+     C                     MOVE *OFF      *IN51
+     C           *LOVAL    SETLLAAVWP13
+     C           *IN51     DOWEQ*OFF
+     C                     READ AAVWP13                  51
+     C           *IN51     IFEQ *OFF
+      * IGNORE "OTHER"
+TEMP C**         AVSRT     IFEQ '9'
+     C**                   ITER
+     C**                   ENDIF
+      *
+     C                     MOVELAVSIZ     SSIZE     P
+     C           AVBOX1    MULT XRATE     NUM122 122
+     C           NUM122    DIV  100       SBOX1     H
+     C           AVQTY1    MULT XRATE     NUM122
+     C           NUM122    DIV  100       SQTY1     H
+      *
+     C           AVBOX2    MULT XRATE     NUM122 122
+     C           NUM122    DIV  100       SBOX2     H
+     C           AVQTY2    MULT XRATE     NUM122
+     C           NUM122    DIV  100       SQTY2     H
+      *
+     C           SBOX1     ADD  SBOX2     SBOX3     H
+     C           SQTY1     ADD  SQTY2     SQTY3     H
+      *
+     C                     ADD  SBOX1     TBOX1     H
+     C                     ADD  SQTY1     TQTY1     H
+     C                     ADD  SBOX2     TBOX2     H
+     C                     ADD  SQTY2     TQTY2     H
+     C                     ADD  SBOX3     TBOX3     H
+     C                     ADD  SQTY3     TQTY3     H
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+      *
+     C                     ENDIF
+     C                     ENDDO
+      * TOTAL
+     C                     MOVEL'TOTAL'   SSIZE
+     C                     Z-ADDTBOX1     SBOX1
+     C                     Z-ADDTQTY1     SQTY1
+     C                     Z-ADDTBOX2     SBOX2
+     C                     Z-ADDTQTY2     SQTY2
+     C                     Z-ADDTBOX3     SBOX3
+     C                     Z-ADDTQTY3     SQTY3
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+      *
+     C                     Z-ADDRRN1      COUNT   60
+      *
+     C                     ENDSR
+      ************************************************************
+      * SCREEN 2
+      ************************************************************
+     C           #DSP2     BEGSR
+      *
+     C                     WRITEDSP99
+     C                     MOVEL'1'       *IN70
+     C                     EXFMTSFLCTL
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVEL'0'       *IN85
+     C                     MOVEL'0'       *IN70
+      *
+     C                     SELEC
+     C           *INKL     WHEQ *ON
+     C                     EXSR #CLRSR
+     C                     Z-ADD0         RRN1
+     C                     MOVEL'01'      W@ID
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *************************************************************
+      * CLEAR SCREEN
+      *************************************************************
+     C           #CLRSR    BEGSR
+     C                     SETON                     71
+     C                     WRITESFLCTL
+     C                     SETOF                     71
+     C                     Z-ADD0         RRN1
+      *
+     C                     ENDSR
+      *************************************************************
+      * CALCULATE SUMMARY FOR THE 1ST SCREEN
+      *************************************************************
+     C           #SUM      BEGSR
+      *
+     C           *LOVAL    SETLLFCEPL01
+     C                     DO   *HIVAL
+     C                     READ FCEPL01                  98
+     C   98                LEAVE
+      *
+     C           A2GSKD    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * GET PART INFORMATION
+     C                     MOVELA2BHB     $SHIN
+JW2  C                     CALL 'UTLR78D'
+     C                     PARM           $SHIN  12
+     C                     PARM           $ZETI   4
+     C                     PARM           $FPRC   3
+JW2  C                     PARM           $FDPT   40
+     C                     PARM           $FMCN   3
+     C                     PARM           $FSIZE  3
+     C                     PARM           $LLOC   6
+     C                     PARM           $QPC    60
+     C                     PARM           $MSET   90
+     C                     PARM           $DSVB   61
+     C                     PARM           $DSVQ   80
+JW3  C                     PARM           $MSET2  90
+ .   C                     PARM           $DSVB2  61
+JW3  C                     PARM           $DSVQ2  80
+     C                     PARM           $RTNX   1
+      * OUT FCEWP01
+     C                     MOVEL$LLOC     LOC6
+     C                     MOVELLOC1      XLOC1
+     C                     MOVELLOC2      XLOC2
+     C                     MOVELLOC3      XLOC3
+     C                     MOVELLOC4      XLOC4
+     C                     MOVELXLOC      A2LLOC
+      **                   Z-ADD$DSVB     A2DSVB
+      **                   Z-ADD$DSVQ     A2DSVQ
+JW3  C                     Z-ADD$DSVB2    A2DSVB
+JW3  C                     Z-ADD$DSVQ2    A2DSVQ
+      *
+JW2  C                     MOVEL$FPRC     A2FPRC
+ .   C                     Z-ADD$FDPT     A2FDPT
+JW2  C                     MOVEL$FMCN     A2FMCN
+      *
+     C                     WRITEFCEWP011
+      * SELECT 0-XX-XX-X
+     C                     MOVEL$LLOC     LTR1    1
+     C           LTR1      IFNE '0'
+     C                     ITER
+     C                     ENDIF
+      *
+JW2   * IGNORE P/T PART
+ .   C           $FDPT     IFEQ 8990
+ .   C                     ITER
+JW2  C                     ENDIF
+      *
+      **                   ADD  $DSVB     XSUM1
+JW3  C                     ADD  $DSVB2    XSUM1     H
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *************************************************************
+      * CREATE DETAIL DATA (AAVWP13/AAVWP14) BY ABHPP01
+      *************************************************************
+     C           #DTL      BEGSR
+      *
+     C           *LOVAL    SETLLABHPL01
+     C                     DO   *HIVAL
+     C                     READ ABHPL01                  98
+     C   98                LEAVE
+      *
+     C           M6SKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * PART INFORMATION
+     C                     MOVELM6SHIN    $SHIN
+JW2  C                     CALL 'UTLR78D'
+     C                     PARM           $SHIN  12
+     C                     PARM           $ZETI   4
+     C                     PARM           $FPRC   3
+JW2  C                     PARM           $FDPT   40
+     C                     PARM           $FMCN   3
+     C                     PARM           $FSIZE  3
+     C                     PARM           $LLOC   6
+     C                     PARM           $QPC    60
+     C                     PARM           $MSET   90
+     C                     PARM           $DSVB   61
+     C                     PARM           $DSVQ   80
+JW3  C                     PARM           $MSET2  90
+JW3  C                     PARM           $DSVB2  61
+JW3  C                     PARM           $DSVQ2  80
+     C                     PARM           $RTNX   1
+     C                     MOVEL$LLOC     LOC1    1
+      * FIRST PROCESS
+     C           $FPRC     IFEQ 'HD '
+     C           $FPRC     OREQ 'BM '
+     C           $FPRC     OREQ 'NF '
+     C                     MOVE 'Y'       PFLG    1
+     C                     ELSE
+     C                     MOVE 'N'       PFLG
+     C                     ENDIF
+      * UPDATE AAVWP13
+     C                     MOVELM6AKT1    $PRC
+     C                     EXSR #UPD13
+      * PRC2
+     C           M6AKT2    IFEQ *BLANK
+     C                     ITER
+     C                     ELSE
+     C                     MOVELM6AKT2    $PRC
+     C                     EXSR #UPD13
+     C                     ENDIF
+      * PRC3
+     C           M6AKT3    IFEQ *BLANK
+     C                     ITER
+     C                     ELSE
+     C                     MOVELM6AKT3    $PRC
+     C                     EXSR #UPD13
+     C                     ENDIF
+      * PRC4
+     C           M6AKT4    IFEQ *BLANK
+     C                     ITER
+     C                     ELSE
+     C                     MOVELM6AKT4    $PRC
+     C                     EXSR #UPD13
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *************************************************************
+      * UPDATE AAVWP13
+      *************************************************************
+     C           #UPD13    BEGSR
+      * CHECK DUPLICATE RECORD
+     C           K#WP14    CHAINAAVWP14              99
+     C           *IN99     IFEQ *OFF
+     C                     GOTO XUPD13
+     C                     ENDIF
+      *  GET MACHINE/SIZE
+     C                     CALL 'UTLR78B'
+     C                     PARM           $SHIN  12
+     C                     PARM           $PRC    3
+     C                     PARM           $MCN    3
+     C                     PARM           $SIZE   3
+     C                     PARM           $RTNX   1
+     C           $MCN      IFEQ *BLANK
+     C                     GOTO XUPD13
+     C                     ENDIF
+      * SET SORT#
+     C                     Z-ADD1         IX      10
+     C           $SIZE     LOKUPSIZ,IX                   97
+     C           *IN97     IFEQ *ON
+     C                     MOVELSRT,IX    K#SRT   1
+     C                     ELSE
+     C                     MOVE '9'       K#SRT
+     C                     ENDIF
+      * CHECK FIRST PROC=HN, RL/TP
+JW3  C**                   MOVE 'N'       PFLG2
+ .   C**         $FPRC     IFEQ 'HN'
+ .   C**                   MOVEL$SHIN     PSHIN
+ .   C**                   CALL 'UEXR06C'
+ .   C**                   PARM           PSHIN  12
+ .   C**                   PARM           PFLG2   1
+JW3  C**                   ENDIF
+      * UPDATE AAVWP13
+     C           K#SRT     CHAINAAVWP13              96
+     C           *IN96     IFEQ *OFF
+      *
+     C           $FPRC     IFEQ 'HD'
+     C           $PRC      ANDEQ'HD '
+     C           $FPRC     OREQ 'BM '
+     C           $PRC      ANDEQ'BM '
+     C           $FPRC     OREQ 'NF '
+     C           $PRC      ANDEQ'NF '
+JW3  C**         $FPRC     OREQ 'HN'
+ .   C**         $PRC      ANDEQ'RL'
+ .   C**         $FPRC     OREQ 'HN'
+JW3  C**         $PRC      ANDEQ'TP'
+      *********************ADD  $DSVB     AVBOX1
+      *********************ADD  $DSVQ     AVQTY1
+JW3  C                     ADD  $DSVB2    AVBOX1    H
+JW3  C                     ADD  $DSVQ2    AVQTY1    H
+     C                     ELSE
+      *********************ADD  $DSVB     AVBOX2
+      *********************ADD  $DSVQ     AVQTY2
+JW3  C                     ADD  $DSVB2    AVBOX2    H
+JW3  C                     ADD  $DSVQ2    AVQTY2    H
+     C                     ENDIF
+      *
+     C                     UPDATAAVWP131
+     C                     ELSE
+     C                     CLEARAAVWP131
+     C                     MOVELK#SRT     AVSRT
+     C                     MOVEL$SIZE     AVSIZ     P
+      *
+     C           $FPRC     IFEQ 'HD'
+     C           $PRC      ANDEQ'HD '
+     C           $FPRC     OREQ 'BM '
+     C           $PRC      ANDEQ'BM '
+     C           $FPRC     OREQ 'NF '
+     C           $PRC      ANDEQ'NF '
+JW3  C**         $FPRC     OREQ 'HN'
+ .   C**         $PRC      ANDEQ'RL'
+ .   C**         $FPRC     OREQ 'HN'
+JW3  C**         $PRC      ANDEQ'TP'
+      *********************Z-ADD$DSVB     AVBOX1
+      *********************Z-ADD$DSVQ     AVQTY1
+JW3  C                     Z-ADD$DSVB2    AVBOX1
+JW3  C                     Z-ADD$DSVQ2    AVQTY1
+     C                     ELSE
+      *********************Z-ADD$DSVB     AVBOX2
+      *********************Z-ADD$DSVQ     AVQTY2
+JW3  C                     Z-ADD$DSVB2    AVBOX2
+JW3  C                     Z-ADD$DSVQ2    AVQTY2
+     C                     ENDIF
+      *
+     C           AVSRT     IFEQ '9'
+     C                     MOVEL'OTHER'   AVSIZ     P
+     C                     ENDIF
+      *
+     C                     WRITEAAVWP131
+     C                     ENDIF
+      *
+      * OUTPUT AAVWP14
+     C                     CLEARAAVWP141
+     C                     MOVELK#SRT     A2SRT
+     C                     MOVEL$SIZE     A2SIZ
+     C           A2SRT     IFEQ '9'
+     C                     MOVEL'OTHER'   A2SIZ     P
+     C                     ENDIF
+      *********************Z-ADD$DSVB     A2BOX
+      *********************Z-ADD$DSVQ     A2QTY
+JW3  C                     Z-ADD$DSVB2    A2BOX
+JW3  C                     Z-ADD$DSVQ2    A2QTY
+      *
+     C                     MOVELM6SHIN    A2SHIN
+     C                     MOVEL$ZETI     A2ZETI
+     C                     MOVEL$LLOC     LOC6
+     C                     MOVELLOC1      XLOC1
+     C                     MOVELLOC2      XLOC2
+     C                     MOVELLOC3      XLOC3
+     C                     MOVELLOC4      XLOC4
+     C                     MOVELXLOC      A2LLOC
+     C                     MOVEL$FPRC     A2FPRC
+     C                     MOVEL$FMCN     A2FMCN
+     C                     MOVEL$PRC      A2PRC
+     C                     MOVEL$MCN      A2MCN
+     C*********************Z-ADD$MSET     A2MSET
+JW3  C                     Z-ADD$MSET2    A2MSET
+     C                     Z-ADD$QPC      A2QPC
+     C                     MOVELPFLG      A2FLG1
+     C                     MOVEL'1'       A2PRC#
+     C                     WRITEAAVWP141
+      *
+     C           XUPD13    ENDSR
+      *************************************************************
+      * INITIALIZE
+      *************************************************************
+     C           #INIT     BEGSR
+      *
+     C           K#WP14    KLIST
+     C                     KFLD           $SHIN
+     C                     KFLD           $PRC
+      *
+     C                     MOVE 'Y'       FIRST   1
+     C                     MOVE *BLANK    XMSG
+     C                     MOVEL'01'      W@ID    2
+     C                     TIME           SDATE
+     C                     Z-ADD0         RRN1    50
+     C                     MOVE '-'       XPH1
+     C                     MOVE '-'       XPH2
+     C                     MOVE '-'       XPH3
+     C                     Z-ADD0         XSUM1  101
+      * CALCULATE SUMMARY
+     C                     EXSR #SUM
+      *
+     C                     ENDSR
+      *************************************************************
+** SRT
+NUT1
+M8 2
+M103
+M6 4
+H/V5
+TS 6
+E/G7
+** ERR,
+ENTER SCHEDULED VOLUME !
+THE IS NO DATA !
+PRESS F5 TO DISPLAY SUMMARY...
+F12:BACK

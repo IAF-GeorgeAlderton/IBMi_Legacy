@@ -1,0 +1,114 @@
+             PGM
+             /** AADC35 *******************************/
+             /*  機番別品種切替設定リストの作成<CL> */
+             /*                 K.YASUDA   94.05.10   */
+             /*              T.SAKASHITA 2003.10.09   */
+             /******************************* AADC31 **/
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&WS) TYPE(*CHAR) LEN(2)
+             DCL        VAR(&W) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&USER) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&USME) TYPE(*CHAR) LEN(15)
+             DCL        VAR(&TYPE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&PRN) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&LST) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&OUT) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&FILE1) TYPE(*CHAR) LEN(9)
+             DCL        VAR(&FILE2) TYPE(*CHAR) LEN(9)
+             DCL        VAR(&FILE3) TYPE(*CHAR) LEN(9)
+             RTVJOBA    JOB(&WSID) USER(&USER)
+             CHGJOB     SWS(00000000)
+
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+             CHGJOB     OUTQ(&PRTG)
+             CALL       PGM(APLR00) PARM(&USER &USME)
+             CHGVAR     VAR(&WS) VALUE(%SST(&WSID 1 2))
+             CHGVAR     VAR(&W) VALUE(%SST(&WS 1 1))
+             CHGVAR     VAR(&FILE1) VALUE('AADWP30' *CAT &WS)
+             CHGVAR     VAR(&FILE2) VALUE('AADWP31' *CAT &WS)
+             CHGVAR     VAR(&FILE3) VALUE('AADWP3A' *CAT &WS)
+
+             DLTF       FILE(&FILE3)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(WORKLIB/&FILE3) RCDLEN(20) +
+                          OPTION(*NOLIST) SIZE(10000 1000 3) +
+                          LVLCHK(*NO) AUT(*ALL)
+             OVRDBF     FILE(AADWP3A) TOFILE(&FILE3)
+
+             /*  ﾍLﾑCO MﾞｰJ  ﾝｰH S PｬCﾒｭH  */
+             CALL       PGM(AADRSK) PARM(&PRN &LST &OUT)
+             IF         COND(%SWITCH(XXXX0XXX)) THEN(DO)
+             GOTO       CMDLBL(END)
+             ENDDO
+             /*  ﾝｰH ﾎｦBﾓ ﾅHﾈB  */
+                   /*  AADWP30 & AADWP31  */
+
+             DLTF       FILE(&FILE1)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(WORKLIB/&FILE1) RCDLEN(256) +
+                          OPTION(*NOLIST) SIZE(10000 1000 3) +
+                          LVLCHK(*NO) AUT(*ALL)
+             OVRDBF     FILE(AADWP30) TOFILE(&FILE1)
+
+             DLTF       FILE(&FILE2)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(WORKLIB/&FILE2) RCDLEN(256) +
+                          OPTION(*NOLIST) SIZE(10000 1000 3) +
+                          LVLCHK(*NO) AUT(*ALL)
+             OVRDBF     FILE(AADWP31) TOFILE(&FILE2)
+
+             CHGJOB     RUNPTY(40) SWS(00000000)
+
+             CALL       PGM(AADR30) PARM(&LST)
+             CALL       PGM(AADR3A) PARM(&LST)
+
+             /*  ﾒﾇNﾌｮﾃC PGM  */
+                    /* A = AADR31 / B = AADR32 */
+
+             IF         (&LST *EQ 'B') GOTO STEP3
+
+             IF         (&PRN *EQ '2') GOTO STEP2
+             FMTDTA     INFILE((&FILE1)) OUTFILE(&FILE2) +
+                          SRCFILE(SRCLIB/FMTSRC) SRCMBR(AADS30) +
+                          OPTION(*NOPRT)
+             GOTO       STEP5
+
+ STEP2:      FMTDTA     INFILE((&FILE1)) OUTFILE(&FILE2) +
+                          SRCFILE(SRCLIB/FMTSRC) SRCMBR(AADS31) +
+                          OPTION(*NOPRT)
+
+ STEP5:      IF         (&OUT *EQ 'B') GOTO END
+             OVRPRTF    FILE(QPRINT) OVRFLW(60) RPLUNPRT(*YES) +
+                          OUTQ(&PRTG) FORMTYPE(K6H1) HOLD(*NO)
+
+             CALL       PGM(AADR31) PARM(&PRN &USME)
+             GOTO       END
+
+ STEP3:      IF         (&PRN *EQ '2') GOTO STEP4
+             FMTDTA     INFILE((&FILE1)) OUTFILE(&FILE2) +
+                          SRCFILE(SRCLIB/FMTSRC) SRCMBR(AADS3A) +
+                          OPTION(*NOPRT)
+             GOTO       STEP6
+
+ STEP4:      FMTDTA     INFILE((&FILE1)) OUTFILE(&FILE2) +
+                          SRCFILE(SRCLIB/FMTSRC) SRCMBR(AADS3B) +
+                          OPTION(*NOPRT)
+
+ STEP6:      IF         (&OUT *EQ 'B') GOTO END
+             OVRPRTF    FILE(QPRINT) PAGESIZE(66 198) LPI(6) CPI(15) +
+                          OVRFLW(60) OUTQ(&PRTG) FORMTYPE(K6H1) +
+                          HOLD(*NO)
+
+             CALL       PGM(AADR32) PARM(&PRN)
+
+             CHGJOB     RUNPTY(20)
+ END:        DLTOVR     FILE(*ALL)
+         /*  DLTF       &FILE1                   */
+         /*  MONMSG     MSGID(CPF3261 CPF2105)   */
+         /*  DLTF       &FILE2                   */
+         /*  MONMSG     MSGID(CPF3261 CPF2105)   */
+         /*  DLTF       &FILE3                   */
+         /*  MONMSG     MSGID(CPF3261 CPF2105)   */
+             ENDPGM

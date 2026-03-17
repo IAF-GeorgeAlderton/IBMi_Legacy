@@ -1,0 +1,377 @@
+     H            Y.
+     F** AO#R05  *******************************************
+     F*  AO#WP13ＩＡＦ便＃にパレットを割り振る           *
+     F*      ITS.        2016.03.21                        *
+     F******************************************************
+     FAO#WP11 IF  E           K        DISK
+     FAO#WP12 IF  E           K        DISK
+     FAO#WP13 O   E                    DISK                      A
+     E                    ER      1  11 65
+     E                    IB        999  3
+     E                    CT        999  8 0
+     E                    PU        999  8 0
+     E                    PUH       999  8 0
+     E                    SRT       999 16
+      *
+     IW@SRT       DS
+     I                                        1   50W@HAKO
+     I                                        6  130W@PLCT
+     I                                       14  16 W@IAFB
+      *
+     I            DS
+     I                                        1  12 W1SHN
+     I                                        1   5 W1SHN1
+     I                                        6  10 W1SHN2
+     I                                       11  12 W1SHN3
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60STIME
+     I                                        7  140SDATE
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+      *-----------------------------------------------------
+      *  MAIN ROUTINE
+      *-----------------------------------------------------
+     C                     TIME           WTIME
+      *
+     C           *HIVAL    SETGTAO#WP111
+     C                     READPAO#WP111                 81
+     C           *IN81     DOWEQ'0'
+     C                     EXSR #SB399
+     C                     EXSR #SB39A
+     C           W1PPUL    IFEQ '1'
+     C                     EXSR #SB401
+     C                     ELSE
+     C                     EXSR #SB400
+     C                     ENDIF
+     C**********           READPAL#WP111                 81
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *-----------------------------------------------------
+      *ＩＡＦ便＃をテーブルに格納
+      *-----------------------------------------------------
+     CSR         #SB399    BEGSR
+      *
+     C           KEYW2     KLIST
+     C                     KFLD           W1TRKB
+     C                     KFLD           W1SURT
+     C                     KFLD           KKPPUL  1
+     C                     KFLD           KKNONY  40
+     C           W1PPUL    IFEQ '1'
+     C                     MOVELW1PPUL    KKPPUL
+     C                     ELSE
+     C                     MOVEL'2'       KKPPUL
+     C                     ENDIF
+     C                     Z-ADDW1NONY    KKNONY
+      *パレットプーリングは納入先混在
+     C           W1PPUL    IFEQ '1'
+     C                     Z-ADD0         KKNONY
+     C                     ENDIF
+     C                     CLEARIB
+     C                     CLEARCT
+     C                     CLEARPU
+     C                     CLEARPUH
+     C                     Z-ADD0         X       40
+      *ＩＡＦ便＃の大きいものを配列の先頭にセット
+     C           KEYW2     SETGTAO#WP121
+     C           KEYW2     REDPEAO#WP121                 82
+     C           *IN82     DOWEQ'0'
+     C                     ADD  1         X
+     C                     MOVELW2IAFB    IB,X             ＩＡＦ便
+     C                     Z-ADDW2KPLT    CT,X             種類の数
+     C           KEYW2     REDPEAO#WP121                 82
+     C                     ENDDO
+      *ＩＡＦ便＃の数
+     C                     Z-ADDX         MAX     40
+      *パレットプーリングのパレット数
+     C                     Z-ADD0         P1KENS  30
+     C                     Z-ADD0         P1KENH  30
+     C*****                CALL 'AL#R11'
+     C*****                PARM           W1TRKB  2
+     C*****                PARM           W1SURT  9
+     C*****                PARM           P1KENS  30
+     C*****                PARM           P1KENH  30
+      *品番ありのパレットプーリング
+     C                     Z-ADD1         A       40
+     C                     Z-ADDMAX       B       40
+     C*****      A         DOWLEP1KENH
+     C*****      CT,B      IFGT 0
+     C*****                ADD  1         PUH,B
+     C*****                ADD  1         A
+     C*****                ENDIF
+     C*****      PUH,B     IFEQ CT,B
+     C*****                SUB  1         B
+     C*****                ENDIF
+     C*****                ENDDO
+      *品番なしのパレットプーリング
+     C                     Z-ADD1         A       40
+     C                     Z-ADDMAX       B       40
+     C*****      A         DOWLEP1KENS
+     C*****      CT,B      SUB  PUH,B     C       40
+     C*****                SUB  PU,B      C
+     C*****      C         IFGT 0
+     C*****                ADD  1         PU,B
+     C*****                ADD  1         A
+     C*****                ENDIF
+     C*****                SUB  1         B
+     C*****      B         IFEQ 0
+     C*****                Z-ADDMAX       B
+     C*****                ENDIF
+     C*****                ENDDO
+      *
+     CSR         ESB399    ENDSR
+      *-----------------------------------------------------
+      *ＩＡＦ便＃をテーブルに格納
+      *-----------------------------------------------------
+     CSR         #SB39A    BEGSR
+      *
+     C                     CLEARSRT
+     C                     MOVEA*HIVAL    SRT
+     C                     Z-ADD1         S       40
+     C           S         DOWLE999
+     C           IB,S      IFNE *BLANK
+     C                     CLEARW@SRT
+     C                     Z-ADD0         W@HAKO
+     C                     Z-ADD0         W@PLCT
+     C                     MOVELIB,S      W@IAFB
+     C                     MOVELW@SRT     SRT,S
+     C                     ENDIF
+     C                     ADD  1         S
+     C                     ENDDO
+      *
+     CSR         ESB39A    ENDSR
+      *-----------------------------------------------------
+      *ＩＡＦ便＃をセットしてワーク作成　パレットプーリング以外
+      *-----------------------------------------------------
+     CSR         #SB400    BEGSR
+      *
+     C***                  Z-ADD0         X
+     C***                  MOVEL'ADD'     COND    3
+     C           MAX       ADD  1         X
+     C                     MOVEL'SUB'     COND    3
+     C                     Z-ADD1         X2      40
+      *
+     C****                 Z-ADD1         Y       40
+     C                     Z-ADDMAX       Y       40
+     C                     ADD  1         Y
+     C                     Z-ADD1         Y2      40
+     C                     Z-ADDMAX       Y3      40
+      *
+     C                     MOVELW1SHID    SVSHID  8
+     C                     MOVELW1SHIT    SVSHIT  6
+     C                     MOVELW1NONY    SVNONY  40
+     C                     MOVELW1NKOJ    SVNKOJ  1
+     C                     MOVELW1NUKE    SVNUKE  4
+     C                     MOVELW1ORD#    SVORD# 12
+     C                     MOVELW1TRKB    SVTRKB  2
+     C                     MOVELW1SURT    SVSURT  9
+     C                     MOVELW1PPUL    SVPPUL  1
+     C                     MOVELW1KNON    SVKNON  40
+      *
+     C           *IN81     DOWEQ'0'
+     C           W1TRKB    ANDEQSVTRKB
+     C           W1SURT    ANDEQSVSURT
+     C           W1KNON    ANDEQSVKNON
+     C           W1PPUL    ANDEQSVPPUL
+     C           W1PPUL    IFEQ *BLANK
+     C                     EXSR #SB530
+     C********             EXSR #SB510
+     C                     ELSE
+     C                     EXSR #SB530
+     C********             EXSR #SB510
+     C********             EXSR #SB520                     PALLET PULLING
+     C                     ENDIF
+     C                     EXSR #SB500
+     C                     READPAO#WP111                 81
+     C                     ENDDO
+      *
+     CSR         ESB400    ENDSR
+      *-----------------------------------------------------
+      *ＩＡＦ便＃をセットしてワーク作成　パレットプーリング
+      *-----------------------------------------------------
+     CSR         #SB401    BEGSR
+      *
+     C**                   Z-ADD0         X
+     C**                   MOVEL'ADD'     COND    3
+     C           MAX       ADD  1         X
+     C                     MOVEL'SUB'     COND    3
+     C                     Z-ADD1         X2      40
+      *
+     C****                 Z-ADD1         Y       40
+     C                     Z-ADDMAX       Y       40
+     C                     ADD  1         Y
+     C                     Z-ADD1         Y2      40
+     C                     Z-ADDMAX       Y3      40
+      *
+     C                     MOVELW1SHID    SVSHID  8
+     C                     MOVELW1SHIT    SVSHIT  6
+     C                     MOVELW1NONY    SVNONY  40
+     C                     MOVELW1NKOJ    SVNKOJ  1
+     C                     MOVELW1NUKE    SVNUKE  4
+     C                     MOVELW1ORD#    SVORD# 12
+     C                     MOVELW1TRKB    SVTRKB  2
+     C                     MOVELW1SURT    SVSURT  9
+     C                     MOVELW1PPUL    SVPPUL  1
+     C                     MOVELW1KNON    SVKNON  40
+      *納入先はみない
+     C           *IN81     DOWEQ'0'
+     C           W1TRKB    ANDEQSVTRKB
+     C           W1SURT    ANDEQSVSURT
+     C*****      W1NONY    ANDEQSVNONY
+     C           W1PPUL    ANDEQSVPPUL
+     C                     EXSR #SB530
+     C********             EXSR #SB510
+     C                     EXSR #SB500
+     C                     READPAO#WP111                 81
+     C                     ENDDO
+      *
+     CSR         ESB401    ENDSR
+      *-----------------------------------------------------
+      * AO#WP13
+      *-----------------------------------------------------
+     CSR         #SB500    BEGSR
+      *
+     C           WKIAFB    IFEQ *BLANK
+     C                     MOVELER,1      PMSG
+     C                     CALL 'APLR90'
+     C                     PARM           PMSG  256
+     C                     PARM           PKINP   5
+     C                     PARM           PWSNO  10
+     C                     PARM           PKOUT   1
+     C                     ENDIF
+      *
+     C                     CLEARAO#WP131
+     C                     MOVELW1SHID    X3SHID
+     C                     MOVELW1SHIT    X3SHIT
+     C                     MOVELW1NONY    X3NONY
+     C                     MOVELW1NKOJ    X3NKOJ
+     C                     MOVELW1NUKE    X3NUKE
+     C                     MOVELW1ORD#    X3ORD#
+     C                     MOVELW1SURT    X3SURT
+     C                     Z-ADDW1EXTR    X3EXTR
+     C                     Z-ADDW1FIXD    X3FIXD
+     C                     Z-ADDW1FIXT    X3FIXT
+     C                     MOVELW1PALT    X3PALT
+     C                     Z-ADDW1BOX     X3BOX
+     C                     MOVELW1TRKB    X3TRKB
+     C                     MOVELWKIAFB    X3IAFB
+     C                     Z-ADDW1PRT     X3PRT
+     C                     MOVELW1PPUL    X3PPUL
+     C                     MOVELW1SAT     X3SAT
+     C                     MOVELW1SHN1    X3SHN1
+     C                     MOVELW1SHN2    X3SHN2
+     C                     MOVELW1SHN3    X3SHN3
+     C                     MOVELW1PPUL    X3PPU2
+     C           W1SHN     IFNE *BLANK
+     C                     MOVEL'2'       X3PPU2
+     C                     ENDIF
+     C                     WRITEAO#WP131
+      *
+     CSR         ESB500    ENDSR
+      *-----------------------------------------------------
+      *ＩＡＦ便＃のセット
+      *-----------------------------------------------------
+     CSR         #SB510    BEGSR
+      *
+     C                     Z-ADD0         LOOP    50
+     C                     MOVEL*BLANK    WKIAFB  3
+     C           WKIAFB    DOWEQ*BLANK
+     C           LOOP      ANDLE999
+     C                     EXSR #SB511
+     C************         EXSR #SB512
+     C                     ADD  1         LOOP
+     C                     ENDDO
+      *
+     C           WKIAFB    IFEQ *BLANK
+     C                     ENDIF
+      *
+     CSR         ESB510    ENDSR
+      *-----------------------------------------------------
+      *ＩＡＦ便＃を決める
+      *ＩＡＦ便＃　大→小→小→大→大→小・・・→大→小　を繰り返す
+      *-----------------------------------------------------
+     CSR         #SB511    BEGSR
+      *
+     C                     SELEC
+      *
+     C           COND      WHEQ 'SUB'
+     C           X         IFEQ 1
+     C                     MOVEL'ADD'     COND
+     C                     ELSE
+     C                     SUB  1         X
+     C                     ENDIF
+      *
+     C           COND      WHEQ 'ADD'
+     C           X         IFEQ MAX
+     C                     MOVEL'SUB'     COND
+     C                     ELSE
+     C                     ADD  1         X
+     C                     ENDIF
+      *
+     C                     ENDSL
+      *
+     C           CT,X      IFGT 0
+     C                     MOVELIB,X      WKIAFB  3
+     C                     SUB  1         CT,X
+     C                     ENDIF
+      *
+     CSR         ESB511    ENDSR
+      *-----------------------------------------------------
+      *ＩＡＦ便＃を決める
+      *-----------------------------------------------------
+     CSR         #SB512    BEGSR
+      *
+     C           CT,X2     IFGT 0
+     C                     MOVELIB,X2     WKIAFB  3
+     C                     SUB  1         CT,X2
+     C                     ELSE
+     C                     ADD  1         X2
+     C                     ENDIF
+      *
+     CSR         ESB512    ENDSR
+      *-----------------------------------------------------
+      *ＩＡＦ便＃のセット PALLET PULLING
+      *-----------------------------------------------------
+     CSR         #SB520    BEGSR
+      *
+     C                     Z-ADD0         LOOP    50
+     C                     MOVEL*BLANK    WKIAFB  3
+     C                     MOVELIB,1      WKIAFB
+      *
+     C           WKIAFB    IFEQ *BLANK
+     C                     ENDIF
+      *
+     CSR         ESB520    ENDSR
+      *-----------------------------------------------------
+      *ＩＡＦ便＃のセット
+      *-----------------------------------------------------
+     CSR         #SB530    BEGSR
+      *
+     C                     MOVEL*BLANK    WKIAFB  3
+     C                     SORTASRT
+     C                     CLEARW@SRT
+     C                     MOVELSRT,1     W@SRT
+     C                     MOVELW@IAFB    WKIAFB
+     C                     ADD  W1BOX     W@HAKO
+     C                     ADD  1         W@PLCT
+     C                     Z-ADD1         T       40
+     C           WKIAFB    LOKUPIB,T                     79
+     C           *IN79     IFEQ '1'
+     C           W@PLCT    IFEQ CT,T
+     C                     Z-ADD*HIVAL    W@HAKO
+     C                     Z-ADD*HIVAL    W@PLCT
+     C                     ENDIF
+     C                     ENDIF
+     C                     MOVELW@SRT     SRT,1
+      *
+     CSR         ESB530    ENDSR
+**
+CAN NOT SET IAF BIN#. PLEASE CALL ATSU.

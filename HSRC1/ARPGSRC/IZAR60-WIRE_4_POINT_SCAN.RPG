@@ -1,0 +1,642 @@
+     H            Y.
+     F** IZAR60 *******************************************************
+     F*  WIRE 4 POINT SCAN
+     F*   KIRI                                               2019.09.13
+JW1  F*   JW    2020.03.12 ADD WORKER NAME
+JW2  F*   JW    2020.07.01 CHK A/C TAG
+JW3  F*   JW    2021.04.15 STOP CHECKING A/C TAG FOR TOYOTSU WIRE
+     F*****************************************************************
+     FIZAPW60 CF  E                    WORKSTN
+      *
+      * FINISHED MATERIAL KANBAN MASTER FILE *
+     FIZAPL02 IF  E           K        DISK
+      *
+      * WORKER CODE M/F
+     FALBPL30 IF  E           K        DISK
+      *
+     FIZAPP60 O   E                    DISK
+      *
+     E                    ER      1  25 60
+JW2  E                    TBL        25  1
+      *
+      *
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60@SYSTM
+     I                                        7  140@SYSHZ
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     I            DS
+     I                                        1 100 D2BAR
+     I                                        1   3 D2KBN
+     I                                        1  25 D2BAR1
+     I                                       26  50 D2BAR2
+     I                                       51  75 D2BAR3
+     I                                       76 100 D2BAR4
+JW5  I                                       11  25 X2ZAIS
+ "   I                                       26  30 X2ZAIK
+      *
+     I              '* READ QA TAG C (QR- C         $QRC
+     I              ')   *'
+     I              '* READ QA TAG A (QR- C         $QRA
+     I              ')   *'
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           POPR    6
+     C                     PARM           PITANT 10
+JW1   * GET WORKER NAME
+ |   C                     MOVELPOPR      D1USR
+ |   C                     MOVELPOPR      NUM6    60
+ |   C           NUM6      CHAINALBPL30              98
+ |   C           *IN98     IFEQ *OFF
+ |   C                     MOVELALWKNM    D1UNM
+ |   C                     ELSE
+ |   C                     MOVEL*BLANK    D1UNM
+JW1  C                     ENDIF
+      *
+      *----------------------------------------------------*
+      * MAINLINE                                           *
+      *----------------------------------------------------*
+     C                     MOVEL'01'      DSPSW   2
+      *
+     C           DSPSW     DOUEQ'99'
+      *
+     C                     SELEC
+     C           DSPSW     WHEQ '01'
+     C                     EXSR #SB100
+     C           DSPSW     WHEQ '02'
+     C                     EXSR #SB200
+     C           DSPSW     WHEQ '03'
+     C                     EXSR #SB300
+     C                     ENDSL
+      *
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *
+      *----------------------------------------------------*
+      * FIRST SCREEN - LOTTAG                              *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     EXFMTIZAPW601
+     C                     SETOF                     9931
+     C                     MOVEL*BLANKS   D9ERR  25
+      *
+      * if any Function Key was hit other than F1, just display
+      * screen 1 again.
+     C                     SELEC
+     C           *IN01     WHEQ '1'
+     C                     MOVEL'99'      DSPSW
+     C                     GOTO ESB100
+     C           *IN02     WHEQ '1'
+     C           *IN03     OREQ '1'
+     C           *IN04     OREQ '1'
+     C           *IN05     OREQ '1'
+     C           *IN06     OREQ '1'
+     C           *IN07     OREQ '1'
+     C           *IN08     OREQ '1'
+     C           *IN09     OREQ '1'
+     C           *IN10     OREQ '1'
+     C           *IN11     OREQ '1'
+     C           *IN12     OREQ '1'
+     C                     GOTO ESB100
+     C                     OTHER
+     C                     ENDSL
+      *
+     C           D1BAR     IFEQ *BLANK
+     C                     SETON                     99
+     C                     MOVELER,1      D9ERR
+     C                     EXSR #SB990
+     C                     MOVEL*BLANK    D1BAR
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+      * CHECK DIGIT - if check digit is not correct, display
+      * error screen.
+     C                     MOVELD1BAR     PMAREA    P
+     C                     MOVEL'007'     PMBYTE
+     C           1         SUBSTD1BAR:8   WKCHK   1
+     C                     EXSR #SB600
+     C           WKCHK     IFNE PMCHK
+     C                     SETON                     99
+     C                     MOVELER,2      D9ERR
+     C                     EXSR #SB990
+     C                     MOVEL*BLANK    D1BAR
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+     C           5         SUBSTD1BAR:1   D1CHK   5
+     C                     MOVEL$QRC      D2MID
+     C                     MOVEL*BLANK    D2BAR
+     C                     MOVEL'02'      DSPSW
+     C                     MOVEL'C'       @@TAG   1
+     C                     MOVEL*BLANK    D2BARC100
+     C                     MOVEL*BLANK    D2BARA100
+     C                     MOVEL*BLANK    D2CHKC  5
+     C                     MOVEL*BLANK    D2CHKA  5
+     C                     MOVEL*BLANK    D3BAR
+     C                     MOVEL*BLANK    D3ZAIS           MATERIAL
+     C                     Z-ADD0         D3ZAIK           DTAMETER
+     C                     MOVEL*BLANK    D2ZAIS           MATERIAL
+     C                     Z-ADD0         D2ZAIK           DTAMETER
+      *
+     CSR         ESB100    ENDSR
+      *------------------------------------------------------*
+JW2   * GET LAST LETTER                                      *
+ |    *------------------------------------------------------*
+ |   C           #GETL     BEGSR
+ V    *
+     C                     MOVE *BLANK    @LAST   1
+     C                     SELEC
+     C           D2BAR4    WHNE *BLANK
+     C                     MOVEAD2BAR4    TBL
+     C           D2BAR3    WHNE *BLANK
+     C                     MOVEAD2BAR3    TBL
+     C           D2BAR2    WHNE *BLANK
+     C                     MOVEAD2BAR2    TBL
+     C           D2BAR1    WHNE *BLANK
+     C                     MOVEAD2BAR1    TBL
+     C                     ENDSL
+      *
+     C                     Z-ADD26        IY      20
+     C           1         DO   25        IX      20
+     C                     SUB  1         IY
+     C           TBL,IY    IFNE *BLANK
+     C                     MOVELTBL,IY    @LAST
+     C                     LEAVE
+ |   C                     ENDIF
+ |   C                     ENDDO
+ V    *
+JW2  C                     ENDSR
+      *------------------------------------------------------*
+      * SECOND SCREEN - QATAG    ( TAG C & TAG A)            *
+      *------------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C                     EXFMTIZAPW602
+     C                     SETOF                     9931
+     C                     MOVEL*BLANKS   D9ERR
+      *
+      *
+      * if any Function Key was hit other than F1, just display
+      * screen 2 again.
+     C                     SELEC
+     C           *IN01     WHEQ '1'
+     C*         *
+     C           @@TAG     IFEQ 'A'
+     C                     MOVEL$QRC      D2MID
+     C                     MOVEL*BLANK    D2BAR
+     C                     MOVEL'C'       @@TAG
+     C                     MOVEL*BLANK    D2BARA
+     C                     ELSE
+     C                     MOVEL'01'      DSPSW
+     C                     MOVEL*BLANK    D1BAR
+     C                     MOVEL*BLANK    D2BARC
+     C                     ENDIF
+     C                     GOTO ESB200
+     C*         *
+     C           *IN02     WHEQ '1'
+     C           *IN03     OREQ '1'
+     C           *IN04     OREQ '1'
+     C           *IN05     OREQ '1'
+     C           *IN06     OREQ '1'
+     C           *IN07     OREQ '1'
+     C           *IN08     OREQ '1'
+     C           *IN09     OREQ '1'
+     C           *IN10     OREQ '1'
+     C           *IN11     OREQ '1'
+     C           *IN12     OREQ '1'
+     C                     GOTO ESB200
+     C                     OTHER
+     C                     ENDSL
+      *
+      * if QATAG is blank, display error and start over.
+     C           D2BAR     IFEQ *BLANK
+     C                     SETON                     99
+     C                     MOVELER,3      D9ERR
+     C                     EXSR #SB990
+     C                     MOVEL*BLANK    D2BAR
+     C                     GOTO ESB200
+     C                     ENDIF
+      * if IT IS NOT QA TAG QR
+     C           D2KBN     IFNE 'Z01'
+     C                     SETON                     99
+     C                     MOVELER,3      D9ERR
+     C                     EXSR #SB990
+     C                     MOVEL*BLANK    D2BAR
+     C                     GOTO ESB200
+     C                     ENDIF
+JW3   * CHECK TOYOTA TSUSHO(4560)
+ .   C                     EXSR #TOYO
+JW3  C           TYFLG     IFEQ 'N'
+JW2   * LAST LETTER = C?
+ |   C                     EXSR #GETL
+ |   C           @@TAG     IFEQ 'C'
+ |   C           @LAST     ANDNE'C'
+ |   C                     SETON                     99
+ |   C                     MOVELER,7      D9ERR
+ |   C                     EXSR #SB990
+ |   C**                   MOVEL*BLANK    D1BAR
+ |   C                     GOTO ESB200
+JW2  C                     ENDIF
+      * LAST LETTER = A?
+ |   C           @@TAG     IFEQ 'A'
+ |   C           @LAST     ANDNE'A'
+ |   C                     SETON                     99
+ |   C                     MOVELER,8      D9ERR
+ |   C                     EXSR #SB990
+ |   C**                   MOVEL*BLANK    D1BAR
+ |   C                     GOTO ESB200
+JW2  C                     ENDIF
+JW3  C                     ENDIF
+      *     *
+     C           1         SUBSTD2BAR:4   D2CHK1  1
+     C           4         SUBSTD2BAR:7   D2CHK2  4
+      *
+     C                     MOVELD2CHK1    D2CHK   5
+     C                     MOVE D2CHK2    D2CHK
+      *
+      * if check digits don't match, display error, go back to screen2.
+     C           D1CHK     IFEQ D2CHK
+     C*         *
+     C           @@TAG     IFEQ 'A'
+     C                     MOVELD2BAR     D2BARA100
+     C                     MOVE D2CHK     D2CHKA  5
+     C                     MOVEL'03'      DSPSW
+     C                     MOVEL*BLANK    D3BAR
+     C                     MOVEL*BLANK    D3ZAIS           MATERIAL
+     C                     Z-ADD0         D3ZAIK           DTAMETER
+      *
+      * GET MATERIAL INFO
+     C           15        SUBSTD2BARC:11 D2ZAIS 15
+     C           5         SUBSTD2BARC:26 D2ZAIX  5
+     C                     MOVE D2ZAIX    D2ZAIK  52
+      *          *
+     C                     ELSE
+     C                     MOVELD2BAR     D2BARC100
+     C                     MOVE D2CHK     D2CHKC  5
+     C                     MOVEL$QRA      D2MID
+     C                     MOVEL*BLANK    D2BAR
+     C                     MOVEL'A'       @@TAG
+     C                     ENDIF
+     C***
+     C                     ELSE
+     C                     SETON                     99
+     C                     MOVELER,4      D9ERR
+     C           @@TAG     IFEQ 'A'
+     C                     MOVELD2BAR     D2BARA
+     C                     MOVE D2CHK     D2CHKA
+     C                     ELSE
+     C                     MOVELD2BAR     D2BARC
+     C                     MOVE D2CHK     D2CHKC
+     C                     ENDIF
+     C                     EXSR #SB990
+     C           @@TAG     IFEQ 'A'
+     C                     MOVEL*BLANK    D2BARA
+     C                     MOVE *BLANK    D2CHKA
+     C                     ELSE
+     C                     MOVEL*BLANK    D2BARC
+     C                     MOVE *BLANK    D2CHKC
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    D2BAR
+      *
+     CSR         ESB200    ENDSR
+      *------------------------------------------------------*
+      * CHECK TOYOTA TSUSHO                                  *
+      *------------------------------------------------------*
+     C           #TOYO     BEGSR
+      *
+     C                     MOVE 'N'       TYFLG
+     C                     MOVELX2ZAIS    $ZAIS
+     C                     MOVELX2ZAIK    $ZAIK
+     C                     MOVEL'4560'    $SUPP
+     C                     CALL 'UEXR34A'
+     C                     PARM           $ZAIS  15
+     C                     PARM           $ZAIK   5
+     C                     PARM           $SUPP   4
+     C                     PARM           $RTN    1
+     C                     MOVE $RTN      TYFLG   1
+      *
+     C                     ENDSR
+      *------------------------------------------------------*
+      * WIRE KANBAN BARCODE                                  *
+      *------------------------------------------------------*
+     CSR         #SB300    BEGSR
+      *
+     C                     EXFMTIZAPW603
+     C                     SETOF                     9931
+     C                     MOVEL*BLANKS   D9ERR
+      *
+      *
+     C                     SELEC
+     C           *IN01     WHEQ '1'
+     C*         *
+     C                     MOVEL*BLANK    D3BAR
+     C                     MOVEL*BLANK    D3ZAIS           MATERIAL
+     C                     Z-ADD0         D3ZAIK           DTAMETER
+     C                     MOVEL*BLANK    D2BAR
+     C                     MOVEL*BLANK    D2BARA
+     C                     MOVEL'02'      DSPSW
+     C                     GOTO ESB300
+     C*         *
+     C           *IN02     WHEQ '1'
+     C           *IN03     OREQ '1'
+     C           *IN04     OREQ '1'
+     C           *IN05     OREQ '1'
+     C           *IN06     OREQ '1'
+     C           *IN07     OREQ '1'
+     C           *IN08     OREQ '1'
+     C           *IN09     OREQ '1'
+     C           *IN10     OREQ '1'
+     C           *IN11     OREQ '1'
+     C           *IN12     OREQ '1'
+     C                     GOTO ESB300
+     C                     OTHER
+     C                     ENDSL
+      *
+      * if WIRE KANBAN BAR is blank, display error and start over.
+     C           D3BAR     IFEQ *BLANK
+     C                     SETON                     99
+     C                     MOVELER,5      D9ERR
+     C                     EXSR #SB990
+     C                     MOVEL*BLANK    D3BAR
+     C                     MOVEL*BLANK    D3ZAIS           MATERIAL
+     C                     Z-ADD0         D3ZAIK           DTAMETER
+     C                     GOTO ESB300
+     C                     ENDIF
+      *
+      * CHECK DIGIT - if check digit is not correct, display
+      * error screen.
+     C                     MOVELD3BAR     PMAREA    P
+     C                     MOVEL'016'     PMBYTE
+     C           1         SUBSTD3BAR:17  WKCHK   1
+     C                     EXSR #SB600
+     C           WKCHK     IFNE PMCHK
+     C                     SETON                     99
+     C                     MOVELER,2      D9ERR
+     C                     EXSR #SB990
+     C                     MOVEL*BLANK    D3BAR
+     C                     MOVEL*BLANK    D3ZAIS           MATERIAL
+     C                     Z-ADD0         D3ZAIK           DTAMETER
+     C                     GOTO ESB300
+     C                     ENDIF
+      *
+      * FINISHED MATERIAL KANBAN MASTER FILE *
+     C* IZAPL02
+     C           KEY1      KLIST
+     C                     KFLD           K@COCD           CONTROL CD
+     C                     KFLD           K@ZETI           ABSOLUTE #
+     C*
+     C           1         SUBSTD3BAR:1   K@COCD  1        CONTROL CD
+     C           4         SUBSTD3BAR:2   K@ZETI  4        ABSOLUTE #
+     C*
+     C*
+     C* MATERIAL MASTER EXIST ?
+     C           KEY1      SETGTIZAPL02
+     C           KEY1      REDPEIZAPL02                  91
+     C*
+     C  N91      ZCSKJY    IFEQ 'D'
+     C                     SETON                     91
+     C                     ENDIF
+     C  N91      ZCSTYY    IFNE 9999
+     C                     SETON                     91
+     C                     ENDIF
+     C           *IN91     IFEQ *ON
+     C                     SETON                     99
+     C                     MOVELER,6      D9ERR
+     C                     EXSR #SB990
+     C                     MOVEL*BLANK    D3BAR
+     C                     MOVEL*BLANK    D3ZAIS 15        MATERIAL
+     C                     Z-ADD0         D3ZAIK  52       DTAMETER
+     C                     GOTO ESB300
+     C                     ENDIF
+     C*
+     C                     MOVELZCZAIS    D3ZAIS           MATERIAL
+     C                     Z-ADDZCZAIK    D3ZAIK           DTAMETER
+      *          *
+     C***        15        SUBSTD2BARC:11 D2ZAIS 15
+     C****       5         SUBSTD2BARC:26 D2ZAIK  5
+     C                     MOVE ZCZAIK    W$ZAIK  5
+     C           ZCZAIS    IFNE D2ZAIS                     MATERIAL
+     C           W$ZAIK    ORNE D2ZAIX                     DTAMETER
+     C                     SETON                     99
+     C                     MOVELER,4      D9ERR
+     C                     EXSR #SB990
+     C                     MOVEL*BLANK    D3BAR
+     C                     MOVEL*BLANK    D3ZAIS           MATERIAL
+     C                     Z-ADD0         D3ZAIK           DTAMETER
+     C                     GOTO ESB300
+     C                     ENDIF
+      *
+      *
+      *
+     C                     MOVEL'OK'      WKOKNG  2
+     C                     EXSR #SB500
+     C                     MOVEL*BLANK    D1BAR
+     C                     MOVEL'01'      DSPSW
+      *
+     CSR         ESB300    ENDSR
+      *----------------------------------------------------*
+      * ERROR SCREEN - Display Error on Screen             *
+      *----------------------------------------------------*
+     C           #SB990    BEGSR
+      *
+      *
+     C           D9ERR     IFEQ ER,4
+     C*  PASSWORD LOCK
+     C**                   Z-ADD1         P1PGM
+JW   C                     Z-ADD5         P1PGM            QD
+     C                     MOVELD9ERR     P1ERR
+     C                     MOVELW#PGM     P1PID
+     C                     MOVELPOPR      P1KOME    P
+     C                     Z-ADD*ZERO     P1DTTM
+     C                     CALL 'AM#R09'
+     C                     PARM           P1PGM   20
+     C                     PARM           P1ERR  25
+     C                     PARM           P1PID  10
+     C                     PARM           P1KOME 10
+     C                     PARM           P1DTTM 140
+     C                     MOVEL*ON       W@ERCK  1
+      *
+     C                     ELSE
+      *
+     C                     WRITEIZAPW608
+     C                     EXFMTIZAPW609
+      *
+     C                     ENDIF
+      *
+     C                     MOVEL'NG'      WKOKNG
+     C                     EXSR #SB500
+      *
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * LOT TAG AND QA TAG SCAN RESULT               *
+      *----------------------------------------------------*
+     C           #SB500    BEGSR
+      * write to IZAPP60
+     C                     TIME           @TIME
+     C                     CLEARIZAPP601
+     C                     Z-ADD@SYSHZ    I6KODT
+     C                     Z-ADD@SYSTM    I6KOTM
+     C                     MOVELW#WSID    I6WSID
+     C                     MOVELW#USER    I6USER
+     C                     MOVELW#JBNO    I6JOBN
+     C                     MOVELW#PGM     I6KOPG
+     C                     MOVELPOPR      I6WOKR
+     C                     MOVELD1UNM     I6WKNM
+     C                     Z-ADD@SYSHZ    I6CODT
+     C                     Z-ADD@SYSTM    I6COTM
+     C                     MOVELWKOKNG    I6OKNG           JUDGE
+      *
+      * LOT TAG BARCODE
+     C           7         SUBSTD1BAR:1   I6LTB1           LOT TAG BARCODE')
+     C           1         SUBSTD1BAR:8   I6LTB2           C/D
+     C           8         SUBSTD1BAR:1   ##LOTN           lot number  ODE')
+      * QA TAG (C)
+     C                     MOVELD2BARC    D2BAR
+     C                     MOVELD2CHKC    D2CHK            LOT TAG NO.
+     C                     EXSR ##QR
+     C                     MOVELD2BARC    I6QAQR           QA(C) QR
+      *   QR INFO
+     C                     MOVEL$$ADNO    I6ADNO           Q.A. NO.
+     C                     MOVEL$$ZAIS    I6ZAIS           MATERIAL NAME
+     C                     Z-ADD$$ZAIK    I6ZAIK           DIAMETER
+     C                     MOVEL$$CHNO    I6CHNO           CHARGE NO.
+     C                     Z-ADD$$WEIG    I6WEIG           WEIGHT
+     C                     Z-ADD$$SUPP    I6SUPP           SUPPLIER
+     C                     Z-ADD$$MNDT    I6MNDT           MANUFACTURE DATE
+     C                     Z-ADD$$INDT    I6INDT           INCOMING DATE
+     C                     MOVEL$$COIN    I6COIN           COIL NO.
+     C                     MOVEL$$LOTN    I6LOTN           LOT TAG NO.
+     C*
+      * QA TAG (A)
+     C                     MOVELD2BARA    D2BAR
+     C                     MOVELD2CHKA    D2CHK
+     C                     EXSR ##QR
+     C                     MOVELD2BARA    I62AQR           QA(A) QR
+      *   QR INFO
+     C                     MOVEL$$ADNO    I62DNO           Q.A. NO.
+     C                     MOVEL$$ZAIS    I62AIS           MATERIAL NAME
+     C                     Z-ADD$$ZAIK    I62AIK           DIAMETER
+     C                     MOVEL$$CHNO    I62HNO           CHARGE NO.
+     C                     Z-ADD$$WEIG    I62EIG           WEIGHT
+     C                     Z-ADD$$SUPP    I62UPP           SUPPLIER
+     C                     Z-ADD$$MNDT    I62NDT           MANUFACTURE DATE
+     C                     Z-ADD$$INDT    I62IDT           INCOMING DATE
+     C                     MOVEL$$COIN    I62OIN           COIL NO.
+     C                     MOVEL$$LOTN    I62OTN           LOT TAG NO.
+      * WIRE KANBAN
+     C                     MOVELD3BAR     I6WBCD           WIRE KANBAN BCD
+      *  WIRE KANBAN INFO
+     C                     MOVELD3ZAIS    I6WZAS           MATERIAL NAME
+     C                     Z-ADDD3ZAIK    I6WZAK           DIAMETER
+     C*
+     C           *IN99     IFEQ *ON
+     C                     MOVELD9ERR     I6EMSG
+     C                     ENDIF
+      *
+     C                     WRITEIZAPP601
+      *
+      * update wire inventory...
+     C           WKOKNG    IFEQ 'OK'
+     C                     EXSR #SB550
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *================================================================
+      *   QR INFO
+      *================================================================
+     C           ##QR      BEGSR
+     C                     MOVEL*BLANK    $$ADNO  7        Q.A. NO.
+     C                     MOVEL*BLANK    $$ZAIS 15        MATERIAL NAME
+     C                     Z-ADD0         $$ZAIK  52       DIAMETER
+     C                     MOVEL*BLANK    $$CHNO 10        CHARGE NO.
+     C                     Z-ADD0         $$WEIG  51       WEIGHT
+     C                     Z-ADD0         $$SUPP  40       SUPPLIER
+     C                     Z-ADD0         $$MNDT  80       MANUFACTURE DATE
+     C                     Z-ADD0         $$INDT  80       INCOMING DATE
+     C                     MOVEL*BLANK    $$COIN  9        COIL NO.
+     C                     MOVEL*BLANK    $$LOTN 11        LOT TAG NO.
+      *
+     C           3         SUBSTD2BAR:1   I6CHK   3
+      *
+     C           I6CHK     IFEQ 'Z01'
+      *   QR INFO
+     C           7         SUBSTD2BAR:4   $$ADNO           Q.A. NO.
+     C           15        SUBSTD2BAR:11  $$ZAIS           MATERIAL NAME
+     C*
+     C           5         SUBSTD2BAR:26  W$ZAIK  5        DIAMETER
+     C                     MOVELW$ZAIK    $$ZAIK           DIAMETER
+     C           10        SUBSTD2BAR:31  $$CHNO           CHARGE NO.
+     C           5         SUBSTD2BAR:41  W$WEIG  5        WEIGHT
+     C                     MOVELW$WEIG    $$WEIG           WEIGHT
+     C           4         SUBSTD2BAR:46  W$SUPP  4        SUPPLIER
+     C                     MOVELW$SUPP    $$SUPP           SUPPLIER
+     C           8         SUBSTD2BAR:50  W$MNDT  8        MANUFACTURE DATE
+     C                     MOVELW$MNDT    $$MNDT           MANUFACTURE DATE
+     C           8         SUBSTD2BAR:58  W$INDT  8        INCOMING DATE
+     C                     MOVELW$INDT    $$INDT           INCOMING DATE
+     C           9         SUBSTD2BAR:66  $$COIN           COIL NO.
+     C                     MOVELD2CHK     $$LOTN           LOT TAG NO.
+     C                     ENDIF
+      *
+     C           $$SUPP    IFEQ 1600
+     C                     Z-ADD4560      $$SUPP
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * Call Program to Get Check Digit                    *
+      *----------------------------------------------------*
+     C           #SB600    BEGSR
+      *
+     C                     CALL 'ALBRCC'
+     C                     PARM           PMAREA100        INPUT DATA
+     C                     PARM           PMBYTE  3        LENGTH
+     C                     PARM           PMCHK   1        CHECKS DIGITS
+     C                     PARM           PMRTCD  1        RETRN CODE
+      *
+     C                     ENDSR
+      *
+      *----------------------------------------------------*
+      * Call Program to Update Wire Inventory file         *
+      *----------------------------------------------------*
+     C           #SB550    BEGSR
+      *
+     C                     MOVELI6WBCD    ##WKBN 20
+     C                     MOVELI6CHNO    ##CHRG  7
+     C                     CALL 'IZAR70U'
+     C                     PARM           ##WKBN
+     C                     PARM 'QD    '  LOCN    6
+     C                     PARM           POPR
+     C                     PARM           I6KOPG
+     C                     PARM           ##LOTN  8
+     C                     PARM           ##CHRG  7
+     C                     PARM           I6WEIG
+     C                     PARM 'N'       CHGQ    1
+     C                     PARM 0         NEWQ    21
+     C                     PARM           RTNCD   1
+      *
+     C                     ENDSR
+      *
+      *----------------------------------------------------*
+      *----------------------------------------------------*
+**                      X
+SCAN LOT TAG BARCODE!
+CHECK DIGIT ERROR!
+SCAN QA TAG QRCODE!
+UNMATCH COIL ERROR!
+SCAN WIRE KANBAN!
+NOT FOUND IN MATERIAL MASTER!
+SCAN C-TAG!
+SCAN A-TAG!

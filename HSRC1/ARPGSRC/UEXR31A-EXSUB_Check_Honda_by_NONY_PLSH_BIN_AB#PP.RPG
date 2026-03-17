@@ -1,0 +1,174 @@
+     H            Y.
+     F** UEXR31A ********************************************
+     F*  PROGRAM: CHECK HONDA PO# EXIST                     *
+     F*  WRITTEN: JW (SRA) 2021.10.20                       *
+     F* -------------------------------                     *
+     F*  JW1   2025.09.11 ADD AB#PL2U                       *
+     F*-----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UEXR31A'
+     F*                    PARM           $NONY   4
+     F*                    PARM           $PLSH   8
+     F*                    PARM           $BIN    2
+     F*                    PARM           $ODRN  20
+     F*                    PARM           $RTN    1
+     F*  IN  $NONY :  4A DELIVERY#
+     F*      $PLSH :  8A SHIP DATE
+     F*      $BIN  :  2A BIN#
+     F*      $ODRN : 20A PO#
+     F*  OUT $RTN  :  1A RETURN CODE (0:ORDER NOT EXIST )
+     F*                              (Y:ORDER EXISTS W/ SAME PO#)
+     F*                              (N:OTHER EXISTS W/ DIFF PO#)
+     F******************************************************
+     FAB#PL2P IF  E           K        DISK
+JW1  FAB#PL2U IF  E           K        DISK
+     F            AB#PP2A1                          KRENAMEAB#PP2A2
+      *===================================================
+      * SYSTEM DATE
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *===================================================
+      *           MAIN ROUTINE
+      *===================================================
+     C                     EXSR #INIT
+      * PLSH
+     C                     EXSR #PLSH
+      * ASDT
+     C                     EXSR #ASDT
+      * SET RETURN
+     C                     SELEC
+     C           CNT1      WHEQ 0
+     C           CNT2      ANDEQ0
+     C                     MOVE '0'       $RTN             0:PO# NOT EXIST
+      *
+     C           $RTN1     WHEQ 'N'
+     C           $RTN2     OREQ 'N'
+     C                     MOVE 'N'       $RTN             N:OTHER PO# EXIST
+      *
+     C                     OTHER
+     C                     MOVE 'Y'       $RTN             Y:SAME PO# EXIST
+     C                     ENDSL
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *===================================================
+      * SERACH BY PLSH
+      *===================================================
+     C           #PLSH     BEGSR
+      *
+     C                     MOVE '0'       $RTN1
+     C           K#PL2P    SETLLAB#PL2P
+      * CHECK AB#PL2P ================================
+     C                     DO   *HIVAL
+     C           K#PL2P    READEAB#PL2P                  98
+     C   98                LEAVE
+      *
+     C           ACASDT    IFNE 0
+     C                     ITER
+     C                     ENDIF
+      *
+     C           ACUPID    IFEQ 'D'
+     C                     ADD  1         CNT1X
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ADD  1         CNT1
+     C                     MOVELACODRN    ACODR6  6
+      *
+     C           ACUPID    IFEQ '1'
+     C           ACUPID    OREQ '3'
+     C           ACUPID    OREQ ' '
+      *
+     C           ACODR6    IFNE $ODR6
+     C                     MOVE 'N'       $RTN1            DIFF PO#
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *===================================================
+JW1   * SERACH BY ASDT
+      *===================================================
+     C           #ASDT     BEGSR
+      *
+     C                     MOVE '0'       $RTN2
+     C           K#PL2U    SETLLAB#PL2U
+      * CHECK AB#PL2P ================================
+     C                     DO   *HIVAL
+     C           K#PL2U    READEAB#PL2U                  98
+     C   98                LEAVE
+      *
+     C           ACUPID    IFEQ 'D'
+     C                     ADD  1         CNT2X
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ADD  1         CNT2
+     C                     MOVELACODRN    ACODR6  6
+      *
+     C           ACUPID    IFEQ '1'
+     C           ACUPID    OREQ '3'
+     C           ACUPID    OREQ ' '
+      *
+     C           ACODR6    IFNE $ODR6
+     C                     MOVE 'N'       $RTN2            DIFF PO#
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+JW1  C                     ENDSR
+      *======================================================
+      * INITIAL SET
+      *======================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $NONY   4
+     C                     PARM           $PLSH   8
+     C                     PARM           $BIN    2
+     C                     PARM           $ODRN  20
+     C                     PARM           $RTN    1
+      *
+     C                     MOVE ' '       $RTN
+     C                     MOVE '0'       $RTN1   1
+     C                     MOVE '0'       $RTN2   1
+     C                     MOVEL$ODRN     $ODR6   6
+      *
+     C           K#PL2P    KLIST
+     C                     KFLD           K#PLSH  80
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#NKOJ  1
+     C                     KFLD           K#NUKE  4
+     C                     KFLD           K#BIN   20
+      *
+     C           K#PL2U    KLIST
+     C                     KFLD           K#ASDT  80
+     C                     KFLD           K#NONY
+     C                     KFLD           K#NKOJ
+     C                     KFLD           K#NUKE
+     C                     KFLD           K#BIN
+      * SET KEY
+     C                     MOVEL$PLSH     K#PLSH
+     C                     MOVEL$PLSH     K#ASDT
+     C                     MOVEL$NONY     K#NONY
+     C                     MOVEL'0'       K#NKOJ
+     C                     MOVEL'00  '    K#NUKE
+     C                     MOVEL$BIN      K#BIN
+      *
+     C                     TIME           SDATE
+     C                     Z-ADD0         CNT1    30
+     C                     Z-ADD0         CNT2    30
+     C                     Z-ADD0         CNT1X   30
+     C                     Z-ADD0         CNT2X   30
+      *
+     C                     ENDSR

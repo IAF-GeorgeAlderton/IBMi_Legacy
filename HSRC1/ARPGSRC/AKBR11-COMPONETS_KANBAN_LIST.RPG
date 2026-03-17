@@ -1,0 +1,235 @@
+     H            Y.
+     F** AKBR11 ************************************
+     F*   COMPONETS KANBAN LIST                    *
+     F*       MSK.KUNIEDA        2000.06.23        *
+      *
+      *   JUL/30/01  OMIT BMON = 8990 (TCH)
+      *   AUG/29/01  ADD INFORMATION
+      *
+     F************************************ KABR11 **
+     FAKBPL01 UP  E           K        DISK
+     FGCKPL21 IF  E           K        DISK
+     FAAAPL01 IF  E           K        DISK
+     FAKBWP11AO   F     100            DISK
+     F*AKBWP11BO   F     100            DISK
+      *
+     I            DS
+     I                                        1  16 WKNAME
+      * BAR SET
+      * '*'                  +
+      * UPDATING INSTRUCTION +
+      * ID NUMBER            +
+      * DEPARTMENT CODE      +
+      * KANBAN KIND (LARGE)  +
+      * SEQ NO.              +
+      * '*'
+     I            DS
+     I                                        1  15 WKBARC
+     I                                        1   1 STRBAR
+     I                                        2  14 BARSET
+     I                                       15  15 ENDBAR
+     I            DS
+     I                                        1  13 WKEDIT
+     I                                        1   10WKKSKB
+     I                                        2   5 L1ZETI
+     I                                        6   90L1BMON
+     I                                       10  10 L1KCD1
+     I                                       11  130WKSTNO
+      *
+     I            DS
+     I                                        1   80HYMD8
+     I                                        1   40HY
+     I                                        5   60HM
+     I                                        7   80HD
+      *
+     I            DS
+     I                                        1   60@TIME
+     I                                        1   20TIMEH
+     I                                        3   40TIMES
+      *
+     I            DS
+     I                                        1  14 @SHIN
+     I                                        1   5 L1SHN1
+     I                                        6   6 WKF1
+     I                                        7  11 L1SHN2
+     I                                       12  12 WKF2
+     I                                       13  14 L1SHN3
+      *--------------------------------------------- ------*
+      *    PARAMTER TRANSFER                               *
+      *----------------------------------------------------*
+     C           *ENTRY    PLIST
+     C                     PARM           USER   10
+      *----------------------------------------------------*
+      *    KEY LIST                                        *
+      *----------------------------------------------------*
+     C           KEYT21    KLIST
+     C                     KFLD           #KBMON  40
+     C                     KFLD           #KTAIP  1
+     C           K#AAP     KLIST
+     C                     KFLD           L1JOK6
+     C                     KFLD           L1KCD1
+      *----------------------------------------------------*
+      *   INITIAL  SET                                     *
+      *----------------------------------------------------*
+     C           FSW       IFEQ *BLANK
+     C                     TIME           @TIME   60
+     C                     Z-ADD*DATE     HYMD8   80
+     C                     MOVE '1'       FSW     1
+     C                     END
+      *----------------------------------------------------*
+      *  COMPONETS KANBAN DATA SELECT                      *
+      *----------------------------------------------------*
+     C           L1SKJY    IFEQ 'D'
+     C           L1SKHZ    ANDLEHYMD8
+     C                     GOTO LAST
+     C                     END
+      *
+     C           L1KOUT    IFNE 'Y'
+     C                     GOTO LAST
+     C                     END
+      *
+     C           L1BMON    IFEQ 8990
+     C                     GOTO LAST
+     C                     END
+      *
+     C           L1STHZ    IFEQ 99999999
+     C********   HYMD8     IFGE L1UKHZ
+     C********   HYMD8     ANDLEL1STHZ
+     C                     ELSE
+     C                     GOTO LAST
+     C                     END
+      *
+     C           L1KMIN    IFGT L1KMAX
+     C                     GOTO LAST
+     C                     ELSE
+     C           L1KMIN    IFEQ L1KMAX
+     C                     GOTO LAST
+     C                     END
+     C                     END
+      *----------------------------------------------------*
+      *  UPDATE OF COMPONETS KANBAN DATA                   *
+      *----------------------------------------------------*
+     C                     MOVE HY        L1KOYY
+     C                     MOVE HM        L1KOMM
+     C                     MOVE HD        L1KODD
+     C                     MOVE TIMEH     L1KOHH
+     C                     MOVE TIMES     L1KOSS
+     C                     MOVELUSER      L1KOME
+      *
+     C                     MOVE *BLANK    L1KOUT
+     C                     MOVE 'Y'       L1DOUT
+      *
+     C                     UPDATAKBPL011
+      *
+      *----------------------------------------------------*
+      * COMPONENTS  KANBAN DATA BY CREATE                  *
+      *----------------------------------------------------*
+      * MANUFACTUER SET
+     C*          L1BMON    IFNE 8990
+     C                     SETOF                     21
+     C                     Z-ADDL1BMON    #KBMON
+     C                     MOVE L1TAIP    #KTAIP
+     C           KEYT21    CHAINGCKPL211             21
+     C           *IN21     IFEQ '0'
+     C           T2SKJY    ANDEQ'D'
+     C           T2SKHZ    ANDLEHYMD8
+     C                     SETON                     21
+     C                     END
+     C           *IN21     IFEQ '0'
+     C                     MOVELT2NAMN    WKNAME
+     C                     END
+      *
+     C                     MOVE '-'       WKF1
+     C                     MOVE '-'       WKF2
+     C           L1SHN3    IFEQ *BLANK
+     C                     MOVE *BLANK    WKF2
+     C                     END
+     C                     Z-ADDL1SYOS    WKSYOS  60
+     C                     Z-ADDL1LTIM    WKLTIM  31
+     C                     MOVE L1SYOT    WKSYOT  1
+     C                     MOVE L1TKRO    WKTKRO  6
+      * A CIRCULATION
+     C                     Z-ADDL1KMIN    WKHKNO  30
+     C           L1KMIN    IFEQ 0
+     C                     Z-ADD1         WKHKNO
+     C                     END
+      *
+     C           L1KMAX    SUB  L1KMIN    WKHMAS  30
+      *
+     C           WKHMAS    IFNE *ZERO
+     C                     MOVE '1'       WKCON   1
+     C                     MOVE *BLANK    NAME   16
+     C                     Z-ADD1         WKSTNO  30
+     C                     Z-ADD1         WKEDNO  30
+     C                     MOVE *BLANK    WKBARC
+     C                     EXCPTFILE
+     C                     MOVE *BLANK    WKCON
+     C                     SETON                       U1
+     C                     END
+      *
+      *DIVIDE BY KANBAN SHEETS
+     C                     SETOF                       22
+     C                     DO   *HIVAL
+     C                     MOVE WKNAME    NAME   16
+     C                     MOVE '2'       WKCON   1
+     C                     SUB  1         WKHMAS         22
+     C                     Z-ADDWKHKNO    WKSTNO
+     C                     Z-ADDL1KMAX    WKEDNO
+      *
+     C                     MOVE *BLANK    BARSET
+      *
+     C                     Z-ADDL1KSKB    WKKSKB
+      *
+     C                     MOVE WKEDIT    BARSET
+     C                     MOVE '*'       STRBAR
+     C                     MOVE '*'       ENDBAR
+      *
+     C                     MOVE *BLANK    W22    22
+     C           L1JOK6    IFNE *BLANK
+     C           K#AAP     CHAINAAAPL01              90
+     C           *IN90     IFEQ *OFF
+     C           '('       CAT  A5JOKM:1  W22       P
+     C           W22       CAT  ')':1     W22       P
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     EXCPTFILE
+     C                     SETON                       U1
+     C                     ADD  1         WKHKNO
+     C  N22                END
+     C*                    END
+      *
+      *----------------------------------------------------*
+      * KANBAN NUMBRER ADJUST   BY CREATE                  *
+      *----------------------------------------------------*
+     C*          L1BMON    IFEQ 8990
+     C*                    EXCPTFILE1
+     C*                    END
+     C                     MOVE *BLANK    WKCON
+     C           LAST      TAG
+     OAKBWP11AE                FILE
+     O                         WKCON      1
+     O                         WKSTNO     4
+     O                         WKEDNO     7
+     O                         NAME      23
+     O                         @SHIN     37
+     O                         WKBARC    52
+     O                         WKLTIM    55
+     O                         WKSYOS    61
+     O                         WKSYOT    62
+     O                         WKTKRO    68
+     O                         HYMD8     76
+     O                         W22       98
+     O*AKBWP11BE                FILE1
+     O*                                   1 'C'
+     O*                        L1SHN1     6
+     O*                        L1SHN2    11
+     O*                        L1SHN3    13
+     O*                        L1TKR1    14
+     O*                        L1TKR2    16
+     O*                        L1TKR3    18
+     O*                        L1TKR4    19
+     O*                        L1KALL    22
+     O*                        L1KMIN    25
+     O*                        L1KMAX    28
+     O*                        L1SRMS    31

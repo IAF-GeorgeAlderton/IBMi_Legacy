@@ -1,0 +1,49 @@
+             PGM
+
+             DCL        VAR(&YYMM) TYPE(*CHAR) LEN(06)
+
+             CLRPFM     FILE(HWFILE1/ABBWP79)
+
+             OVRDBF     FILE(ABBWP79)  TOFILE(HWFILE1/ABBWP79)
+
+             OVRDBF     FILE(ABBPL71)  TOFILE(HFILE1/ABBPL71)
+             OVRDBF     FILE(AAMPL11)  TOFILE(HFILE1/AAMPL11)
+             OVRDBF     FILE(AAFTL06)  TOFILE(HFILE1/AAFTL06)
+             OVRDBF     FILE(AAGTL06)  TOFILE(HFILE1/AAGTL06)
+             OVRDBF     FILE(AAHTL06)  TOFILE(HFILE1/AAHTL06)
+             OVRDBF     FILE(AAPTL01)  TOFILE(HFILE1/AAPTL01)
+             OVRDBF     FILE(ADHTL05)  TOFILE(HFILE1/ADHTL05)
+             OVRDBF     FILE(ABHTL06)  TOFILE(HFILE1/ABHTL06)
+             OVRDBF     FILE(FGBPL01)  TOFILE(HFILE1/FGBPL01)
+             OVRDBF     FILE(FCEPL01)  TOFILE(HFILE1/FCEPL01)
+             OVRDBF     FILE(FCEPL11)  TOFILE(HFILE1/FCEPL11)
+
+             CALL       PGM(HOBJ1/ABBR79)
+
+             DLTF       FILE(HWFILE1/ABBWP79A)
+             MONMSG     MSGID(CPF2105)
+             CRTPF      FILE(HWFILE1/ABBWP79A) RCDLEN(1100) +
+                          TEXT('PRIORITY #OF KANBAN') +
+                          OPTION(*NOLIST) LVLCHK(*NO) AUT(*ALL)
+
+             OVRDBF     FILE(ABBWP79A) TOFILE(HWFILE1/ABBWP79A)
+             OVRDBF     FILE(ABBWL79)  TOFILE(HWFILE1/ABBWL79)
+
+             CALL       PGM(HOBJ1/ABBR79A)
+
+
+             DLTF       FILE(HWFILE1/ABBWP79B)
+             MONMSG     MSGID(CPF2105)
+             CRTPF      FILE(HWFILE1/ABBWP79B) RCDLEN(1100) +
+                          TEXT('PRIORITY #OF KANBAN') +
+                          OPTION(*NOLIST) LVLCHK(*NO) AUT(*ALL)
+
+             OVRDBF     FILE(ABBWP79B) TOFILE(HWFILE1/ABBWP79B)
+             OVRDBF     FILE(ABBWL79)  TOFILE(HWFILE1/ABBWL79)
+
+             CALL       PGM(HOBJ1/ABBR79B)
+
+END:
+             DLTOVR     FILE(*ALL)
+
+             ENDPGM

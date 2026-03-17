@@ -1,0 +1,265 @@
+      *** GDGR31 *****************************************************
+      *      PRINT OF ORDER HISTORY TABLE
+      *     G.B.C                              97/02/24
+      ****************************************************************
+     H            Y/                                    1
+     FGDGPW31 CF  E                    WORKSTN
+     FGDGPL15 IF  E           K        DISK
+     FGDGPL25 IF  E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+     E                    MSG     1   1 59               d[ｰ xｮﾈｰﾆﾞ
+     I            DS
+     I                                        1   80W1DATE
+     I                                        1   40W1YEAR
+     I                                        5   60W1MONT
+     I                                        7   80W1DAY
+     I            DS
+     I                                        1  12 D1HINB
+     I                                        1   5 D1HIN1
+     I                                        6  10 D1HIN2
+     I                                       11  12 D1HIN3
+     I            DS
+     I                                        1  12 ICHINB
+     I                                        1   5 ICHIN1
+     I                                        6  10 ICHIN2
+     I                                       11  12 ICHIN3
+     I            DS
+     I                                        1   60ICODER
+     I                                        1   20ICODR1
+     I                                        3   40ICODR2
+     I                                        5   60ICODR3
+     I            DS
+     I                                        1   80ICDLHZ
+     I                                        1   20ICDLVM
+     I                                        3   40ICDLVD
+     I                                        5   80ICDLVY
+     I            DS
+     I                                        1   6 IEINVO
+     I                                        1   2 IEINV1
+     I                                        3   6 IEINV2
+     I            DS
+     I                                        1   80IENYHZ
+     I                                        1   40IENYUY
+     I                                        5   60IENYUM
+     I                                        7   80IENYUD
+     C****************************************************************
+     C*           ＭＡＩＮ　ＲＯＵＴＩＮＥ                         *
+     C****************************************************************
+     C*
+     C                     EXSR #INIT
+     C*
+     C           @DSP01    TAG
+     C                     EXFMTDSP01
+     C                     MOVEA'00'      *IN,11
+     C                     MOVEL'0'       *IN99
+     C                     MOVE *BLANK    D#MSG
+     C* < F1=ON >
+     C           *INKA     CABEQ'1'       @END
+     C*
+     C                     EXSR #CHK01
+     C           *IN99     CABEQ'1'       @DSP01
+     C* < F5=OFF >
+     C           *INKE     CABEQ'0'       @DSP01
+     C*
+     C*<発注履歴データ明細表の発行>
+     C                     EXSR #PRT01
+     C*
+     C* <終　了>
+     C           @END      TAG
+     C                     SETON                     LR
+     C                     RETRN
+     C****************************************************************
+     C           #INIT     BEGSR                                     *
+     C****************************************************************
+     C**初期処理**
+     C           *ENTRY    PLIST
+     C                     PARM           PPUSER 10
+     C                     Z-ADD*DATE     W1DATE
+     C                     MOVEL'1'       *INOF
+     C*
+     C                     MOVEA'00'      *IN,11
+     C                     MOVEL'0'       *IN99
+     C                     MOVE *BLANK    D#MSG
+     C                     MOVE *BLANK    D1HIN1
+     C                     MOVE *BLANK    D1HIN2
+     C                     MOVE *BLANK    D1HIN3
+     C                     Z-ADD0         D1FROM
+     C                     Z-ADD0         D1TO
+     C*
+     C                     ENDSR
+     C****************************************************************
+     C           #CHK01    BEGSR                                     *
+     C****************************************************************
+     C**第１画面チェック**
+      *
+     C           D1FROM    IFGT D1TO
+     C                     Z-ADD0         D1TO
+     C                     MOVEA'1'       *IN,12
+     C  N99                MOVELMSG,1     D#MSG
+     C  N99                MOVEA'1'       *IN,99
+     C                     GOTO @CHK1E
+     C                     END
+      *
+     C           @CHK1E    ENDSR
+     C****************************************************************
+     C           #PRT01    BEGSR                                     *
+     C****************************************************************
+     C           D1HINB    IFNE *BLANK
+     C           KEY01     KLIST
+     C                     KFLD           D1HIN1
+     C                     KFLD           D1HIN2
+     C                     KFLD           D1HIN3
+     C           KEY01     SETLLGDGPL151
+     C                     END
+     C*
+     C                     DO   *HIVAL
+     C*日次発注データファイル
+     C           D1HINB    IFEQ *BLANK
+     C                     READ GDGPL151                 10
+     C                     ELSE
+     C           KEY01     READEGDGPL151                 10
+     C                     END
+     C   10                LEAVE
+     C*
+     C           ICSKJY    IFEQ 'D'                        DELETE CODE
+     C           ICSKHZ    ANDLE*DATE
+     C                     ITER
+     C                     END
+     C*
+     C           D1FROM    IFGT 0
+     C           D1TO      ORGT 0
+     C           ICODHZ    IFLT D1FROM
+     C           ICODHZ    ORGT D1TO
+     C                     ITER
+     C                     END
+     C                     END
+     C*
+     C                     SETON                     70
+     C                     MOVE ICIFMK    WKNYUK  1
+     C*
+     C*インボイス番号管理データファイル
+     C*
+     C           KEY02     KLIST
+     C                     KFLD           ICODER
+     C                     KFLD           ICITEM
+     C*
+     C                     SETOF                     71
+     C           KEY02     SETLLGDGPL251
+     C                     DO   *HIVAL
+     C           KEY02     READEGDGPL251                 20
+     C   20                LEAVE
+     C*
+     C           IESKJY    IFEQ 'D'                        DELETE CODE
+     C           IESKHZ    ANDLE*DATE
+     C                     ITER
+     C                     END
+     C*
+     C           IENYUK    IFNE *BLANK
+     C                     MOVE IENYUK    WKNYUK
+     C                     END
+     C*
+     C           *INOF     IFEQ '1'
+     C                     EXCPT#HED
+     C                     MOVEL'0'       *INOF
+     C                     END
+     C*
+     C           ICHIN3    COMP *BLANK                   21
+     C           IENYHZ    COMP 0                        22
+     C                     SETON                     71
+     C                     EXCPT#DTL
+     C*
+     C                     SETOF                     70
+     C                     ENDDO
+     C*
+     C           *IN70     IFEQ '1'
+     C           *INOF     IFEQ '1'
+     C                     EXCPT#HED
+     C                     MOVEL'0'       *INOF
+     C                     END
+     C           ICHIN3    COMP *BLANK                   21
+     C                     EXCPT#DTL
+     C                     END
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+     O*****************************************************************
+     OQPRINT  E   01           #HED
+     O                                    7 'GDGR31'
+     O                                   60 'ORDER HISTORY LIST'
+     O                                  108 'DATE:'
+     O                         W1MONT  +  0
+     O                                 +  0 '/'
+     O                         W1DAY   +  0
+     O                                 +  0 '/'
+     O                         W1YEAR  +  0
+     O                                  127 'PAGE:'
+     O                         PAGE  Z +  0
+     O        E   03           #HED
+     O                                   37 'ORDER INFORMATION'
+     O                                   72 ':'
+     O                                  100 'RECEIVING HISTORY'
+     O        E   05           #HED
+     O                                   10 'PART NO.'
+     O                                   26 'ORDER NO.'
+     O                                   32 'ITEM'
+     O                                   44 'ORDER DATE'
+     O                                   56 'ORDER QTY'
+     O                                   60 'CRY'
+     O                                   69 'DELIVERY'
+     O                                   72 ':'
+     O                                   80 'INVOICE'
+     O                                   95 'RECEIVED DATE'
+     O                                  109 'RECEIVED QTY'
+     O                                  118 'RECEIVE'
+     O                                  123 'CRY'
+     O                                  132 'REMARKS'
+      *                                                                     2
+     O        E   0607         #HED
+     O                                   16 '--------------'
+     O                                   27 '----------'
+     O                                   33 '-----'
+     O                                   44 '----------'
+     O                                   56 '-----------'
+     O                                   59 '-'
+     O                                   70 '----------'
+     O                                   72 ':'
+     O                                   80 '-------'
+     O                                   94 '----------'
+     O                                  109 '-----------'
+     O                                  115 '-'
+     O                                  122 '-'
+     O        E  1             #DTL
+     O                 70      ICHIN1     7
+     O                 70              +  0 '-'
+     O                 70      ICHIN2  +  0
+     O                 70N21           +  0 '-'
+     O                 70      ICHIN3  +  0
+     O                 70                21 'IAF-'
+     O                 70      ICODR1  +  0
+     O                 70      ICODR2  +  0
+     O                 70      ICODR3  +  0
+     O                 70      ICITEM    33
+     O                 70      ICODRM    36
+     O                 70              +  0 '/'
+     O                 70      ICODRD  +  0
+     O                 70              +  0 '/'
+     O                 70      ICODRY  +  0
+     O                 70      ICSURY1   56
+     O                 70      ICHANY    59
+     O                 70      ICDLHZ    70 '  /  /    '
+     O                                   72 ':'
+     O                 71      IEINV1    75
+     O                 71              +  0 '-'
+     O                 71      IEINV2  +  0
+     O                 71N22   IENYUM    86
+     O                 71N22           +  0 '/'
+     O                 71N22   IENYUD  +  0
+     O                 71N22           +  0 '/'
+     O                 71N22   IENYUY  +  0
+     O                 71      IESURY1  109
+     O                         WKNYUK   115
+     O                 71      IEHANY   122
+     O*****************************************************************
+**  MSG
+ INCORRECT ORDER DATE.

@@ -1,0 +1,94 @@
+             PGM
+             /** ANPC01 ************************************/
+             /*  NAPCK SHIPPING DATA CREATE                */
+             /*  KIRI  2015.07.01                          */
+             /*  JW    2016.06.17 SAVE EP60/63/75/76       */
+             /**********************************************/
+             DCL        VAR(&WSID)     TYPE(*CHAR) LEN(10)
+             DCL        VAR(&USER)     TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT)      TYPE(*CHAR) LEN(7)
+             DCL        VAR(&TYPE)     TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG)     TYPE(*CHAR) LEN(10)
+     /**/
+             DCL        VAR(&PDEVT)    TYPE(*CHAR) LEN(6)
+             DCL        VAR(&PIGCD)    TYPE(*CHAR) LEN(4)
+             DCL        VAR(&WLIB)     TYPE(*CHAR) LEN(8)
+             DCL        VAR(&REC)      TYPE(*DEC)  LEN(10 0)
+     /**/
+
+             RTVJOBA    JOB(&WSID) USER(&USER)
+
+             CALL       PGM(AGAR01) PARM(&WSID &PDEVT &PIGCD)
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+             CALL       PGM(ALBC00) PARM(&USER &WLIB)
+
+             CHGJOB     OUTQ(&PRTG)
+       /*------------------------------------------------------------*/
+             ALCOBJ     OBJ((AB#EP60 *FILE *EXCLRD)) WAIT(1)
+             MONMSG     MSGID(CPF0000) EXEC(DO)
+             CALL       PGM(QUILNGTX) PARM('GENTRAN IS WORKING NOW. +
+                          PLEASE TRY IT AGAIN IN ONE MINUTE. THANK +
+                          YOU. ' X'00000046' '       ' +
+                          '                    ' X'00000000')
+             GOTO END
+             ENDDO
+       /*------------------------------------------------------------*/
+  /* CREATE WORK FILES  */
+             DLTF       FILE(QTEMP/AB#WP0F)
+             MONMSG     MSGID(CPF0000)
+             CRTDUPOBJ  OBJ(AB#WP0F) FROMLIB(&WLIB) OBJTYPE(*FILE) +
+                          TOLIB(QTEMP)
+             MONMSG     MSGID(CPF0000)
+             CLRPFM QTEMP/AB#WP0F
+
+             CRTDUPOBJ  OBJ(MITANKF) FROMLIB(&WLIB) OBJTYPE(*FILE) +
+                          TOLIB(QTEMP)
+             MONMSG     MSGID(CPF0000)
+             CLRPFM QTEMP/MITANKF
+
+             CRTDUPOBJ  OBJ(AB#WP34) FROMLIB(&WLIB) OBJTYPE(*FILE) +
+                          TOLIB(QTEMP)
+             MONMSG     MSGID(CPF0000)
+             CLRPFM QTEMP/AB#WP34
+
+             OVRDBF     FILE(MITANKF) TOFILE(QTEMP/MITANKF)
+             OVRDBF     FILE(AB#WP0F) TOFILE(QTEMP/AB#WP0F)
+             OVRDBF     FILE(AB#WP34) TOFILE(QTEMP/AB#WP34)
+
+             CALL       PGM(ANPR01)
+
+             DLTOVR     FILE(*ALL)
+
+ /* JW SAVE AB#EP60,63,75,76         */
+             CALL       PGM(EDSR60)
+
+ /* UNIT PRICE ERROR */
+             RTVMBRD    FILE(QTEMP/MITANKF) NBRCURRCD(&REC)
+
+             IF         COND(&REC *NE 0) THEN(DO)
+             OVRDBF     FILE(MITANKF) TOFILE(QTEMP/MITANKF)
+             OVRPRTF    FILE(QPRINT) DEVTYPE(&PDEVT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(QPRINT) +
+                          FORMTYPE(K6H1) HOLD(*NO) IGCDTA(&PIGCD)
+
+             CALL       PGM(AB#R0D)
+             DLTOVR     FILE(*ALL)
+             ENDDO
+       /*------------------------------------------------------------*/
+
+       /*------------------------------------------------------------*/
+ /*   AB#WP34 <---> AB#PP01    */
+             RTVMBRD    FILE(QTEMP/AB#WP34) NBRCURRCD(&REC)
+
+             IF         COND(&REC *NE 0) THEN(DO)
+             OVRDBF     FILE(AB#WP34) TOFILE(QTEMP/AB#WP34)
+             CALL       PGM(AB#RE9)
+             DLTOVR     FILE(*ALL)
+             ENDDO
+END:
+       /*------------------------------------------------------------*/
+             DLCOBJ     OBJ((AB#EP60 *FILE *EXCLRD))
+             MONMSG     MSGID(CPF0000)
+       /*------------------------------------------------------------*/
+
+             ENDPGM

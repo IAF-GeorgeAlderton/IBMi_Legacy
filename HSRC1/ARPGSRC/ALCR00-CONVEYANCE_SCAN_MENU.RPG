@@ -1,0 +1,248 @@
+     H            Y.
+     F** ALCR00 *********************************************
+     F* CONVEYANCE SCAN MENU
+     F*    LEC.             2016.02.15                      *
+%0001F*    T.SAKAKI         2017.02.28  ADD OPTN '4'        *
+%0003F*    LEC.             2019.12.10  ADD OPTN '7'        *
+JW1  F*    JW   2020.09.15  ADD DUMMY (TO DETECT INDIRECT CALL) *
+     F*    LEC.             2021.11.19  ADD OPTN '8'        *
+     F*    LEC.             2025.02.21  ADD OPTN '9'        *
+     F*    LEC.             2025.05.08  ADD OPTN '10'       *
+     F*    LEC.             2025.08.25  ADD OPTN '11'       *
+     F***********************************************************
+     FALCPW00 CF  E                    WORKSTN
+     FALBPL30 IF  E           K        DISK
+     E                    ER      1  11 65
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        7  14 SDATE
+     I                                        1   6 STIME
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           WORKER  6
+     C                     PARM           WUSRID 10
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     EXSR #SB100
+     C           DSPSW     DOUEQ'99'
+     C                     EXSR #SB200
+     C                     ENDDO
+     C                     EXSR #SB300
+      *----------------------------------------------------*
+      * INZ                                                *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     TIME           WTIME
+     C                     MOVEL'01'      DSPSW   2
+     C                     MOVELWORKER    USRCD
+     C                     Z-ADD0         D1SEL
+JW1  C                     GOTO ESB100
+ |    ****************************************
+ |    * UN-PROCESS LINE (FOR INDIRECT CALL)  *
+ |    ****************************************
+ |   C                     CALL 'ALCR12'                   D1SEL=1
+ |   C                     CALL 'ALDR9X'                   D1SEL=2
+ |   C                     CALL 'ALRR05'                   D1SEL=3
+ |   C                     CALL 'AFDR73'                   D1SEL=4
+ |   C                     CALL 'ALFR60'                   D1SEL=5
+ |   C                     CALL 'ALRR30'                   D1SEL=6
+JW1  C                     CALL 'ALDR9X'                   D1SEL=7
+     C                     CALL 'ALDR98'                   D1SEL=8
+     C                     CALL 'ALER01'                   D1SEL=9
+     C                     CALL 'ALXR12'                   D1SEL=10
+     C                     CALL 'ALDR9XL'                  D1SEL=11
+      *
+     CSR         ESB100    ENDSR
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C           DSPSW     DOWEQ'01'
+     C                     EXSR #SB210
+     C                     ENDDO
+      *
+     CSR         ESB200    ENDSR
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     CSR         #SB210    BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANK    MSG
+     C                     MOVEL*BLANK    WPGM    8
+     C                     MOVEL*BLANK    P2PGM  10
+     C                     SETOF                     3199
+      *
+     C                     TIME           WTIME
+     C           *IN03     IFEQ '1'
+     C                     MOVEL'99'      DSPSW   2
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C           P1        PLIST
+     C                     PARM           POPR    6
+     C                     PARM           PUSR2  20
+      * %0001
+     C           P2        PLIST
+     C                     PARM           POPR    6
+     C                     PARM           PUSR   10
+     C                     PARM           PSUP    4
+      *
+     C           P3        PLIST
+     C                     PARM           POPR    6
+     C                     PARM           PUSR2  20
+     C                     PARM           PSECT   1
+      *
+      * PFLG = 1 NORMAL STORE IN
+      * PFLG = 2 STORE IN BY ATC TAG
+     C           P4        PLIST
+     C                     PARM           POPR    6
+     C                     PARM           PUSR2  20
+     C                     PARM           PSECT   1
+     C                     PARM           PFLG    1
+      *
+     C                     MOVE WORKER    POPR    6        SET WORKER ID
+     C                     MOVE WORKER    POPR2   60       SET WORKER ID
+     C*
+     C                     MOVELW#USER    PUSR2  20        SET WORKER ID
+     C                     SETOF                     98
+     C           POPR2     SETGTALBPL301
+     C                     DO   *HIVAL
+     C           POPR2     REDPEALBPL301                 98
+     C   98                LEAVE
+     C           ALSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+     C                     MOVELALWKNM    W1USNM 20
+     C                     MOVELALWKNM    PUSR2  20
+     C                     ENDDO
+      *
+     C                     MOVELW#USER    PUSR   10        SET WORKER ID
+     C                     MOVEL*BLANK    PSUPP   4
+     C                     MOVEL'2'       PSECT   1
+      *
+     C                     SELEC
+      * 4POINT SCAN
+     C           D1SEL     WHEQ 1
+     C                     MOVEL'ALCR12'  WPGM
+      * STORE IN LOCATION
+     C           D1SEL     WHEQ 2
+     C                     MOVEL'1'       PFLG
+     C                     MOVEL'ALDR9X'  WPGM
+      * PASSTHRU RETRIEVAL SCAN
+     C           D1SEL     WHEQ 3
+     C                     MOVEL'ALRR05'  WPGM
+%0001 * FAS RETRIEVAL SCAN
+     C           D1SEL     WHEQ 4
+     C                     MOVEL'AFDR73'  WPGM
+     C                     MOVEL'5555'    PSUP
+%0003 * CONTAINER TRANSFER
+     C           D1SEL     WHEQ 5
+     C                     MOVEL'ALFR60'  WPGM
+%0003 * IAF <-> ATC OR ASJ KANBAN CONNECT
+     C           D1SEL     WHEQ 6
+     C                     MOVEL'ALRR30'  WPGM
+      * STORE IN ATC TAG
+     C           D1SEL     WHEQ 7
+     C                     MOVEL'2'       PFLG
+     C                     MOVEL'ALDR9X'  WPGM
+      * FINAL GOODS SCAN
+     C           D1SEL     WHEQ 8
+     C                     MOVEL'ALDR98'  WPGM
+      * BLANK PASS/THRU SCAN
+     C           D1SEL     WHEQ 9
+     C                     MOVEL'ALER01'  WPGM
+      * X-RACK SECONDARY TREATMENT SCAN
+     C           D1SEL     WHEQ 10
+     C                     MOVEL'ALXR12'  WPGM
+      *
+      * STORE IN LOCATION WITH LOT IDS
+     C           D1SEL     WHEQ 11
+     C                     MOVEL'1'       PFLG
+     C                     MOVEL'ALDR9XL' WPGM
+      *
+     C                     OTHER
+     C                     SETON                     3199
+     C                     MOVELER,1      MSG
+     C                     EXSR #SB999
+     C                     GOTO ESB210
+     C                     ENDSL
+      *
+      * CREATE SIGN-ON INFO
+     C                     MOVELWPGM      P2PGM  10
+     C                     MOVE WORKER    P2WKR   6
+     C                     MOVELW1USNM    P2WKN  20
+     C                     CALL 'ALDRZ6'
+     C                     PARM           P2PGM
+     C                     PARM           P2WKR
+     C                     PARM           P2WKN
+%0001 * CALL PROCESS
+     C                     SELEC
+     C           D1SEL     WHEQ 1
+     C                     CALL WPGM      P3
+     C           D1SEL     WHEQ 2
+     C                     CALL WPGM      P4
+     C           D1SEL     WHEQ 3
+     C                     CALL WPGM      P1
+     C           D1SEL     WHEQ 4
+     C                     CALL WPGM      P2
+%0003C           D1SEL     WHEQ 5
+     C                     CALL WPGM      P1
+%0003C           D1SEL     WHEQ 6
+     C                     CALL WPGM      P1
+%0003C           D1SEL     WHEQ 7
+     C                     CALL WPGM      P4
+     C           D1SEL     WHEQ 8
+     C                     CALL WPGM      P1
+     C           D1SEL     WHEQ 9
+     C                     CALL WPGM      P1
+     C           D1SEL     WHEQ 10
+     C                     CALL WPGM      P3
+     C           D1SEL     WHEQ 11
+     C                     CALL WPGM      P4
+     C                     OTHER
+     C                     CALL WPGM      P1
+     C                     ENDSL
+      *
+     C                     Z-ADD0         D1SEL
+      *
+      * DELETE SIGN-ON INFO
+     C                     CALL 'ALDRZ7'
+      *
+     CSR         ESB210    ENDSR
+      *----------------------------------------------------*
+      * END                                                *
+      *----------------------------------------------------*
+     CSR         #SB300    BEGSR
+      *
+     C                     SETON                     LR
+     C                     RETRN
+     CSR         ESB300    ENDSR
+      *----------------------------------------------------*
+      * ERR                                                *
+      *----------------------------------------------------*
+     CSR         #SB999    BEGSR
+      *
+     C                     MOVELMSG       P1ERR
+     C                     CALL 'AM#R08'
+     C                     PARM           P1ERR  25
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+      *
+     CSR         ESB999    ENDSR
+**
+INPUT NO. ERR
+
+
+
+

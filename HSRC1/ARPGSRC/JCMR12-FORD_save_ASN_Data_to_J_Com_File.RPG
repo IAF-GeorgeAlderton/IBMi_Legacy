@@ -1,0 +1,224 @@
+     H            Y.
+      ** JCMR12 ********************************************************
+      *  CREATE FORD J-COM DATA (ASN)                                  *
+      *  JW     05/06/2016                                             *
+JW1   *  JW     01/02/2018 CHG BOX TYPE                                *
+JW2   *  JW     08/06/2024 ADD ST# TO J1KOME                           *
+      ******************************************************************
+     FAB#EP64SIF  E           K        DISK
+     FAB#EP63SIF  E           K        DISK
+     FAB#EL66SIF  E           K        DISK
+     FFGBPL01 IF  E           K        DISK
+     FEDIPP42 IF  E           K        DISK
+     FJCMPP11 UF  E           K        DISK                      A
+     FJCMPP12 UF  E           K        DISK                      A
+      *---------------------------------------------------
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************
+      *  MAIN
+      *************************************************************
+      * INITIALIZE
+     C                     EXSR #INIT
+      * CREATE JCOM DATA
+     C           $SHIP#    CHAINAB#EL66S             91
+     C           *IN91     IFEQ *OFF
+     C                     EXSR #DTL
+     C                     EXSR #HDR
+     C                     ELSE
+     C                     MOVE *ON       $RTN
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *-----------------------------------------------------------
+      *          WRITE ASN DETAIL (JCMPP12)
+      *-----------------------------------------------------------
+     C           #DTL      BEGSR
+      *
+JW1  C                     MOVE *BLANK    RBFLG   1
+     C           $SHIP#    SETLLAB#EP64S
+     C                     MOVE *OFF      *IN92
+     C           *IN92     DOWEQ*OFF
+     C           $SHIP#    READEAB#EP64S                 92
+     C           *IN92     IFEQ *OFF
+     C           E4CRTM    ANDEQE6CRTM
+      * CREATE JCMPP12
+     C                     CLEARJCMPP121
+     C                     Z-ADD*DATE     J2CRHZ
+     C                     TIME           J2CRTM
+     C                     MOVELE4SHID    J2SHID
+     C                     MOVELE6NONY    J2NONY
+     C                     MOVELEPICK     LTR6    6
+     C                     MOVEL'00000000'J2ASN#
+     C                     MOVE LTR6      J2ASN#
+     C                     MOVELE4MHID    J2BR
+      *
+JW1  C           J2BR      IFEQ 'R'
+ |   C                     MOVE 'R'       RBFLG
+JW1  C                     ENDIF
+      *
+     C                     MOVELE4MHIN    J2MHIN
+     C                     Z-ADDE4SRYO    J2SRYO
+     C                     MOVELE4FILR    J2UM
+     C                     Z-ADDE4CUMQ    J2CUMQ
+     C                     MOVELE6ORDN    J2ORDN
+      * ORDER#
+     C           J2ORDN    IFEQ *BLANK
+     C                     MOVEL'11111'   J2ORDN
+     C                     ENDIF
+      *
+     C                     Z-ADDE4BOX#    J2BOX#
+     C                     WRITEJCMPP121
+     C                     ADD  1         DTL#
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *-----------------------------------------------------------
+      *          WRITE ASN HEADER (JCMPP11)
+      *-----------------------------------------------------------
+     C           #HDR      BEGSR
+      *
+     C                     CLEARJCMPP111
+     C                     Z-ADD*DATE     J1CRHZ
+     C                     TIME           J1CRTM
+     C                     MOVEL#USER     J1CRME
+     C**                   Z-ADD*DATE     J1KOHZ
+     C**                   TIME           J1KOTM
+     C**                   MOVEL#USER     J1KOME
+      * SET B2B TRANSACTION#
+JW2  C                     CALL 'UEXR53 '
+ .   C                     PARM           $GC#    9
+JW2  C                     MOVEL$GC#      J1KOME
+      *
+     C                     MOVELE6SHID    J1SHID
+     C                     MOVELE6NONY    J1NONY
+     C                     MOVELEPICK     LTR6
+     C                     MOVEL'00000000'J1ASN#
+     C                     MOVE LTR6      J1ASN#
+      * COMPANY NAME
+     C           E6NONY    CHAINFGBPL01              99
+     C           *IN99     IFEQ *OFF
+     C                     MOVELB2SMEI    J1SMEI
+     C                     ENDIF
+      *
+     C                     MOVEL'I A F'   J1CMEI
+     C                     MOVELE4FAX#    J1FAX#
+     C                     MOVELE4CNTP    J1CNAM
+     C                     MOVELE4TEL#    J1CTEL
+      * PAGE
+     C                     SELEC
+     C           DTL#      WHLE 5
+     C                     Z-ADD1         J1PAGE
+     C                     OTHER
+     C           DTL#      SUB  5         DTLX    30
+     C           DTLX      DIV  20        SHO     50
+     C                     MVR            REM     50
+     C           REM       IFEQ 0
+     C           SHO       ADD  1         J1PAGE
+     C                     ELSE
+     C           SHO       ADD  2         J1PAGE
+     C                     ENDIF
+     C                     ENDSL
+      * PURPOSE CODE: 01:CANSCEL
+     C           E6RMD     IFEQ '01'
+     C                     MOVEL'01'      J1PPS
+     C                     ELSE
+     C                     MOVEL'00'      J1PPS
+     C                     ENDIF
+      *
+     C                     Z-ADDE6NOHZ    J1NOHZ
+     C                     Z-ADDE6NOTM    J1NOTM
+     C                     Z-ADDE6DATE    J1DATE
+     C                     MOVELE6TIME    J1TIME
+     C                     MOVELE4TMZN    J1TMZN
+     C                     Z-ADDE6WHT     J1WHT
+      *
+JW1  C**                   MOVEL'BOX90'   J1BTYP
+ |   C           RBFLG     IFEQ 'R'
+ |   C                     MOVEL'ST8'     J1BTYP
+ |   C                     ELSE
+ |   C                     MOVEL'COP'     J1BTYP
+JW1  C                     ENDIF
+      *
+     C                     Z-ADDE6BOX     J1BOX
+     C                     MOVELEPSCAC    J1PSCC
+     C                     MOVELESCAC     J1SCAC
+     C                     MOVELECMOD     J1CMOD
+     C                     MOVELEPPCD     J1PPCD
+     C                     MOVELE6TRCK    J1TRCK
+     C                     MOVE ' '       J1SLI#
+     C                     MOVE ' '       J1FBL#
+     C                     MOVE ' '       J1ABL#
+     C                     MOVELE6BLN#    J1BLN#
+     C                     MOVELEPICK     J1PICK
+      *
+      *
+     C                     MOVE ' '       J1SHPC
+      * SHIP TO/IC CODE
+     C           $SHIP#    SETLLAB#EP63S
+     C                     MOVE *OFF      *IN99
+     C           *IN99     DOWEQ*OFF
+     C           $SHIP#    READEAB#EP63S                 99
+     C           *IN99     IFEQ *OFF
+     C           E3CRTM    ANDEQE6CRTM
+     C                     SELEC
+     C           E3N101    WHEQ 'SF'
+     C                     MOVELE3N104    J1SIRE
+     C           E3N101    WHEQ 'ST'
+     C                     MOVELE3N104    J1SHPC
+     C           E3N101    WHEQ 'IC'
+     C                     MOVELE3N104    J1ICCD
+     C                     ENDSL
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           J1SIRE    IFEQ *BLANK
+     C                     MOVEL'AVRTA'   J1SIRE
+     C                     ENDIF
+      *
+     C                     Z-ADDE6REHZ    J1REHZ
+     C                     Z-ADDDTL#      J1DTL#
+     C                     Z-ADDE6NBIN    J1BIN
+     C                     MOVELE6NKOJ    J1NKOJ
+     C                     MOVELE6NUKE    J1NUKE
+      *
+     C                     WRITEJCMPP111
+      *
+     C                     ENDSR
+      *-----------------------------------------------------------
+      *          INITIALIZE
+      *-----------------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $SHIP# 10
+     C                     PARM           $RTN    1
+      *
+     C                     CLEAR$RTN
+     C                     Z-ADD*DATE     @DATE   80
+     C                     TIME           @TIME   60
+     C                     Z-ADD0         DTL#    30
+      * READ EDIPP42 (CUSTOMER MASTER)
+     C           '0111'    CHAINEDIPP42              95
+      * DELETE HEADER
+     C           $SHIP#    CHAINJCMPP11              96
+     C           *IN96     IFEQ *OFF
+     C                     DELETJCMPP111
+     C                     ENDIF
+      *
+      * DELETE DETAIL
+     C           $SHIP#    SETLLJCMPP12
+     C                     MOVE *OFF      *IN97
+     C           *IN97     DOWEQ*OFF
+     C           $SHIP#    READEJCMPP12                  97
+     C           *IN97     IFEQ *OFF
+     C                     DELETJCMPP121
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR

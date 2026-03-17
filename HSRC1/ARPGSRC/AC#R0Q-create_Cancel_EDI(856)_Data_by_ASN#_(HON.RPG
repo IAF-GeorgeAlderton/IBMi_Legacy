@@ -1,0 +1,302 @@
+     H            Y.
+     F** AC#R0Q ****************************************************************
+     F*  PROGRAM    : CREATE CANCEL EDI(856) DATA BY ASN# (HONDA)              *
+     F*  WRITTEN    : 6/9/2016                                                 *
+     F*  WRITTEN BY : JW (SRA)                                                 *
+     F**************************************************************************
+     FAC#PW0Q CF  E                    WORKSTN
+     F                                              KINFDS @INFDS
+     FAB#EP59SIF  E           K        DISK                           UC
+     FAB#EP67SIF  E           K        DISK                           UC
+     FAB#EP68SIF  E           K        DISK                           UC
+     FAB#EP69SIF  E           K        DISK                           UC
+     FAB#EP59CO   E                    DISK
+     FAB#EP67CO   E                    DISK
+     FAB#EP68CO   E                    DISK
+     FAB#EP69CO   E                    DISK
+     FAB#EL5A IF  E           K        DISK
+     F            AB#EP591                          KRENAMEAB#EP59A
+      *---------------------------------------------------
+     E                    MSG     1   5 70
+     E                    CMD     1   8 80
+     E                    ARY        80  1
+     I@INFDS      DS
+     I                                     *STATUS  @STTS
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************
+      *  MAIN
+      *************************************************************
+      * INITIALIZE
+     C                     EXSR #INIT
+      * DISPLAY
+     C           W@ID      DOWEQ'01'
+     C                     WRITEDSP01
+     C                     READ AC#PW0Q                7172
+      *
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVE *OFF      *IN85
+     C                     MOVE *OFF      *IN41
+     C                     MOVE *OFF      *IN42
+      * TIME LIMIT
+     C           *IN71     IFEQ *ON
+     C           @STTS     ANDEQ1331
+     C                     MOVE '99'      W@ID
+     C                     LEAVE
+     C                     ENDIF
+      * F1/3 END
+     C           *INKA     IFEQ *ON
+     C           *INKC     OREQ *ON
+     C                     MOVE '99'      W@ID
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     EXSR #CHK1
+      * NO ERROR & F5
+     C           *IN85     IFEQ *OFF
+     C           *INKE     ANDEQ*ON
+     C                     EXSR #WRT
+     C                     MOVE '99'      W@ID
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      * FOOT
+     C           E59CNT    IFEQ 0
+     C                     MOVE *BLANK    $ASN
+     C                     MOVE '*'       $RTN
+     C                     ELSE
+     C                     MOVELKEY10     $ASN
+     C                     MOVE *BLANK    $RTN
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *-----------------------------------------------------------
+      *          CHECK DATA
+      *-----------------------------------------------------------
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE *OFF      *IN85
+      *
+     C           XASN      IFEQ 0
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,1     XMSG
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      * CHECK DATA FROM
+     C           XDATA     IFNE 1
+     C           XDATA     ANDNE2
+     C                     MOVE *ON       *IN42
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,5     XMSG
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      *
+     C                     EXSR #QCMD
+      *
+      * CHECK ASN EXIST IN AB#EP59
+     C                     Z-ADD0         CDATE   80
+     C                     Z-ADD0         CTIME   60
+     C                     Z-ADD0         RECCNT  30
+     C                     Z-ADD0         HDRCNT  30
+     C                     MOVE *BLANK    SHID   10
+     C                     MOVE XASN      LTR8    8
+     C                     MOVEL'00'      LTR8
+     C                     MOVELLTR8      KEY10  10
+     C                     MOVE *OFF      *IN98
+     C           KEY10     SETLLAB#EP59S
+     C           *IN98     DOWEQ*OFF
+     C           KEY10     READEAB#EP59S                 98
+     C           *IN98     IFEQ *OFF
+     C                     ADD  1         RECCNT
+     C           E1CRDT    IFEQ 0
+     C           E1CRDT    ORGE CDATE
+     C           E1CRTM    ANDGTCTIME
+     C                     Z-ADDE1CRDT    CDATE
+     C                     Z-ADDE1CRTM    CTIME
+     C                     MOVELE1SHID    SHID
+     C                     ADD  1         HDRCNT
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           HDRCNT    IFEQ 0
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,2     XMSG
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      *
+      * CHECK ASN DUPLICATE
+     C                     Z-ADD0         DUPCNT  30
+     C                     MOVE *OFF      *IN97
+     C           E1ASN     SETLLAB#EL5A
+     C           *IN97     DOWEQ*OFF
+     C           E1ASN     READEAB#EL5A                  97
+     C           *IN97     IFEQ *OFF
+     C           E1ASN     ANDEQKEY10
+     C                     ADD  1         DUPCNT
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           DUPCNT    IFNE 0
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,3     XMSG
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      * IF NO ERROR
+     C           *IN85     IFEQ *OFF
+     C                     MOVELMSG,4     XMSG
+     C                     ENDIF
+      *
+     C           E#CHK1    ENDSR
+      *-----------------------------------------------------------
+      *                    RUN QCMD
+      *-----------------------------------------------------------
+     C           #QCMD     BEGSR
+      *
+     C                     CLOSEAB#EP59S
+     C                     CLOSEAB#EP67S
+     C                     CLOSEAB#EP68S
+     C                     CLOSEAB#EP69S
+      *
+     C                     SELEC
+     C           XDATA     WHEQ 1
+     C                     MOVELCMD,1     P@CMD
+     C                     Z-ADD50        P@LEN
+     C                     CALL 'QCMDEXC' P#CMD          99
+     C                     MOVELCMD,2     P@CMD
+     C                     Z-ADD50        P@LEN
+     C                     CALL 'QCMDEXC' P#CMD          99
+     C                     MOVELCMD,3     P@CMD
+     C                     Z-ADD50        P@LEN
+     C                     CALL 'QCMDEXC' P#CMD          99
+     C                     MOVELCMD,4     P@CMD
+     C                     Z-ADD50        P@LEN
+     C                     CALL 'QCMDEXC' P#CMD          99
+     C           XDATA     WHEQ 2
+     C                     MOVELCMD,5     P@CMD
+     C                     Z-ADD50        P@LEN
+     C                     CALL 'QCMDEXC' P#CMD          99
+     C                     MOVELCMD,6     P@CMD
+     C                     Z-ADD50        P@LEN
+     C                     CALL 'QCMDEXC' P#CMD          99
+     C                     MOVELCMD,7     P@CMD
+     C                     Z-ADD50        P@LEN
+     C                     CALL 'QCMDEXC' P#CMD          99
+     C                     MOVELCMD,8     P@CMD
+     C                     Z-ADD50        P@LEN
+     C                     CALL 'QCMDEXC' P#CMD          99
+     C                     ENDSL
+      *
+     C                     OPEN AB#EP59S
+     C                     OPEN AB#EP67S
+     C                     OPEN AB#EP68S
+     C                     OPEN AB#EP69S
+      *
+     C                     ENDSR
+      *-----------------------------------------------------------
+      *                    WRITE
+      *-----------------------------------------------------------
+     C           #WRT      BEGSR
+      * WRITE AB#EP59C
+     C                     Z-ADD0         E59CNT  30
+     C                     MOVE *OFF      *IN99
+     C           KEY10     SETLLAB#EP59S
+     C           *IN99     DOWEQ*OFF
+     C           KEY10     READEAB#EP59S                 99
+     C           *IN99     IFEQ *OFF
+     C           E1CRDT    ANDEQCDATE
+     C           E1CRTM    ANDEQCTIME
+     C                     ADD  1         E59CNT
+     C                     MOVEL'01'      ETRMD
+     C                     WRITEAB#EP591
+     C                     MOVE *ON       *IN99
+     C                     ENDIF
+     C                     ENDDO
+      * WRITE AB#EP67C
+     C                     Z-ADD0         E67CNT  30
+     C                     MOVE *OFF      *IN99
+     C           SHID      SETLLAB#EP67S
+     C           *IN99     DOWEQ*OFF
+     C           SHID      READEAB#EP67S                 99
+     C           *IN99     IFEQ *OFF
+     C           E7CRDT    ANDEQCDATE
+     C           E7CRTM    ANDEQCTIME
+     C                     ADD  1         E67CNT
+     C                     WRITEAB#EP671
+     C                     MOVE *ON       *IN99
+     C                     ENDIF
+     C                     ENDDO
+      * WRITE AB#EP68C
+     C                     Z-ADD0         E68CNT  30
+     C                     MOVE *OFF      *IN99
+     C           SHID      SETLLAB#EP68S
+     C           *IN99     DOWEQ*OFF
+     C           SHID      READEAB#EP68S                 99
+     C           *IN99     IFEQ *OFF
+     C           E8CRDT    ANDEQCDATE
+     C           E8CRTM    ANDEQCTIME
+     C                     ADD  1         E68CNT
+     C                     WRITEAB#EP681
+     C                     ENDIF
+     C                     ENDDO
+      * WRITE AB#EP69C
+     C                     Z-ADD0         E69CNT  30
+     C                     MOVE *OFF      *IN99
+     C           SHID      SETLLAB#EP69S
+     C           *IN99     DOWEQ*OFF
+     C           SHID      READEAB#EP69S                 99
+     C           *IN99     IFEQ *OFF
+     C           E3CRDT    ANDEQCDATE
+     C           E3CRTM    ANDEQCTIME
+     C                     ADD  1         E69CNT
+     C                     WRITEAB#EP691
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           EWRT      ENDSR
+      *-----------------------------------------------------------
+      *          INITIALIZE
+      *-----------------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $ASN    8
+     C                     PARM           $RTN    1
+      *
+     C           P#CMD     PLIST
+     C                     PARM           P@CMD 256
+     C                     PARM           P@LEN  155
+      *
+     C                     CLEAR$ASN
+     C                     CLEAR$RTN
+     C                     MOVE '01'      W@ID    2
+     C                     Z-ADD1         XDATA
+      *
+     C                     OPEN AB#EP59S
+     C                     OPEN AB#EP67S
+     C                     OPEN AB#EP68S
+     C                     OPEN AB#EP69S
+      *
+     C                     ENDSR
+** (MSG)
+ERROR! ENTER ASN#!
+ERROR! ASN# IS NOT FOUND!
+ERROR! UNPROCESSED ASN FOUND! DO NOT ENTER DUPLICATED ASN#...
+ASN FOUND. PRESS F1 TO CANCEL OR F5 TO CONTINUE.
+ERROR! ENTER 1 OR 2 FOR 'DATA FROM'!
+** (CMD)
+OVRDBF FILE(AB#EP59S) TOFILE(*LIBL/AB#EP59S )
+OVRDBF FILE(AB#EP67S) TOFILE(*LIBL/AB#EP67S )
+OVRDBF FILE(AB#EP68S) TOFILE(*LIBL/AB#EP68S )
+OVRDBF FILE(AB#EP69S) TOFILE(*LIBL/AB#EP69S )
+OVRDBF FILE(AB#EP59S) TOFILE(*LIBL/AB#EP59SS)
+OVRDBF FILE(AB#EP67S) TOFILE(*LIBL/AB#EP67SS)
+OVRDBF FILE(AB#EP68S) TOFILE(*LIBL/AB#EP68SS)
+OVRDBF FILE(AB#EP69S) TOFILE(*LIBL/AB#EP69SS)

@@ -1,0 +1,291 @@
+     H            Y.
+     F** AFHR02 *********************************************
+     F* CREATE EDI FORECAST DATA 830 FOR OUTSOURCE          *
+     F*             T.SAKAKI       2016.08.12               *
+     F*******************************************************
+     FGHCPL25 IF  E           K        DISK
+     FAGDPL12 IF  E           K        DISK
+     FABBPL02 IF  E           K        DISK
+     FAFHWP01 UF  E           K        DISK                      A
+     FAFHWP02 O   E           K        DISK
+      *
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60WTIME
+     I                                        7  140WDATE
+     I                                        7  100WYYYY
+     I                                       11  120WMMMM
+     I                                       13  140WDDDD
+      *
+     I            DS
+     I                                        1   80F8KYMD
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+      *
+     I            DS
+     I                                        1   80K1SDAT
+     I                                        1   40K1SDYY
+     I                                        5   60K1SDMM
+     I                                        7   80K1SDDD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *-----------------------------------------------------
+      *  ENTRY LIST
+      *-----------------------------------------------------
+     C           *ENTRY    PLIST
+     C                     PARM           P1CODE  4
+     C                     PARM           P1SDAT  80
+     C                     PARM           P1EDAT  80
+     C                     PARM           P1TER1  20
+     C                     PARM           P1TER2  1
+     C                     PARM           P1TMQL  1
+     C                     PARM           P1LDT1  20
+     C                     PARM           P1LDT2  1
+      *----------------------------------------------------*
+      *   K  E  Y   L  I  S  T                             *
+      *----------------------------------------------------*
+     C           KEYS      KLIST
+     C                     KFLD           K1SDYY
+     C                     KFLD           K1SDMM
+     C                     KFLD           K1SDDD
+     C*
+     C           KEY1      KLIST
+     C                     KFLD           K1CODE  40
+     C*
+     C           KEY2      KLIST
+     C                     KFLD           M7MHN1
+     C                     KFLD           M7MHN2
+     C                     KFLD           M7MHN3
+     C*
+     C           KEY3      KLIST
+     C                     KFLD           M7MHN1
+     C                     KFLD           M7MHN2
+     C                     KFLD           M7MHN3
+     C                     KFLD           Q5TOKU
+     C                     KFLD           Q5NONY
+     C                     KFLD           Q5NKOJ
+     C                     KFLD           Q5NUKE
+     C                     KFLD           Q5SEBN
+     C                     KFLD           Q5MHN1
+     C                     KFLD           Q5MHN2
+     C                     KFLD           Q5MHN3
+     C                     KFLD           Q5MHN4
+     C*
+      *-----------------------------------------------------
+      *  MAIN ROUTINE
+      *-----------------------------------------------------
+     C                     TIME           SDATE
+     C                     MOVE P1CODE    K1CODE
+     C                     Z-ADDP1SDAT    K1SDAT
+      *
+      * GET IAF PART # BY VENDOR CODE
+     C           KEY1      SETLLGHCPL251
+     C                     DO   *HIVAL
+     C           KEY1      READEGHCPL251                 80
+     C   80                LEAVE
+     C           *IN80     IFEQ '0'
+      * GET USER PART #
+     C                     EXSR #SB500
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+      * WRITE SCHEDULE  ABFWP02
+     C                     EXSR #SB510
+     C                     Z-ADDW2EDAT    P1EDAT
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *-----------------------------------------------------
+      *  READ ABBPL01
+      *-----------------------------------------------------
+     CSR         #SB500    BEGSR
+      *
+     C           KEY2      SETLLABBPL021
+     C                     DO   *HIVAL
+     C           KEY2      READEABBPL021                 81
+     C   81                LEAVE
+      *
+     C           *IN80     IFEQ '0'
+      *
+     C                     EXSR #SB501
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     CSR         ESB500    ENDSR
+      *-----------------------------------------------------
+      *  WRITE AFHWP01
+      *-----------------------------------------------------
+     CSR         #SB501    BEGSR
+      *
+     C           KEY3      CHAINAFHWP011             82
+     C           *IN82     IFEQ '0'
+     C                     ELSE
+     C                     CLEARAFHWP011
+     C                     MOVE P1CODE    W1CODE
+     C                     MOVELM7MHN1    W1SHN1
+     C                     MOVELM7MHN2    W1SHN2
+     C                     MOVELM7MHN3    W1SHN3
+     C                     Z-ADDQ5TOKU    W1TOKU
+     C                     Z-ADDQ5NONY    W1NONY
+     C                     MOVELQ5NKOJ    W1NKOJ
+     C                     MOVELQ5NUKE    W1NUKE
+     C                     MOVELQ5SEBN    W1SEBN
+     C                     MOVELQ5MHN1    W1MHN1
+     C                     MOVELQ5MHN2    W1MHN2
+     C                     MOVELQ5MHN3    W1MHN3
+     C                     MOVELQ5MHN4    W1MHN4
+     C                     WRITEAFHWP011
+      *
+     C                     ENDIF
+      *
+     CSR         ESB501    ENDSR
+      *-----------------------------------------------------
+      * GET EACH START DATE AND EACH END DATE
+      *-----------------------------------------------------
+     CSR         #SB510    BEGSR
+      *
+      * LEAD TIME
+     C                     SELEC
+     C           P1LDT2    WHEQ 'D'                        DAILY
+     C                     Z-ADDP1LDT1    WDAYS   30
+     C           P1LDT2    WHEQ 'W'                        WEEKLY
+     C           P1LDT1    MULT 7         WDAYS   30
+     C           P1LDT2    WHEQ 'M'                        MONTHLY
+     C           P1LDT1    MULT 30        WDAYS   30
+     C                     ENDSL
+      *
+      * TIMING QUALIFIER
+     C                     SELEC
+     C           P1TMQL    WHEQ 'D'                        DAILY
+     C                     EXSR #SB511
+     C           P1TMQL    WHEQ 'W'                        WEEKLY
+     C                     EXSR #SB512
+     C           P1TMQL    WHEQ 'M'                        MONTHLY
+     C                     EXSR #SB513
+     C                     ENDSL
+      *
+     CSR         ESB510    ENDSR
+      *-----------------------------------------------------
+      *  GET DAILY DATE
+      *-----------------------------------------------------
+     CSR         #SB511    BEGSR
+      *
+     C                     Z-ADD0         CNT1    20
+      *
+     C           KEYS      SETLLAGDPL121
+     C                     DO   *HIVAL
+     C                     READ AGDPL12                  50
+     C           *IN50     IFEQ '0'
+      *
+      * MONDAY - FRIDAY
+     C           F8YOBI    IFGE 1
+     C           F8YOBI    ANDLE5
+     C                     CLEARAFHWP021
+     C                     Z-ADDF8KYMD    W2SDAT
+     C                     Z-ADDF8KYMD    W2EDAT
+     C                     MOVELP1TMQL    W2TMQL
+      *
+     C                     MOVE F8KYMD    PDATE
+     C                     MOVE '+'       PPORM
+     C                     MOVE WDAYS     PDAYS
+     C                     CALL 'DATR12'
+     C                     PARM           PDATE   8
+     C                     PARM           PPORM   1        + OR -
+     C                     PARM           PDAYS   4
+     C                     PARM           PRDAT   8
+     C                     PARM           PRTN    1
+     C                     MOVE PRDAT     W2CSDT
+     C                     MOVE PRDAT     W2CEDT
+      *
+     C                     WRITEAFHWP021
+      * TERM
+     C           F8YOBI    IFEQ 5
+     C                     ADD  1         CNT1
+     C           CNT1      IFEQ P1TER1
+     C                     LEAVE
+     C                     ELSE
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     C  N50                ENDDO
+      *
+      *
+     CSR         ESB511    ENDSR
+      *-----------------------------------------------------
+      *  GET WEEKLY DATE
+      *-----------------------------------------------------
+     CSR         #SB512    BEGSR
+      *
+     C                     Z-ADD0         CNT1    20
+      *
+     C           KEYS      SETLLAGDPL121
+     C                     DO   *HIVAL
+     C                     READ AGDPL12                  50
+     C           *IN50     IFEQ '0'
+     C                     SELEC
+      * MONDAY
+     C           F8YOBI    WHEQ 1
+     C                     CLEARAFHWP021
+     C                     Z-ADDF8KYMD    W2SDAT
+      *
+     C                     MOVE F8KYMD    PDATE
+     C                     MOVE '+'       PPORM
+     C                     MOVE WDAYS     PDAYS
+     C                     CALL 'DATR12'
+     C                     PARM           PDATE   8
+     C                     PARM           PPORM   1        + OR -
+     C                     PARM           PDAYS   4
+     C                     PARM           PRDAT   8
+     C                     PARM           PRTN    1
+     C                     MOVE PRDAT     W2CSDT
+     C                     ITER
+      * SUNDAY
+     C           F8YOBI    WHEQ 7
+     C                     Z-ADDF8KYMD    W2EDAT
+     C                     MOVELP1TMQL    W2TMQL
+      *
+     C                     MOVE F8KYMD    PDATE
+     C                     MOVE '+'       PPORM
+     C                     MOVE WDAYS     PDAYS
+     C                     CALL 'DATR12'
+     C                     PARM           PDATE   8
+     C                     PARM           PPORM   1        + OR -
+     C                     PARM           PDAYS   4
+     C                     PARM           PRDAT   8
+     C                     PARM           PRTN    1
+     C                     MOVE PRDAT     W2CEDT
+      *
+     C                     WRITEAFHWP021
+      * TERM
+     C                     ADD  1         CNT1
+     C           CNT1      IFEQ P1TER1
+     C                     LEAVE
+     C                     ELSE
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ENDSL
+      *
+     C                     ENDIF
+      *
+     C  N50                ENDDO
+      *
+     CSR         ESB512    ENDSR
+      *-----------------------------------------------------
+      *  GET MONTHLY  DATE
+      *-----------------------------------------------------
+     CSR         #SB513    BEGSR
+      *
+     CSR         ESB513    ENDSR

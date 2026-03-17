@@ -1,0 +1,321 @@
+     H            Y.
+      ** AFFR61 ******************************************************
+      *  AFFWP60 --> AFFWP61                                         *
+      *  JW          2024.03.18                                      *
+     *** CAUTION !!! COMPLIE WITH "ALLOW NULL *YES"
+      ****************************************************************
+     FAFFWP60 IF  E           K        DISK
+     FAB#PL0A IF  E           K        DISK
+     FAFFWP61 O   E           K        DISK
+      *
+     E                    ERR     1  20 50
+      *-----------------------------------------------------------------
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1   80K#NOHZ
+     I                                        1   40K#NOYY
+     I                                        5   60K#NOMM
+     I                                        7   80K#NODD
+     I            DS
+     I                                        1  12 B1SHIN
+     I                                        1   5 B1SHN1
+     I                                        6  10 B1SHN2
+     I                                       11  12 B1SHN3
+     I            DS
+     I                                        1  20 K#MHIN
+     I                                        1   5 K#MHN1
+     I                                        6  10 K#MHN2
+     I                                       11  15 K#MHN3
+     I                                       16  20 K#MHN4
+      *
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *----------------------------------------------------*
+      * MAIN ROUTINE
+      *----------------------------------------------------*
+     C                     EXSR #INIT
+      *
+     C                     DO   *HIVAL
+     C                     READ AFFWP60                  98
+     C   98                LEAVE
+      *
+     C                     EXSR #CHK1
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  CHECK                                             *
+      *----------------------------------------------------*
+     C           #CHK1     BEGSR
+      *
+     C                     EXSR #PRE
+      * SKIP HEADER
+     C           HDFLG     IFEQ 'H'
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+      * (A) CHECK COMMENT LINE
+     C                     MOVELFL#A      LTR1    1
+     C           LTR1      IFEQ '*'
+     C                     MOVE ' '       FL#FLG
+     C                     MOVELERR,1     FL#MSG
+     C                     WRITEAFFWP611
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+      * (E) CHECK TMM
+     C                     MOVELFL#E      LTR3    3
+     C           LTR3      IFNE 'TMM'
+     C                     MOVE '*'       FL#FLG
+     C                     MOVELERR,2     FL#MSG
+     C                     WRITEAFFWP611
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * (I) PP01
+     C                     Z-ADD0         ODCNT   30
+     C                     Z-ADD0         GDCNT   30
+     C                     Z-ADD3411      K#TOKU
+     C                     Z-ADD@NONY     K#NONY
+     C                     MOVE *BLANK    K#MHIN
+     C                     MOVELFL#J      K#MHIN
+     C                     Z-ADDFL#K      K#NOHZ
+     C           K#L0A     SETLLAB#PL0A
+     C                     DO   *HIVAL
+     C           K#L0A     READEAB#PL0A                  97
+     C   97                LEAVE
+      *
+     C           B1SKJY    IFEQ 'D'
+     C           B1ODR1    ORNE @ODRN
+     C           B1GEMM    OREQ 0                          NOT PASS MONTH END
+     C                     ITER
+     C                     ENDIF
+      *
+     C           FL#M      IFEQ B1SRYO
+     C                     ADD  1         GDCNT
+     C                     ENDIF
+      *
+     C           FL#N      IFNE B1SRYO
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ADD  1         ODCNT
+     C                     EXSR #SV01
+     C                     LEAVE
+     C                     ENDDO
+     C                     MOVEL@NONY     A2NONY
+      * QTY ALREADY UPDATED
+     C           GDCNT     IFNE 0
+     C           ODCNT     ANDEQ0
+     C                     MOVE ' '       FL#FLG
+     C                     MOVELERR,8     FL#MSG
+     C                     WRITEAFFWP611
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * ORDER NOT FOUND
+     C           ODCNT     IFEQ 0
+     C                     MOVE '*'       FL#FLG
+     C                     MOVELERR,3     FL#MSG
+     C                     WRITEAFFWP611
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * MULTIPLE ODER EXISTS
+     C           ODCNT     IFGE 2
+     C                     MOVE '*'       FL#FLG
+     C                     MOVELERR,5     FL#MSG
+     C                     WRITEAFFWP611
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * QTY NOT MATCH
+     C           FL#N      IFNE B1SRYO
+     C                     MOVELERR,4     FL#MSG    P
+     C                     MOVE '*'       FL#FLG
+     C                     WRITEAFFWP611
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * READY TO UPDATE...
+     C                     MOVELERR,7     FL#MSG
+     C                     MOVE ' '       FL#FLG
+      *
+     C                     WRITEAFFWP611
+      *
+     C           XCHK1     ENDSR
+      **************************************************************
+      * #SV01 SAVE AB#PP01 DATA
+      **************************************************************
+     C           #SV01     BEGSR
+      *
+     C                     Z-ADDB1TOKU    A2TOKU
+     C                     Z-ADDB1NONY    A2NONY
+     C                     MOVELB1NKOJ    A2NKOJ
+     C                     MOVELB1NUKE    A2NUKE
+     C                     Z-ADDB1NOHZ    A2NOHZ
+     C                     Z-ADDB1NOBI    A2NOBN
+     C                     MOVELB1MHIN    A2MHIN
+     C                     MOVELB1ODR1    A2ODRN
+     C                     MOVELB1NBAN    A2INVN
+     C                     Z-ADDB1TANK    A2TANK
+     C                     Z-ADDB1SRYO    A2SRYO
+     C                     Z-ADDB1SYUY    A2SYOS
+     C                     Z-ADDB1RCOD    A2RCOD
+     C                     MOVELB1SBAN    A2SBAN
+      *
+     C                     ENDSR
+      **************************************************************
+      * PRE SET DEFAULT VALUE
+      **************************************************************
+     C           #PRE      BEGSR
+      *
+     C                     CLEARAFFWP611
+      * IGNORE HEADER
+     C                     MOVELFLDA      LTR1    1
+     C                     MOVELLTR1      $TEXT     P
+     C                     MOVEL'01'      $LENG
+     C                     CALL 'CHKR90'
+     C                     PARM           $TEXT  20
+     C                     PARM           $LENG   2
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ '1'
+     C                     MOVE 'H'       HDFLG   1
+     C                     GOTO XPRE
+     C                     ENDIF
+      *
+     C                     MOVE 'D'       HDFLG
+     C                     MOVELFLDA      FL#A
+     C                     MOVELFLDB      FL#B
+     C                     MOVELFLDC      FL#C
+     C                     MOVELFLDD      FL#D
+     C                     MOVELFLDE      FL#E
+      * REMOVE '
+     C                     MOVELFLDF      $FLD1     P
+     C                     CALL 'EDTR02C'
+     C                     PARM           $FLD1  25
+     C                     PARM           $FLD2  25
+     C                     MOVEL$FLD2     FL#F
+      *
+     C                     MOVELFLDG      FL#G
+     C                     MOVELFLDH      FL#H
+      * REMOVE '
+     C                     MOVELFLDI      $FLD1     P
+     C                     CALL 'EDTR02C'
+     C                     PARM           $FLD1  25
+     C                     PARM           $FLD2  25
+     C                     MOVEL$FLD2     FL#I
+     C                     MOVEL$FLD2     @ODRN  10
+      *
+     C                     MOVELFLDJ      $FLD1     P
+     C                     CALL 'EDTR02C'
+     C                     PARM           $FLD1  25
+     C                     PARM           $FLD2  25
+     C                     MOVEL$FLD2     FL#J
+      * INVOICE DATE
+     C                     MOVELFLDK      $SRC
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE3  8
+     C                     PARM           $RTN    1
+     C                     MOVEL$TRUE3    FL#K
+      * PO QTY
+     C                     MOVELFLDL      $IN
+     C                     CALL 'UTLR60'
+     C                     PARM           $IN    17
+     C                     PARM           $TRUE2 156
+     C                     PARM           $RTN    1
+     C                     Z-ADD$TRUE2    FL#L
+      * RCV QTY
+     C                     MOVELFLDM      $IN
+     C                     CALL 'UTLR60'
+     C                     PARM           $IN    17
+     C                     PARM           $TRUE2 156
+     C                     PARM           $RTN    1
+     C                     Z-ADD$TRUE2    FL#M
+      * IAF QTY
+     C                     MOVELFLDN      $IN
+     C                     CALL 'UTLR60'
+     C                     PARM           $IN    17
+     C                     PARM           $TRUE2 156
+     C                     PARM           $RTN    1
+     C                     Z-ADD$TRUE2    FL#N
+      * UNIT PRICE
+     C                     MOVELFLDO      $IN
+     C                     CALL 'UTLR60'
+     C                     PARM           $IN    17
+     C                     PARM           $TRUE2 156
+     C                     PARM           $RTN    1
+     C                     Z-ADD$TRUE2    FL#O
+      * AMOUNT
+     C                     MOVELFLDP      $IN
+     C                     CALL 'UTLR60'
+     C                     PARM           $IN    17
+     C                     PARM           $TRUE2 156
+     C                     PARM           $RTN    1
+     C                     Z-ADD$TRUE2    FL#P
+     C* NONY
+     C                     SELEC
+     C           FLDE      WHEQ 'TMMGT'
+     C                     Z-ADD3226      @NONY   40
+     C           FLDE      WHEQ 'TMMK '
+     C                     Z-ADD3347      @NONY
+     C           FLDE      WHEQ 'TMMMS'
+     C                     Z-ADD3428      @NONY
+     C           FLDE      WHEQ 'TMMBC'
+     C                     Z-ADD3481      @NONY
+     C           FLDE      WHEQ 'TMMC '
+     C                     Z-ADD3503      @NONY
+     C           FLDE      WHEQ 'TMMAL'
+     C                     Z-ADD3764      @NONY
+     C           FLDE      WHEQ 'TMMI '
+     C                     Z-ADD3804      @NONY
+     C           FLDE      WHEQ 'TMMTX'
+     C                     Z-ADD3851      @NONY
+     C           FLDE      WHEQ 'TMMWV'
+     C                     Z-ADD3931      @NONY
+     C                     OTHER
+     C                     Z-ADD0         @NONY
+     C                     ENDSL
+      *
+     C           XPRE      ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           K#L0A     KLIST
+     C                     KFLD           K#TOKU  40
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#MHN1  5
+     C                     KFLD           K#MHN2  5
+     C                     KFLD           K#MHN3  5
+     C                     KFLD           K#MHN4  5
+     C                     KFLD           K#NOYY  40
+     C                     KFLD           K#NOMM  20
+     C                     KFLD           K#NODD  20
+      *
+     C                     ENDSR
+** ERR MSG(50A)....2.........3....>
+COL(A) LINE WAS CANCELED...           01
+COL(E) "TMM" NOT FOUND!               02
+COL(I) ORDER NOT FOUND!               03
+COL(N) INVOICED QTY NOT MATCH!        04
+COL(I) MULTIPLE ODER EXISTS!          05
+COL(N) INVOICED QTY = TMM QTY!        06
+READY TO UPDATE AS400 QTY...          07
+QTY WAS ALREADY UPDATED               08
+                                      09
+                                      10
+                                      11
+                                      12
+                                      13
+                                      14
+                                      15
+                                      16
+                                      17
+                                      18
+                                      19
+                                      20

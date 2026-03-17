@@ -1,0 +1,143 @@
+     H            Y.
+     F** UTLR78 ***********************************************
+     F*  PROGRAM: UTILITY- GET DAILY SHIP VOLUME (BY ABHPP01) *
+     F*  ABHPP01: INTRA-PROCESS KANBAN M/F (KOTEINAI)         *
+     F*  WRITTEN: JW (SRA) 2020.07.20                         *
+     F*-------------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UTLR78'
+     F*                    PARM           $SHIN  12
+     F*                    PARM           $ZETI   4
+     F*                    PARM           $FPRC   3
+     F*                    PARM           $FMCN   3
+     F*                    PARM           $FSIZE  3
+     F*                    PARM           $LLOC   6
+     F*                    PARM           $QPC    60
+     F*                    PARM           $MSET   90
+     F*                    PARM           $DSVB   61
+     F*                    PARM           $DSVQ   80
+     F*                    PARM           $RTN    1
+     F*  IN  $SHIN : 12A  IAF PART
+     F*  OUT $ZETI :  4A  PERT ID
+     F*      $FPRC :  3A  FIRST PROCESS
+     F*      $FMCN :  3A  FIRSTLMACHINE
+     F*      $FSIZE:  3A  SIZE OF FIRST MACHINE
+     F*      $LLOC :  6A  LAST LOCATION
+     F*      $QPC  :  6,0 Q/C
+     F*      $MSET :  9,0 MONTHLY SET QTY
+     F*      $DSVB :  6,1 DAILY SHIP VOLUME (BOX)
+     F*      $DSVQ :  8,0 DAILY SHIP VOLUME (QTY)
+     F*      $RTN  :  1A  RETURN CODE (BLANK/*)
+     F******************************************************
+     FAAMPL11 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+     FABBPP7G IF  E           K        DISK
+      *===================================================
+      * SYSTEM DATE
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      * KEY FIELDS
+     I            DS
+     I                                        1  12 K#SHN
+     I                                        1   5 K#SHN1
+     I                                        6  10 K#SHN2
+     I                                       11  12 K#SHN3
+      *===================================================
+      *           MAIN ROUTINE
+      *===================================================
+     C                     EXSR #INIT
+      * READ AAMPL11
+     C           K#PL01    CHAINAAMPL11              99
+     C           *IN99     IFEQ *ON
+     C                     MOVE '*'       $RTN
+     C                     GOTO ENDP
+     C                     ENDIF
+      * READ FCEPP01
+     C           K#PL01    CHAINFCEPL01              99
+     C           *IN99     IFEQ *ON
+     C                     MOVE '*'       $RTN
+     C                     GOTO ENDP
+     C                     ENDIF
+      *
+     C                     MOVELCKKO01    $FPRC
+     C                     MOVELCKKB01    $FMCN
+     C                     Z-ADDA2GEKN    $MSET
+     C                     MOVELA2ZETI    $ZETI
+      * GET FINAL LOCATION
+     C                     MOVEL$SHIN     P@SHIN
+     C                     CALL 'UTLR21'
+     C                     PARM           P@SHIN 12
+     C                     PARM           $LLOC   6
+     C                     PARM           $LQC    50
+     C                     PARM           $LPRC   3
+     C                     PARM           $LDPT   40
+     C                     PARM           $ZETI   4
+     C                     PARM           $RTNX   1
+     C                     MOVEL$LLOC     $LLOC
+     C                     Z-ADD$LQC      $QPC
+      * CHECK QPC
+     C           $LLOC     IFEQ *BLANK
+     C           $QPC      OREQ 0
+     C                     MOVE '*'       $RTN
+     C                     GOTO ENDP
+     C                     ENDIF
+      * GET SIZE
+     C           $FMCN     SETLLABBPP7G
+     C                     DO   *HIVAL
+     C           $FMCN     READEABBPP7G                  98
+     C   98                LEAVE
+      *
+     C           A#SKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELA#SIZE    $FSIZE
+     C                     LEAVE
+     C                     ENDDO
+     C**         $FSIZE    IFEQ *BLANK
+     C**                   MOVE '*'       $RTN
+     C**                   GOTO ENDP
+     C**                   ENDIF
+      * GET DAILY SHIPPING VOLUME
+     C           $MSET     DIV  20        $DSVQ     H
+     C           $DSVQ     DIV  $QPC      $DSVB     H
+      *
+     C           ENDP      TAG
+     C                     SETON                     LR
+     C                     RETRN
+      *======================================================
+      * INITIAL SET
+      *======================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $SHIN  12
+     C                     PARM           $ZETI   4
+     C                     PARM           $FPRC   3
+     C                     PARM           $FMCN   3
+     C                     PARM           $FSIZE  3
+     C                     PARM           $LLOC   6
+     C                     PARM           $QPC    60
+     C                     PARM           $MSET   90
+     C                     PARM           $DSVB   61
+     C                     PARM           $DSVQ   80
+     C                     PARM           $RTN    1
+      *
+      *
+     C           K#PL01    KLIST
+     C                     KFLD           K#SHN1  5
+     C                     KFLD           K#SHN2  5
+     C                     KFLD           K#SHN3  2
+      * SYSTEM DATE
+     C                     TIME           SDATE
+     C                     MOVEL$SHIN     K#SHN
+     C                     MOVE *BLANK    $LLOC
+     C                     MOVE *BLANK    $FSIZE
+     C                     Z-ADD0         $QPC
+     C                     Z-ADD0         $DSVB
+     C                     Z-ADD0         $DSVQ
+     C                     MOVE *BLANK    $RTN
+      *
+     C                     ENDSR

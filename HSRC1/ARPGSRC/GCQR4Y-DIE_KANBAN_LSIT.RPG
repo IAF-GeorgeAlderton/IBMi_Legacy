@@ -1,0 +1,224 @@
+     H            Y.
+     F** GCQR49 ************************************
+     F*   DIE KANBAN LSIT                          *
+     F*       MSK.KUNIEDA           98.06.29       *
+     F*       TCH.N.HYOTO  2001.06.05 CHANGE THE LENGTH
+     F*       TCH.H.AMANO  2003.08.11 CHANGE MAX
+     F************************************ GCQR49 **
+     FGCQPL11 UP  E           K        DISK
+     FGCKPL21 IF  E           K        DISK
+     FGCQWP49 O   F      60            DISK
+      *
+     E                    $CHK       12  1
+     E                    TABX1  11  43  1   TABY1   2 0 * CHR --> NUMERIC
+     E                    TABX2  11  43  2 0 TABY2   1   * NUMERIC --> CHR
+      *
+     I            DS
+     I                                        1  12 WKNAME
+      * BAR SET
+      * '*'                +
+      * KANABN INSTRUCTION +
+      * BAR CODE           +
+      * DIE NO.1           +
+      * DIE NO.2           +
+      * DIE NO.3           +
+      * A CIRCULATION      +
+      * CHECK CODE         +
+      * '*'
+     I            DS
+     I                                        1  15 WKBARC
+     I                                        1   1 STRBAR
+     I                                        2  13 BARSET
+     I                                       14  14 BAREDT
+     I                                       15  15 ENDBAR
+     I            DS
+     I                                        1  12 WKEDIT
+     I                                        1   10T6KSKB
+     I                                        2   30T6KOBD
+     I                                        4   5 WKKAT1
+     I                                        6   9 WKKAT2
+     I                                       10  10 WKKAT3
+     I                                       11  120WKSTNO
+      *
+     I            DS
+     I                                        1   80HYMD8
+     I                                        1   40HY
+     I                                        5   60HM
+     I                                        7   80HD
+      * PARAMTER TRANSFER
+     C           *ENTRY    PLIST
+     C                     PARM           USER   10
+      *
+      *  KEY LIST
+      *
+     C           KEYT21    KLIST
+     C                     KFLD           #KBMON  40
+     C                     KFLD           #KTAIP  1
+      *   INITIAL  SET
+     C           FSW       IFEQ *BLANK
+     C                     TIME           @TIME   60
+     C                     Z-ADD*DATE     HYMD8   80
+     C                     MOVE '1'       FSW     1
+     C                     END
+      *
+     C           T6SKJY    IFEQ 'D'
+     C           T6SKHZ    ANDLEHYMD8
+     C                     GOTO LAST
+     C                     END
+      *
+     C           T6KOUT    IFNE 'Y'
+     C                     GOTO LAST
+     C                     END
+      *
+     C           T6KMIN    IFGT T6KMAX
+     C                     GOTO LAST
+     C                     ELSE
+     C           T6KMIN    IFEQ T6KMAX
+     C                     GOTO LAST
+     C                     END
+     C                     END
+      *
+     C                     MOVE HY        T6KOYY
+     C                     MOVE HM        T6KOMM
+     C                     MOVE HD        T6KODD
+     C                     MOVELUSER      T6KOME
+      *
+     C                     MOVE HY        T6HAYY
+     C                     MOVE HM        T6HAMM
+     C                     MOVE HD        T6HADD
+     C                     MOVE *BLANK    T6KOUT
+     C                     MOVE 'Y'       T6DOUT
+      *
+     C                     UPDATGCQPL111
+      *
+      *-----------------------------*
+      * DIE KANBAN DATA BY CREATE   *
+      *-----------------------------*
+     C           1         ADD  T6KMIN    WKHKNO  30
+      * MANUFACTUER SET
+     C                     SETOF                     21
+     C                     Z-ADDT6KOCD    #KBMON
+     C                     MOVE T6KOTP    #KTAIP
+     C           KEYT21    CHAINGCKPL211             21
+     C           *IN21     IFEQ '0'
+     C           T2SKJY    ANDEQ'D'
+     C           T2SKHZ    ANDLEHYMD8
+     C                     SETON                     21
+     C                     END
+     C           *IN21     IFEQ '0'
+     C                     MOVELT2NAMN    WKNAME
+     C                     END
+      *
+     C                     Z-ADDT6SYOS    WKSYOS  20
+     C                     Z-ADDT6LTIM    WKLTIM  20
+      * A CIRCULATION
+      *
+     C           T6SRYO    MULT 4         @@M     70
+     C           @@M       DIV  T6SYOS    @@M
+      *
+     C           @@M       IFGE 100
+     C           @@M       SUB  T6KMIN    WKHMAS
+     C                     ELSE
+     C           T6KMAX    SUB  T6KMIN    WKHMAS  30
+     C                     ENDIF
+      *
+     C           WKHMAS    IFNE *ZERO
+     C                     MOVE '1'       WKCON   1
+     C                     MOVE *BLANK    NAME   12
+     C                     MOVE T6KAT1    W6KAT1  2
+     C                     MOVE T6KAT2    W6KAT2  4
+     C                     MOVE T6KAT3    W6KAT3  1
+     C                     Z-ADD1         WKSTNO  20
+     C                     Z-ADD1         WKEDNO  20
+     C                     MOVE *BLANK    WKBARC
+     C                     EXCPTFILE
+     C                     MOVE *BLANK    WKCON
+     C                     SETON                       U1
+     C                     END
+      *
+      *DIVIDE BY KANBAN SHEETS
+     C                     SETOF                       22
+     C                     DO   *HIVAL
+     C                     MOVE T6KAT1    W6KAT1  2
+     C                     MOVE T6KAT2    W6KAT2  4
+     C                     MOVE T6KAT3    W6KAT3  1
+     C                     MOVE WKNAME    NAME   12
+     C                     MOVE '2'       WKCON   1
+     C                     SUB  1         WKHMAS         22
+     C                     Z-ADDWKHKNO    WKSTNO
+     C                     Z-ADDT6KMAX    WKEDNO
+     C           @@M       IFGE 100
+     C                     Z-ADD99        WKEDNO
+     C                     ENDIF
+     C                     MOVE T6KAT1    WKKAT1  2
+     C                     MOVE T6KAT2    WKKAT2  4
+     C                     MOVE T6KAT3    WKKAT3  1
+     C           T6KAT3    IFEQ *BLANK
+     C                     MOVE '0'       WKKAT3
+     C                     END
+      *
+     C                     MOVE *BLANK    BAREDT
+     C                     MOVEAWKEDIT    $CHK
+     C                     EXSR $SB900
+     C                     MOVE WKEDIT    BARSET
+     C                     MOVE '*'       STRBAR
+     C                     MOVE '*'       ENDBAR
+      *
+     C                     EXCPTFILE
+     C                     SETON                       U1
+     C                     ADD  1         WKHKNO
+     C  N22                END
+      *
+     C                     MOVE *BLANK    WKCON
+     C           LAST      TAG
+      *--------------------------------------------------*
+      *    MODULUS 43 CHECKING                           *
+      *--------------------------------------------------*
+     CSR         $SB900    BEGSR
+     C                     Z-ADD0         X       20
+     C                     Z-ADD0         WKKEY   20
+      *
+     C           1         DO   12        X
+     C                     SETOF                     23
+     C           $CHK,X    LOKUPTABX1     TABY1          23
+     C           *IN23     IFEQ '1'
+     C                     ADD  TABY1     WKKEY
+     C                     END
+     C                     END
+      *
+     C           WKKEY     DIV  43        WKSHO   20
+     C                     MVR            WKAMR   20
+     C                     SETOF                     23
+     C           WKAMR     LOKUPTABX2     TABY2          23
+     C           *IN23     IFEQ '1'
+     C                     MOVE TABY2     BAREDT
+     C                     END
+      * 98.11.25 MSK
+     C                     MOVE '0'       BAREDT
+     CSR         $S900E    ENDSR
+     OGCQWP49 E                FILE
+     O                         WKCON      1
+     O                         WKSTNO     3
+     O                         WKEDNO     5
+     O                         NAME      17
+     O                         W6KAT1    19
+     O                         W6KAT2    23
+     O                         W6KAT3    24
+     O                         WKLTIM    26
+     O                         WKSYOS    28
+     O                         T6TKR1    29
+     O                         T6TKR2    31
+     O                         T6TKR3    33
+     O                         T6TKR4    34
+     O                         WKBARC    49
+     O                         HYMD8     57
+**     TABX1,TABY1
+000101202303404505606707808909A10
+B11C12D13E14F15G16H17I18J19K20L21
+M22N23O24P25Q26R27S28T29U30V31W32
+X33Y34Z35-36.37 38\39/40+41%42
+**     TABX2,TABY2
+00001102203304405506607708809910A
+11B12C13D14E15F16G17H18I19J20K21L
+22M23N24O25P26Q27R28S29T30U31V32W
+33X34Y35Z36-37.38039\40/41+42%

@@ -1,0 +1,608 @@
+     H            Y.
+     F*** FBCR81A ****************************************************
+     F*  WRITTEN    : 2023.06.22                                     *
+     F*  WRITTEN BY : JW (SRA)                                       *
+     F*  FUNCTION   : READ FBCWP81A(CSV) AND UPDATE SALES MASTER     *
+     F*             : OUTPUT RESULT DATA (FBCWP82A)                  *
+     F****************************************************************
+     FFBCWP81AIF  E           K        DISK
+     FAGDPL12 IF  E           K        DISK
+     FFBCPL07 UF  E           K        DISK                      A
+     FFBCPL08 UF  E           K        DISK                      A
+JW3  FFBCPP05 O   E                    DISK
+     FFBCWP82AO   E                    DISK
+     FQPRINT  O   F     132     OF     PRINTER
+      *---------------------------------------------------------------
+     E                    TBL     1   1 40
+      *
+     I            DS
+     I                                        1   80F8EFDT
+     I                                        1   40F8EFYY
+     I                                        5   60F8EFMM
+     I                                        7   80F8EFDD
+     I            DS
+     I                                        1   80F8KODT
+     I                                        1   40F8KOYY
+     I                                        5   60F8KOMM
+     I                                        7   80F8KODD
+     I            DS
+     I                                        1   80@LTKHZ
+     I                                        1   40@LTKYY
+     I                                        5   60@LTKMM
+     I                                        7   80@LTKDD
+     I            DS
+     I                                        1   80F8KOTM
+     I                                        1   20F8KOHH
+     I                                        3   40F8KOSS
+     I                                        5   60F8KOCC
+     I            DS
+     I                                        1   80@DATE
+     I                                        1   40@DTYY
+     I                                        5   60@DTMM
+     I                                        7   80@DTDD
+     I            DS
+     I                                        1   60@TIME
+     I                                        1   20@TMHH
+     I                                        3   40@TMMN
+     I                                        5   60@TMSS
+      *
+JW3  I                                        1  140SDATE
+"    I                                        1   60NOW
+"    I                                        7  140TODAY
+      *
+JW2  I            DS
+ |   I                                        1   80FBTKHZ
+ |   I                                        1   40FBTKYY
+ |   I                                        5   60FBTKMM
+JW2  I                                        7   80FBTKDD
+JW2  I            DS
+ |   I                                        1   80FBTSHZ
+ |   I                                        1   40FBTSYY
+ |   I                                        5   60FBTSMM
+JW2  I                                        7   80FBTSDD
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      ******************************************************
+      *                    MAIN PROCESS
+      ******************************************************
+      * Initial Process
+     C                     EXSR @INIT
+      *
+      * UPADTE BY DEFAULT PRICE BY (PART/TOKU)---
+     C           *LOVAL    SETLLFBCWP81A
+     C                     MOVE *OFF      *IN82
+     C**JW2      *IN82     DOUEQ*ON
+     C**                   READ FBCWP81A                 82
+     C**         *IN82     IFEQ *OFF
+     C**         F8DFLT    ANDEQ'*'
+     C**                   EXSR @UPD1
+     C**                   EXSR @UPD1B
+     C**                   ENDIF
+     C**                   ENDDO
+      *
+      * UPADTE BY PLANT (TOKU/NONY/PART)  --------
+     C           *LOVAL    SETLLFBCWP81A
+     C                     MOVE *OFF      *IN82
+     C           *IN82     DOUEQ*ON
+     C                     READ FBCWP81A                 82
+     C           *IN82     IFEQ *OFF
+     C                     EXSR @UPD2
+     C                     ENDIF
+     C                     ENDDO
+      *
+      * ADJUST 9999 UNKNOWN DELIVERY CODE --------
+     C**JW2      *LOVAL    SETLLFBCPL07
+     C**                   MOVE *OFF      *IN82
+     C**         *IN82     DOUEQ*ON
+     C**                   READ FBCPL07                  82
+     C**         *IN82     IFEQ *OFF
+     C**         FBSKJY    ANDEQ' '
+     C**         FBTKYY    ANDEQ9999
+      *
+     C**         FBTOKU    IFEQ SVTOKU
+     C**         FBNONY    ANDEQSVNONY
+     C**         FBMHN1    ANDEQSVMHN1
+     C**         FBMHN2    ANDEQSVMHN2
+     C**         FBMHN3    ANDEQSVMHN3
+     C**         FBMHN4    ANDEQSVMHN4
+     C**         FBTKYY    ANDEQSVTKYY
+     C**         FBTKMM    ANDEQSVTKMM
+     C**         FBTKDD    ANDEQSVTKDD
+     C**         FBTSYY    ANDEQSVTSYY
+     C**         FBTSMM    ANDEQSVTSMM
+     C**         FBTSDD    ANDEQSVTSDD
+     C**                   MOVEL'D'       FBSKJY
+     C**                   UPDATFBCPL071
+     C**                   ADD  1         DCNT    50
+     C**                   ENDIF
+      *
+     C**                   MOVELFBTOKU    SVTOKU
+     C**                   MOVELFBNONY    SVNONY
+     C**                   MOVELFBMHN1    SVMHN1
+     C**                   MOVELFBMHN2    SVMHN2
+     C**                   MOVELFBMHN3    SVMHN3
+     C**                   MOVELFBMHN4    SVMHN4
+     C**                   MOVELFBTKYY    SVTKYY
+     C**                   MOVELFBTKMM    SVTKMM
+     C**                   MOVELFBTKDD    SVTKDD
+     C**                   MOVELFBTSYY    SVTSYY
+     C**                   MOVELFBTSMM    SVTSMM
+     C**                   MOVELFBTSDD    SVTSDD
+     C**                   ENDIF
+     C**                   ENDDO
+      *
+      * Print Footer------------------------------
+     C           UPD#      ADD  ADD#      TTL#
+     C           TTL#      IFNE 0
+     C                     EXCPTFOT1
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      ******************************************************
+      *                  UPDATE MASTER BY DEFAULT PRICE
+      ******************************************************
+     C           @UPD1     BEGSR
+      * SET KEY
+     C                     MOVELF8MHN1    K@MHN1
+     C                     MOVELF8MHN2    K@MHN2
+     C                     MOVELF8MHN3    K@MHN3
+     C                     MOVE *BLANK    K@MHN4
+     C                     Z-ADDF8TOKU    K@TOKU
+     C           K#PL08    SETLLFBCPL08
+     C                     MOVE *OFF      *IN97
+     C           *IN97     DOWEQ*OFF
+     C           K#PL08    READEFBCPL08                  97
+JW1   * IGNORE INVIVIDUAL UPDATE PART
+JW1  C           *IN97     IFEQ *OFF
+JW1  C           FBIND     ANDEQ'Y'
+JW1  C                     GOTO @SKIP1
+JW1  C                     ENDIF
+      *
+     C           *IN97     IFEQ *OFF
+     C           FBTSHZ    ANDEQ99999999
+     C           FBKOME    ANDNE'TEMP    '
+     C           FBTKHZ    ANDLTF8EFDT
+     C           FBNTAN    ANDNEF8UP
+      ** UPDATE EXPIRATION
+     C           K#AGDP    CHAINAGDPL12              94
+     C  N94                READPAGDPL12                  94
+     C  N94                Z-ADDF8KAYY    FBTSYY
+     C  N94                Z-ADDF8KAMM    FBTSMM
+     C  N94                Z-ADDF8KADD    FBTSDD
+     C   94                Z-ADD7777      FBTSYY
+     C   94                Z-ADD77        FBTSMM
+     C   94                Z-ADD77        FBTSDD
+     C                     Z-ADD@DTYY     FBKOYY
+     C                     Z-ADD@DTMM     FBKOMM
+     C                     Z-ADD@DTDD     FBKODD
+     C                     Z-ADD@TMHH     FBKOHH
+     C                     Z-ADD@TMMN     FBKOSS
+     C**JW                 MOVEL'FBCR81DF'FBKOME    P
+JW   C                     MOVEL#USER     FBKOME    P
+     C                     UPDATFBCPL081
+JW3   * OUT LOG#
+"    C                     MOVE 'C'       LOGFLG  1
+"    C                     EXSR #LOG
+      ** ADD
+     C                     EXSR @ADD1
+      * OUTPUT PROOF FILE
+     C                     MOVEL'AD1'     MESS01
+     C                     WRITEFBCW82A1
+      *
+     C                     ADD  1         ADD#
+     C                     MOVEL'AD1'     XACT    3
+     C                     EXSR @PRINT
+      *
+     C                     ENDIF
+KW1  C           @SKIP1    TAG
+     C                     ENDDO
+      *
+     C                     ENDSR
+      ******************************************************
+      *                  UPDATE MASTER BY DEFAULT PRICE
+      ******************************************************
+     C           @UPD1B    BEGSR
+      * SET KEY
+     C                     MOVELF8MHN1    K@MHN1
+     C                     MOVELF8MHN2    K@MHN2
+     C                     MOVELF8MHN3    K@MHN3
+     C                     MOVE *BLANK    K@MHN4
+     C                     Z-ADDF8TOKU    K@TOKU
+     C           K#PL08    SETLLFBCPL08
+     C                     MOVE *OFF      *IN97
+     C           *IN97     DOWEQ*OFF
+     C           K#PL08    READEFBCPL08                  97
+JW1   * IGNORE INVIVIDUAL UPDATE PART
+JW1  C           *IN97     IFEQ *OFF
+JW1  C           FBIND     ANDEQ'Y'
+JW1  C                     GOTO @SKIP2
+JW1  C                     ENDIF
+      *
+     C           *IN97     IFEQ *OFF
+     C           FBTSHZ    ANDEQ99999999
+     C           FBKOME    ANDEQ'TEMP    '
+     C                     MOVEL'FBCR81DF'FBKOME    P
+     C                     UPDATFBCPL081
+JW3   * OUT LOG#
+"    C                     MOVE 'C'       LOGFLG  1
+"    C                     EXSR #LOG
+     C                     ENDIF
+      *
+JW1  C           @SKIP2    TAG
+     C                     ENDDO
+      *
+     C                     ENDSR
+      ******************************************************
+      *                  UPDATE MASTER
+      ******************************************************
+     C           @UPD2     BEGSR
+      * SET KEY
+     C                     Z-ADDF8TOKU    FBTOKU
+     C                     Z-ADDF8NONY    FBNONY
+     C                     MOVELF8MHN1    FBMHN1
+     C                     MOVELF8MHN2    FBMHN2
+     C                     MOVELF8MHN3    FBMHN3
+     C                     MOVE *BLANK    FBMHN4
+     C                     Z-ADDF8EFYY    FBTKYY
+     C                     Z-ADDF8EFMM    FBTKMM
+     C                     Z-ADDF8EFDD    FBTKDD
+     C           K#PL70    CHAINFBCPL07              98
+      * ----------------------------------------
+     C           *IN98     IFEQ *ON
+JW2   * ADD   ----------------------------------
+ |   C* GET LATEST EFFECTIVE DATE
+ |   C                     MOVELF8TOKU    $TOKU
+ |   C                     MOVELF8NONY    $NONY
+ |   C                     MOVELF8MHN1    $MPRT1
+ |   C                     MOVELF8MHN2    $MPRT2
+ |   C                     MOVELF8MHN3    $MPRT3
+ |   C                     MOVELF8MHN4    $MPRT4
+ |   C                     CALL 'UTLR12'
+ |   C                     PARM           $TOKU   4
+ |   C                     PARM           $NONY   4
+ |   C                     PARM           $MPRT1  5
+ |   C                     PARM           $MPRT2  5
+ |   C                     PARM           $MPRT3  5
+ |   C                     PARM           $MPRT4  5
+ |   C                     PARM           $DATE   8
+ |   C                     PARM           $RTN    1
+ |   C                     MOVEL$DATE     @LTKHZ
+ |   C           $RTN      IFEQ *BLANK
+ |   C           @LTKHZ    ANDLEF8EFDT
+ |   C           $RTN      OREQ '*'
+ |   C                     EXSR @ADD2
+ |   C                     EXSR @PROOF
+JW2  C                     ENDIF
+      *
+     C                     ELSE
+      * UPDATE----------------------------------
+     C           F8UP      IFNE FBNTAN
+     C           F8EFDT    ANDEQFBTKHZ
+     C                     Z-ADD@DTYY     FBKOYY
+     C                     Z-ADD@DTMM     FBKOMM
+     C                     Z-ADD@DTDD     FBKODD
+     C                     Z-ADD@TMHH     FBKOHH
+     C                     Z-ADD@TMMN     FBKOSS
+     C                     MOVEL'FBCR81PL'FBKOME
+     C                     Z-ADDF8UP      FBNTAN
+JW1  C                     MOVE 'Y'       FBIND
+     C                     UPDATFBCPL071
+JW2  C                     EXSR @PROOF
+JW3   * OUT LOG#
+"    C                     MOVE 'C'       LOGFLG  1
+"    C                     EXSR #LOG
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDSR
+      ******************************************************
+JW2   *          @PROOF: OUTPUT PROOF DATA
+ |    ******************************************************
+ |   C           @PROOF    BEGSR
+ |    * OUTPUT PROOF FILE
+ |   C                     MOVEL'UP2'     MESS01
+ |   C                     WRITEFBCW82A1
+ |    *
+ |   C                     ADD  1         UPD#
+ |   C                     MOVEL'UP2'     XACT
+ |   C                     EXSR @PRINT
+JW2  C                     ENDSR
+      ******************************************************
+      *          @ADD:  ADD RECORD
+      ******************************************************
+     C           @ADD1     BEGSR
+     C**                   CLEARFBCPL081
+     C                     MOVE *BLANK    FBSKJY
+     C                     Z-ADD0         FBSKYY
+     C                     Z-ADD0         FBSKMM
+     C                     Z-ADD0         FBSKDD
+     C                     Z-ADD@DTYY     FBKOYY
+     C                     Z-ADD@DTMM     FBKOMM
+     C                     Z-ADD@DTDD     FBKODD
+     C                     Z-ADD@TMHH     FBKOHH
+     C                     Z-ADD@TMMN     FBKOSS
+     C**                   Z-ADDF8TOKU    FBTOKU
+     C**                   Z-ADDF8NONY    FBNONY
+     C                     MOVE *BLANK    FBNKOJ
+     C                     MOVE *BLANK    FBNUKE
+     C                     MOVELF8MHN1    FBMHN1
+     C                     MOVELF8MHN2    FBMHN2
+     C                     MOVELF8MHN3    FBMHN3
+     C                     MOVE *BLANK    FBMHN4
+     C                     MOVELF8SHN1    FBSHN1
+     C                     MOVELF8SHN2    FBSHN2
+     C                     MOVELF8SHN3    FBSHN3
+     C                     Z-ADD0         FBOTAN
+     C                     Z-ADDF8UP      FBNTAN
+     C                     Z-ADDF8EFYY    FBTKYY
+     C                     Z-ADDF8EFMM    FBTKMM
+     C                     Z-ADDF8EFDD    FBTKDD
+     C                     Z-ADD9999      FBTSYY
+     C                     Z-ADD99        FBTSMM
+     C                     Z-ADD99        FBTSDD
+     C**                   MOVEL#USER     FBKOME
+     C                     MOVEL'TEMP    'FBKOME    P
+JW1  C                     MOVE 'N'       FBIND
+     C                     WRITEFBCPL081
+JW3   * OUT LOG#
+"    C                     MOVE 'A'       LOGFLG  1
+"    C                     EXSR #LOG
+      *
+     C                     ENDSR
+      ******************************************************
+JW2   *          @ADD2  ADD RECORD
+ |    ******************************************************
+ |   C           @ADD2     BEGSR
+     C                     CLEARFBCPL071
+     C                     MOVE *BLANK    FBSKJY
+     C                     Z-ADD0         FBSKYY
+     C                     Z-ADD0         FBSKMM
+     C                     Z-ADD0         FBSKDD
+     C                     Z-ADD@DTYY     FBKOYY
+     C                     Z-ADD@DTMM     FBKOMM
+     C                     Z-ADD@DTDD     FBKODD
+     C                     Z-ADD@TMHH     FBKOHH
+     C                     Z-ADD@TMMN     FBKOSS
+     C                     Z-ADDF8TOKU    FBTOKU
+     C                     Z-ADDF8NONY    FBNONY
+     C                     MOVE *BLANK    FBNKOJ
+     C                     MOVE *BLANK    FBNUKE
+     C                     MOVELF8MHN1    FBMHN1
+     C                     MOVELF8MHN2    FBMHN2
+     C                     MOVELF8MHN3    FBMHN3
+     C                     MOVE *BLANK    FBMHN4
+     C                     MOVELF8SHN1    FBSHN1
+     C                     MOVELF8SHN2    FBSHN2
+     C                     MOVELF8SHN3    FBSHN3
+     C                     Z-ADD0         FBOTAN
+     C                     Z-ADDF8UP      FBNTAN
+     C                     Z-ADDF8EFYY    FBTKYY
+     C                     Z-ADDF8EFMM    FBTKMM
+     C                     Z-ADDF8EFDD    FBTKDD
+     C                     Z-ADD9999      FBTSYY
+     C                     Z-ADD99        FBTSMM
+     C                     Z-ADD99        FBTSDD
+     C                     MOVEL'FBCR81P2'FBKOME    P
+     C                     MOVE 'Y'       FBIND
+     C                     WRITEFBCPL071
+JW3   * OUT LOG#
+"    C                     MOVE 'A'       LOGFLG  1
+"    C                     EXSR #LOG
+      * UPDATE PREVIOUS EFFECTIVE DATE
+     C                     MOVEL@LTKYY    FBTKYY
+     C                     MOVEL@LTKMM    FBTKMM
+     C                     MOVEL@LTKDD    FBTKDD
+     C           K#PL70    CHAINFBCPL07              96
+     C           *IN96     IFEQ *OFF
+     C           FBTSHZ    ANDEQ99999999
+      ** UPDATE EXPIRATION
+     C           K#AGDP    CHAINAGDPL12              94
+     C  N94                READPAGDPL12                  94
+     C  N94                Z-ADDF8KAYY    FBTSYY
+     C  N94                Z-ADDF8KAMM    FBTSMM
+     C  N94                Z-ADDF8KADD    FBTSDD
+     C   94                Z-ADD7777      FBTSYY
+     C   94                Z-ADD77        FBTSMM
+     C   94                Z-ADD77        FBTSDD
+     C                     Z-ADD@DTYY     FBKOYY
+     C                     Z-ADD@DTMM     FBKOMM
+     C                     Z-ADD@DTDD     FBKODD
+     C                     Z-ADD@TMHH     FBKOHH
+     C                     Z-ADD@TMMN     FBKOSS
+     C                     MOVEL'FBCR81D2'FBKOME    P
+ |   C                     UPDATFBCPL071
+JW3   * OUT LOG#
+"    C                     MOVE 'C'       LOGFLG  1
+"    C                     EXSR #LOG
+ |   C                     ENDIF
+ |    *
+JW2  C                     ENDSR
+     C*-----------------------------------------------------
+JW3  C* OUT LOG FILE
+     C*-----------------------------------------------------
+     C           #LOG      BEGSR
+      *
+     C                     CLEARFBCPP051
+      *
+     C                     MOVELFBSKJY    F5SKJY
+     C                     Z-ADDFBTOKU    F5TOKU
+     C                     Z-ADDFBNONY    F5NONY
+     C                     MOVELFBNKOJ    F5NKOJ
+     C                     MOVELFBNUKE    F5NUKE
+     C                     MOVELFBMHN1    F5MHN1
+     C                     MOVELFBMHN2    F5MHN2
+     C                     MOVELFBMHN3    F5MHN3
+     C                     MOVELFBMHN4    F5MHN4
+JW   C                     MOVELFBSHN1    F5SHN1
+     C                     MOVELFBSHN2    F5SHN2
+     C                     MOVELFBSHN3    F5SHN3
+      *
+     C                     Z-ADDFBNTAN    F5NTAN
+     C                     Z-ADDFBTKHZ    F5TKHZ
+     C                     Z-ADDFBTSHZ    F5TSHZ
+      *
+     C                     TIME           SDATE
+     C                     Z-ADDTODAY     F5PRHZ
+     C                     Z-ADDNOW       F5PRTM
+     C                     MOVEL#USER     F5PRUS
+     C                     MOVEL#PGM      F5PRPG
+     C                     SELEC
+     C           LOGFLG    WHEQ 'A'
+     C                     MOVEL'ADD'     F5PTYP
+     C                     Z-ADDTODAY     F5CRHZ
+     C                     Z-ADDNOW       F5CRTM
+     C                     MOVEL#USER     F5CRUS
+     C                     MOVEL#PGM      F5CRPG
+     C           LOGFLG    WHEQ 'C'
+     C                     MOVEL'CHG'     F5PTYP
+     C                     Z-ADDTODAY     F5CHHZ
+     C                     Z-ADDNOW       F5CHTM
+     C                     MOVEL#USER     F5CHUS
+     C                     MOVEL#PGM      F5CHPG
+     C           LOGFLG    WHEQ 'D'
+     C                     MOVEL'DLT'     F5PTYP
+     C                     Z-ADDTODAY     F5DLHZ
+     C                     Z-ADDNOW       F5DLTM
+     C                     MOVEL#USER     F5DLUS
+     C                     MOVEL#PGM      F5DLPG
+     C                     ENDSL
+      *
+     C                     WRITEFBCPP051
+      *
+JW3  C                     ENDSR
+      ******************************************************
+      *          @PRINT: PRINT ERROR REPORT
+      ******************************************************
+     C           @PRINT    BEGSR
+      *
+     C   OF                EXCPTHDR1
+     C   OF                SETOF                     OF
+     C                     ADD  1         SEQ#
+     C                     EXCPTDTL1
+      *
+     C                     ENDSR
+      ******************************************************
+      *                  INITIAL ROUTINE
+      ******************************************************
+     C           @INIT     BEGSR
+      *
+     C           K#KEYX    KLIST
+     C                     KFLD           F8TOKU
+     C                     KFLD           F8NONY
+     C                     KFLD           F8MHN1
+     C                     KFLD           F8MHN2
+     C                     KFLD           F8MHN3
+      *
+     C           K#AGDP    KLIST
+     C                     KFLD           F8EFYY
+     C                     KFLD           F8EFMM
+     C                     KFLD           F8EFDD
+      *
+     C           K#PL70    KLIST
+     C                     KFLD           FBTOKU
+     C                     KFLD           FBNONY
+     C                     KFLD           FBMHN1
+     C                     KFLD           FBMHN2
+     C                     KFLD           FBMHN3
+     C                     KFLD           FBMHN4
+     C                     KFLD           FBTKYY
+     C                     KFLD           FBTKMM
+     C                     KFLD           FBTKDD
+      *
+     C           K#PL08    KLIST
+     C                     KFLD           K@MHN1  5
+     C                     KFLD           K@MHN2  5
+     C                     KFLD           K@MHN3  5
+     C                     KFLD           K@MHN4  5
+     C                     KFLD           K@TOKU  40
+      *
+     C                     Z-ADD*DATE     @DATE
+     C                     TIME           @TIME
+     C                     Z-ADD0         ADD#    50
+     C                     Z-ADD0         UPD#    50
+     C                     Z-ADD0         TTL#    50
+     C                     Z-ADD0         SEQ#    50
+     C                     MOVE *ON       *INOF
+     C                     MOVELTBL,1     #TITLE 38
+      *
+     C           *LIKE     DEFN FBTOKU    SVTOKU
+     C           *LIKE     DEFN FBNONY    SVNONY
+     C           *LIKE     DEFN FBMHN1    SVMHN1
+     C           *LIKE     DEFN FBMHN2    SVMHN2
+     C           *LIKE     DEFN FBMHN3    SVMHN3
+     C           *LIKE     DEFN FBMHN4    SVMHN4
+     C           *LIKE     DEFN FBTKYY    SVTKYY
+     C           *LIKE     DEFN FBTKMM    SVTKMM
+     C           *LIKE     DEFN FBTKDD    SVTKDD
+     C           *LIKE     DEFN FBTSYY    SVTSYY
+     C           *LIKE     DEFN FBTSMM    SVTSMM
+     C           *LIKE     DEFN FBTSDD    SVTSDD
+      *
+     C                     ENDSR
+      *************************************************************
+      *                    OUTPUT                                 *
+      *************************************************************
+     OQPRINT  E  102           HDR1
+     O                                    8 'PROGRAM:'
+     O                                   15 'FBCR81'
+     O                         #USER     28
+     O                         #TITLE    70
+     O                                  100 'DATE'
+     O                         @DATE    111 '    .  .  '
+     O                         @TIME    120 '  :  :  '
+     O                         PAGE  Z  130
+     O                                  126 'PAGE'
+     O        E  1             HDR1
+     O                                    4 'SEQ'
+     O                                   21 'CUSTOMER_PART'
+     O                                   38 'PLNT'
+     O                                   43 'CST'
+     O                                   49 'DLV'
+     O                                   59 'EFCT_DATE'
+     O                                   70 'UNIT_PRICE'
+     O                                   81 'INTRA_PART'
+     O        E  1             HDR1
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+      *
+     O        E  1             DTL1
+     O                         SEQ#  Z    5
+     O                         F8MHN1  +002
+     O                         F8MHN2  +002
+     O                         F8MHN3  +002
+     O                         F8MHN4  +002
+     O                         F8PLNT  +002
+     O                         FBTOKU3 +002
+     O                         FBNONY3 +002
+     O                         F8EFDT  +002
+     O                         F8UP  3 +002
+     O                         F8SHN1  +002
+     O                         F8SHN2  +002
+     O                         F8SHN3  +002
+JW1  O                         XACT    +002
+      *
+     O        E  1             FOT1
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+      *
+     O        E  1             FOT1
+     O                                   17 '** TOTAL RECORDS:'
+     O                         TTL#  J   24
+     O                                   33 '(UPDATE:'
+     O                         UPD#  J   40
+     O                                   46 ', ADD:'
+     O                         ADD#  J   53
+     O                                   54 ')'
+** TBL
+<< FORD APR PRICE UPDATE LOG LIST >>

@@ -1,0 +1,257 @@
+     H            Y.
+     F** AB#R5D ********************************************
+     F*  FORD ORDER SHORTAGE INQUIRY                       *
+     F*  JW         2022.02.15                             *
+JW1   *  JW         2022.08.04 ADD IAF YTD SHP QTY ADJ     *
+     F******************************************************
+     FAB#PW9N CF  E                    WORKSTN
+     F                                              KINFDS INFDS
+     F                                        RRN   KSFILE SFL01
+     FABFAL01 IF  E           K        DISK
+     FFGBPL01 IF  E           K        DISK
+JW1  FABFAL05 IF  E           K        DISK
+     F******************************************************
+     E                    MSG     1   1 20
+      *
+     IINFDS       DS
+     I                                    B 378 3790$$RRN
+      *
+     I            DS
+     I                                        1  12 CFPART
+     I                                        1   5 CFMHN1
+     I                                        6  10 CFMHN2
+     I                                       11  12 CFMHN3
+      *
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     C*===============================================================
+     C                     MOVE '#INIT   '@STEP   8
+      *
+     C           @STEP     DOUEQ'#END    '
+     C           @STEP     CASEQ'#INIT   '#INIT
+     C           @STEP     CASEQ'#DSP1   '#DSP1
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+     C*===============================================================
+      * DSPLAY SCREEN 1
+     C*===============================================================
+     C           #DSP1     BEGSR
+     C                     SETON                     71
+     C                     WRITEDSP99
+     C                     EXFMTCTL01
+     C                     SETOF                     71
+     C                     MOVEA'0'       *IN,99
+     C**                   Z-ADD$$RRN     DSPRRN
+      *--------*
+      * F1 END
+      *--------*
+     C   KA                MOVE '#END    '@STEP
+     C   KA                GOTO XDSP1
+      *--------*
+      * F3 END
+      *--------*
+     C   KC                MOVE '#END    '@STEP
+     C   KC                GOTO XDSP1
+      *--------*
+      * F12 END
+      *--------*
+     C   KL                MOVE '#END    '@STEP
+     C   KL                GOTO XDSP1
+      *
+     C           XDSP1     ENDSR
+     C*===============================================================
+     C* INITIAL SETTINGS
+     C*===============================================================
+     C           #INIT     BEGSR
+      *
+JW1  C           K#04      KLIST
+ .   C                     KFLD           K4ADYY  40
+ .   C                     KFLD           K4NONY  40
+JW1  C                     KFLD           K4MHIN 15
+      *
+     C                     MOVEA*ALL'0'   *IN
+     C                     TIME           SDATE
+      *
+     C                     MOVELTODAY     @STYR   90
+     C                     MOVE '0101'    @STYR
+     C                     MOVELTODAY     @EDYR   80
+     C                     MOVE '1231'    @EDYR
+     C                     MOVELTODAY     @YEAR   40
+     C                     MOVEL'#DSP1'   @STEP
+      * SET SFL01 DATA
+     C                     EXSR #SFL1
+      *
+     C           RRN       IFEQ 0
+     C                     MOVELMSG,1     S1NAME
+     C                     MOVE *ON       JW      1
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C*===============================================================
+     C* SET SLF01
+     C*===============================================================
+     C           #SFL1     BEGSR
+     C*  SFLCLR
+     C                     SETON                     72
+     C                     WRITECTL01
+     C                     SETOF                     72
+     C                     Z-ADD0         RRN     40
+     C                     Z-ADD0         ENDRRN  40
+     C*-------------------------
+     C* SET SFL01
+     C*-------------------------
+     C           *LOVAL    SETLLABFAL01
+     C                     DO   *HIVAL
+     C                     READ ABFAL01                  98
+     C   98                LEAVE
+      * IGNORE
+     C           CFDLCD    IFEQ 'D'
+     C           CFUPDY    ORNE @YEAR
+     C                     ITER
+     C                     ENDIF
+      * CHECK ACTIVE
+     C                     MOVELCFDOCK    $PLNT
+     C                     MOVELCFPART    $PART
+     C                     MOVELCFDOC2    $DOCK
+     C                     CALL 'UEXR41E'
+     C                     PARM           $PLNT   5
+     C                     PARM           $PART  12
+     C                     PARM           $DOCK   4
+     C                     PARM           $YN     1
+     C           $YN       IFEQ 'N'
+     C                     ITER
+     C                     ENDIF
+      * GET DELIVERY#
+     C                     MOVELCFDOCK    $PLNT
+     C                     CALL 'UTLR34E'
+     C                     PARM           $PLNT   5
+     C                     PARM           $NONY1  4
+     C                     PARM           $NONY2  4
+      *
+     C           $NONY1    IFNE *ZERO
+     C                     MOVEL$NONY1    XNONY   4
+     C                     EXSR #CHK1
+     C                     ENDIF
+      *
+     C           $NONY2    IFNE *ZERO
+     C                     MOVEL$NONY2    XNONY
+     C                     EXSR #CHK1
+     C                     ENDIF
+      *
+     C                     ENDDO
+      * IF NO DATA...
+     C           RRN       IFEQ 0
+     C                     CLEARSFL01
+     C                     MOVELMSG,1     S1NAME
+     C                     Z-ADD1         RRN
+     C                     WRITESFL01
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * CHECK YTD                                          *
+      *----------------------------------------------------*
+     C           #CHK1     BEGSR
+      *
+     C                     MOVELXNONY     @NONY   40
+      * GET FORD DEMAND
+     C                     MOVELTODAY     $END
+     C                     MOVELXNONY     $NONY
+     C                     MOVELCFPART    $MHIN
+     C                     CALL 'UEXR41D'
+     C**                   CALL 'UEXR41G'
+     C                     PARM           $END    8
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $PLNT   5
+     C                     PARM           $YTDQ   9
+     C                     MOVEL$YTDQ     @FORDQ  90
+     C           @FORDQ    IFEQ 0
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * GET IAF YTD
+     C                     MOVEL@EDYR     PEND
+     C                     MOVELXNONY     PNONY
+     C                     MOVELCFPART    PMHIN     P
+     C                     CALL 'UEXR41B'
+     C                     PARM           PEND    8
+     C                     PARM           PNONY   4
+     C                     PARM           PMHIN  20
+     C                     PARM           PYTDQ   9
+     C                     MOVELPYTDQ     @IAFQ   90
+JW1   * ADJUST CUM QTY (FORD)
+ |   C                     MOVEL@EDYR     K4ADYY
+ |   C                     MOVELXNONY     K4NONY
+ |   C                     MOVELCFPART    K4MHIN
+ |   C**         K#04      CHAINABFAL05              95
+ |   C**         *IN95     IFEQ *OFF
+ |   C**         C4ADHZ    ANDLETODAY
+ |   C**                   ADD  C4ADQT    @IAFQ
+JW1  C*****************    ENDIF
+ |   C           K#04      SETLLABFAL05
+ |   C                     DO   *HIVAL
+ |   C           K#04      READEABFAL05                  95
+ |   C   95                LEAVE
+ |   C           C4ADHZ    IFLE TODAY
+ |   C                     ADD  C4ADQT    @IAFQ
+ |   C                     ENDIF
+JW1  C                     ENDDO
+      *
+     C           @FORDQ    SUB  @IAFQ     @SHRT   90
+      * ADJ BY QPC
+     C           @SHRT     IFGT 10
+     C                     EXSR #QPC
+      *
+     C**                   CLEARSFL01
+     C                     MOVELCFDOCK    S1PLNT
+     C                     MOVELCFDOC2    S1DOCK
+     C                     MOVELXNONY     S1NONY
+      * GET NAME
+     C           @NONY     CHAINFGBPL01              97
+     C           *IN97     IFEQ *OFF
+     C                     MOVELB2SMEI    S1NAME
+     C                     ELSE
+     C                     MOVE *BLANK    S1NAME
+     C                     ENDIF
+      *
+     C                     MOVELCFMHN1    S1MHN1
+     C                     MOVELCFMHN2    S1MHN2
+     C                     MOVELCFMHN3    S1MHN3
+     C                     Z-ADD@FORDQ    S1FRDQ
+     C                     Z-ADD@IAFQ     S1IAFQ
+     C                     Z-ADD@SHRT     S1DIFF
+     C                     Z-ADD@QPC      S1QPC
+      *
+     C                     ADD  1         RRN
+     C                     WRITESFL01
+     C                     ENDIF
+      *
+     C           XCHK1     ENDSR
+      *----------------------------------------------------*
+      * ADJUST QPC                                         *
+      *----------------------------------------------------*
+     C           #QPC      BEGSR
+      *
+     C                     MOVE '5149'    $TOKU   4
+     C                     MOVELXNONY     $NONY
+     C                     MOVELCFPART    $MHIN
+     C                     MOVE 'USR'     $HTYP
+     C                     MOVELTODAY     $DATE
+     C                     CALL 'UTLR35'
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $HTYP   3
+     C                     PARM           $DATE   8
+     C                     PARM           $SYOS   6
+     C                     PARM           $RTN2   1
+     C                     MOVEL$SYOS     @QPC    60
+      *
+     C                     ENDSR
+** MSG(20A) .......2
+ ** NO DATA **

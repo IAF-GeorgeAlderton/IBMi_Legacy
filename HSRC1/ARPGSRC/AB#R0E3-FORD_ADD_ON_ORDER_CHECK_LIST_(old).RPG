@@ -1,0 +1,242 @@
+     H            Y.
+     F** AB#R0E3 ************************************************
+     F*  FORD EDI862 PRE ORDER                                  *
+     F*  JW    2021.12.09                                       *
+     F*---------------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'AB#R0E3'
+     F*                    PARM           $NOHZ   8
+     F*                    PARM           $TDATE  8
+     F*                    PARM           $ADON   1
+     F***********************************************************
+     FAB#PPF1 IF  E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+      ****************************************************
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1  20 SVMHIN
+     I                                        1   5 SVMHN1
+     I                                        6  10 SVMHN2
+     I                                       11  15 SVMHN3
+     I                                       16  20 SVMHN4
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      ****************************************************
+     C                     EXSR #INIT
+      *
+     C           @NOHZ     SETLLAB#PPF1
+     C                     DO   *HIVAL
+     C           @NOHZ     READEAB#PPF1                  98
+     C   98                LEAVE
+      * IGNORE
+     C           F5SIDT    IFNE @TDATE
+     C                     ITER
+     C                     ENDIF
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELF5STID    SVSTID
+     C                     MOVELF5NUKE    SVNUKE
+     C                     MOVELF5PART    SVPART
+     C                     MOVELF5STFC    SVSTFC
+     C                     ENDIF
+      * BREAK?
+     C           F5STID    IFNE SVSTID                     PLANT
+     C           F5NUKE    ORNE SVNUKE                     DOCK
+     C           F5PART    ORNE SVPART                     PART#
+     C           F5STFC    ORNE SVSTFC                     IC CODE
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * PROCESS
+     C                     MOVELF5SIDT    SVSIDT
+     C                     Z-ADDF5QTY     SVQTY
+     C                     MOVELF5NONY    SVNONY
+     C                     MOVELF5MHN1    SVMHN1
+     C                     MOVELF5MHN2    SVMHN2
+     C                     MOVELF5MHN3    SVMHN3
+     C                     Z-ADDF5QTY2    SVQTY2
+      *
+     C                     ENDDO
+      * LAST BREAK?
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     ENDIF
+     C*
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+     C***********************************************************
+     C* BREAK
+     C***********************************************************
+     C           #BRK1     BEGSR
+      *
+     C           SVQTY     IFGT 10
+     C                     EXSR #CHK1
+      *
+     C           $ADON     IFEQ 'A'
+     C           ODQTY     IFGT 0
+     C                     EXSR #PRT1
+     C                     MOVE *ON       PFLG
+     C                     ENDIF
+     C                     ELSE
+     C                     EXSR #PRT1
+     C                     MOVE *ON       PFLG
+     C                     ENDIF
+      *
+     C                     ENDIF
+      * PERIOD .
+     C           F5STID    IFNE SVSTID
+     C           PFLG      ANDEQ*ON
+     C                     EXSR #PRT2
+     C                     MOVE *OFF      PFLG
+     C                     ENDIF
+      * RESET
+     C                     MOVELF5STID    SVSTID           PLANT
+     C                     MOVELF5NUKE    SVNUKE           DOCK
+     C                     MOVELF5PART    SVPART           PART#
+     C                     MOVELF5STFC    SVSTFC           IC CODE
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  CHECK YTD QTY                                     *
+      *----------------------------------------------------*
+     C           #CHK1     BEGSR
+      *
+     C                     MOVELEDATE     $END
+     C                     MOVELSVNONY    $NONY   4
+     C                     MOVELSVMHIN    $MHIN  20
+     C                     CALL 'UEXR41B'
+     C                     PARM           $END    8
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $YTDQ   9
+     C                     MOVEL$YTDQ     @YTDQ   90
+     C           SVQTY2    SUB  @YTDQ     ODQTY   90
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRT1     BEGSR
+      *
+     C**         LIN#      IFGE 66
+     C**                   EXCPT@HDR
+     C**                   Z-ADD3         LIN#
+     C**                   ENDIF
+      *
+     C                     MOVELSVPART    XXPART 15
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRT2     BEGSR
+      *
+     C                     EXCPT@DTL2
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *--------------------------------------------------
+      * INITIALIZE
+      *--------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $NOHZ   8
+     C                     PARM           $TDATE  8
+     C                     PARM           $ADON   1
+      *
+     C                     MOVEL$NOHZ     @NOHZ   80
+     C                     MOVEL$TDATE    @TDATE  80
+     C                     TIME           SDATE
+     C           *LIKE     DEFN F5STID    SVSTID
+     C           *LIKE     DEFN F5NUKE    SVNUKE
+     C           *LIKE     DEFN F5PART    SVPART
+     C           *LIKE     DEFN F5SIDT    SVSIDT
+     C           *LIKE     DEFN F5QTY     SVQTY
+     C           *LIKE     DEFN F5NONY    SVNONY
+     C           *LIKE     DEFN F5STFC    SVSTFC
+     C           *LIKE     DEFN F5QTY2    SVQTY2
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+     C                     Z-ADDTODAY     EDATE   80
+     C                     MOVE '1231'    EDATE
+     C                     MOVE *OFF      PFLG    1
+      *
+     C           $ADON     IFEQ 'A'
+     C                     MOVE 'YES'     @ADONX  3
+     C                     MOVEL'(ADD_ON)'SUBTTL  8
+     C                     ELSE
+     C                     MOVE 'NO '     @ADONX
+     C                     MOVE *BLANK    SUBTTL
+     C                     ENDIF
+      *
+     C                     EXCPT@HDR
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   40 '** FORD ORDER **'
+     O                         SUBTTL    50
+     O                                  100 'DATE'
+     O                         TODAY    112 '    .  .  '
+     O                         NOW      122 '  :  :  '
+     O                                  125 'P.'
+     O                         PAGE  Z  129
+     O        E   02           @HDR
+     O                                   12 'SHIP DATE:'
+     O                         @NOHZ     23 '    /  /  '
+     O                                   37 'TARGET DATE:'
+     O                         @TDATE    48 '    /  /  '
+     O                                   56 'ADD_ON:'
+     O                         @ADONX    60
+     O        E   03           @HDR
+     O                                    6 'SEQ#'
+     O                                   12 'PALNT'
+     O                                   17 'DOCK'
+     O                                   23 'IC_CD'
+     O                                   29 'DELV'
+     O                                   36 'PART1'
+     O                                   42 'PART2'
+     O                                   48 'PART3'
+     O                                   59 'QTY'
+     O                                   71 'SHP_DATE'
+     O                                   83 'RCV_DATE'
+     O                                   98 'FORD_YTD'
+     O                                  111 'IAF_ORD'
+     O        E   04           @HDR
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+     O        E 1              @DTL
+     O                         SEQ#  1 +001
+     O                         SVSTID  +001
+     O                         SVNUKE  +001
+     O                         SVSTFC  +001
+     O                         SVNONY  +002
+     O                         SVMHN1  +002
+     O                                 +  0 '-'
+     O                         SVMHN2  +000
+     O                                 +  0 '-'
+     O                         SVMHN3  +000
+     O                         SVQTY 1 +001
+     O                         @NOHZ Y +002
+     O                         SVSIDTY +002
+     O                         SVQTY21 +002
+     O                         @YTDQ 1 +002
+     O        E 1              @DTL2
+     O                                    1 '.'
+      *

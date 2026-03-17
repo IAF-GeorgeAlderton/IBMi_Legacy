@@ -1,0 +1,223 @@
+     H            Y.
+     F** CHKR45 **************************************
+     F* CHECK PROGRAM USING FLAG (EXCLUSION CONTROL) *
+     F* CREATE DATE : 2018.08.02                     *
+     F* AUTHOR      : J.WATANABE                     *
+     F************************************************
+     FCHKPW45 CF  E                    WORKSTN
+     FAB#PPCK UF  E           K        DISK                      A
+     F*----------------------------------------------------*
+      *  CALLING SEQ.
+     C*                    CALL 'CHKR45'
+     C*                    PARM           $KEY   10
+     C*                    PARM           $PGM   10
+     C*                    PARM           $ACT    1
+     C*                    PARM           $CHK    3
+     C*                    PARM           $RTN    1
+      *   IN  $KEY  : 10A KEY WORD
+      *       $PGM  : 10A CALLING PROGRAM NAME
+      *                   (MULTIPLE PROGRAMS CAN SHARE SAME KEY WORD)
+      *       $ACT  :  1A Y=LOCK, N=UNLOCK
+      *       $CHK  :  3A "CHK" CHECK JOB ACTIVE, BLANK: NOT CHECK
+      *                   ("CHK" IF ACTIVE JOB DOES NOT EXIST, RELEASE LOCK)
+      *   OUT $RTN  :  1A BLANK=NO  ERROR, *=ERROR
+      *-----------------------------------------------------------
+     I* SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     I                                      264 269 #JOB
+      *--------------------------------------------------
+      *  MAIN ROUTINE
+      *--------------------------------------------------
+     C           *ENTRY    PLIST
+     C                     PARM           $KEY   10
+     C                     PARM           $PGM   10
+     C                     PARM           $ACT1   1
+     C                     PARM           $CHK    3
+     C                     PARM           $RTN    1
+      * CHECK PARAMETERS
+     C           $KEY      IFEQ *BLANK
+     C                     GOTO @ENDP
+     C                     ENDIF
+      *
+     C           $ACT1     IFNE 'Y'
+     C           $ACT1     ANDNE'N'
+     C                     GOTO @ENDP
+     C                     ENDIF
+      *
+      * RETRIEVE SYSTEM TIME
+     C                     TIME           WSDT
+     C                     MOVE *BLANK    $RTN
+      * CHECK EXCLUSIVE FLAB
+     C           $KEY      CHAINAB#PPCK              90
+      *
+     C                     SELEC
+      * 1A: USING WITH CHECK
+     C           *IN90     WHEQ *OFF
+     C           $ACT1     ANDEQ'Y'
+     C           CKSUSR    ANDNE*BLANK
+     C           $CHK      ANDEQ'CHK'
+      *
+      * CHECK JOB IS ACTIVE
+     C                     EXSR #CHKJ
+      *
+JW1   * ADJ
+     C           #WSID     IFEQ CKSWS
+     C           #USER     ANDEQCKSUSR
+     C           #JOB      ANDEQCKSJNO
+     C                     MOVE 'N'       @ACT2
+     C                     ENDIF
+      *
+      * DISPLAY ERROR SCREEN
+     C           @ACT2     IFEQ 'Y'
+     C                     UPDATAB#PPCK1
+     C                     MOVELCKKEY1    XKEY
+     C                     MOVELCKSUSR    XUSER
+     C                     MOVELCKSUSR    $USER
+     C                     CALL 'UTLR31'
+     C                     PARM           $USER  10
+     C                     PARM           $NAME  15
+      *
+     C                     MOVEL$NAME     XNAME
+     C                     MOVELCKSWS     XWSID
+     C                     MOVELCKSJNO    XJOB#
+     C                     Z-ADDCKSDAT    XDATE
+     C                     Z-ADDCKSTIM    XTIME
+     C                     MOVELCKSPGM    XPGM
+      *
+     C                     MOVEL#USER     @USER
+     C                     MOVEL#WSID     @WSID
+     C                     MOVEL#JOB      @JOB#
+     C                     MOVEL$PGM      @CLP
+     C                     TIME           WSDT
+     C                     Z-ADDTODAY     @DATE
+     C                     Z-ADDNOW       @TIME
+      *
+     C                     EXFMTWIN01
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C           @ACT2     IFEQ 'N'
+     C                     MOVE 'Y'       CKSFLG
+     C                     MOVEL#USER     CKSUSR
+     C                     MOVEL#WSID     CKSWS
+     C                     MOVEL#JOB      CKSJNO
+     C                     Z-ADDTODAY     CKSDAT
+     C                     Z-ADDNOW       CKSTIM
+     C                     MOVEL$PGM      CKSPGM
+     C                     UPDATAB#PPCK1
+     C                     ENDIF
+      *
+      * 1B: USING WITH NO CHECK
+     C           *IN90     WHEQ *OFF
+     C           $ACT1     ANDEQ'Y'
+     C           CKSUSR    ANDNE*BLANK
+     C           $CHK      ANDNE'CHK'
+     C                     UPDATAB#PPCK1
+     C                     MOVELCKKEY1    XKEY
+     C                     MOVELCKSUSR    XUSER
+     C                     MOVELCKSUSR    $USER
+     C                     CALL 'UTLR31'
+     C                     PARM           $USER  10
+     C                     PARM           $NAME  15
+      *
+     C                     MOVEL$NAME     XNAME
+     C                     MOVELCKSWS     XWSID
+     C                     MOVELCKSJNO    XJOB#
+     C                     Z-ADDCKSDAT    XDATE
+     C                     Z-ADDCKSTIM    XTIME
+     C                     MOVELCKSPGM    XPGM
+      *
+     C                     MOVEL#USER     @USER
+     C                     MOVEL#WSID     @WSID
+     C                     MOVEL#JOB      @JOB#
+     C                     MOVEL$PGM      @CLP
+     C                     TIME           WSDT
+     C                     Z-ADDTODAY     @DATE
+     C                     Z-ADDNOW       @TIME
+      *
+     C                     EXFMTWIN01
+     C                     MOVE '*'       $RTN
+      * 2: NOT USING
+     C           *IN90     WHEQ *OFF
+     C           $ACT1     ANDEQ'Y'
+     C           CKSUSR    ANDEQ*BLANK
+     C                     MOVE 'Y'       CKSFLG
+     C                     MOVEL#USER     CKSUSR
+     C                     MOVEL#WSID     CKSWS
+     C                     MOVEL#JOB      CKSJNO
+     C                     Z-ADDTODAY     CKSDAT
+     C                     Z-ADDNOW       CKSTIM
+     C                     MOVEL$PGM      CKSPGM
+     C                     UPDATAB#PPCK1
+      * 3: CLOSING W/ UPDATE
+     C           *IN90     WHEQ *OFF
+     C           $ACT1     ANDEQ'N'
+     C           CKSUSR    ANDNE*BLANK
+     C                     MOVELCKSFLG    CKLFLG
+     C                     MOVELCKSUSR    CKLUSR
+     C                     MOVELCKSWS     CKLWS
+     C                     MOVELCKSJNO    CKLJNO
+     C                     Z-ADDCKSDAT    CKLDAT
+     C                     Z-ADDCKSTIM    CKLTIM
+     C                     MOVELCKSPGM    CKLPGM
+     C                     MOVE *BLANK    CKSFLG
+     C                     MOVE *BLANK    CKSUSR
+     C                     MOVE *BLANK    CKSWS
+     C                     MOVE *BLANK    CKSJNO
+     C                     Z-ADD0         CKSDAT
+     C                     Z-ADD0         CKSTIM
+     C                     MOVE *BLANK    CKSPGM
+     C                     UPDATAB#PPCK1
+      * 4: CLOSING W/ NO UPDATE
+     C           *IN90     WHEQ *OFF
+     C           $ACT1     ANDEQ'N'
+     C           CKSUSR    ANDEQ*BLANK
+     C                     UPDATAB#PPCK1
+      * 5: NEW KEY
+     C           *IN90     WHEQ *ON
+     C           $ACT1     ANDEQ'Y'
+     C                     MOVEL$KEY      CKKEY1
+     C                     MOVE *BLANK    CKKEY2
+     C                     MOVE 'Y'       CKSFLG
+     C                     MOVEL#USER     CKSUSR
+     C                     MOVEL#WSID     CKSWS
+     C                     MOVEL#JOB      CKSJNO
+     C                     Z-ADDTODAY     CKSDAT
+     C                     Z-ADDNOW       CKSTIM
+     C                     MOVEL$PGM      CKSPGM
+     C                     MOVE *BLANK    CKLFLG
+     C                     MOVE *BLANK    CKLUSR
+     C                     MOVE *BLANK    CKLWS
+     C                     MOVE *BLANK    CKLJNO
+     C                     Z-ADD0         CKLDAT
+     C                     Z-ADD0         CKLTIM
+     C                     MOVE *BLANK    CKLPGM
+     C                     WRITEAB#PPCK1
+      *
+     C                     ENDSL
+      *
+     C           @ENDP     TAG
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *=====================================================
+      * CHECK JOB WHICH HOLD THIS PROGRAM IS ACTIVE OR NOT
+      *=====================================================
+     C           #CHKJ     BEGSR
+      *
+     C                     MOVELCKSJNO    $NUM
+     C                     MOVELCKSUSR    $USR
+     C                     MOVELCKSWS     $WSID
+     C                     CALL 'UTLC90'
+     C                     PARM           $NUM    6
+     C                     PARM           $USR   10
+     C                     PARM           $WSID  10
+     C                     PARM           @ACT2   1
+      *
+     C                     ENDSR

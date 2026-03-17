@@ -1,0 +1,104 @@
+             PGM        PARM(&RERUN)
+             /** MBDC11********************************************/
+             /* DELIVERY STATISTICS FILE CREATE  MAIN OP-DELIVERY OF PRODUCTS */
+             /*            M-OKUDA        1981.10.02              */
+             /******************************************* MBDC11 **/
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&RERUN) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&SWITCH) TYPE(*CHAR) LEN(8)
+             DCL        VAR(&KOTAE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&MBAN) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&WLIB) TYPE(*CHAR) LEN(8)
+             DCL        VAR(&US) TYPE(*CHAR) LEN(10)
+
+             RTVJOBA    JOB(&WSID) SWS(&SWITCH) USER(&US)
+
+             CALL       PGM(ALBC00) PARM(&US &WLIB)
+
+             CHKOBJ     OBJ(MBDPP01) OBJTYPE(*FILE)
+             MONMSG     CPF9801 *N GOTO STEP3
+             GOTO       STEP2
+
+ STEP3:      SNDPGMMSG  MSG('( G.C ) LAST TIME BUCKED UP TAPE < +
+                          MBDPP01 > SET DELIVERY STATISTICS FILE') +
+                          TOMSGQ(QSYSOPR) MSGTYPE(*INQ) KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTAE)
+             IF         COND((&KOTAE = 'G') *OR (&KOTAE = 'g')) +
+                          THEN(GOTO CMDLBL(STEP4))
+             IF         COND((&KOTAE = 'C') *OR (&KOTAE = 'c')) +
+                          THEN(RETURN)
+             GOTO       STEP3
+
+ STEP4:      RSTOBJ     OBJ(MBDPP01) SAVLIB(HFILE1) DEV(TAPE1) +
+                          OBJTYPE(*FILE) VOL(IAF) ENDOPT(*UNLOAD) +
+                          MBROPT(*ALL)
+
+ STEP5:      SNDPGMMSG  MSG('( G ) LAST TIME BUCKED UP TAPE < MBDPP01 +
+                          > TAKE OUT DELIVERY STATISTICS') +
+                          TOMSGQ(QSYSOPR) MSGTYPE(*INQ) KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTAE)
+             IF         COND((&KOTAE = 'G') *OR (&KOTAE = 'g')) +
+                          THEN(GOTO CMDLBL(STEP2))
+             GOTO       STEP5
+
+ STEP2:      DLTF       FILE(MBDWP11)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/MBDWP11) RCDLEN(98) +
+                          TEXT('DELIVERY STATISTICS WORK') +
+                          OPTION(*NOLIST) SIZE(25000 5000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CALL       PGM(MBDR11) PARM(&RERUN)
+
+             CLRPFM     FILE(MBDPP01)
+
+             CPYF       FROMFILE(MBDWP11) TOFILE(MBDPP01) +
+                          MBROPT(*REPLACE) FMTOPT(*NOCHK)
+             DLTF       FILE(MBDWP11)
+
+             DLTF       FILE(MBDWP14)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/MBDWP14) RCDLEN(184) +
+                          TEXT('DELIVERY STATISTICS WORK') +
+                          OPTION(*NOLIST) SIZE(50000 5000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CALL       PGM(MBDR14)
+
+             CLRPFM     FILE(MBDPP11)
+
+             CPYF       FROMFILE(MBDWP14) TOFILE(MBDPP11) +
+                          MBROPT(*REPLACE) FMTOPT(*NOCHK)
+             DLTF       FILE(MBDWP14)
+
+
+ STEP6:      SNDPGMMSG  MSG('( G.C )NEW DELIVERY STATISTICS FILE  < +
+                          MBDPP01 > & PUT DELIVERY MONTHLY PEPORT +
+                          BACKUP TAPE < MBEPP01 > SET BUCKED UP +
+                          TAPE') TOMSGQ(QSYSOPR) MSGTYPE(*INQ) +
+                          KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTAE)
+             IF         COND((&KOTAE = 'G') *OR (&KOTAE = 'g')) +
+                          THEN(GOTO CMDLBL(STEP7))
+             IF         COND((&KOTAE = 'C') *OR (&KOTAE = 'c')) +
+                          THEN(RETURN)
+             GOTO       STEP6
+
+ STEP7:      INZTAP     DEV(TAPE1) NEWVOL(IAF) CHECK(*NO)
+             SAVOBJ     OBJ(MBDPP01 MBEPP01 MBEPP02) LIB(HFILE1) +
+                          DEV(TAPE1) OBJTYPE(*FILE) VOL(IAF) +
+                          ENDOPT(*UNLOAD)
+
+ STEP8:      SNDPGMMSG  MSG('( G )NEW DELIVERY STATISTICS FILE  < +
+                          MBDPP01.MBEPP01 >TAKE OUT IT') +
+                          TOMSGQ(QSYSOPR) MSGTYPE(*INQ) KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTAE)
+             IF         COND((&KOTAE = 'G') *OR (&KOTAE = 'g')) +
+                          THEN(GOTO CMDLBL(STEP9))
+             GOTO       STEP8
+
+ STEP9:      ENDPGM

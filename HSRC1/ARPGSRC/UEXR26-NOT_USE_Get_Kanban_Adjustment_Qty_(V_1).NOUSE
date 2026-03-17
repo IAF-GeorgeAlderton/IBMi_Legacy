@@ -1,0 +1,220 @@
+     H            Y.
+     F** UEXR26 *********************************************
+     F*  PROGRAM: EXSUB - GET KANBAN ADJUSTMENT QTY         *
+     F*  WRITTEN: JW (SRA) 2020.04.23                       *
+     F*-----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UEXC26'
+     F*                    PARM           $ZAIS  15
+     F*                    PARM           $ZAIK   5 2
+     F*                    PARM           $ADJ    3 0
+     F*  IN  $ZAIS  15    MATERIAL
+     F*      $ZAIK   5 2  DIAMETER
+     F*  OUT $ADJ    3 0  ADJUSTMENT QTY
+     F*******************************************************
+     FFCEPL02 IF  E           K        DISK
+     FIZAPL01AIF  E           K        DISK
+     FAAMPL11 IF  E           K        DISK
+     FUEXWP26AIF  E           K        DISK                      A    UC
+     FUEXWP26BIF  E           K        DISK                      A    UC
+      *===================================================
+      *           MAIN ROUTINE
+      *===================================================
+     C                     EXSR #INIT
+      * CREATE UEXWP26A
+     C                     EXSR #PROC1
+     C           RCNT      IFEQ 0
+     C                     GOTO ENDP
+     C                     ENDIF
+      * CREATE UEXWP26B
+     C                     EXSR #PROC2
+      * CALCULATION
+     C                     EXSR #PROC3
+      *
+     C                     Z-ADDMCNT2     $ADJ
+      *
+     C           ENDP      TAG
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *===================================================
+      * PROCESS 1: CREATE UEXWP26A (EXTRACT MACHINE WGT)
+      *===================================================
+     C           #PROC1    BEGSR
+      *
+     C                     OPEN UEXWP26A
+      *
+     C           K#01      SETLLFCEPL02
+      *
+     C                     DO   *HIVAL
+     C           K#01      READEFCEPL02                  98
+     C   98                LEAVE
+      *
+     C           A2GSKD    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     CLEARUEXW26A1
+     C                     MOVELA2BHB1    UABHB1
+     C                     MOVELA2BHB2    UABHB2
+     C                     MOVELA2BHB3    UABHB3
+     C                     MOVELA2ZANM    UAZANM
+     C                     Z-ADDA2KAZI    UAKAZI
+     C                     Z-ADDA2GEKN    UAGEKN
+     C                     Z-ADDA2KASI    UAKASI
+      * GET COIL WGT
+     C           K#01      CHAINIZAPL01A             99
+     C           *IN99     IFEQ *OFF
+     C                     Z-ADDZCTKJR    UATKJR
+     C                     Z-ADDZCMKJR    UAMKJR
+     C                     ENDIF
+      * GET MACHINE
+     C                     MOVELA2BHB1    K#HIN1
+     C                     MOVELA2BHB2    K#HIN2
+     C                     MOVELA2BHB3    K#HIN3
+     C           K#11      SETLLAAMPL11
+     C                     DO   *HIVAL
+     C           K#11      READEAAMPL11                  97
+     C   97                LEAVE
+      *
+     C                     MOVELCKKB01    UAKB01
+      * GET MACHINE WGT
+     C           UAGEKN    MULT UAKASI    NUM125 125
+     C                     DIV  1000      NUM125
+     C                     Z-ADDNUM125    UAMWGT
+      *
+     C                     WRITEUEXW26A1
+     C                     ADD  1         RCNT
+     C                     ENDDO
+      *
+     C                     ENDDO
+      *
+     C                     CLOSEUEXWP26A
+      *
+     C                     ENDSR
+      *===================================================
+      * PROCESS 2: CREATE UEXWP26B (SUMMAIZE MACHINE WGT)
+      *===================================================
+     C           #PROC2    BEGSR
+      *
+     C                     OPEN UEXWP26A
+     C                     OPEN UEXWP26B
+     C                     Z-ADD0         WAMWGT  82
+      *
+     C           *LOVAL    SETLLUEXWP26A
+     C                     DO   *HIVAL
+     C                     READ UEXWP26A                 96
+     C   96                LEAVE
+      * FIRST ?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELUAKB01    SVKB01  3
+     C                     ENDIF
+      * BREAK ?
+     C           UAKB01    IFNE SVKB01
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * DETAIL PROCESS
+     C                     ADD  UAMWGT    WAMWGT
+      *
+     C                     ENDDO
+      * LAST BREAK
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     ENDIF
+      *
+     C                     CLOSEUEXWP26A
+     C                     CLOSEUEXWP26B
+      *
+     C                     ENDSR
+      *===================================================
+      * BREAK 1
+      *===================================================
+     C           #BRK1     BEGSR
+      *
+     C                     MOVELUAZANM    UBZANM
+     C                     Z-ADDUAKAZI    UBKAZI
+     C                     Z-ADDUATKJR    UBCWGT
+     C                     Z-ADDUAMKJR    UBMKJR
+     C                     MOVELSVKB01    UBKB01
+     C                     Z-ADDWAMWGT    UBMWGT
+      *
+     C           UBMWGT    IFGT UBCWGT
+     C                     MOVE '1'       UBFLG1
+     C                     ELSE
+     C                     MOVE '0'       UBFLG1
+     C                     ENDIF
+      *
+     C                     WRITEUEXW26B1
+      * RESET
+     C                     Z-ADD0         WAMWGT
+     C                     MOVELUAKB01    SVKB01
+      *
+     C                     ENDSR
+      *===================================================
+      * PROCESS 3: CALCULATE ADJUSTMENT
+      *===================================================
+     C           #PROC3    BEGSR
+      *
+     C                     OPEN UEXWP26B
+     C                     Z-ADD0         MCNT1   30
+      *
+     C           *LOVAL    SETLLUEXWP26B
+     C                     DO   *HIVAL
+     C                     READ UEXWP26B                 95
+     C   95                LEAVE
+      *
+      *
+     C           UBFLG1    IFEQ '1'
+     C                     ADD  1         MCNT1
+     C                     ENDIF
+     C                     ENDDO
+      * MINUS 1
+     C           MCNT1     IFGE 1
+     C                     SUB  1         MCNT1
+     C                     ENDIF
+      * GET COIL/DAY
+     C           UBCWGT    IFEQ 0
+     C                     Z-ADD0         MCNT1
+     C                     Z-ADD0         MCNT2
+     C                     GOTO XPROC3
+     C                     ENDIF
+      *
+     C           UBMKJR    DIV  20        NUM82   82
+     C           NUM82     DIV  UBCWGT    COILD   30
+     C                     MVR            REM     53
+     C           REM       IFGT 0
+     C                     ADD  1         COILD
+     C                     ENDIF
+      *
+     C                     Z-ADDMCNT1     MCNT2   30
+     C           MCNT1     IFGT COILD
+     C                     Z-ADDCOILD     MCNT2
+     C                     ENDIF
+      *
+     C           XPROC3    TAG
+     C                     CLOSEUEXWP26B
+     C                     ENDSR
+      *===================================================
+      * INITIAL SETTING
+      *===================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $ZAIS  15
+     C                     PARM           $ZAIK   52
+     C                     PARM           $ADJ    30
+      *
+     C           K#01      KLIST
+     C                     KFLD           $ZAIS
+     C                     KFLD           $ZAIK
+      *
+     C           K#11      KLIST
+     C                     KFLD           K#HIN1  5
+     C                     KFLD           K#HIN2  5
+     C                     KFLD           K#HIN3  2
+      *
+     C                     Z-ADD0         $ADJ
+     C                     Z-ADD0         RCNT    30
+     C                     MOVE 'Y'       FIRST   1
+      *
+     C                     ENDSR

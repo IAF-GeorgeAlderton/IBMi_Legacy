@@ -1,0 +1,291 @@
+     H            Y.
+     F** AH#R20S************************************
+     A*  DOWNLOAD APICS ORDER ACCUM KANBAN DATA    *
+     F*  JW       2021.11.29                       *
+     F**********************************************
+     FAH#PW20 CF  E                    WORKSTN
+     FAH#PL16SIF  E           K        DISK
+     FAH#WP20 O   E                    DISK
+      *---------------------------------------------------------------
+     E                    MSG     1   8 60
+     E                    TTL     1  15 20
+      *---------------------------------------------------------------
+     I            DS
+     I                                        1   80XFRHZ
+     I                                        1   40XFRYY
+     I                                        5   60XFRMM
+     I                                        7   80XFRDD
+     I            DS
+     I                                        1  140@SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *----------------------------------------------------*
+      *   MAIN                                             *
+      *----------------------------------------------------*
+     C                     EXSR #INIT
+      *
+     C           @@ID      DOWNE'99'
+     C           @@ID      CASEQ'01'      #SCRN1
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *----------------------------------------------------*
+      *   1ST SCREEN                                       *
+      *----------------------------------------------------*
+     C           #SCRN1    BEGSR
+      * DEFAULT
+     C           XFROM     IFEQ 0
+     C                     Z-ADDTODAY     XFROM
+     C                     ENDIF
+      *
+     C                     EXFMTDSP01
+     C                     MOVE *OFF      *IN85
+     C                     SETOF                     414243
+     C                     MOVE *BLANK    XMSG
+      *
+     C                     SELEC
+      * F1: EXIT
+     C           *INKA     WHEQ *ON
+     C                     MOVE '99'      @@ID
+     C                     OTHER
+     C                     EXSR #CHK1
+     C           *IN85     IFEQ *OFF
+      * F5: RUN
+     C           *INKE     IFEQ *ON
+     C                     EXSR #OUT
+     C                     MOVE '99'      @@ID
+     C                     ELSE
+     C                     MOVELMSG,6     XMSG
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  CHECK
+      *----------------------------------------------------*
+     C           #CHK1     BEGSR
+      * DATE FROM
+     C           XFROM     IFEQ 0
+     C                     MOVE *ON       *IN85
+     C                     MOVE *ON       *IN41
+     C                     MOVELMSG,1     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVELXFROM     $SRC      P
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ *BLANK
+     C                     MOVEL$TRUE     XFROM
+     C                     ELSE
+     C                     MOVE *ON       *IN85
+     C                     MOVE *ON       *IN41
+     C                     MOVELMSG,2     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * DATE TO
+     C           XTO       IFEQ 0
+     C                     Z-ADDXFROM     XTO
+     C                     ENDIF
+      *
+     C           XTO       IFEQ 0
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,3     XMSG
+     C                     MOVE *ON       *IN42
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVELXTO       $SRC      P
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ *BLANK
+     C                     MOVEL$TRUE     XTO
+     C                     ELSE
+     C                     MOVE *ON       *IN85
+     C                     MOVE *ON       *IN42
+     C                     MOVELMSG,4     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XFROM     IFGT XTO
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,5     XMSG
+     C                     MOVE *ON       *IN41
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XCHK1     ENDSR
+      *---------------------------------------------------
+      *  OUTPUT DATA
+      *---------------------------------------------------
+     C           #OUT      BEGSR
+      *
+     C                     Z-ADDXFROM     XFRHZ
+     C                     MOVELXFRYY     K#FYY
+     C                     MOVELXFRMM     K#FMM
+     C                     MOVELXFRDD     K#FDD
+     C           K#FYMD    SETLLAH#PL16S
+     C                     DO   *HIVAL
+     C                     READ AH#PL16S                 98
+     C   98                LEAVE
+      *
+     C           CFHTHZ    IFGT XTO
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           CFSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * BIN
+     C           XBIN      IFNE 0
+     C           XBIN      ANDNECFHTBB
+     C                     ITER
+     C                     ENDIF
+      * PART
+     C                     CLEARAH#WP201
+     C                     MOVELCFHBAN    $SHIN
+     C                     CALL 'EDTR02'
+     C                     PARM           $SHIN  12
+     C                     PARM           $SHIN2 14
+     C                     MOVEL$SHIN2    WASHIN
+      * DATE
+     C                     MOVELCFHTHZ    $DATE1
+     C                     CALL 'EDTR01 '
+     C                     PARM           $DATE1  8
+     C                     PARM           $TIME1  6
+     C                     PARM           $YMD    3
+     C                     PARM           $DATE2 10
+     C                     PARM           $TIME2  8
+     C                     MOVEL$DATE2    WAHTHZ
+      * LOT#
+     C                     MOVELCFTHNO    $IN       P
+     C                     MOVEL'03'      $LONG
+     C                     CALL 'EDTR04A'
+     C                     PARM           $IN    10
+     C                     PARM           $LONG   2
+     C                     PARM           $OUT   11
+     C                     MOVEL$OUT      WATHNO
+      *
+     C                     MOVELCFMAIS    WAMAIS
+     C                     MOVELCFHTBB    WAHTBB
+      * DEPT
+     C                     MOVELCFBMON    $IN       P
+     C                     MOVEL'04'      $LONG
+     C                     CALL 'EDTR04A'
+     C                     PARM           $IN    10
+     C                     PARM           $LONG   2
+     C                     PARM           $OUT   11
+     C                     MOVEL$OUT      WABMON
+      *
+     C                     MOVELCFCHYU    WACHYU
+     C                     MOVELCFZENO    WAZENO
+      * DEPT
+     C                     MOVELCFKMBM    $IN       P
+     C                     MOVEL'04'      $LONG
+     C                     CALL 'EDTR04A'
+     C                     PARM           $IN    10
+     C                     PARM           $LONG   2
+     C                     PARM           $OUT   11
+     C                     MOVEL$OUT      WAKMBM
+      *
+     C                     MOVELCFSYUY    WASYUY
+      * DATE
+     C                     MOVELCFSYHZ    $DATE1
+     C                     CALL 'EDTR01 '
+     C                     PARM           $DATE1  8
+     C                     PARM           $TIME1  6
+     C                     PARM           $YMD    3
+     C                     PARM           $DATE2 10
+     C                     PARM           $TIME2  8
+     C                     MOVEL$DATE2    WAOTYM
+      *
+     C                     MOVELCFSYBB    WASYBB
+     C                     MOVELCFKDAI    WAKDAI
+      * GET FINAL LOCATION
+     C                     MOVELCFHBAN    P@SHIN
+     C                     CALL 'UTLR21'
+     C                     PARM           P@SHIN 12
+     C                     PARM           $LLOC6  6
+     C                     PARM           $LQC    50
+     C                     PARM           $LPRC   3
+     C                     PARM           $LDPT   40
+     C                     PARM           $ZETI   4
+     C                     PARM           $RTNX   1
+     C                     MOVEL$LLOC6    $LOC6
+     C                     CALL 'EDTR06B'
+     C                     PARM           $LOC6   6
+     C                     PARM           $LOC9   9
+     C                     MOVEL$LOC9     WALOC
+      *
+     C                     WRITEAH#WP201
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * INITIALIZE                                         *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           K#FYMD    KLIST
+     C                     KFLD           K#FYY   40
+     C                     KFLD           K#FMM   20
+     C                     KFLD           K#FDD   20
+      *
+     C                     TIME           @SDATE
+     C                     MOVE '01'      @@ID    2
+     C                     MOVE *ALL'-'   @@LIN 132
+      * HEADER
+     C                     CLEARAH#WP201
+     C                     MOVELTTL,01    WASHIN
+     C                     MOVELTTL,02    WAHTHZ
+     C                     MOVELTTL,03    WATHNO
+     C                     MOVELTTL,04    WAMAIS
+     C                     MOVELTTL,05    WAHTBB
+     C                     MOVELTTL,06    WABMON
+     C                     MOVELTTL,07    WACHYU
+     C                     MOVELTTL,08    WAZENO
+     C                     MOVELTTL,09    WAKMBM
+     C                     MOVELTTL,10    WASYUY
+     C                     MOVELTTL,11    WAOTYM
+     C                     MOVELTTL,12    WASYBB
+     C                     MOVELTTL,13    WAKDAI
+     C                     MOVELTTL,14    WALOC
+     C                     WRITEAH#WP201
+      *
+     C                     ENDSR
+** MSG(60A) .......2.........3.........4.........5.........6
+ENTER DATE FROM!                                              1
+DATE FROM IS INVALID!                                         2
+ENTER DATE TO!.                                               3
+DATE TO IS INVALID!                                           4
+FROM IS GREATER THAN TO!                                      5
+PRESS F5 TO RUN...                                            6
+                                                              7
+                                                              8
+** TTL(20A) .......2
+IAF PART              1
+ISSUE DATE            2
+LOT#                  3
+SHEET                 4
+BIN#                  5
+DEPT                  6
+TYPE                  7
+IT#                   8
+DEPT(OUT)             9
+KANBAN QTY           10
+OUT_GOING            11
+OUT_BIN              12
+KANBAN TYPE L        13
+FINAL LOCATION       14
+                     15

@@ -1,0 +1,150 @@
+      *** INVRS2 *****************************************************
+      *   INQUIRY PRIORITY LT MASTER
+      *
+      *     KIRI                         2014.08.05
+      ****************************************************************
+     H            Y/                                    1
+     FINVPWS2 CF  E                    WORKSTN
+     F                                              KINFDS INFDS
+     F                                        RRN1  KSFILE SFREC1
+      *
+     FINVPLS1 IF  E           K        DISK
+      *
+     FFGBPL01 IF  E           K        DISK
+      *================================================================
+      *================================================================
+     IINFDS       DS
+     I                                    B 378 3790$$RRN
+      *
+     I            DS
+     I                                        1   80B2SKHZ
+     I                                        1   40B2SKYY
+     I                                        5   60B2SKMM
+     I                                        7   80B2SKDD
+     I            DS
+     I                                        1  20 S1TEXT
+     I                                        1   4 S1BMON
+     I                                        6  20 S1SMEI
+     I                                        7   9 S1KOTE
+     I                                       15  17 S1KIBN
+     I                                        2   3 S1SHTG
+      *
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60@SYSTM
+     I                                        7  140@SYSHZ
+      *     <<
+      *
+     I           SDS
+     I                                     *PROGRAM W@PGM
+     I                                      244 253 W@WSID
+     I                                      254 263 W@USER
+     I                                      264 269 W@JBNO
+     C*===============================================================
+     C           *ENTRY    PLIST
+     C                     PARM           P@NO    1
+     C*===============================================================
+     C*  START  PROGRAM
+     C*===============================================================
+     C                     MOVE '#INIT   '@STEP   8
+     C*
+     C           @STEP     DOUEQ'#END    '
+     C           @STEP     CASEQ'#INIT   '#INIT
+     C           @STEP     CASEQ'#DSP1   '#DSP1
+     C                     ENDCS
+     C                     ENDDO
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+     C*===============================================================
+     C*   << INIT >>
+     C*===============================================================
+     C           #INIT     BEGSR
+     C                     TIME           @TIME
+     C                     MOVEA*ALL'0'   *IN
+     C                     WRITEW1
+      *
+     C* SFLCLR
+     C                     SETON                     72
+     C                     WRITESFCTL1
+     C                     SETOF                     72
+     C                     Z-ADD0         RRN1    40
+     C                     Z-ADD0         ENDRRN  40
+      *
+     C           P@NO      COMP '2'                      20:EQ
+     C                     MOVE *BLANK    K@BMON  4
+     C  N20                MOVE '0111'    K@BMON  4
+      *
+     C           K@BMON    SETLLINVPLS1
+      *-----------------------------------
+     C                     DO   *HIVAL
+     C  N20      K@BMON    READEINVPLS1                  90
+     C   20                READ INVPLS1                  90
+     C   90                LEAVE
+     C*
+     C   20      M@BMON    IFEQ '0111'
+     C                     ITER
+     C                     ENDIF
+     C*
+     C           M@SKJY    IFEQ 'D'                        DELETE CODE
+     C           M@SKDT    ANDLE@SYSHZ                     DELETE DATE
+     C                     ITER
+     C                     ENDIF
+     C*
+     C                     MOVE *BLANK    S1TEXT
+     C                     MOVELM@KOTE    S1KOTE
+     C                     MOVELM@KIBN    S1KIBN
+     C                     MOVELM@SHTG    S1SHTG
+     C   20                MOVEL*BLANK    S1KOTE
+     C   20                MOVELM@BMON    S1BMON
+     C   20                EXSR ##SMEI                     SUPPLIER NAME
+     C                     Z-ADDM@DAYS    S1DAYS
+     C                     Z-ADDM@HOUR    S1HOUR
+     C                     Z-ADDM@MINS    S1MINS
+     C                     ADD  1         RRN1
+     C                     WRITESFREC1
+     C*
+     C                     ENDDO
+      *-----------------------------------
+     C                     Z-ADDRRN1      ENDRRN
+     C                     Z-ADD1         RRN1             エラー
+     C                     MOVE '#DSP1   '@STEP
+     C*
+     C                     ENDSR
+      *------------------------------------------------------------------
+      *            SUPPLIER NAME
+      *------------------------------------------------------------------
+     C           ##SMEI    BEGSR
+     C                     MOVELM@BMON    K$BMON  40
+     C           K$BMON    CHAINFGBPL01              91
+     C  N91      B2SKJY    IFEQ 'D'
+     C           B2SKHZ    ANDLE@SYSHZ
+     C                     SETON                     91
+     C                     ENDIF
+     C  N91                MOVELB2SMEI    S1SMEI           DETAIL NAME KANA
+     C                     ENDSR
+      *===============================================================
+      *  画面１　表示
+      *===============================================================
+     C           #DSP1     BEGSR
+     C*
+     C                     SETON                     70
+     C           ENDRRN    IFNE 0
+     C                     SETON                     71
+     C                     ENDIF
+     C                     WRITEDSP01
+     C                     EXFMTSFCTL1
+     C                     SETOF                     707199
+     C                     Z-ADD$$RRN     RRN1
+     C*----------
+     C* < PAGE UP/DOWN >
+     C           *IN75     IFEQ *ON
+     C           *IN76     OREQ *ON
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDIF
+     C*----------
+     C* < F3 > 終了
+     C   KC                MOVE '#END    '@STEP
+     C                     ENDSR
+      *===============================================================
+      *===============================================================

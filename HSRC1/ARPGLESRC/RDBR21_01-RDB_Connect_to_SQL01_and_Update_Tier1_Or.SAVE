@@ -1,0 +1,130 @@
+     H OPTION(*SRCSTMT : *NODEBUGIO)
+     H DFTACTGRP(*NO)
+     H BNDDIR('RDB2000')
+     FRDBWP20   IF   E           K DISK
+     FRDBWP21   IF   E           K DISK
+     FRDBPP20   UF A E           K DISK
+     FRDBPP21   UF A E           K DISK
+      //************************************************************************
+      // RDBR21
+      // LEC          2021/12/01
+      // This program connects to SQL01 and Updates TBA_Orders with AS400 data.
+      //************************************************************************
+      /COPY *LIBL/RDBSRC,RDBPROTO
+     D Id              S             10I 0
+     D rc              S             10I 0
+     D Count           S             10I 0
+     D Ready           S             50    inz('Completed')
+     D Status          S             50
+     D @ErrId          S              7A
+     D @ErrText        S            100A
+     D ##orgCode       S             10
+     D ##orderNo       S             15
+     D ##dockCode      S              5
+     D  SysDate        S               Z   inz(Z'2001-01-01-00.00.00.000000')   DEFAULT Value
+     D SDate           S              8S 0
+     D STime           S              6S 0
+
+      /FREE
+
+             SysDate = %timestamp();
+             SDate = %dec(%date():*iso);
+             STime = %dec(%time():*hms);
+
+        //     Connect to the remote system using the Id created in the RDB
+        //     configuration screen (RDBCFG)
+
+         Id = RdbConnect('SQL01');
+         If Id >= 0;
+
+          //     After the connection is established, prepare the statement.
+
+
+          //   U  P  D  A  T  E     O  R  D  E  R     D  E  T  A  I  L     I  N  F  O  ********
+          //     get all order records that have a blank status and update on SQL01...
+
+         SetLL *start RDBWP21;
+
+         DoW NOT %eof(RDBWP21);
+
+          Read RDBWP21;
+
+           If %eof(RDBWP21);
+              Leave;
+           EndIf;
+
+
+            Write RDBPP211;
+
+              If TDMSG = *blank;
+
+                rc = RdbPrepStmt(Id:
+                    'Update [dbo].[TBA_Orders] ' +
+                    ' set DeliveryCode = ?, Factory = ?, IAFZeti = ?, ' +
+                    ' IAFSerial = ?, IAFLocation = ?, IAFBin = ?, ' +
+                    ' SupplierPartNo = ? ' +
+                    ' where TBAKEY = ? ');
+
+                rc = RdbSetNum(Id: 1: TDNONY);
+                rc = RdbSetStr(Id: 2: TDNKOJ);
+                rc = RdbSetNum(Id: 3: TDZETI);
+                rc = RdbSetStr(Id: 4: TDSERL);
+                rc = RdbSetStr(Id: 5: TDLOCN);
+                rc = RdbSetStr(Id: 6: TDNOBN);
+                rc = RdbSetStr(Id: 7: TDSHN);
+                rc = RdbSetStr(Id: 8: TDINDX);
+
+         //     Execute the prepared statement with the set parameter values.
+                rc = RdbPrepExec(Id);
+                        RdbError(@ErrId: @ErrText);
+
+                RdbFreeStmt(Id);
+
+              EndIf;
+
+         EndDo;
+
+
+         //   U  P  D  A  T  E     O  R  D  E  R     S  T  A  T  U  S  E  S      *********
+
+         SetLL *start RDBWP20;
+
+         DoW NOT %eof(RDBWP20);
+
+          Read RDBWP20;
+
+           If %eof(RDBWP20);
+              Leave;
+           EndIf;
+
+           THCRDT = SDate;
+           THCRTM = STime;
+            Write RDBPP201;
+
+           rc = RdbPrepStmt(Id:
+               'Update [dbo].[TBA_OrderStatus] ' +
+               ' set AS400ProcessDate = ?, AS400ProcessStatus = ? ' +
+               ' where TBAKEY = ?  and DockCode = ? ');
+
+                  rc = RdbSetDate(Id: 1: SysDate);
+                  rc = RdbSetStr(Id: 2: THMSG);
+                  rc = RdbSetStr(Id: 3: THINDX);
+                  rc = RdbSetStr(Id: 4: THNUKE);
+
+         //     Execute the prepared statement with the set parameter values.
+           rc = RdbPrepExec(Id);
+                        RdbError(@ErrId: @ErrText);
+
+                RdbFreeStmt(Id);
+
+         EndDo;
+
+         EndIf;
+
+         //     Close the connection to the remote system.
+         RdbClose(Id);
+
+         *InLR = *On;
+         Return;
+
+      /END-FREE

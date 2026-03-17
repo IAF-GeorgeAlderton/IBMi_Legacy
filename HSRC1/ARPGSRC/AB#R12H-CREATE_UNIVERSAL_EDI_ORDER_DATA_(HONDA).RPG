@@ -1,0 +1,244 @@
+     H            Y.
+      ** AB#R12H ************************************************
+      *  CREATE UNIVERSAL EDI ORDER DATA (HONDA)                *
+      *  J.WATANABE   2025.03.18                                *
+      ***********************************************************
+     FAB#EL90 IF  E           K        DISK
+     FAB#EP12 O   E                    DISK
+     FAB#EP13 O   E                    DISK
+      ***********************************************************
+     E                    TBL     1   5 30
+      ***********************************************************
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      254 263 #USER
+      ***********************************************************
+      * MAIN ROUTINE
+      ***********************************************************
+     C                     EXSR #INIT
+      * CREATE HEADER DATA
+     C                     EXSR #HDR
+      * CREATE DETAIL DATA
+     C                     EXSR #DTL
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *=================================================
+      * CREATE HEADER
+      *=================================================
+     C           #HDR      BEGSR
+      *
+     C           *LOVAL    SETLLAB#EL90
+     C                     DO   *HIVAL
+     C                     READ AB#EL90                  98
+     C   98                LEAVE
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELAECRDT    SVCRDT
+     C                     MOVELAEEDID    SVEDID
+     C                     MOVELAEPLNT    SVPLNT
+     C                     MOVELAESHCD    SVSHCD
+     C                     MOVELAERENO    SVRENO
+     C                     ENDIF
+      * BREAK?
+     C           AECRDT    IFNE SVCRDT
+     C           AEEDID    ORNE SVEDID
+     C           AEPLNT    ORNE SVPLNT
+     C           AESHCD    ORNE SVSHCD
+     C                     EXSR #WRT1
+     C                     ENDIF
+      * COUNT RECORD
+     C                     ADD  1         @REC
+      *
+     C                     ENDDO
+      * LAST BREAK?
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #WRT1
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *=================================================
+      * WRITE HEADER (AB#EP12)
+      *=================================================
+     C           #WRT1     BEGSR
+      * WRITE
+     C                     CLEARAB#EP121
+     C                     MOVELTBL,1     E2PRTN
+     C                     MOVELSVPLNT    E2PLNT
+     C                     MOVELSVSHCD    E2SHCD
+      * GET CUST#/DELV#
+     C                     MOVELSVPLNT    $PLNT
+     C                     MOVELSVSHCD    $SHCD
+     C                     CALL 'UEXR09A'
+     C                     PARM           $PLNT   3
+     C                     PARM           $SHCD  10
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     MOVEL$TOKU     E2TOKU
+     C                     MOVEL$NONY     E2NONY
+     C                     MOVE '0'       E2NKOJ
+     C                     MOVEL'00  '    E2NUKE
+      *
+     C                     MOVELSVEDID    E2TRID
+     C                     MOVELSVRENO    E2REF#
+     C                     Z-ADD@REC      E2RCD#
+      * GET BATCH#
+     C                     MOVELE2PRTN    $PRTN
+     C                     MOVELE2REF#    $REF#
+     C                     CALL 'UEXC58H'
+     C                     PARM           $PRTN  30
+     C                     PARM           $REF#  14
+     C                     PARM           $RCVD   8
+     C                     PARM           $RCVT   6
+     C                     PARM           $BCH#   7
+     C                     PARM           $INT#  14
+     C                     MOVEL$BCH#     E2BCH#
+     C                     MOVEL$INT#     E2INT#
+     C                     MOVEL$RCVD     E2RCHZ
+     C                     MOVEL$RCVT     E2RCTM
+     C                     MOVEL$RCVT     E2RCT4
+      *
+     C                     TIME           SDATE
+     C                     Z-ADDTODAY     E2CRHZ
+     C                     Z-ADDNOW       E2CRTM
+     C                     MOVEL#USER     E2CRUS
+     C                     MOVEL#PGM      E2CRPG
+      *
+     C                     WRITEAB#EP121
+      * RESET
+     C                     MOVELAECRDT    SVCRDT
+     C                     MOVELAEEDID    SVEDID
+     C                     MOVELAEPLNT    SVPLNT
+     C                     MOVELAESHCD    SVSHCD
+     C                     MOVELAERENO    SVRENO
+     C                     Z-ADD0         @REC
+      *
+     C                     ENDSR
+      *=================================================
+      * CREATE DETAIL
+      *=================================================
+     C           #DTL      BEGSR
+      *
+      *
+     C           *LOVAL    SETLLAB#EL90
+     C                     DO   *HIVAL
+     C                     READ AB#EL90                  98
+     C   98                LEAVE
+      *
+     C                     EXSR #WRT2
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *=================================================
+      * WRITE DETAIL (AB#EP13)
+      *=================================================
+     C           #WRT2     BEGSR
+      * WRITE
+     C                     CLEARAB#EP131
+     C                     MOVELTBL,1     E3PRTN
+     C                     MOVE '0'       E3NKOJ
+     C                     MOVEL'00  '    E3NUKE
+     C                     MOVELAEEDID    E3TRID
+     C                     MOVELAERENO    E3REF#
+     C                     MOVELAEPLNT    E3PLNT
+     C                     MOVELAESHCD    E3SHCD
+      * DETAIL
+     C                     MOVELAEMHIN    E3MHIN
+     C                     Z-ADDAEQNTY    E3SRYO
+     C                     Z-ADDAEPLSH    E3NDAT
+     C                     Z-ADDAEPLSH    E3NOHZ
+      *
+     C           AEODRN    IFEQ *BLANK
+     C                     MOVELAECONT    E3ODRN
+     C                     ELSE
+     C                     MOVELAEODRN    E3ODRN
+     C                     ENDIF
+      *
+     C                     MOVELAEODRN    E3MKDO
+     C                     MOVE ' '       E3INVN
+     C                     MOVE ' '       E3MANI
+      * GET CUST#/DELV#
+     C                     MOVELAEPLNT    $PLNT
+     C                     MOVELAESHCD    $SHCD
+     C                     CALL 'UEXR09A'
+     C                     PARM           $PLNT   3
+     C                     PARM           $SHCD  10
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     MOVEL$TOKU     E3TOKU
+     C                     MOVEL$NONY     E3NONY
+      * GET QPC
+     C                     MOVELE3TOKU    $TOKU
+     C                     MOVELE3NONY    $NONY
+     C                     MOVELAEMHIN    $MHIN
+     C                     MOVE 'USR'     $HTYP
+     C                     MOVE *BLANK    $DATE
+     C                     CALL 'UTLR35D'
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $HTYP   3
+     C                     PARM           $DATE   8
+     C                     PARM           $SYOS   6
+     C                     PARM           $RTN    1
+     C                     MOVEL$SYOS     E3SYOS
+      *
+     C           E3SYOS    IFEQ 0
+     C                     Z-ADDE3SRYO    E3BOX
+     C                     ELSE
+     C           E3SRYO    DIV  E3SYOS    E3BOX
+     C                     MVR            REM     60
+     C           REM       IFNE 0
+     C                     ADD  1         E3BOX
+     C                     ENDIF
+     C                     ENDIF
+      * GET BATCH#
+     C                     MOVELTBL,1     $PRTN
+     C                     MOVELAERENO    $REF#
+     C                     CALL 'UEXC58H'
+     C                     PARM           $PRTN  30
+     C                     PARM           $REF#  14
+     C                     PARM           $RCVD   8
+     C                     PARM           $RCVT   6
+     C                     PARM           $BCH#   7
+     C                     PARM           $INT#  14
+     C                     MOVEL$BCH#     E3BCH#
+     C                     MOVEL$RCVD     E3RCHZ
+     C                     MOVEL$RCVT     E3RCTM
+     C                     MOVEL$RCVT     E3RCT4
+      *
+     C                     TIME           SDATE
+     C                     Z-ADDTODAY     E3CRHZ
+     C                     Z-ADDNOW       E3CRTM
+     C                     MOVEL#USER     E3CRUS
+     C                     MOVEL#PGM      E3CRPG
+      *
+     C                     WRITEAB#EP131
+      *
+     C                     ENDSR
+      *=================================================
+      * INITIAL SET
+      *=================================================
+     C           #INIT     BEGSR
+      *
+     C                     TIME           SDATE
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD0         @REC    60
+     C           *LIKE     DEFN AECRDT    SVCRDT
+     C           *LIKE     DEFN AEEDID    SVEDID
+     C           *LIKE     DEFN AEPLNT    SVPLNT
+     C           *LIKE     DEFN AESHCD    SVSHCD
+     C           *LIKE     DEFN AERENO    SVRENO
+      *
+     C                     ENDSR
+** TBL (30A) ......2.........3
+HONDA NAEDIPRD                   01
+                                 02
+                                 03
+                                 04
+                                 05

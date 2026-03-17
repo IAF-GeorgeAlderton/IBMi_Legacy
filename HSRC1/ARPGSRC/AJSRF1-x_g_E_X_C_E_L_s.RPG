@@ -1,0 +1,328 @@
+     H            Y.
+      ** AJSRF1 *******************************************************
+      *  IAF BZ RESULT DOWNLOAD (ACCOUNTING)
+      * めっき投入実績ＥＸＣＥＬへ転送
+      *  KIRI                                            2018.11.13
+      *****************************************************************
+     FAJSPWF1 CF  E                    WORKSTN
+     F                                              KINFDS INFDS
+      *
+      *  PLATING  ADMIT RESULTS FILES.     *
+     FAJSPL14 IF  E           K        DISK
+      *
+      * .. PART INFORMATION M/F   *.
+     FFCEPL01 IF  E           K        DISK
+      *
+      *  WORK FILE
+     FAJSWPF1 UF  E           K        DISK                      A
+      *
+      * CSV DATA
+     FAJSWPF2 O   F     128            DISK
+      *===============================================================
+     E                    ER      1  10 60
+     E                    TB1     1  99  1   TB2    20
+      *===============================================================
+     IINFDS       DS
+     I                                    B 378 3790$$RRN
+     I****************************
+      *プログラム状況データ構造*
+     I****************************
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W$WSID
+     I                                      254 263 W$USER
+     I                                      264 269 W$JBNO
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60@SYSTM
+     I                                        7  140@SYSHZ
+      * 投入年月　から
+     I            DS
+     I                                        1   60@STYM
+     I                                        1   40@STYY
+     I                                        5   60@STMM
+      * 投入年月　まで
+     I            DS
+     I                                        1   60@EDYM
+     I                                        1   40@EDYY
+     I                                        5   60@EDMM
+      * 投入年月
+     I            DS
+     I                                        1   60J1WIN
+     I                                        1   40J1WINY
+     I                                        5   60J1WINM
+      * 削除日付
+     I            DS
+     I                                        1   80A2GSHZ
+     I                                        1   40A2GSYY
+     I                                        5   60A2GSMM
+     I                                        7   80A2GSDD
+      *  SURFACE TREATMENT 1
+     I            DS
+     I                                        1   4 A2MEK1
+     I                                        3   3 $$MEK1
+     C*===============================================================
+     C*
+     C           *ENTRY    PLIST
+     C                     PARM           @PARM6  1
+      *===============================================================
+      *  START  PROGRAM
+      *===============================================================
+     C                     MOVE '#INIT   '@STEP   8
+      *
+     C           @STEP     DOUEQ'#END    '
+     C           @STEP     CASEQ'#INIT   '#INIT            初期処理
+     C           @STEP     CASEQ'#DSP1   '#DSP1
+     C           @STEP     CASEQ'#CHK1   '#CHK1
+     C           @STEP     CASEQ'#CHK1 F5'#CHK1
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *===============================================================
+      * 初期ﾈｮmb
+      *===============================================================
+     C           #INIT     BEGSR
+     C                     MOVEA*ALL'0'   *IN
+     C                     TIME           @TIME
+     C                     MOVE *BLANK    @AI
+      *
+     C                     CLEARDSP01
+     C                     MOVE 'I'       @AI
+     C                     MOVE '#DSP1   '@STEP
+      *
+     C                     ENDSR
+      *===============================================================
+      *  指示画面
+      *===============================================================
+     C           #DSP1     BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     SETOF                     99
+     C                     MOVEA'00000000'*IN,11           11-18
+     C                     MOVE *BLANK    @ERR
+      *
+     C                     SELEC
+     C* < F1 >
+     C           *INKA     WHEQ *ON
+     C                     MOVE '#END    '@STEP
+     C* < F5 >
+     C           *INKE     WHEQ *ON
+     C                     MOVE '#CHK1 F5'@STEP
+     C* <    >
+     C                     OTHER
+     C                     MOVE '#CHK1   '@STEP
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *===============================================================
+      *  指示画面チェック
+      *===============================================================
+     C           #CHK1     BEGSR
+      *
+      * YYMM (11,12,13,14)
+      *
+     C           @STYM     IFEQ 0
+     C                     SETON                     111299
+     C                     MOVELER,1      @ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C*
+     C           @EDYM     IFEQ 0
+     C                     Z-ADD@STYM     @EDYM
+     C                     ENDIF
+      *
+     C           @AI       IFEQ *BLANK
+     C                     SETON                     1599
+     C                     MOVELER,5      @ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+      *
+     C           @AI       IFEQ 'A'
+     C           @AI       OREQ 'I'
+     C                     MOVE @AI       @PARM6
+     C                     ELSE
+     C                     MOVELER,6      @ERR
+     C                     SETON                     1599
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+      *
+     C           KEY01     KLIST
+     C                     KFLD           @STYY
+     C                     KFLD           @STMM
+      *
+      *                             データの有無チェック
+     C                     MOVE ' '       @@UMU   1
+     C                     EXSR ##WORK
+      *
+     C           @@UMU     IFEQ ' '
+     C                     SETON                     111213
+     C                     SETON                     14  99
+     C                     MOVELER,4      @ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+      *
+      *-------------------------*
+     C           $CHK1Z    TAG
+      *-------------------------*
+     C           *IN99     IFEQ *OFF
+     C           @STEP     ANDEQ'#CHK1 F5'
+     C*                             集計処理
+     C                     EXSR ##WORK
+     C                     EXSR ##CSV
+     C                     MOVE '#END    '@STEP
+     C                     ELSE
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDIF
+     C                     ENDSR
+      *===============================================================
+      *===============================================================
+     C           ##WORK    BEGSR
+      *
+     C           KEY02     KLIST
+     C                     KFLD           J1MKKB
+     C                     KFLD           J1WINY
+     C                     KFLD           J1WINM
+     C                     KFLD           J1IROK
+     C                     KFLD           K@SAIK  1
+     C                     KFLD           K@BAKE  1
+     C*
+     C           KEY03     KLIST
+     C                     KFLD           J1HIN1           PART NUMBER 1
+     C                     KFLD           J1HIN2           PART NUMBER 2
+     C                     KFLD           J1HIN3           PART NUMBER 3
+      *
+     C           KEY01     SETLLAJSPL14
+      *-------------------------
+     C                     DO   *HIVAL
+     C                     READ AJSPL14                  90
+     C   90                LEAVE
+     C           J1SKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+     C* 投入年月
+     C           J1WIN     IFGT @EDYM
+     C                     LEAVE
+     C                     ENDIF
+     C*                             データの有無チェック
+     C           @@UMU     IFEQ ' '
+     C                     MOVE '*'       @@UMU   1
+     C                     LEAVE
+     C                     ENDIF
+     C*
+     C*        再投入処理
+     C           J1SAIK    IFEQ '1'
+     C                     MOVE '1'       K@SAIK
+     C                     ELSE
+     C                     MOVE ' '       K@SAIK
+     C                     ENDIF
+     C*
+     C*        ベーキング
+     C                     MOVE ' '       K@BAKE  1
+     C           KEY03     CHAINFCEPL01              92
+     C  N92      A2GSKD    IFEQ 'D'
+     C           A2GSHZ    ANDLE@SYSHZ
+     C                     SETON                     92
+     C                     ENDIF
+     C           *IN92     IFEQ *OFF
+     C           $$MEK1    ANDNE'.'
+     C                     MOVE '1'       K@BAKE
+     C                     ENDIF
+     C*
+     C*                             集計処理
+     C           KEY02     CHAINAJSWPF1              91
+     C           *IN91     IFEQ *OFF
+     C                     ADD  J1WMJY    W1WMJY
+     C                     UPDATAJSWPF11
+     C                     ELSE
+     C                     MOVELJ1MKKB    W1MKKB           PLATING MACHINE NO
+     C                     Z-ADDJ1WINY    W1WINY           WORK ADMITTABLE YEAR
+     C                     Z-ADDJ1WINM    W1WINM           WORK ADMITTABLE MONTH
+     C                     MOVELJ1IROK    W1IROK           COLOR INSTRUCTION
+     C                     SETOF                     71
+     C                     Z-ADD0         @X      20
+     C                     MOVEL*BLANK    W1IROM
+     C                     MOVELK@SAIK    W1SAIK
+     C                     MOVELK@BAKE    W1BAKE
+     C                     Z-ADDJ1WMJY    W1WMJY
+     C                     WRITEAJSWPF11
+     C                     ENDIF
+     C*
+     C                     ENDDO
+      *-------------------------
+     C                     ENDSR
+      *===============================================================
+      *===============================================================
+     C           ##CSV     BEGSR
+     C*
+     C           *LOVAL    SETLLAJSWPF1
+     C                     EXCPT$HED
+     C*-------------------------
+      * SHIPPING SHORTAGE FILE                         *
+     C*-------------------------
+S1   C                     DO   *HIVAL
+     C                     READ AJSWPF1                  90
+     C   90                LEAVE
+     C*
+     C                     SETOF                     71
+     C                     Z-ADD1         @X      20
+     C                     MOVEL*BLANK    W1IROM 20
+     C           W1IROK    LOKUPTB1,@X                   71
+     C           *IN71     IFEQ '1'
+     C                     MOVELTB2,@X    W1IROM
+     C                     END
+      *
+     C                     EXCPT$DATA
+E1   C                     ENDDO
+     C*-------------------------
+     C*-------------------------
+     C                     ENDSR
+      *===============================================================
+      *===============================================================
+     OAJSWPF2 E                $HED
+     O                                      'FACTORY CODE,'
+     O                                      'FACTORY NAME,'
+     O                                      'MACHINE NO,'
+     O                                      'WORK DATE YYYY,'
+     O                                      'WORK DATE MM,'
+     O                                      'COLOR CODE,'
+     O                                      'COLOR NAME,'
+     O                                      'RELOADING,'
+     O                                      'BAKEING,'
+     O                                      'WEIGHT,'
+      *********
+     O        E                $DATA
+     O                                      '0111'
+     O                                      ','
+     O                                      'IAF'
+     O                                      ','
+     O                         W1MKKB
+     O                                      ','
+     O                         W1WINY
+     O                                      ','
+     O                         W1WINM
+     O                                      ','
+     O                         W1IROK
+     O                                      ','
+     O                         W1IROM
+     O                                      ','
+     O                         W1SAIK
+     O                                      ','
+     O                         W1BAKE
+     O                                      ','
+     O                         W1WMJY       '        0 .  '
+     O                                      ','
+      *===============================================================
+**  ERROR
+E-01 INPUT YEAR MONTH
+E-02
+E-03
+E-04 NO DATA.
+E-05 INPUT CHOICES
+E-06 CHOICES IS A OR I
+** TB1/TB2
+1NONE
+4WHITE(FORD)
+6WHITE
+7BLACK

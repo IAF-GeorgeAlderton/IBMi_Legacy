@@ -1,0 +1,260 @@
+     H            Y.
+     F** AL#R02  *******************************************
+     F* PALLET FILE (AL#PP11)                              *
+     F*      ITS.        2015.05.21                        *
+     F******************************************************
+     FAL#PL01 IF  E           K        DISK
+     FAL#PL11 UF  E           K        DISK
+     FAGDPL12 IF  E           K        DISK
+     FAL#PP11 O   E                    DISK                      A
+     FAL#PP00 IF  E           K        DISK
+     FAL#PP31 IF  E           K        DISK
+     FAL#PP81 IF  E           K        DISK
+      *
+     I            DS
+     I                                        1   8 CASHID
+     I                                        1   40CASHYY
+     I                                        5   60CASHMM
+     I                                        7   80CASHDD
+      *
+     I            DS
+     I                                        1  12 @SHIN
+     I                                        1   5 @SHN1
+     I                                        6  10 @SHN2
+     I                                       11  12 @SHN3
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60STIME
+     I                                        7  140SDATE
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           P1SHID  8
+     C                     PARM           P1SHIT  6
+     C                     PARM           P1SURT  9
+      *-----------------------------------------------------
+      *  MAIN ROUTINE
+      *-----------------------------------------------------
+     C                     TIME           WTIME
+      * PALLET PULLING MIN
+     C                     Z-ADD55        PULMIN  30
+     C                     MOVEL'PULMIN'  KEY    10
+     C           KEY       CHAINAL#PP001             20
+     C           *IN20     IFEQ '0'
+     C                     Z-ADDC0VALU    PULMIN
+     C                     ENDIF
+      * PALLET PULLING MAX
+     C                     Z-ADD72        PULMAX  30
+     C                     MOVEL'PULMAX'  KEY    10
+     C           KEY       CHAINAL#PP001             20
+     C           *IN20     IFEQ '0'
+     C                     Z-ADDC0VALU    PULMAX
+     C                     ENDIF
+      *
+     C           KEYCA     KLIST
+     C                     KFLD           P1SHID
+     C                     KFLD           P1SHIT
+     C                     KFLD           P1SURT
+     C           KEYCA     SETLLAL#PL011
+     C           KEYCA     READEAL#PL011                 90
+     C           *IN90     DOWEQ'0'
+     C           CASKJY    IFEQ 'D'
+     C           CASKHZ    ANDLESDATE
+     C                     ELSE
+     C           CAFIXD    IFEQ 0
+     C                     EXSR #SB390
+     C                     EXSR #SB400
+     C           GET       IFEQ '0'
+     C                     EXSR #SB500
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+     C           KEYCA     READEAL#PL011                 90
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *-----------------------------------------------------
+      * AL#PP81
+      *-----------------------------------------------------
+     CSR         #SB390    BEGSR
+      *
+     C                     MOVEL'0'       WKPPUL  1
+     C                     EXSR #SB700
+     C           KEYCN     KLIST
+     C                     KFLD           KNSHN1  5
+     C                     KFLD           KNSHN2  5
+     C                     KFLD           KNSHN3  2
+     C                     MOVEL@SHN1     KNSHN1
+     C                     MOVEL@SHN2     KNSHN2
+     C                     MOVEL@SHN3     KNSHN3
+      * PALLET PULLINGは社内品番までキーとする
+     C           KEYCN     CHAINAL#PP811             27
+     C           *IN27     IFEQ '0'
+     C           CNSKJY    ANDEQ'D'
+     C           CNSKHZ    ANDLESDATE
+     C                     SETON                     27
+     C                     ENDIF
+     C           *IN27     IFEQ '0'
+     C                     MOVEL'1'       WKPPUL  1
+     C                     ELSE
+     C                     ENDIF
+      *
+     CSR         ESB390    ENDSR
+      *-----------------------------------------------------
+      * AL#PP11
+      *-----------------------------------------------------
+     CSR         #SB400    BEGSR
+      *
+     C           KEYC1     KLIST
+     C                     KFLD           CASHID
+     C                     KFLD           CASHIT
+     C                     KFLD           CASURT
+     C                     KFLD           CANONY
+     C                     KFLD           CANKOJ
+     C                     KFLD           CANUKE
+     C                     KFLD           CAORD#
+     C                     KFLD           CAPALT
+     C                     KFLD           KKSHN1  5
+     C                     KFLD           KKSHN2  5
+     C                     KFLD           KKSHN3  2
+      * PALLET PULLINGは社内品番までキーとする
+     C           WKPPUL    IFEQ '1'
+     C                     MOVEL@SHN1     KKSHN1
+     C                     MOVEL@SHN2     KKSHN2
+     C                     MOVEL@SHN3     KKSHN3
+     C                     ELSE
+     C                     MOVEL*BLANK    KKSHN1
+     C                     MOVEL*BLANK    KKSHN2
+     C                     MOVEL*BLANK    KKSHN3
+     C                     ENDIF
+      *データがあれば箱数を加算
+     C                     MOVEL'0'       GET     1
+     C           KEYC1     SETGTAL#PL111
+     C           KEYC1     REDPEAL#PL111                 81
+     C           *IN81     DOWEQ'0'
+     C           GET       ANDEQ'0'
+     C           C1SKJY    IFEQ 'D'
+     C           C1SKHZ    ANDLESDATE
+     C                     ELSE
+     C                     ADD  1         C1BOX
+      * 2016.02.18パレット集荷の条件破棄
+     C*****      C1BOX     IFGE PULMIN
+     C*****      C1BOX     ANDLEPULMAX
+     C*****                MOVEL'1'       C1PPUL
+     C*****                ELSE
+     C*****                MOVEL*BLANK    C1PPUL
+     C*****                ENDIF
+     C           WKPPUL    IFEQ '1'
+     C                     MOVEL'1'       C1PPUL
+     C                     ENDIF
+     C                     UPDATAL#PL111
+     C                     MOVEL'1'       GET
+     C                     ENDIF
+     C           KEYC1     REDPEAL#PL111                 81
+     C                     ENDDO
+      *
+     CSR         ESB400    ENDSR
+      *-----------------------------------------------------
+      * AL#PP11 NEW
+      *-----------------------------------------------------
+     CSR         #SB500    BEGSR
+      *
+     C           KEYF8     KLIST
+     C                     KFLD           CASHYY
+     C                     KFLD           CASHMM
+     C                     KFLD           CASHDD
+      *
+     C           KEYC3     KLIST
+     C                     KFLD           CASHID
+     C                     KFLD           KKEXTR
+      *
+     C                     CLEARAL#PP111
+     C                     Z-ADDSDATE     C1KOHZ
+     C                     Z-ADDSTIME     C1KOTI
+     C                     MOVELW#USER    C1KOME
+     C                     MOVELCANONY    C1NONY
+     C                     MOVELCANKOJ    C1NKOJ
+     C                     MOVELCADOCK    C1NUKE
+     C                     MOVELCAORD#    C1ORD#
+     C                     MOVELCASHID    C1SHID
+     C                     MOVELCASHIT    C1SHIT
+     C                     MOVELCASURT    C1SURT
+     C                     MOVELCAPALT    C1PALT
+     C                     Z-ADD1         C1BOX
+     C                     Z-ADD0         C1FIXD
+     C                     Z-ADD0         C1FIXT
+     C                     Z-ADD0         KKEXTR  30
+      *初回データの確定日
+     C           KEYC3     CHAINAL#PP311             27
+     C           *IN27     IFEQ '0'
+     C                     Z-ADDC3FIXD    C1FIXD
+     C                     Z-ADDC3FIXT    C1FIXT
+     C                     ENDIF
+      * EXTRA#
+     C                     CALL 'AL#R34'
+     C                     PARM           C1FIXD
+     C                     PARM           C1FIXT
+     C                     PARM           P9EXTR  30
+     C                     Z-ADDP9EXTR    C1EXTR
+      *
+     C                     Z-ADD0         C1PRT
+     C                     MOVEL*BLANK    P9TRKB
+     C                     CALL 'AL#RC9'
+     C                     PARM           CASURT
+     C                     PARM           P9TRKB  2
+     C                     MOVELP9TRKB    C1TRKB
+     C                     MOVEL*BLANK    C1IAFB
+     C                     MOVEL*BLANK    C1IAFP
+     C                     MOVEL*BLANK    C1PPUL
+     C                     MOVEL*BLANK    C1SAT
+     C           KEYF8     CHAINAGDPL121             18
+     C           *IN18     IFEQ '0'
+     C           F8HIRU    IFEQ '*'
+     C                     MOVEL'1'       C1SAT
+     C                     ENDIF
+     C                     ENDIF
+      * PALLET PULLINGは社内品番までセットする
+     C           WKPPUL    IFEQ '1'
+     C                     MOVEL@SHN1     C1SHN1
+     C                     MOVEL@SHN2     C1SHN2
+     C                     MOVEL@SHN3     C1SHN3
+     C                     MOVEL'1'       C1PPUL
+     C                     Z-ADD1         C1PRT
+     C                     ELSE
+     C                     MOVEL*BLANK    C1SHN1
+     C                     MOVEL*BLANK    C1SHN2
+     C                     MOVEL*BLANK    C1SHN3
+     C                     ENDIF
+      *
+     C                     WRITEAL#PP111
+      *
+     CSR         ESB500    ENDSR
+      *-----------------------------------------------------
+      *社内品番
+      *-----------------------------------------------------
+     CSR         #SB700    BEGSR
+      *社内品番
+     C                     MOVELCATOKU    PTOKU
+     C                     MOVELCANONY    PNONY
+     C                     MOVELCANKOJ    PNKOJ
+     C                     MOVELCANUKE    PNUKE
+     C                     MOVEL*BLANK    @MHIN
+     C                     MOVELCAMHN     @MHIN
+     C                     MOVEL*BLANK    @SHIN
+     C                     CALL 'BBHR50'
+     C                     PARM           PTOKU   4
+     C                     PARM           PNONY   4
+     C                     PARM           PNKOJ   1
+     C                     PARM           PNUKE   4
+     C                     PARM           @MHIN  20
+     C                     PARM           @SHIN  12
+     C                     PARM           @FLG    1
+      *
+     CSR         ESB700    ENDSR

@@ -1,0 +1,574 @@
+     ******************************************************************
+     **  プログラム名   :  DELAY EXCEL DATA 　　　　　　　　     **
+     **  プログラムＩＤ :  MRHR6B     <RPG>                        **
+     **  作成年月日     :  2024/06/26                              **
+     **  作成者         :  QY.LIU
+     **--------------------------------------------------------------**
+     **  変更年月日     :  YYYY/MM/DD                              **
+     **  変更者         :                                          **
+     **  変更内容       :                                          **
+     ******************************************************************
+     ** <<使用標識説明>>
+     **        80       :生産遅れリスト　印刷用ワークファイル(L1)読込
+     **        90       :オーバーフロー標識
+     **        99       :代表エラー標識
+     ******************************************************************
+     H            Y/                                    1
+     **==============================================================**
+     **  ファイル
+     **==============================================================**
+     FDFAWP02 IF  E           K        DISK
+     FDFAWP03 O   F    1024            DISK                      A
+     **==============================================================**
+     **  配列
+     **==============================================================**
+     E                    @PI     1   4 30                INST.
+     **==============================================================**
+     **  ＤＳ
+     **==============================================================**
+     I*<<システム日時>>
+     I            DS
+     I                                        1  140S@TIME
+     I                                        1   60S@HMS
+     I                                        1   20S@TMHH
+     I                                        3   40S@TMMM
+     I                                        5   60S@TMSS
+     I                                        7  140S@YYMD
+     I                                        7  100S@DYYY
+     I                                       11  120S@DYMM
+     I                                       13  140S@DYDD
+     I            DS
+     I                                        1  14 W2SHN
+     I                                        1   5 P1SHN1
+     I                                        6   6 P1SHF1
+     I                                        7  11 P1SHN2
+     I                                       12  12 P1SHF2
+     I                                       13  14 P1SHN3
+     I            DS
+     I                                        1  23 W2UHN
+     I                                        1   5 P1UHN1
+     I                                        6   6 P1UHF1
+     I                                        7  11 P1UHN2
+     I                                       12  12 P1UHF2
+     I                                       13  17 P1UHN3
+     I                                       18  18 P1UHF3
+     I                                       19  23 P1UHN4
+     I            DS
+     I                                        1  14 W2BHN
+     I                                        1   5 P1BHN1
+     I                                        6   6 P1BHF1
+     I                                        7  11 P1BHN2
+     I                                       12  12 P1BHF2
+     I                                       13  14 P1BHN3
+     I            DS
+     I                                        1  14 W2KH1
+     I                                        1   5 P1KHN1
+     I                                        6   6 P1KHF1
+     I                                        7  11 P1KHN2
+     I                                       12  12 P1KHF2
+     I                                       13  14 P1KHN3
+     I            DS
+     I                                        1  14 W2KH2
+     I                                        1   5 P2KHN1
+     I                                        6   6 P2KHF1
+     I                                        7  11 P2KHN2
+     I                                       12  12 P2KHF2
+     I                                       13  14 P2KHN3
+     I            DS
+     I                                        1   5 HSKUBI
+     I                                        1   3 HSKUBL
+     I                                        4   5 HSKUBR
+     I            DS
+     I                                        1   3 HSTUSZ
+     I                                        1   2 HSTUSL
+     I                                        3   3 HSTUSR
+     I            DS
+     I                                        1   3 HSKIKI
+     I                                        1   2 HSKIKL
+     I                                        3   3 HSKIKR
+     I            DS
+     I                                        1   5 HSKAZI
+     I                                        1   3 HSKAZL
+     I                                        4   5 HSKAZR
+     I            DS
+     I                                        1   7 HSSOZI
+     I                                        1   5 HSSOZL
+     I                                        6   7 HSSOZR
+     I            DS
+     I                                        1   7 HSKASI
+     I                                        1   5 HSKASL
+     I                                        6   7 HSKASR
+     **--------------------------------------------------------------**
+     I* <<共通>>
+     I            DS
+     I                                        1   80W@SYMD
+     I                                        1   20W@SMM
+     I                                        3   40W@SDD
+     I                                        5   80W@SYY4
+     I*
+     **==============================================================**
+     **  パラメータ
+     **==============================================================**
+     C           *ENTRY    PLIST
+     C                     PARM           PRTN    1
+     **==============================================================**
+     **  ＫＥＹ
+     **==============================================================**
+     C*
+     **==============================================================**
+     **  メインルーチン
+     **==============================================================**
+     C*---<初期処理>---*
+     C                     EXSR #INIT
+     C                     EXCPTHD
+     C*---<主処理>---*
+     C           *LOVAL    SETLLDFAWP021
+     C                     EXSR #RED10
+     C*
+     C           *IN80     DOWEQ'0'                        ¬DO_01
+     C*頭ゼロ消去右詰め文字  NOMINAL LENGTH
+     C                     MOVE W2KUBI    HSKUBI
+     C**
+     C                     MOVE *BLANK    INSUJI
+     C                     MOVE HSKUBL    INSUJI 110
+     C                     MOVE *BLANK    OTMOJI 11
+     C                     MOVE *BLANK    CHKFLG  1
+     C                     CALL 'MRHR47'
+     C                     PARM           INSUJI
+     C                     PARM           OTMOJI
+     C                     PARM           CHKFLG
+     C           CHKFLG    IFEQ ' '
+     C                     MOVE OTMOJI    HSKUBL
+     C                     ENDIF
+     C           HSKUBR    IFEQ '00'
+     C                     MOVE *BLANK    HSKUBR
+     C                     SETON                     70
+     C                     ENDIF
+     C                     EXSR #DTL10
+     C                     EXSR #RED10
+     C                     ENDDO                           ｢DO_01
+     C*
+     C*---<終了処理>---*
+      *
+     C           @CNT      IFEQ 0
+     C                     MOVE '*'       PRTN
+     C                     ENDIF
+     C*
+      *
+     C                     SETON                     LR
+     C                     RETRN
+     C*
+     C**************************************************************************
+     C*         Ｓ　Ｕ　Ｂ　－　Ｒ　Ｏ　Ｕ　Ｔ　Ｉ　Ｎ　Ｅ
+     C**************************************************************************
+     C*-------------------------------------------------------------------------
+     C*          #INIT    初期処理
+     C*-------------------------------------------------------------------------
+     C           #INIT     BEGSR
+     C*
+     C                     TIME           S@TIME
+     C                     Z-ADDS@DYMM    W@SMM
+     C                     Z-ADDS@DYDD    W@SDD
+     C                     Z-ADDS@DYYY    W@SYY4
+     C                     Z-ADD0         @CNT    60
+     C                     MOVE *BLANK    PRTN
+     C*
+     C                     ENDSR
+     C*-------------------------------------------------------------------------
+     C*          #RED10    READ WORK FILE
+     C*-------------------------------------------------------------------------
+     C           #RED10    BEGSR
+     C*
+     C                     DO   *HIVAL                     ¬DO_01
+     C                     READ DFAWP021                 80
+     C   80                LEAVE
+     C*
+     C                     LEAVE
+     C                     ENDDO                           ｢DO_01
+     C*
+     C                     ENDSR
+     C*-------------------------------------------------------------------------
+     C*          #DTL10    DETAIL WRITE
+     C*-------------------------------------------------------------------------
+     C           #DTL10    BEGSR
+     C*
+     C                     MOVELW2SHN1    P1SHN1
+     C                     MOVELW2SHN2    P1SHN2
+     C                     MOVELW2SHN3    P1SHN3
+     C                     MOVE '-'       P1SHF1
+     C                     MOVE '-'       P1SHF2
+     C           P1SHN3    IFEQ *BLANK                      *IF01
+     C                     MOVE ' '       P1SHF2
+     C           P1SHN2    IFEQ *BLANK                      *IF02
+     C                     MOVE ' '       P1SHF1
+     C                     ENDIF                            *EIF02
+     C                     ENDIF                            *EIF01
+      *
+     C                     MOVELW2UHN1    P1UHN1
+     C                     MOVELW2UHN2    P1UHN2
+     C                     MOVELW2UHN3    P1UHN3
+     C                     MOVELW2UHN4    P1UHN4
+     C                     MOVE '-'       P1UHF1
+     C                     MOVE '-'       P1UHF2
+     C                     MOVE '-'       P1UHF3
+     C           P1UHN4    IFEQ *BLANK
+     C                     MOVE ' '       P1UHF3
+     C           P1UHN3    IFEQ *BLANK
+     C                     MOVE ' '       P1UHF2
+     C           P1UHN2    IFEQ *BLANK
+     C                     MOVE ' '       P1UHF1
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+     C*
+     C                     MOVELW2BHN1    P1BHN1
+     C                     MOVELW2BHN2    P1BHN2
+     C                     MOVELW2BHN3    P1BHN3
+     C                     MOVE '-'       P1BHF1
+     C                     MOVE '-'       P1BHF2
+     C           P1BHN3    IFEQ *BLANK                      *IF01
+     C                     MOVE ' '       P1BHF2
+     C           P1BHN2    IFEQ *BLANK                      *IF02
+     C                     MOVE ' '       P1BHF1
+     C                     ENDIF                            *EIF02
+     C                     ENDIF                            *EIF01
+     C*
+     C                     MOVELW2KH11    P1KHN1
+     C                     MOVELW2KH12    P1KHN2
+     C                     MOVELW2KH13    P1KHN3
+     C                     MOVE '-'       P1KHF1
+     C                     MOVE '-'       P1KHF2
+     C           P1KHN3    IFEQ *BLANK                      *IF01
+     C                     MOVE ' '       P1KHF2
+     C           P1KHN2    IFEQ *BLANK                      *IF02
+     C                     MOVE ' '       P1KHF1
+     C                     ENDIF                            *EIF02
+     C                     ENDIF                            *EIF01
+     C*
+     C                     MOVELW2KH21    P2KHN1
+     C                     MOVELW2KH22    P2KHN2
+     C                     MOVELW2KH23    P2KHN3
+     C                     MOVE '-'       P2KHF1
+     C                     MOVE '-'       P2KHF2
+     C           P2KHN3    IFEQ *BLANK                      *IF01
+     C                     MOVE ' '       P2KHF2
+     C           P2KHN2    IFEQ *BLANK                      *IF02
+     C                     MOVE ' '       P2KHF1
+     C                     ENDIF                            *EIF02
+     C                     ENDIF                            *EIF01
+      *
+      *  BOXES DIVIDED BY ISSUE LOT
+     C           W2ILOT    IFEQ *ZERO
+     C                     Z-ADD1         W2ILOT
+     C                     END
+     C           W2HKSU    DIV  W2ILOT    W2KMAI  40       *発行枚数
+     C                     MVR            W@MVR   80       *余り
+     C           W@MVR     IFNE *ZERO                      ~¬IF_02
+     C                     ADD  1         W2KMAI           *発行枚数
+     C                     END                             _｢IF_02
+      *
+     C* COMMA TO DOT
+     C           W2MME1    IFNE *BLANK                     ~¬IF_02
+     C                     MOVE *BLANK    INSUJ2
+     C                     MOVELW2MME1    INSUJ2100
+     C                     MOVE *BLANK    OTMOJ2100
+     C                     MOVE *BLANK    CHKFLG  1
+     C                     CALL 'MRHR6C'
+     C                     PARM           INSUJ2
+     C                     PARM           OTMOJ2
+     C                     PARM           CHKFLG
+     C           CHKFLG    IFEQ ' '
+     C                     MOVELOTMOJ2    W2MME1
+     C                     ENDIF
+     C                     ENDIF
+     C* COMMA TO DOT
+     C           W2MME2    IFNE *BLANK                     ~¬IF_02
+     C                     MOVE *BLANK    INSUJ2
+     C                     MOVELW2MME2    INSUJ2100
+     C                     MOVE *BLANK    OTMOJ2100
+     C                     MOVE *BLANK    CHKFLG  1
+     C                     CALL 'MRHR6C'
+     C                     PARM           INSUJ2
+     C                     PARM           OTMOJ2
+     C                     PARM           CHKFLG
+     C           CHKFLG    IFEQ ' '
+     C                     MOVELOTMOJ2    W2MME2
+     C                     ENDIF
+     C                     ENDIF
+     C**
+     C*頭ゼロ消去右詰め文字  NOMINAL LENGTH
+     C                     MOVE W2KUBI    HSKUBI
+     C**
+     C                     MOVE *BLANK    INSUJI
+     C                     MOVE HSKUBL    INSUJI 110
+     C                     MOVE *BLANK    OTMOJI 11
+     C                     MOVE *BLANK    CHKFLG  1
+     C                     CALL 'MRHR47'
+     C                     PARM           INSUJI
+     C                     PARM           OTMOJI
+     C                     PARM           CHKFLG
+     C           CHKFLG    IFEQ ' '
+     C                     MOVE OTMOJI    HSKUBL
+     C                     ENDIF
+     C*頭ゼロ消去右詰め文字  NOMINAL SIZE
+     C                     MOVE W2TUSZ    HSTUSZ
+     C*
+     C                     MOVE *BLANK    INSUJI
+     C                     MOVE HSTUSL    INSUJI 110
+     C                     MOVE *BLANK    OTMOJI 11
+     C                     MOVE *BLANK    CHKFLG  1
+     C                     CALL 'MRHR47'
+     C                     PARM           INSUJI
+     C                     PARM           OTMOJI
+     C                     PARM           CHKFLG
+     C           CHKFLG    IFEQ ' '
+     C                     MOVE OTMOJI    HSTUSL
+     C                     ENDIF
+     C*頭ゼロ消去右詰め文字 MATERIAL PROPETIES
+     C                     MOVE W2KIKI    HSKIKI
+     C*
+     C                     MOVE *BLANK    INSUJI
+     C                     MOVE HSKIKL    INSUJI 110
+     C                     MOVE *BLANK    OTMOJI 11
+     C                     MOVE *BLANK    CHKFLG  1
+     C                     CALL 'MRHR47'
+     C                     PARM           INSUJI
+     C                     PARM           OTMOJI
+     C                     PARM           CHKFLG
+     C           CHKFLG    IFEQ ' '
+     C                     MOVE OTMOJI    HSKIKL
+     C                     ENDIF
+     C*頭ゼロ消去右詰め文字    WIRE DIAMETER
+     C                     MOVE W2KAZI    HSKAZI
+     C*
+     C                     MOVE *BLANK    INSUJI
+     C                     MOVE HSKAZL    INSUJI 110
+     C                     MOVE *BLANK    OTMOJI 11
+     C                     MOVE *BLANK    CHKFLG  1
+     C                     CALL 'MRHR47'
+     C                     PARM           INSUJI
+     C                     PARM           OTMOJI
+     C                     PARM           CHKFLG
+     C           CHKFLG    IFEQ ' '
+     C                     MOVE OTMOJI    HSKAZL
+     C                     ENDIF
+     C*頭ゼロ消去右詰め文字
+     C                     MOVE W2SOZI    HSSOZI
+     C**
+     C                     MOVE *BLANK    INSUJI
+     C                     MOVE HSSOZL    INSUJI 110
+     C                     MOVE *BLANK    OTMOJI 11
+     C                     MOVE *BLANK    CHKFLG  1
+     C                     CALL 'MRHR47'
+     C                     PARM           INSUJI
+     C                     PARM           OTMOJI
+     C                     PARM           CHKFLG
+     C           CHKFLG    IFEQ ' '
+     C                     MOVE OTMOJI    HSSOZL  5
+     C                     ENDIF
+     C*頭ゼロ消去右詰め文字
+     C                     MOVE W2KASI    HSKASI  7
+     C**
+     C                     MOVE *BLANK    INSUJI
+     C                     MOVE HSKASL    INSUJI 110
+     C                     MOVE *BLANK    OTMOJI 11
+     C                     MOVE *BLANK    CHKFLG  1
+     C                     CALL 'MRHR47'
+     C                     PARM           INSUJI
+     C                     PARM           OTMOJI
+     C                     PARM           CHKFLG
+     C           CHKFLG    IFEQ ' '
+     C                     MOVE OTMOJI    HSKASL  5
+     C                     ENDIF
+      *
+     C                     SELEC                           ¬SELEC_01
+     C           W2TEHI    WHEQ 'A'                        +WHEN_01
+     C                     MOVEL@PI,01    W2TEHN 30
+     C           W2TEHI    WHEQ 'B'                        +WHEN_01
+     C                     MOVEL@PI,02    W2TEHN
+     C           W2TEHI    WHEQ 'C'                        +WHEN_01
+     C                     MOVEL@PI,03    W2TEHN
+     C           W2TEHI    WHEQ 'D'                        +WHEN_01
+     C                     MOVEL@PI,04    W2TEHN
+     C                     END                             ｢SELEC_01
+      *
+     C                     EXCPTDT
+     C                     ADD  1         @CNT
+     C*
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+     ODFAWP03 EADD             HD
+    1O                                      'PLAN NO,'
+    2O                                      'LOT NO,'
+    3O                                      'IAF PART NO.,'
+  3-AO                                      'LOCATION,'
+    4O                                      'PROD. INSTRUCTION,'
+    5O                                      'DELIVERY DATE,'
+    6O                                      'PRODUCTION QTY,'
+    7O                                      'DELIVERY QTY,'
+    8O                                      'QPC.,'
+    9O                                      'NUMBER OF BOXES,'
+   10O                                      'NUMBER OF LOT,'
+   11O                                      'NUMBER OF KANBANS,'
+   12O                                      'PROCESS NO.,'
+   13O                                      'PROCESS CODE,'
+   14O                                      'PROCESS DEPT.,'
+   15O                                      'MACHINE NUMBER,'
+   16O                                      'PLANNED DATE,'
+   17O                                      'CHECK GATE DATE,'
+   18O                                      'CUSTOMER CODE,'
+   19O                                      'CUSTOMER,'
+   20O                                      'USER PART NO,'
+   21O                                      'DIVISION,'
+   22O                                      'DIVISION PERSON,'
+   23O                                      'NOMINAL LENGTH,'
+   24O                                      'MATERIAL WEIGHT,'
+   25O                                      'FINISHED WEIGHT,'
+   26O                                      'NOMINAL SIZE,'
+   27O                                      'MATERIAL PROPERTIES,'
+   28O                                      'MATERIAL NAME,'
+   29O                                      'DIAMETER,'
+   30O                                      'MATERIAL NAME 2,'
+   31O                                      'S.T. CODE,'
+   32O                                      'S.T. NAME,'
+   33O                                      'S.T. NOTES,'
+   34O                                      'SECOND S.T. NAME,'
+   35O                                      'BLANK PART NO.,'
+   36O                                      'COMPONENT PART NO.1,'
+   37O                                      'COMP 1 DELIVERY DATE,'
+   38O                                      'COMPONENT PART NO.2,'
+   39O                                      'COMP 2 DELIVERY DATE,'
+   40O                                      'TOOL DELIVERY DATE,'
+   41O                                      'MATERIAL DELIVERY DATE,'
+   42O                                      'S.S. PROCESS NO,'
+   43O                                      'S.S. PROCESS,'
+      *
+     O        EADD             DT
+     O                                      '="'
+    1O                         W2THI1
+     O                                      '"'
+     O                                      ','
+     O                                      '="'
+    2O                         W2THI2
+     O                                      '"'
+     O                                      ','
+     O                                      '="'
+    3O                         W2SHN
+     O                                      '"'
+     O                                      ','
+  3-AO                         W2BAN1
+     O                                      '-'
+  3-AO                         W2BAN2
+     O                                      '-'
+  3-AO                         W2BAN3
+     O                                      '-'
+  3-AO                         W2BAN4
+     O                                      ','
+    4O                         W2TEHN
+     O                                      ','
+    5O                         W2NOHZ
+     O                                      ','
+    6O                         W2SISU
+     O                                      ','
+    7O                         W2THSU
+     O                                      ','
+    8O                         W2SSYS
+     O                                      ','
+    9O                         W2HKSU
+     O                                      ','
+   10O                         W2ILOT
+     O                                      ','
+   11O                         W2KMAI
+     O                                      ','
+   12O                         W2KTNO
+     O                                      ','
+   13O                         W2KTEI
+     O                                      ','
+   14O                         W2KBNM
+     O                                      ','
+   15O                         W2MSNO
+     O                                      ','
+   16O                         W2KNHZ
+     O                                      ','
+   17O                         W2COHZ
+     O                                      ','
+   18O                         W2TOKU
+     O                                      ','
+   19O                         W2TKNM
+     O                                      ','
+     O                                      '="'
+   20O                         W2UHN
+     O                                      '"'
+     O                                      ','
+   21O                         W2DVNM
+     O                                      ','
+   22O                         W2DPNM
+     O                                      ','
+   23O                         HSKUBL
+     O                                      '.'
+   23O                         HSKUBR
+     O                                      ','
+   24O                         HSSOZL
+     O                                      '.'
+   24O                         HSSOZR
+     O                                      ','
+   25O                         HSKASL
+     O                                      '.'
+   25O                         HSKASR
+     O                                      ','
+   26O                         HSTUSL
+     O                                      '.'
+   26O                         HSTUSR
+     O                                      ','
+   27O                         HSKIKL
+     O                                      '.'
+   27O                         HSKIKR
+     O                                      ','
+   28O                         W2ZANM
+     O                                      ','
+   29O                         HSKAZL
+     O                                      '.'
+   29O                         HSKAZR
+     O                                      ','
+   30O                         W2ZAN2
+     O                                      ','
+   31O                         W2MEKA
+     O                                      ','
+   32O                         W2MME1
+     O                                      ','
+     O                                      '="'
+   33O                         W2MME2
+     O                                      '"'
+     O                                      ','
+     O                                      '="'
+   34O                         W2SETR
+     O                                      '"'
+     O                                      ','
+     O                                      '="'
+   35O                         W2BHN
+     O                                      '"'
+     O                                      ','
+     O                                      '="'
+   36O                         W2KH1
+     O                                      '"'
+     O                                      ','
+   37O                         W2KH1D
+     O                                      ','
+     O                                      '="'
+   38O                         W2KH2
+     O                                      '"'
+     O                                      ','
+   39O                         W2KH2D
+     O                                      ','
+   40O                         W2KTHZ
+     O                                      ','
+   41O                         W2ZRHZ
+     O                                      ','
+   42O                         W2MPNO
+     O                                      ','
+   43O                         W2MTEI
+**  @PI  ( PRODUCTION INSTRUCTION)
+PILOT
+PILOT BEFORE MASS PRODUCTION
+MASS PRODUCTION POS
+INTERNAL TRIAL

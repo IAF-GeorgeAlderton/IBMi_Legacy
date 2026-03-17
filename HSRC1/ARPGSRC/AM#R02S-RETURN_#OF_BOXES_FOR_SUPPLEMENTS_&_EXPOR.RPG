@@ -1,0 +1,134 @@
+     H            Y.
+     F** AM#R02S ********************************************
+     F* RETURN #OF BOXES FOR SUPPELMENTS & EXPORTS
+     F*
+     F*    LEC.    COPY FROM AM#R02B           2019.02.28
+     F*******************************************************
+     FAL#PL28 IF  E           K        DISK
+     FAL#PP21 IF  E           K        DISK
+     FAB#PPDC IF  E           K        DISK
+     FAM#PL05 IF  E           K        DISK
+     FAB#PL19BIF  E           K        DISK
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        7  140SDATE
+     I                                        1   60STIME
+      *
+      * 2D MANIFEST BARCODE
+     I            DS
+     I                                        1  50 MF
+     I                                        1   5 MFNAMC
+     I                                        6  10 MFSUPP
+     I                                       11  12 MFNUKE
+     I                                       13  24 MFORD#
+     I                                       37  38 MFPALT
+     I                                        6  24 MFINV#
+     I                                       44  44 MFSIDE
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           NAMC    5
+     C                     PARM           NUKE    2
+     C                     PARM           INVN   12
+     C                     PARM           MFBC   50
+     C                     PARM           P2TOTL  30
+     C                     PARM           P2SUMI  30
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     TIME           WTIME
+     C                     Z-ADD0         P2TOTL
+     C                     Z-ADD0         P2SUMI
+      *
+     C           K#19B     KLIST
+     C                     KFLD           K@TOKU
+     C                     KFLD           K@NONY
+     C                     KFLD           K@NUKE
+     C                     KFLD           K@INVN
+     C                     KFLD           K@SKJY
+      *
+     C           KEY       KLIST
+     C                     KFLD           MFORD#
+     C                     KFLD           MFNAMC
+     C                     KFLD           MFNUKE
+     C                     KFLD           MFPALT
+      *
+     C                     MOVELMFBC      MF
+     C                     MOVE 'A'       MFSIDE
+      * is type an export order or a supplemental order?
+     C           3         SUBSTNAMC:3    TYPE    3
+      *
+     C           TYPE      IFEQ 'EXP'
+      *
+      * get delivery code for toyota export dock code.
+     C                     MOVELNUKE      DOCK4   4
+     C           DOCK4     CHAINAB#PPDC              50
+     C           *IN50     IFEQ *OFF
+     C                     MOVELADNONY    NONY    40
+     C                     MOVELADTOKU    TOKU    40
+     C                     ENDIF
+      *
+     C           5         SUBSTINVN:4    @@INVN  5 P
+      *
+     C                     ELSE
+      *
+      * get delivery code for supplemental namc code.
+     C           NAMC      CHAINAL#PP21              50
+     C           *IN50     IFEQ *OFF
+     C                     Z-ADDC2NONY    NONY
+     C                     Z-ADDC2TOKU    TOKU
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+      *****
+      *
+      * get skid manifest's box total.
+      *
+     C           KEY       CHAINAL#PL28              80
+     C           *IN80     DOWEQ*OFF
+     C           CASKJY    IFEQ *BLANK
+     C                     ADD  1         P2TOTL            ORD TOTAL
+     C                     ENDIF
+     C           KEY       READEAL#PL28                  80
+     C                     ENDDO
+      *
+      *   if order not found in supp/exp web order file, check reg ord file...
+     C           P2TOTL    IFEQ *ZERO
+     C                     MOVELTOKU      K@TOKU  40
+     C                     MOVELNONY      K@NONY  40
+     C                     MOVELMFNUKE    K@NUKE  4
+     C                     MOVELMFORD#    K@INVN 16 P
+     C                     MOVE *BLANK    K@SKJY  1
+      *
+     C           K#19B     SETLLAB#PL19B
+     C           K#19B     READEAB#PL19B                 50
+     C           *IN50     DOWEQ*OFF
+     C                     MOVELBAODRN    R1MAN#    P
+     C           BASYOS    IFNE *ZERO
+     C           BASRYO    DIV  BASYOS    CONTS   50
+     C                     ADD  CONTS     P2TOTL
+     C                     ENDIF
+     C           K#19B     READEAB#PL19B                 50
+     C                     ENDDO
+      *
+     C                     ENDIF
+      *
+      * get number of boxes scanned into packing for order.
+     C           MF        CHAINAM#PL05              80
+     C           *IN80     DOWEQ*OFF
+     C           R1SKJY    IFEQ ' '
+     C           R1HNTE    ANDEQ'OK'
+     C                     ADD  1         P2SUMI            SCAN TOTAL
+     C                     ENDIF
+     C           MF        READEAM#PL05                  80
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN

@@ -1,0 +1,181 @@
+     H            Y.
+      ** AB#RFU **********************************************
+      *  FORD FABRICATION & RAW MATERIAL                     *
+      *  K.KASHIWAGI 03.20.2001                              *
+      *  K.KASHIWAGI 04.17.2001 ADD SCREEN FOR ENTERING PART#*
+      ********************************* AB#RFU ***************
+      * F3 - EXIT
+      ********************************* AB#RFU ***************
+     FAB#PWFU CF  E                    WORKSTN
+     F                                        RRN   KSFILE SFL01
+     FABFPL30 IF  E           K        DISK
+     FABFPL14 IF  E           K        DISK
+      *
+     E                    MSGTBL  1   1 60
+     I            DS
+     I                                        1   80DATE
+     I                                        1   20W@CT
+     I                                        3   40W@YY
+     I                                        5   60W@MM
+     I                                        7   80W@DD
+     I            DS
+     I                                        1   80DATE2
+     I                                        1   40W@YY2
+     I                                        5   60W@MM2
+     I                                        7   80W@DD2
+     I            DS
+     I                                        1   80KDATE2
+     I                                        1   40KW@YY
+     I                                        5   60KW@MM
+     I                                        7   80KW@DD
+     I            DS
+     I                                        1  120#TIME
+     I                                        1   20W@HH
+     I                                        3   40W@MIN
+     I                                        5   60W@SS
+     C*
+     C           KEY1      KLIST
+     C                     KFLD           KIPAR  12        PART#
+     C                     KFLD           KDOCK   5        DOCK
+     C                     KFLD           KSIDT   60       SCHED DATE
+     C                     KFLD           KREL#  10        RELEASE#
+     C                     KFLD           KFIED   60       FAB END DATE
+     C*
+     C           KEY2      KLIST
+     C                     KFLD           KIPAR  12        PART#
+     C                     KFLD           KDOCK   5        DOCK
+     C                     KFLD           KSIDT   60       SCHED DATE
+     C                     KFLD           KREL#  10        RELEASE#
+     C*
+     C           KEY3      KLIST
+     C                     KFLD           DPART  12        PART#
+      *--------------*
+      * MAIN ROUTINE *
+      *--------------*
+     C                     EXSR @INTR
+     C           W@ID      DOWNE'99'
+     C           W@ID      CASEQ'01'      @DSP1
+     C           W@ID      CASEQ'02'      @DSP2
+     C                     ENDCS
+     C                     ENDDO
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+      *---------------*
+      * INITIALIZATION
+      *---------------*
+     C           @INTR     BEGSR
+     C                     MOVEL*BLANKS   @MSG1
+     C                     MOVEL'01'      W@ID    2
+     C                     TIME           #TIME
+     C                     MOVE *DATE     DATE
+     C                     Z-ADD2000      W@YY4   40
+     C                     ADD  W@YY      W@YY4
+     C                     Z-ADD0         RRN     60
+     C                     ENDSR
+      *--------------*
+      * FIRST SCREEN *
+      *--------------*
+     C           @DSP1     BEGSR
+     C                     WRITEFMT90
+     C                     EXFMTAB#PWFU1
+     C                     MOVEL*BLANKS   @MSG1
+     C                     MOVEL'0'       *IN98
+     C           DPART     IFEQ *BLANKS
+     C           *LOVAL    SETLLABFPP301
+     C                     ELSE
+     C           KEY3      SETLLABFPP301
+     C                     ENDIF
+     C*
+     C                     SELEC
+     C           *INKC     WHEQ '1'
+     C                     MOVEL'99'      W@ID
+      *
+     C                     OTHER
+     C                     EXSR @WTSFL
+     C           RRN       IFGT 0
+     C                     MOVEL'02'      W@ID
+     C                     ELSE
+     C                     MOVELMSGTBL,1  @MSG1
+     C                     SETON                     98
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *---------------*
+      * WRITE SUBFILE
+      *---------------*
+     C           @WTSFL    BEGSR
+     C                     READ ABFPP301                 90
+     C           *IN90     DOWEQ'0'
+     C           *IN90     IFEQ '1'
+     C                     LEAVE
+     C                     ENDIF
+     C* FOR KEY1
+     C                     MOVELCGPART    KIPAR
+     C                     MOVELCGDOCK    KDOCK
+     C                     MOVE CGSIDT    KSIDT
+     C                     MOVELCGPOR#    KREL#
+     C                     MOVE *HIVAL    KFIED
+     C*
+     C                     SETOF                     85
+     C           KEY1      SETGTABFPP101
+     C           KEY2      REDPEABFPP101                 85
+     C           *IN85     IFEQ '0'
+     C*
+     C                     ADD  1         RRN     60
+     C                     MOVELFBIPAR    SPART
+     C                     MOVELFBDOCK    SDOCK
+     C                     Z-ADDFBFIED    SFIED
+     C           SFIED     IFNE 0
+     C                     ADD  20000000  SFIED
+     C                     ENDIF
+     C                     Z-ADDFBFIQT    SFIQT
+     C                     Z-ADDFBMTED    SMTED
+     C           SMTED     IFNE 0
+     C                     ADD  20000000  SMTED
+     C                     ENDIF
+     C                     Z-ADDFBMTQT    SMTQT
+     C                     Z-ADDFBSHLD    SSHLD
+     C           SSHLD     IFNE 0
+     C                     ADD  20000000  SSHLD
+     C                     ENDIF
+     C                     Z-ADDFBSHQT    SSHQT
+     C                     WRITESFL01
+     C                     ENDIF
+     C*
+     C                     READ ABFPP301                 90
+     C                     ENDDO
+     C                     SETON                         51
+     C                     ENDSR
+     C*
+      *---------------*
+      * SECOND SCREEN *
+      *---------------*
+     C           @DSP2     BEGSR
+     C                     WRITEFMT90
+     C                     MOVEL'1'       *IN70
+     C                     EXFMTSFLCTL
+     C                     MOVEL*BLANKS   @MSG1
+     C                     MOVEL'0'       *IN99
+     C                     MOVEL'0'       *IN70
+     C*
+     C                     SELEC
+     C           *INKC     WHEQ '1'
+     C                     SETOF                     90
+     C                     MOVEL'01'      W@ID
+     C                     EXSR @CLRSR
+     C                     ENDSL
+     C                     ENDSR
+     C****************
+     C* CLEAR SFL
+     C****************
+     C           @CLRSR    BEGSR
+     C                     SETON                     71
+     C                     WRITESFLCTL
+     C                     SETOF                     71
+     C                     CLEARAB#PWFU1
+     C                     Z-ADD0         RRN
+     C                     ENDSR
+** (MSGTBL)
+E-01 THERE IS NO MATCHED RECORD.

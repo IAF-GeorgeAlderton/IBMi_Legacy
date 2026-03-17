@@ -1,0 +1,80 @@
+         PGM
+         /** MBDCT5 *****************************************/
+         /* SALES DATA STATISTICS (OUTPUT TO IFS)           */
+         /*  W.WATANABE            2016.07.12               */
+         /***************************************************/
+             DCL        VAR(&REC) TYPE(*DEC) LEN(10 0) VALUE(0)
+             DCL        VAR(&WS) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&PRTG) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&TYPE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PIPGMN) TYPE(*CHAR) LEN(10) +
+                          VALUE('MBDCT5    ')
+             DCL        VAR(&POUSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&POKONA) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&POSTTS) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PMSG) TYPE(*CHAR) LEN(256)
+             DCL        VAR(&PKINP) TYPE(*CHAR) LEN(5)
+             DCL        VAR(&PKOUT) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&SYS) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&WLIB) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&USER) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&DIR) TYPE(*CHAR) LEN(100)
+             DCL        VAR(&DIR2) TYPE(*CHAR) LEN(100)
+             DCL        VAR(&FILE) TYPE(*CHAR) LEN(21) VALUE('SALES +
+                          DATA STATISTICS')
+
+             CHGVAR     VAR(&WLIB) VALUE('HWFILE1')
+             RTVNETA    SYSNAME(&SYS)
+             RTVJOBA    JOB(&WS) USER(&USER)
+             CHGVAR     VAR(&DIR) +
+                          VALUE('QNTC/IAF-AS400-FILE/AS400-TRANS/SALE+
+                          S/Download/' *CAT &USER)
+             CHGVAR     VAR(&DIR2) VALUE(&DIR *TCAT '/' *TCAT &FILE +
+                          *TCAT '.csv')
+
+             CALL       PGM(AGAR00) PARM(&WS &PRT &TYPE &PRTG)
+
+             CLRPFM     FILE(&WLIB/MBDWPT3)
+             MONMSG     MSGID(CPF2103 CPF3261 CPF2105)
+
+      /* CREATE DIRECTRY */
+             CRTDIR     DIR(&DIR )
+             MONMSG     MSGID(CPFA0A0)
+             MONMSG     MSGID(CPFA0A9)
+
+      /* COPY 0 RECORD */
+             CPYTOIMPF  FROMFILE(&WLIB/MBDWPT3) TOSTMF(&DIR2) +
+                          MBROPT(*REPLACE) RCDDLM(*CRLF) +
+                          RMVBLANK(*BOTH) FLDDLM(',') DATFMT(*USA) +
+                          TIMFMT(*USA)
+             MONMSG     MSGID(CPF2817)
+
+      /* CREATE MBDWPT3 (WORK FILE) */
+             OVRDBF     FILE(MBDWPT3) TOFILE(&WLIB/MBDWPT3)
+             CALL       PGM(MBDRT5)
+
+             MONMSG     MSGID(CPF2103 CPF3261 CPF2105)
+
+             RTVMBRD    FILE(&WLIB/MBDWPT3) NBRCURRCD(&REC)
+             IF         COND(&REC *EQ 0) THEN(GOTO CMDLBL(#END))
+
+      /* CREATE MBDWPT4  */
+             CPYF       FROMFILE(&WLIB/MBDWPT3) +
+                          TOFILE(&WLIB/MBDWPT4) MBROPT(*REPLACE) +
+                          FMTOPT(*NOCHK)
+             MONMSG     MSGID(CPF2817) EXEC(GOTO CMDLBL(#END))
+
+      /* TRANSFER.....*/
+             CPYTOIMPF  FROMFILE(&WLIB/MBDWPT4) TOSTMF(&DIR2) +
+                          MBROPT(*REPLACE) RCDDLM(*CRLF) +
+                          RMVBLANK(*BOTH) FLDDLM(',') DATFMT(*USA) +
+                          TIMFMT(*USA) ADDCOLNAM(*SYS)
+
+             SNDPGMMSG  MSG('Report has been created in your user +
+                          directory (L:) +
+                          SALES\Download\user-id\SALES DATA +
+                          STATISTICS.csv') TOMSGQ(&WS) MSGTYPE(*INFO)
+ #END:
+             DLTOVR     FILE(*ALL)
+             ENDPGM

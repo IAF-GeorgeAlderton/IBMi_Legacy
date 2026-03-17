@@ -1,0 +1,225 @@
+     H            Y.
+     F*** MBER41 *********************************
+     F*  T.N.K.U別　１ヶ月売上実績集計表の作成 *
+     C*  CREATE SALES RESULT SUMMARY BY T.N.K.U  *
+     F*      H.ITO             90.06.13          *
+     F*
+     F*      GBC               99.08.26  読み込みファイルの変更
+     F********************************* MBER41 ***
+    .FMBDPL02 IF  E           K        DISK
+     FFGBPL01 IF  E           K        DISK
+     FMBEWP41 O   F     512            DISK
+     FQPRINT  O   F     132     OF     PRINTER                        UC
+     E                    TS          6  7 0             納入数
+      *月報データ日付*
+     I            DS
+     I                                        1   80GEPO
+     I                                        1   40GPYY
+     I                                        5   60GPMM
+     I                                        1   60GPYM
+     I                                        7   80GPDD
+      *納入実績*
+     I            DS
+     I                                        1  42 TS
+     I                                        1   70F3TNSU
+     I                                        8  140F3ANSU
+     I                                       15  210F3BNSU
+     I                                       22  280F3CNSU
+     I                                       29  350F3DNSU
+     I                                       36  420F3ENSU
+      *指定日付*
+     I            DS
+     I                                        1   60SHIZ
+     I                                        1   40SHYY
+     I                                        5   60SHMM
+    .I                                        1   6 SHIZU
+    .I            DS
+    .I                                        1   8 WKYMD
+    .I                                        1   40WKYY4
+     I            DS
+     I                                        1   60WYM
+     I                                        1   40WYY
+     I                                        5   60WMM
+     C           KEY1      KLIST
+     C                     KFLD           @TOKU
+     C                     KFLD           WNONY
+     C                     KFLD           WNKOJ
+     C                     KFLD           WNUKE
+      *
+      * PARM *
+     C           *ENTRY    PLIST
+     C                     PARM           PARM1   4        得意先
+     C                     PARM           PNONY   4        納入先
+     C                     PARM           PNKOJ   1        工場
+     C                     PARM           PNUKE   4        受入
+     C                     PARM           PARM2   40       指定＜年＞
+     C                     PARM           PARM3   20       　　＜月＞
+     C                     PARM           PARM4   8        月報日付
+     C                     MOVELPARM2     SHYY
+     C                     MOVELPARM3     SHMM
+     C                     MOVE PNONY     WNONY   40
+     C                     MOVE PNKOJ     WNKOJ   1
+     C                     MOVE PNUKE     WNUKE   4
+     C                     MOVE PARM4     GEPO
+      *
+     C                     MOVE PARM1     @TOKU   40
+     C           *IN90     IFEQ '0'
+     C                     SETOF                         31
+     C                     MOVE *BLANK    @NAME  16
+     C           @TOKU     CHAINFGBPL011             31
+     C  N31                MOVELB2SMEI    @NAME
+     C                     SETON                     90
+     C                     END
+      *
+     C           WNONY     IFEQ 0
+     C           @TOKU     SETLLMBDPL02
+     C                     ELSE
+     C           KEY1      SETLLMBDPL02
+     C                     END
+      *
+     C                     DO   *HIVAL
+     C                     SETOF                     30
+     C           WNONY     IFEQ 0
+     C           @TOKU     READEMBDPL02                  30
+     C                     ELSE
+     C           KEY1      READEMBDPL02                  30
+     C                     END
+      *
+     C   30                GOTO END
+      *
+    .C           F3SKJY    CABEQ'D'       RETRY
+     C*
+     C                     Z-ADD0         GOKE    70
+     C                     Z-ADD0         WYM
+     C                     Z-ADDGPYM      WYM
+     C           GPMM      SUB  6         WMM     20
+     C           WMM       IFLE 0
+     C                     SUB  1         WYY     40
+     C                     ADD  12        WMM
+     C                     END
+     C           SHIZ      IFGT GPYM
+     C           SHIZ      ORLT WYM
+     C                     GOTO @END
+     C                     END
+     C                     Z-ADDGPYY      @YY
+     C                     Z-ADDGPMM      @MM
+     C           GPYY      SUB  SHYY      @YY     40
+     C           @YY       IFGT 0
+     C           @YY       MULT 12        @MM     20
+     C                     END
+     C           @MM       SUB  SHMM      @X      20
+     C                     ADD  1         @X
+     C                     Z-ADDTS,@X     GOKE
+     C                     Z-ADDF3TANK    WTANK  115
+     C           GOKE      IFEQ 0
+     C                     GOTO RETRY
+     C                     END
+      *
+     C           F3MHN3    COMP *BLANK                   01
+      *
+     C           PSW       IFEQ *BLANK
+     C                     OPEN QPRINT
+     C                     MOVEL'1'       *INOF
+     C                     MOVEL'*'       PSW     1
+     C                     END
+      *
+     C           *INOF     IFEQ '1'
+     C                     EXCPTP01
+     C                     MOVEL'0'       *INOF
+     C                     END
+      *
+     C           MNUKE     IFNE *BLANK
+     C           F3NUKE    IFNE MNUKE
+     C                     EXCPTP03
+     C                     Z-ADD0         @GOKE
+     C                     Z-ADD0         @KNGK
+     C                     END
+     C                     END
+      *
+     C                     Z-ADD0         WKNGK  125
+     C           GOKE      MULT WTANK     WKNGK
+      *
+     C                     EXCPTP02
+     C                     EXCPTDAT
+      *
+     C                     ADD  GOKE      @GOKE   70
+     C                     ADD  WKNGK     @KNGK  115
+     C                     ADD  GOKE      $GOKE   80
+     C                     ADD  WKNGK     $KNGK  125
+     C                     MOVE F3NUKE    MNUKE   4
+      *
+     C           RETRY     TAG
+     C  N30                END
+     C           END       TAG
+      *
+     C           PSW       IFEQ '*'
+     C                     EXCPTP03
+     C                     EXCPTP04
+     C                     END
+      *
+     C           @END      TAG
+     C                     SETON                     LR
+     C                     RETRN
+     OMBEWP41 E                DAT
+     O                         SHYY
+     O                                      ','
+     O                         SHMM
+     O                                      ','
+     O                         F3NONY
+     O                                      ','
+     O                         F3NKOJ
+     O                                      ','
+     O                         F3NUKE
+     O                                      ','
+     O                         F3MHN1
+     O                                      ','
+     O                         F3MHN2
+     O                                      ','
+     O                         F3MHN3
+     O                                      ','
+     O                         F3TANK
+     O                                      ','
+     O                         GOKE
+     O                                      ','
+     O                         WKNGK
+     OQPRINT  E   02           P01
+     O                         SHYY  Z    4
+     O                                      '.'
+     O                         SHMM  Z    7
+     O        E   04           P01
+     O                         F3TOKU     4
+     O                         @NAME     22
+     O                                   53 '**** SALES BY DELIVERY'
+     O                                   66 ' SITE ****'
+     O                         UDATE Y   92
+     O                                   97 'PAGE'
+     O                         PAGE  Z  101
+     O                                  117 'MBER41-1'
+     O        E 21             P01
+     O                                   13 'CUSTOMER'
+     O                                   21 'FACTORY'
+     O                                   27 ' DOCK '
+     O                                   44 ' USER PART NO.'
+     O                                   63 'UNIT PRICE '
+     O                                   80 ' QUANTITY '
+     O                                   95 ' PRICE  '
+     O        E 1              P02
+     O                         F3NONY    11
+     O                         F3NKOJ    17
+     O                         F3NUKE    26
+     O                         F3MHN1    35
+     O                                   36 '-'
+     O                         F3MHN2    41
+     O                N01                42 '-'
+     O                         F3MHN3    47
+     O                         F3TANK2   65
+     O                         GOKE  1   78
+     O                         WKNGK     95 ' ,   ,   .     '
+     O        E 11             P03
+     O                                   42 '*  DOCK TOTAL *'
+     O                         @GOKE     78 ' ,   , * '
+     O                         @KNGK     95 '   ,   .   * '
+     O        E 11             P04
+     O                                   42 '**** CUSTOMER TOTAL ****'
+     O                         $GOKE     78 '  ,   , * '
+     O                         $KNGK     95 ' ,   ,   .   * '

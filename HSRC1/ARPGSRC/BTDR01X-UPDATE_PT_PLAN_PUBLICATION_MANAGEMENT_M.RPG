@@ -1,0 +1,162 @@
+     H            Y.
+     F** BTDR01 *********************************************
+     F* UPDATE PT PLAN PUBLICATION MANAGEMENT M/F           *
+     F*    SAKAKI.         2019.09.11                       *
+     F*******************************************************
+     FABMWP31 IF  E                    DISK
+     FGDKPL02 IF  E           K        DISK
+     FBTDWP01 O   E                    DISK                      A
+     FBTDWP0E O   F    0256            DISK                      A
+      *
+     I            DS
+     I                                        1   80##DT
+     I                                        1   40##YY
+     I                                        5   60##MM
+     I                                        7   80##DD
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        7  14 SDATE
+     I                                        1   6 STIME
+      *
+     I            DS
+     I                                        1  12 @BJHN
+     I                                        1   5 @BJHN1
+     I                                        6  10 @BJHN2
+     I                                       11  12 @BJHN3
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     EXSR #SB100
+     C                     READ ABMWP31                  84
+     C           *IN84     DOWEQ'0'
+     C           @BKCD1    IFEQ '0'
+     C***        @BKCD1    OREQ '3'
+     C           @BKCD1    OREQ '6'
+     C                     EXSR #SB400
+     C                     ENDIF
+     C                     READ ABMWP31                  84
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      * INZ                                                *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     MOVEL'0'       HDOUT   1
+     C                     TIME           WTIME
+     C                     Z-ADD0         WKMNDT  80
+     C                     Z-ADD0         WKMXDT  80
+     C                     Z-ADD0         CNT     80
+     C                     TIME           WTIME
+     C                     MOVEL*BLANK    WKGRP  30
+     C           WKGRP     CAT  W#USER:0  WKGRP
+     C           WKGRP     CAT  SDATE:0   WKGRP
+     C           WKGRP     CAT  STIME:0   WKGRP
+     C                     Z-ADD0         WKSEQ   50
+      *
+     CSR         ESB100    ENDSR
+      *----------------------------------------------------*
+      * GDKPP01                                            *
+      *----------------------------------------------------*
+     CSR         #SB400    BEGSR
+      *
+     C                     MOVEL'0'       GETGDK  1
+     C                     MOVEL@BJHN     HINB   20
+     C           HINB      SETLLGDKPL02
+     C           HINB      READEGDKPL02                  74
+     C           *IN74     DOWEQ'0'
+     C           ISSKJY    IFEQ 'D'
+     C           ISSKHZ    ANDLE*DATE
+     C                     ELSE
+     C           ISENHZ    IFEQ 99999999
+     C                     MOVEL'1'       GETGDK
+     C                     ENDIF
+     C                     ENDIF
+     C           HINB      READEGDKPL02                  74
+     C                     ENDDO
+      *
+     C           GETGDK    IFEQ '1'
+     C           @SA       IFNE 0
+     C           @BATOB    ANDEQ'8990'
+     C                     EXSR #SB500
+     C                     ENDIF
+     C                     ENDIF
+     C           GETGDK    IFEQ '0'
+     C           HDOUT     IFEQ *BLANK
+     C                     EXCPTHD
+     C                     MOVEL'1'       HDOUT
+     C                     ENDIF
+     C                     EXCPTDT
+     C                     ENDIF
+      *
+     CSR         ESB400    ENDSR
+      *----------------------------------------------------*
+      * OUTPUT                                             *
+      *----------------------------------------------------*
+     CSR         #SB500    BEGSR
+      *
+     C                     CLEARBTDWP011
+     C                     MOVELWKGRP     W1GRP
+     C                     ADD  1         WKSEQ
+     C                     MOVE WKSEQ     W1SEQ
+     C                     MOVEL@BJHN1    W1SHN1
+     C                     MOVEL@BJHN2    W1SHN2
+     C                     MOVEL@BJHN3    W1SHN3
+     C                     Z-ADD*DATE     W1YMD1
+     C                     MOVEL'+'       W1SIGN
+     C           @SA       IFLT 0
+     C                     MOVEL'-'       W1SIGN
+     C           @SA       MULT -1        W1BOX
+     C                     ELSE
+     C                     Z-ADD@SA       W1BOX
+     C                     ENDIF
+     C                     Z-ADD@AKLOT    @AKLO@  30
+     C           @AKLOT    IFEQ 0
+     C                     Z-ADD1         @AKLO@
+     C                     ENDIF
+     C                     MULT @AKLO@    W1BOX
+     C           W1BOX     DIV  34        W1BOX1
+     C                     MVR            AMR     30
+     C           AMR       IFNE 0
+     C                     ADD  1         W1BOX1
+     C                     ENDIF
+     C           W1BOX     DIV  W1BOX1    W1TIMS
+     C                     MOVEL*BLANK    W1MEM1
+     C                     MOVEL*BLANK    W1MEM2
+     C           @BKTSU    MULT 20        W1OVOL
+     C                     Z-ADD@ANSRY    W1NVOL
+     C                     WRITEBTDWP011
+      *
+     CSR         ESB500    ENDSR
+     OBTDWP0E EADD             HD
+     O                                      'KANBAN KIND,'
+     O                                      'LOCATION,'
+     O                                      'PART NO.,'
+     O        EADD             DT
+     O                         @BKCD1
+     O                                      '-'
+     O                         @BKCD2
+     O                                      ','
+     O                         @BATK1
+     O                                      '-'
+     O                         @BATK2
+     O                                      '-'
+     O                         @BATK3
+     O                                      '-'
+     O                         @BATK4
+     O                                      ','
+     O                         @BJHN1
+     O                                      '-'
+     O                         @BJHN2
+     O                                      '-'
+     O                         @BJHN3

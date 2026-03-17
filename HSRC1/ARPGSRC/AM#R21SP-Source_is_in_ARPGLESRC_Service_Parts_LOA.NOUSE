@@ -1,0 +1,441 @@
+     H            Y.
+     F** AM#R21SP  ******************************************
+     F* SERVICE PARTS - LOADING                             *
+     F*    LEC              2021.12.22                      *
+     F*******************************************************
+     FAM#PW21SCF  E                    WORKSTN
+     FALBPL30 IF  E           K        DISK
+     FAB#PP66 IF  E           K        DISK
+     FAB#PP44 IF  E           K        DISK
+     FAM#PL21SUF  E           K        DISK                      A
+     E                    ER      1  12 65
+     E                    ROUT       10  1
+     E                    TICK       12  1
+      *
+      * TRUCK TICKET QR BARCODE
+     I            DS
+     I                                        1  25 TT
+     I                                        1   7 TTSURT
+     I                                        8  15 TTSHDT
+     I                                        8  11 TTSHYY
+     I                                       12  13 TTSHMM
+     I                                       14  15 TTSHDD
+     I                                       16  21 TTSHTM
+     I                                       16  17 TTSHHH
+     I                                       18  19 TTSHMN
+     I                                       20  21 TTSHSS
+     I                                        8  19 TTDTTM
+     I                                       22  25 TTFILR
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        7  140SDATE
+     I                                        1   60STIME
+      *
+     I            DS
+     I                                        1  10 SHDT
+     I                                        1   4 SHYY
+     I I            '/'                       5   5 SLSH1
+     I                                        6   7 SHMM
+     I I            '/'                       8   8 SLSH2
+     I                                        9  10 SHDD
+      *
+     I            DS
+     I                                        1   8 SHTM
+     I                                        1   2 SHHH
+     I I            ':'                       3   3 COLN1
+     I                                        4   5 SHMN
+     I I            ':'                       6   6 COLN2
+     I                                        7   8 SHSS
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           WORKER  6
+     C                     PARM           WUSRID 10
+     C                     PARM           WTT    25
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     EXSR #SB100
+      *
+     C           WTT       IFEQ *BLANKS
+     C                     EXSR #SB150
+     C                     ELSE
+     C                     MOVELWTT       TT
+     C                     MOVELTTSURT    D1SURT
+      *
+     C                     MOVELTTSHYY    SHYY
+     C                     MOVELTTSHMM    SHMM
+     C                     MOVELTTSHDD    SHDD
+     C                     MOVELSHDT      D1SHDT
+      *
+     C                     MOVELTTSHHH    SHHH
+     C                     MOVELTTSHMN    SHMN
+     C                     MOVEL'00'      SHSS
+     C                     MOVEL'  '      TTSHSS
+     C                     MOVELSHTM      D1SHTM
+      *
+     C                     MOVEL'02'      DSPSW
+     C                     ENDIF
+      *
+      * send request to website to get token for SP SCS data transmission...
+     C                     MOVEL'TOKEN'   APID   20
+     C                     CALL 'AM#R405'
+     C                     PARM           APID
+      *
+      * consume json response from token request to get token...
+     C                     CALL 'AM#R406'
+     C                     PARM           APID
+     C                     PARM           FILE
+     C                     PARM           TOKEN
+      *
+     C           DSPSW     DOWEQ'02'
+     C                     EXSR #SB200
+     C                     ENDDO
+      *
+     C                     EXSR #SB300
+      *----------------------------------------------------*
+      * INITIALIZE                                         *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     MOVELWORKER    WKCD    60
+     C           WKCD      CHAINALBPL30              61
+     C           *IN61     IFEQ *ON
+     C                     MOVE *BLANKS   ALWKNM
+     C                     ENDIF
+      *
+     C                     TIME           WTIME
+     C                     MOVEL'01'      DSPSW   2
+      *
+     CSR         ESB100    ENDSR
+      *----------------------------------------------------*
+      *　⒳�痧���Ј灈�聭饎�　　　　　　　　　　　　�
+      *----------------------------------------------------*
+     CSR         #SB150    BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANK    MSG
+     C                     SETOF                     3199
+      *
+     C                     TIME           WTIME
+     C           *IN03     IFEQ *ON
+     C                     MOVEL'99'      DSPSW   2
+     C                     GOTO ESB150
+     C                     ENDIF
+      *
+     C           BAR01     IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,1      MSG
+     C                     EXSR #SB999
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     GOTO ESB150
+     C                     ENDIF
+      *
+     C                     MOVELBAR01     TT
+      *
+     C                     MOVE *BLANK    EXPEDT  1
+      * if this an expedite route, skip check...
+      *    else check truck ticket.
+     C           'EX-'     SCAN TT:1      POS     30
+     C           POS       IFGT *ZERO
+     C                     MOVE 'Y'       EXPEDT
+     C                     MOVE *BLANKS   TTSHTM
+     C                     ELSE
+      *
+      * check truck ticket date and time for blanks.
+      * if date and time contains a blank it's invalid.
+     C                     MOVE *BLANKS   TICK
+      *
+     C                     MOVEATTDTTM    TICK
+     C                     DO   12        X       20
+     C           TICK,X    IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,2      MSG
+     C                     EXSR #SB999
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     GOTO ESB150
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDIF
+      *
+     C                     MOVELTTSURT    D1SURT
+      *
+     C                     MOVELTTSHYY    SHYY
+     C                     MOVELTTSHMM    SHMM
+     C                     MOVELTTSHDD    SHDD
+     C                     MOVELSHDT      D1SHDT
+      *
+     C                     MOVELTTSHHH    SHHH
+     C                     MOVELTTSHMN    SHMN
+     C                     MOVEL'00'      SHSS
+     C                     MOVELSHTM      D1SHTM
+      *
+     C                     MOVEL'02'      DSPSW   2
+      *
+     CSR         ESB150    ENDSR
+      *----------------------------------------------------*
+      *　⒳�痧���橐�鯐沴�⒳�痧　　　　　　　　　　�
+      *----------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C                     EXSR #GETTL
+      *
+     C                     EXFMTDSP02
+     C                     MOVEL*BLANK    MSG
+     C                     SETOF                     3199
+      *
+     C                     TIME           WTIME
+      *
+      * if f3, then end program.
+     C           *IN03     IFEQ *ON
+     C                     MOVEL*BLANKS   D2CASE
+     C                     MOVEL'99'      DSPSW   2
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+      * if f4, then display delete case screen.
+     C           *IN04     IFEQ *ON
+     C                     EXSR #SB400
+     C                     MOVEL*BLANKS   D4CASE
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+      * check case label screen for errors.
+     C           D2CASE    IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,3      MSG
+     C                     EXSR #SB999
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+      * check to verify this case label has not already been entered.
+      * then if case label is new, check to verify it is in asn file.
+     C                     EXSR #SB710
+     C           *IN99     IFEQ *OFF
+     C                     EXSR #SB720
+     C                     ENDIF
+      *
+      * no errors, so write to service parts loading out-file.
+     C           *IN99     IFEQ *OFF
+     C                     TIME           WTIME
+     C                     MOVEL*BLANK    MSG
+     C                     EXSR #SB500
+     C                     EXSR #CASE
+     C                     MOVEL*BLANKS   D2CASE
+     C                     ENDIF
+      *
+     CSR         ESB200    ENDSR
+      *----------------------------------------------------*
+      *　⒳�痧���痡瘏�濰⒵�槈痡���鰖槖　　　　　�
+      *----------------------------------------------------*
+     CSR         #SB400    BEGSR
+      *
+     C           *IN03     DOUEQ*ON
+      *
+     C                     EXFMTDSP04
+     C                     MOVEL*BLANK    MSG
+     C                     SETOF                     3199
+      *
+     C                     TIME           WTIME
+      * F3 to cancel delete and go back to screen 2.
+     C           *IN03     IFEQ *ON
+     C                     MOVEL'02'      DSPSW
+     C                     LEAVE
+     C                     ENDIF
+      *
+      * verify that case label has been scanned to load out-file.
+     C           D4CASE    IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,3      MSG
+     C                     EXSR #SB999
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVE *OFF      *IN26
+     C           D4CASE    SETLLAM#PL21S
+     C           *IN26     DOWEQ*OFF
+     C           D4CASE    READEAM#PL21S                 26
+     C           *IN26     IFEQ *OFF
+     C           S2SKJY    ANDEQ*BLANK
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+      * if case label was not found in loading out-file, display error.
+     C           *IN26     IFEQ *ON
+     C                     SETON                     3199
+     C                     MOVELER,7      MSG
+     C                     EXSR #SB999
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     ITER
+      *
+     C                     ELSE
+      *
+      * if case label was found...
+     C                     MOVEL'D'       S2SKJY
+     C                     Z-ADDSDATE     S2SKHZ
+     C                     UPDATAM#PP21R
+     C                     MOVEL*BLANKS   D4CASE
+     C                     MOVEL*BLANKS   D2CASE
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     CSR         ESB400    ENDSR
+      *----------------------------------------------------*
+      * ERROR ON SCREEN.                                   *
+      *----------------------------------------------------*
+     CSR         #SB999    BEGSR
+      *
+     C                     MOVELMSG       P1ERR
+     C                     CALL 'AM#R08'
+     C                     PARM           P1ERR  25
+      *
+     CSR         ESB999    ENDSR
+      *----------------------------------------------------*
+      * END PROGRAM.                                       *
+      *----------------------------------------------------*
+     CSR         #SB300    BEGSR
+     C                     SETON                     LR
+     C                     RETRN
+     CSR         ESB300    ENDSR
+      *----------------------------------------------------*
+      * WRITE TO LOADING OUT-FILE AM#PP21S.                *
+      *----------------------------------------------------*
+     CSR         #SB500    BEGSR
+      *
+     C                     CLEARAM#PP21R
+     C                     Z-ADDSDATE     S2SSHZ
+     C                     Z-ADDSTIME     S2SSTI
+     C                     MOVELWORKER    S2USCD
+     C                     MOVELALWKNM    S2USNM
+     C                     MOVELW#PGM     S2KPGM
+     C                     MOVELSUPP      S2SUPP
+      *
+     C                     MOVELTT        S2TICK
+     C                     MOVELTTSURT    S2SURT    P
+     C                     MOVELTTSHDT    S2SHID
+     C                     MOVELTTSHTM    S2SHIT
+     C                     MOVE '00'      S2SHIT
+      *
+     C                     MOVELD2CASE    S2MLBL
+     C                     WRITEAM#PP21R
+      *
+     CSR         ESB500    ENDSR
+      *----------------------------------------------------*
+      *  CHECK TO VERIFY NOT ALREADY SCANNED.              *
+      *----------------------------------------------------*
+     CSR         #SB710    BEGSR
+      *
+     C                     MOVE *OFF      *IN26
+     C           D2CASE    SETLLAM#PL21S
+     C           *IN26     DOWEQ*OFF
+     C           D2CASE    READEAM#PL21S                 26
+     C           *IN26     IFEQ *OFF
+     C           S2SKJY    ANDEQ*BLANK
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+      * if already scanned, set error message.
+     C           *IN26     IFEQ *OFF
+     C                     SETON                     3199
+     C                     MOVELER,5      MSG
+     C                     EXSR #SB999
+     C                     ENDIF
+      *
+     CSR         ESB710    ENDSR
+      *----------------------------------------------------*
+      *  CHECK TO VERIFY THIS CASE LABEL WAS SCANNED IN.   *
+      *----------------------------------------------------*
+     CSR         #SB720    BEGSR
+      *
+     C                     SETOF                     26
+     C           D2CASE    SETLLAB#PP66
+     C           *IN26     DOWEQ*OFF
+     C           D2CASE    READEAB#PP66                  26
+      *
+     C           *IN26     IFEQ *OFF
+     C                     MOVELA6NONY    NONY    4
+     C                     EXSR #GETSU
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+      * if not scanned to asn out-file, set error message.
+     C           *IN26     IFEQ *ON
+     C                     MOVEL*BLANKS   NONY
+     C                     SETON                     3199
+     C                     MOVELER,6      MSG
+     C                     EXSR #SB999
+     C                     GOTO ESB720
+     C                     ENDIF
+      *
+     CSR         ESB720    ENDSR
+      *----------------------------------------------------*
+      * CREATE AND SEND CASE BUILD JSON TO SCS.            *
+      *----------------------------------------------------*
+     CSR         #CASE     BEGSR
+      *
+     C                     CALL 'AM#C400'
+     C                     PARM           WORKER
+     C                     PARM           D2CASE
+     C                     PARM           NONY
+     C                     PARM           TOKEN
+      *
+     CSR                   ENDSR
+      *----------------------------------------------------*
+      * CALL PGM TO GET TOTAL CASES FOR TRUCK TICKET.      *
+      *----------------------------------------------------*
+     CSR         #GETTL    BEGSR
+      *
+     C                     CALL 'AM#R22T'
+     C                     PARM           TT
+     C                     PARM           D2TOTL
+      *
+     CSR                   ENDSR
+      *----------------------------------------------------*
+      * GET SUPPLIER CODE.                                 *
+      *----------------------------------------------------*
+     CSR         #GETSU    BEGSR
+      *
+     C           KEY44     KLIST
+     C                     KFLD           A6TOKU
+     C                     KFLD           A6NONY
+     C                     KFLD           A6NKOJ
+     C                     KFLD           A6NUKE
+     C                     KFLD           A6NYMD
+      *
+     C           KEY44     CHAINAB#PP44              62
+     C           *IN62     IFEQ *OFF
+     C                     MOVELDASUNM    SUPP    5
+     C                     ELSE
+     C                     MOVEL'0242C'   SUPP
+     C                     ENDIF
+      *
+     CSR                   ENDSR
+      *----------------------------------------------------*
+**
+INPUT TRUCK TICKET.
+INVALID TRUCK TICKET
+INPUT CASE LABEL.
+INVALID CASE LABEL.
+ALREADY SCANNED TO TRUCK.
+CASE LABEL NOT IN ASN FILE.
+CASE LABEL NOT SCANNED TO TRUCK.

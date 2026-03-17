@@ -1,0 +1,335 @@
+             PGM
+             /** AB#C62 **********************************************/
+             /*  ..ACCOUNTS RECEIVABLE DETAIL LIST..                 */
+             /*    I-HASADA               97.08.12                   */
+             /*    GBC           99.09.06 (9999-FOR ALL USERS)       */
+             /*    K.KASHIWAGI   01.03.15 REPLACE AB#R70 WITH AB#R80 */
+             /********************************************** AB#C62 **/
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&TYPE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PNONY) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&PNOYM) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&PER) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PDEVT) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&PIGCD) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&REC) TYPE(*DEC) LEN(10 0)
+             DCL        VAR(&XNONY) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&US) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&WLIB)  TYPE(*CHAR) LEN(8)
+
+             RTVJOBA    JOB(&WSID)
+             CHGJOB     SWS(00000000)
+
+             CALL       PGM(AGAR01) PARM(&WSID &PDEVT &PIGCD)
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+             CALL       PGM(ALBC00) PARM(&US &WLIB)
+
+             DLTF       FILE(AB#WP62)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/AB#WP62) RCDLEN(100) +
+                          OPTION(*NOLIST) SIZE(200000 10000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             DLTF       FILE(AB#WP621)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/AB#WP621) RCDLEN(100) +
+                          OPTION(*NOLIST) SIZE(200000 10000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CALL       PGM(AB#R62) PARM(&PNONY &PNOYM)
+
+             IF         (%SWITCH(0XXXXXXX)) DO
+             DLTF       FILE(AB#WP62)
+             DLTF       FILE(AB#WP621)
+             GOTO       END
+             ENDDO
+
+             IF         (%SWITCH(X0XXXXXX)) DO
+             DLTF       FILE(AB#WP62)
+             DLTF       FILE(AB#WP621)
+             SNDPGMMSG  MSG('NO DATA ARAILABLE') TOMSGQ(&WSID)
+             GOTO       END
+             ENDDO
+
+             IF         (%SWITCH(XX1XXXXX)) DO
+             SNDPGMMSG  MSG('UNIT PRICES ARE NOT REGISTERED') +
+                          TOMSGQ(&WSID)
+             ENDDO
+
+             /*--------------------------------------------*/
+             /* ..EDI FIXED ORDER DATA NOT ON SALES LIST.. */
+             /*--------------------------------------------*/
+             DLTF       FILE(AB#WP69)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/AB#WP69) RCDLEN(100) +
+                          OPTION(*NOLIST) SIZE(200000 10000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CALL       PGM(AB#R69) PARM(&PNONY &PNOYM &PER)
+
+             IF         (&PER *EQ '*') DO
+
+             SNDPGMMSG  MSG('EDI FIXED ORDER DATA NOT ON SALES LIST +
+                          EXIST') TOMSGQ(&WSID)
+
+             DLTF       FILE(AB#WP80)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/AB#WP80) RCDLEN(128) +
+                          OPTION(*NOLIST) SIZE(200000 10000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CALL       PGM(AB#R80)
+
+             CHGVAR     VAR(&REC) VALUE('0')
+             RTVMBRD    FILE(AB#WP80) NBRCURRCD(&REC)
+             IF         COND(&REC = 0) THEN(GOTO CMDLBL(END))
+
+             DLTF       FILE(AB#WP81)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/AB#WP81) RCDLEN(128) +
+                          OPTION(*NOLIST) LVLCHK(*NO) AUT(*ALL)
+
+             FMTDTA     INFILE((AB#WP80)) OUTFILE(AB#WP81) +
+                          SRCFILE(HSRC1/FMTSRC) SRCMBR(AB#S80) +
+                          OPTION(*NOPRT)
+
+             OVRPRTF    FILE(QPRINT) DEVTYPE(&PDEVT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(K6H1) +
+                          IGCDTA(&PIGCD)
+             OVRDBF     FILE(AB#WP81) TOFILE(AB#WP81)
+             CALL       PGM(AB#R81)
+             DLTOVR     FILE(*ALL)
+
+             ENDDO
+             ELSE       DO
+
+             DLTF       FILE(AB#WP69)
+             ENDDO
+
+             /*------------*/
+             /*  ..TMMK..  */
+             /*------------*/
+             DLTF       FILE(AB#WP62S)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/AB#WP62S) RCDLEN(100) +
+                          OPTION(*NOLIST) SIZE(200000 10000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             DLTF       FILE(AB#WP621S)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/AB#WP621S) RCDLEN(100) +
+                          OPTION(*NOLIST) SIZE(200000 10000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CPYF       FROMFILE(AB#WP62) TOFILE(AB#WP62S) +
+                          MBROPT(*ADD) INCCHAR(*RCD 5 *EQ '3347') +
+                          FMTOPT(*NOCHK)
+
+             CPYF       FROMFILE(AB#WP621) TOFILE(AB#WP621S) +
+                          MBROPT(*ADD) INCCHAR(*RCD 85 *EQ '3347') +
+                          FMTOPT(*NOCHK)
+
+             RTVMBRD    FILE(AB#WP62S) NBRCURRCD(&REC)
+
+             IF         (&REC *NE 0 ) DO
+
+             CHGVAR     VAR(&XNONY) VALUE('3347')
+
+             DLTF       FILE(AB#WP63)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/AB#WP63) RCDLEN(100) +
+                          OPTION(*NOLIST) SIZE(200000 10000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             FMTDTA     INFILE((AB#WP62S)) OUTFILE(AB#WP63) +
+                          SRCFILE(HSRC1/FMTSRC) SRCMBR(AB#S63) +
+                          OPTION(*NOPRT)
+             DLTF       FILE(AB#WP62S)
+
+             OVRPRTF    FILE(QPRINT) DEVTYPE(&PDEVT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(K6H1) +
+                          IGCDTA(&PIGCD)
+             CALL       PGM(AB#R63) PARM(&XNONY)
+             DLTF       FILE(AB#WP63)
+
+             ENDDO
+
+             /*-------------*/
+             /*  ..NUMMI..  */
+             /*-------------*/
+             DLTF       FILE(AB#WP62S)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/AB#WP62S) RCDLEN(100) +
+                          OPTION(*NOLIST) SIZE(200000 10000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CPYF       FROMFILE(AB#WP62) TOFILE(AB#WP62S) +
+                          MBROPT(*ADD) INCCHAR(*RCD 5 *EQ '0541') +
+                          FMTOPT(*NOCHK)
+
+             RTVMBRD    FILE(AB#WP62S) NBRCURRCD(&REC)
+
+
+             IF         (&REC *NE 0 ) DO
+
+             CHGVAR     VAR(&XNONY) VALUE('0541')
+
+             DLTF       FILE(AB#WP64)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/AB#WP64) RCDLEN(100) +
+                          OPTION(*NOLIST) SIZE(200000 10000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             FMTDTA     INFILE((AB#WP62S)) OUTFILE(AB#WP64) +
+                          SRCFILE(HSRC1/FMTSRC) SRCMBR(AB#S64) +
+                          OPTION(*NOPRT)
+             DLTF       FILE(AB#WP62S)
+
+             OVRPRTF    FILE(QPRINT) DEVTYPE(&PDEVT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(K6H1) +
+                          IGCDTA(&PIGCD)
+             CALL       PGM(AB#R64) PARM(&XNONY)
+             DLTF       FILE(AB#WP64)
+             DLTOVR     FILE(*ALL)
+
+             ENDDO
+
+             /*------------*/
+             /*  ..TMMC..  */
+             /*------------*/
+             DLTF       FILE(AB#WP62S)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/AB#WP62S) RCDLEN(100) +
+                          OPTION(*NOLIST) SIZE(200000 10000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CPYF       FROMFILE(AB#WP62) TOFILE(AB#WP62S) +
+                          MBROPT(*ADD) INCCHAR(*RCD 5 *EQ '3503') +
+                          FMTOPT(*NOCHK)
+
+             RTVMBRD    FILE(AB#WP62S) NBRCURRCD(&REC)
+
+             IF         (&REC *NE 0 ) DO
+
+             CHGVAR     VAR(&XNONY) VALUE('3503')
+
+             DLTF       FILE(AB#WP66)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/AB#WP66) RCDLEN(100) +
+                          OPTION(*NOLIST) SIZE(200000 10000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             FMTDTA     INFILE((AB#WP62S)) OUTFILE(AB#WP66) +
+                          SRCFILE(HSRC1/FMTSRC) SRCMBR(AB#S66) +
+                          OPTION(*NOPRT)
+             DLTF       FILE(AB#WP62S)
+
+             OVRPRTF    FILE(QPRINT) DEVTYPE(&PDEVT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(K6H1) +
+                           IGCDTA(&PIGCD)
+             CALL       PGM(AB#R66) PARM(&XNONY)
+             DLTF       FILE(AB#WP66)
+             DLTOVR     FILE(*ALL)
+
+             ENDDO
+
+             /*-----------------*/
+             /*  ..SIA ISUZU..  */
+             /*-----------------*/
+             DLTF       FILE(AB#WP62S)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/AB#WP62S) RCDLEN(100) +
+                          OPTION(*NOLIST) SIZE(200000 10000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             DLTF       FILE(AB#WP621S)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/AB#WP621S) RCDLEN(100) +
+                          OPTION(*NOLIST) SIZE(200000 10000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CPYF       FROMFILE(AB#WP62) TOFILE(AB#WP62S) +
+                          MBROPT(*ADD) INCCHAR(*RCD 5 *EQ '0437') +
+                          FMTOPT(*NOCHK)
+             CPYF       FROMFILE(AB#WP62) TOFILE(AB#WP62S) +
+                          MBROPT(*ADD) INCCHAR(*RCD 5 *EQ '0506') +
+                          FMTOPT(*NOCHK)
+
+             CPYF       FROMFILE(AB#WP621) TOFILE(AB#WP621S) +
+                          MBROPT(*ADD) INCCHAR(*RCD 85 *EQ '0437') +
+                          FMTOPT(*NOCHK)
+             CPYF       FROMFILE(AB#WP621) TOFILE(AB#WP621S) +
+                          MBROPT(*ADD) INCCHAR(*RCD 85 *EQ '0506') +
+                          FMTOPT(*NOCHK)
+
+             RTVMBRD    FILE(AB#WP62S) NBRCURRCD(&REC)
+
+             IF         (&REC *NE 0 ) DO
+
+             DLTF       FILE(AB#WP71)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/AB#WP71) RCDLEN(100) +
+                          OPTION(*NOLIST) SIZE(200000 10000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             FMTDTA     INFILE((AB#WP62S)) OUTFILE(AB#WP71) +
+                          SRCFILE(HSRC1/FMTSRC) SRCMBR(AB#S71) +
+                          OPTION(*NOPRT)
+
+             OVRPRTF    FILE(QPRINT) DEVTYPE(&PDEVT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(K6H1) +
+                           IGCDTA(&PIGCD)
+
+             CALL       PGM(AB#R71) PARM(&PNONY)
+             DLTF       FILE(AB#WP71)
+
+
+             MONMSG     MSGID(CPF3261 CPF2105)
+             DLTOVR     FILE(*ALL)
+
+             ENDDO
+
+             /*------------------------------------*/
+             /*  ..NO TMMC TMMK NUMMI SIA ISUZU..  */
+             /*------------------------------------*/
+             DLTF       FILE(AB#WP62S)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/AB#WP62S) RCDLEN(100) +
+                          OPTION(*NOLIST) SIZE(200000 10000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CPYF       FROMFILE(AB#WP62) TOFILE(AB#WP62S) +
+                          MBROPT(*ADD) INCCHAR(*RCD 77 *EQ '1') +
+                          FMTOPT(*NOCHK)
+                                        /* AB#R62 .COL-77 SET '1' */
+
+             RTVMBRD    FILE(AB#WP62S) NBRCURRCD(&REC)
+
+             IF         (&REC *NE 0 ) DO
+
+             DLTF       FILE(AB#WP68)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/AB#WP68) RCDLEN(100) +
+                          OPTION(*NOLIST) SIZE(200000 10000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             FMTDTA     INFILE((AB#WP62S)) OUTFILE(AB#WP68) +
+                          SRCFILE(HSRC1/FMTSRC) SRCMBR(AB#S68) +
+                          OPTION(*NOPRT)
+             DLTF       FILE(AB#WP62S)
+
+             OVRPRTF    FILE(QPRINT) DEVTYPE(&PDEVT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(K6H1) +
+                           IGCDTA(&PIGCD)
+             CALL       PGM(AB#R68) PARM(&PNONY)
+             DLTF       FILE(AB#WP68)
+             DLTOVR     FILE(*ALL)
+
+             ENDDO
+
+             DLTF       FILE(AB#WP62)
+             DLTF       FILE(AB#WP621)
+
+ END:        ENDPGM

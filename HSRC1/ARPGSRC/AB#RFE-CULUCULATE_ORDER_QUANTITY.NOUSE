@@ -1,0 +1,421 @@
+     H            Y.
+     F** AB#RFE ************************************************
+     F*  CALCULATE ORDER QUANTITY                              *
+     F*  N.HYOTO 00.02.28                                      *
+     F*  N.HYOTO 00.07.19 NOT EXIST PART MASTER=ERROR          *
+     F*  N.HYOTO 00.11.10                                      *
+     F*  H.AMANO 01.09.18                                      *
+     F*  H.AMANO 02.04.12                                      *
+     F*                                                        *
+     F*  *IN86=1 FOUND DATE(NOT WORKING DATE)                  *
+     F*  *IN87=1 FOUND YOBI OF NEXT, NEXT SHIPPING DATE        *
+     F*  *IN88=1 FOUND YOBI OF NEXT SHIPPING DATE              *
+     F*  *IN89=1 1ST. RECORD                                   *
+     F*  *IN90=1 NOT EXIST AGDPL11(CALENDAR MASTER)            *
+     F*  *IN91=1 NOT EXIST GADPL15(SHIPPING MASTER)            *
+     F*  *IN92=1 NOT EXIST ABFAP01(EDI KEY DATA)               *
+     F*  *IN93=1 NOT EXIST ABF9L01(FORD ADDRESS MASTER)        *
+     F*  *IN94=1 NOT EXIST ABF2L02(EDI 862 DATA)               *
+     F*  *IN95=1 NOT EXIST FCEPL01(PART INF. MASTER)           *
+     F************************************ AB#RFE **************
+     FABF2L02 IF  E           K        DISK
+     FABFAP01 IF  E           K        DISK
+     FABF9L01 UF  E           K        DISK
+     FAGDPL12 IF  E           K        DISK
+     FGADPL15 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+     FABFBP01 O   E                    DISK
+     FAB#WP451O   F     100            DISK
+     FQPRINT  O   F     132     OF     PRINTER
+     F****************************************************
+     E                    YOB         7  1
+     E****************************************************
+     I* YOBI
+     I            DS
+     I                                        1   7 YOB
+     I                                        1   1 B5YOB1
+     I                                        2   2 B5YOB2
+     I                                        3   3 B5YOB3
+     I                                        4   4 B5YOB4
+     I                                        5   5 B5YOB5
+     I                                        6   6 B5YOB6
+     I                                        7   7 B5YOB7
+     I*
+     I            DS
+     I                                        1   80A2SSHZ
+     I                                        1   40A2SYYY
+     I                                        5   60A2SYMM
+     I                                        7   80A2SYDD
+      *
+     I            DS
+     I                                        1   80A2GSHZ
+     I                                        1   40A2GSYY
+     I                                        5   60A2GSMM
+     I                                        7   80A2GSDD
+     I* TIME
+     I            DS
+     I                                        1  120WTMDT
+     I                                        1   60WTIME
+     I                                        7  120WDATE
+     I* THE KEY OF AGDPP111
+     I            DS
+     I                                        1   80F9SDAT
+     I                                        1   40KEYYY
+     I                                        5   60KEYMM
+     I                                        7   80KEYDD
+     I* NEXT NEXT SHIPPING DATE
+     I            DS
+     I                                        1   80W8KADT
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+     I* PART NUMBER
+     I            DS
+     I                                        1  12 @SHIN
+     I                                        1   5 WHIN1
+     I                                        6  10 WHIN2
+     I                                       11  12 WHIN3
+     I* SHIPMENT MASTER(DELIVERY POINT CODE)
+     I            DS
+     I                                        1   40B5NONY
+     I                                        1   4 K31
+     I* PLANT CODE(5A)
+     I            DS
+     I                                        1   5 K50
+     I                                        1   4 CFDOCK
+     I                                        5   5 WAAAA
+     C***********************************************************
+     C           *ENTRY    PLIST
+     C                     PARM           PSIRE   4
+     C***********************************************************
+     C* GADPL12
+     C           KEY1      KLIST
+     C                     KFLD           KEYYY
+     C                     KFLD           KEYMM
+     C                     KFLD           KEYDD
+     C* GADPL15
+     C           KEY2      KLIST
+     C                     KFLD           K21     40       NONY
+     C* ABF9L01
+     C           KEY3      KLIST
+     C                     KFLD           K31              NONY
+     C* ABFAP01
+     C           KEY4      KLIST
+     C                     KFLD           K41     4        NONY
+     C* ABF2L02
+     C           KEY5      KLIST
+     C                     KFLD           K50     5        PLANT
+     C                     KFLD           K51     4        DOCK
+     C                     KFLD           K52    20        PART
+     C                     KFLD           CFSIDT           ISUUE DATE
+     C                     KFLD           CFPOR#           PO #
+     C                     KFLD           CFREF#           PO #
+     C                     KFLD           KEY55   80       SHIPPING DAT
+     C* FCEPL011
+     C           KEY6      KLIST
+     C                     KFLD           WHIN1   5
+     C                     KFLD           WHIN2   5
+     C                     KFLD           WHIN3   2
+     C*
+     C                     EXSR @INZ
+     C                     EXSR @MAIN
+     C                     EXSR @END
+     C***********************************************************
+     C* INITIALIZE WORK AREA
+     C***********************************************************
+     C           @INZ      BEGSR
+     C*
+     C                     Z-ADD*ZERO     W9DATE  80
+     C                     Z-ADD*ZERO     W9SDAT  80
+     C                     Z-ADD*ZERO     W9CDAT  80
+     C                     Z-ADD*ZERO     WQTY2  100
+     C                     Z-ADD*ZERO     WREST   40
+     C                     Z-ADD*ZERO     W8YOBI  10
+     C                     Z-ADD*ZERO     WSAVI   10
+     C                     Z-ADD*ZERO     I       10
+     C                     Z-ADD*ZERO     WPDAT   80       PROCESSED DATE
+     C                     MOVE 'A'       WAAAA
+     C                     SETON                     89
+     C                     TIME           WTMDT
+     C                     Z-ADD20000000  W9DATE
+     C                     ADD  WDATE     W9DATE
+     C*
+     C                     ENDSR
+     C***********************************************************
+     C* MAIN
+     C***********************************************************
+     C           @MAIN     BEGSR
+     C*
+     C                     EXSR @SHIP                      GET  SHIPDATE
+     C           *IN93     IFEQ '0'
+     C                     EXSR @DATE                      2ND. SHIPDATE
+     C                     EXSR @WRT1                      AB#WP45     E
+     C                     EXSR @WRT2                      ABF9P01     E
+     C                     END
+     C*
+     C                     ENDSR
+     C***********************************************************
+     C* GET NEXT SHIPPING DATE FROM SHIPPING MASTER
+     C***********************************************************
+     C           @SHIP     BEGSR
+     C*
+     C                     MOVE PSIRE     K21
+     C           KEY2      CHAINGADPL15              91
+     C           *IN91     IFEQ '0'
+     C*
+     C***** SAVE RECEIVING DATE
+     C                     MOVELB5NUKE    K41
+     C***** GET SHIPPED DATE
+     C           KEY3      CHAINABF9P011             93
+B01  C           *IN93     IFNE '0'
+     C* ERROR
+     C                     EXCPT#HED1
+     C                     EXCPT#DTL1
+E01  C                     END
+     C*
+     C                     ELSE
+     C* ERROR(GADPL15 NOT READ)
+     C                     EXCPT#HED1
+     C                     EXCPT#DTL1
+E01  C                     END
+     C*
+     C                     ENDSR
+     C*
+     C***********************************************************
+     C* GET NEXT SHIPPING DATE FROM SHIPPING MASTER
+     C***********************************************************
+     C           @DATE     BEGSR
+     C*
+     C*
+     C***** GET THE DAY OF WEEK OF LAST SHIPPING DATE
+     C           KEY1      CHAINAGDPL121             90
+B01  C           *IN90     IFEQ '0'
+     C                     Z-ADDF8YOBI    W8YOBI
+     C* ERROR
+     C                     ELSE
+E01  C                     END
+     C*
+     C***** GET THE DAY OF WEEK OF NEXT SHIPPING DATE
+     C           1         ADD  W8YOBI    I
+     C                     READ AGDPL121                 90
+B01  C           I         IFGT 7
+     C                     Z-ADD1         I
+E01  C                     END
+     C                     SETOF                     8788
+     C*
+B01  C           *IN87     DOUEQ'1'
+     C*
+B02  C           YOB,I     IFNE *BLANK
+     C** NEXT SHIPPING DATE
+B03  C           *IN88     IFEQ '0'
+     C                     Z-ADDW8KADT    W9SDAT
+     C                     SETON                     88
+     C                     ADD  1         I
+     C                     READ AGDPL121                 90
+     C*
+B04  C           I         IFGT 7
+     C                     Z-ADD1         I
+E04  C                     END
+     C*
+     C                     ELSE
+     C** NEXT, NEXT SHIPPING DATE
+     C                     SETON                     87
+     C                     READPAGDPL121                 90
+     C                     Z-ADDW8KADT    KEY55
+     C                     Z-ADDW8KADT    W9CDAT
+E03  C                     END
+     C*
+     C                     ELSE
+     C                     ADD  1         I
+     C                     READ AGDPL121                 90
+B03  C           I         IFGT 7
+     C                     Z-ADD1         I
+E03  C                     END
+     C*
+E02  C                     END
+E01  C                     END
+     C*
+     C***** IS IT WORKING DAY?
+B01  C*          F8HIRU    IFEQ ' '
+     C*
+     C*                    ELSE
+     C*                    SETOF                     86
+B02  C*          *IN90     DOUEQ'1'
+     C*          *IN86     OREQ '1'
+     C*
+B03  C*          F8HIRU    IFEQ ' '
+     C*                    SETON                         86
+E03  C*                    END
+     C*                    READ AGDPL121                 90
+E02  C*                    END
+E01  C*                    END
+     C*
+     C                     ENDSR
+     C***********************************************************
+     C* CREATE FOR ORDER DATA
+     C***********************************************************
+     C           @WRT1     BEGSR
+     C*
+     C***** READ EDI KEY DATA FILE
+     C           KEY4      SETLLABFAP01
+     C           KEY4      READEABFAP01                  92
+B01  C           *IN92     DOWEQ'0'
+     C*
+     C***** READ EDI DETAIL RECORD
+     C                     MOVELCFDOC2    K51
+     C                     MOVELCFPART    K52
+     C           KEY5      CHAINABF2P011             94
+B02  C           *IN94     IFEQ '0'
+     C*
+     C                     MOVE B5SIRE    WSIRE   4        SUPPLIER CODE
+     C                     MOVE B5SMEI    WSIRK   1        FACTORY  CODE
+     C                     MOVE B5TOKU    WTOKU   4        CUSTOMER CODE
+     C                     MOVE B5NONY    WNONY   4        DELIVERY CODE
+     C                     MOVE B5NKOJ    WNKOJ   1        FACTORY  CODE
+     C                     MOVE B5NUKE    WNUKE   4        RECEIVING   E
+     C                     MOVE *BLANK    WSBAN   4        NUMBER      E
+     C                     MOVELCFPART    WMHIN  20        PART NUMBER E
+     C                     Z-ADDW9SDAT    WNYMD   80       DELIVERY DATE
+     C                     MOVEL'11111'   WODRN  10        ORDER #     E
+     C           AFQTY2    SUB  AFYSQY    WQTY2
+B03  C           WQTY2     IFGT *ZERO
+     C*
+     C***** GET UNIT QUANTITY
+     C                     MOVELWTOKU     PTOKU   4
+     C                     MOVELWNONY     PNONY   4
+     C                     MOVELWNKOJ     PNKOJ   1
+     C                     MOVELWNUKE     PNUKE   4
+     C                     MOVELWMHIN     @MHIN  20
+     C                     MOVELWMHIN     WMHIN  20
+     C                     MOVEL*BLANK    @SHIN  12
+     C                     MOVEL*BLANK    @FLG    1
+     C*
+     C                     CALL 'BBHR50'
+     C                     PARM           PTOKU
+     C                     PARM           PNONY
+     C                     PARM           PNKOJ
+     C                     PARM           PNUKE
+     C                     PARM           @MHIN
+     C                     PARM           @SHIN
+     C                     PARM           @FLG
+     C*
+     C           KEY6      CHAINFCEPL011             95
+B04  C           *IN95     IFEQ '0'
+B05  C*          A2GSKD    IFEQ 'D'
+     C*          A2GSHZ    ANDLE*DATE
+     C*                    ELSE
+     C*
+B06  C           A2SSHZ    IFLE *DATE
+     C                     Z-ADDA2SSYS    WSYOS   60
+     C                     ELSE
+     C                     Z-ADDA2KSYS    WSYOS
+E06  C                     END
+     C*
+E05  C                     END
+     C*
+     C*                    ELSE
+     C*                    Z-ADD*ZERO     WSYOS
+E04  C*                    END
+     C*
+     C           WSYOS     IFNE *ZERO
+     C           WQTY2     DIV  WSYOS     WQTY2
+     C                     MVR            WREST
+B04  C           WREST     IFNE *ZERO
+     C                     ADD  1         WQTY2
+E04  C                     END
+     C*
+     C                     ELSE
+     C                     EXCPT#HED1
+     C                     EXCPT#DTL1
+     C                     END
+     C*
+     C                     MULT WSYOS     WQTY2                        E
+     C                     MOVE WQTY2     WSURY   7        ORDERED QTY E
+     C                     MOVE *ZERO     WNOTM   4        DELIVERY TIME
+     C                     MOVELAFALFL    WALFL   4        FEED LINE
+     C*
+     C                     EXCPTDT
+     C                     SETON                     U1
+     C*
+     C                     CLEARABFBP01R
+     C                     MOVE PSIRE     LNONY
+     C                     MOVELAFSTID    LDOCK
+     C                     MOVELAFIPAR    LPART
+     C                     MOVE WSURY     LQTY
+     C                     WRITEABFBP01R
+     C*
+E03  C                     END
+E02  C                     END
+     C*
+     C           KEY4      READEABFAP01                  92
+     C*
+E01  C                     END
+     C*
+     C                     ENDSR
+     C***********************************************************
+     C* UPDATE SHIPPED DATE OF ADDRESS MASTER
+     C***********************************************************
+     C           @WRT2     BEGSR
+     C*
+     C                     Z-ADDW9DATE    F9DATE
+     C                     Z-ADDW9SDAT    F9SDAT
+     C                     Z-ADDW9CDAT    F9CDAT
+     C                     UPDATABF9P011
+     C*
+     C                     ENDSR
+     C***********************************************************
+     C* END
+     C***********************************************************
+     C           @END      BEGSR
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+     C*
+     C                     ENDSR
+     C***********************************************************
+     OAB#WP451E                DT
+     O                         WSIRE      4
+     O                         WSIRK      5
+     O                         WTOKU      9
+     O                         WNONY     13
+     O                         WNKOJ     14
+     O                         WNUKE     18
+     O                         WSBAN     22
+     O                         WMHIN     42
+     O                         WNYMD     50
+     O                         WODRN     60
+     O                         WSURY     67
+     O                         WSYOS     73
+     O                         WNOTM     77
+     O                         @SHIN     89
+     O                         WALFL     97
+     C********************************************************
+     OQPRINT  E    2           #HED1
+     O       OR        OF
+     O                                    8 'AB#RFE'
+     O                                   32 'EDI FORD(862) DATA'
+     O                                   43 'ERROR LIST'
+     O*
+     O        E 1              #HED1
+     O       OR        OF
+     O                                  131 '.         .         .'
+     O*
+     O        E 1              #HED1
+     O       OR        OF
+     O                                   89 'TIME'
+     O                         WTIME     98 '  :  :  '
+     O                                  131 '.         .         .'
+     O*
+     O        E 1              #HED1
+     O       OR        OF
+     O                                   89 'DATE'
+     O                         UDATE Y   98
+     O                                  104 'PAGE'
+     O                         PAGE  Z  108
+     O                                  131 '.....................'
+     O*
+     O        E 1              #DTL1
+     O                                   18 'NOT EXIST ADDRESS'
+     O                                   25 'MASTER'
+     O                                   60 'AVRTA'
+     O                         K31       70

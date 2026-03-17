@@ -1,0 +1,203 @@
+     H            Y/                                    1
+     **** ALDR55M *****************************************************
+     **   SERVICE PARTS - LARGE BAG M/F MAINTENANCE                   *
+     **   DATE WRITTEN    :  2020.05.18                               *
+     ******************************************************************
+     FALDPW55MCF  E                    WORKSTN
+     F                                              KINFDS WSDS
+     FALDPP55 UF  E           K        DISK                      A
+     **==============================================================**
+     E                    @SL     1   3  6                SELECT
+     E                    @MS     1  18 53                ERR MSG
+     **==============================================================**
+     I            DS
+     I                                        1  140S@TIME
+     I                                        1   60S@HMS
+     I                                        1   20S@TMHH
+     I                                        3   40S@TMMM
+     I                                        5   60S@TMSS
+     I                                        7  140S@YYMD
+     I                                        7  100S@DYYY
+     I                                       11  120S@DYMM
+     I                                       13  140S@DYDD
+     IWSDS        DS
+     I                                    B 370 3710S@CUR
+     I                                      370 370 S@LIN
+     I                                      371 371 S@COL
+     I                                    B 378 3790S@POS
+     I            DS
+     I                                        1   8 W@SEL
+     I                                        1   1 W@SEL1
+     I                                        2   2 W@HF
+     I                                        3   8 W@SEL2
+     I            DS
+     I                                        1   4 W1HFID
+     I                                        1   1 W1SNRV
+     I                                        2   4 W1DKBN
+     I           SDS
+     I                                     *PROGRAM S@PGID
+     I                                      244 253 S@WSID
+     I                                      254 263 S@USID
+     I                                      264 269 S@JBID
+     **==============================================================**
+     **                    MAIN ROUTINE                              **
+     **==============================================================**
+      *
+     C                     EXSR #INIT
+      *
+     C           DSPSW     DOUEQ'99'
+      *
+     C           DSPSW     CASEQ'10'      FMT10
+     C                     ENDCS
+      *
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *-------------------------------------------------------------------------
+      * SCREEN 1
+      *-------------------------------------------------------------------------
+     C           #FMT10    BEGSR
+      *
+     C                     SETOF                     909192
+     C                     SETOF                     414299
+      *
+     C                     CLEARDSP01
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANKS   D1MSG            * ERR MSG
+      *
+      * F1 : END
+     C           *INKA     IFEQ *ON
+     C                     MOVEL'99'      DSPSW
+     C                     GOTO EFMT10
+     C                     ENDIF
+      * F12: INQ
+     C           *INKL     IFEQ *ON
+     C                     CALL 'ALD???'
+     C                     PARM           D1JSYS
+     C                     PARM           D1SNRV
+     C                     PARM           D1DKBN
+     C                     GOTO EFMT10
+     C                     ENDIF
+      * ENTER
+     C                     EXSR #CHK10
+      *
+     C           EFMT10    ENDSR
+      *-------------------------------------------------------------------------
+      *  CHECK FIELDS OF SCREEN1
+      *-------------------------------------------------------------------------
+     C           #CHK10    BEGSR
+      *
+     C           D1SEL     IFNE '0'
+     C           D1SEL     ANDNE'2'
+     C                     MOVEL@MS,01    D1MSG     P
+     C                     SETON                     4199
+     C                     GOTO ECHK10
+     C                     ENDIF
+      *
+     C                     SELEC
+     C           D1SEL     WHEQ '0'
+     C                     SETON                     90
+     C           D1SEL     WHEQ '2'
+     C                     SETON                     92
+     C                     ENDSL
+      *
+     C           D1PRT1    IFEQ *BLANK
+     C           D1PRT2    ANDEQ*BLANK
+     C                     MOVEL@MS,02    D1MSG     P
+     C                     SETON                     4299
+     C                     GOTO ECHK10
+     C                     ENDIF
+      *
+     C           KEY55     CHAINALDPP55             N80
+     C           *IN80     IFEQ *OFF
+      * ADD
+     C           D1SEL     IFEQ '2'
+     C           A@SKJY    IFEQ 'D'
+     C                     ELSE
+     C                     MOVEL@MS,05    D1MSG     P
+     C                     SETON                     4299
+     C                     GOTO ECHK10
+     C                     ENDIF
+     C                     ENDIF
+      * DELETE
+     C           D1SEL     IFEQ '0'
+     C           A@SKJY    IFEQ 'D'
+     C                     MOVEL@MS,04    D1MSG     P
+     C                     SETON                     4299
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ELSE
+      *DELETE
+     C           D1SEL     IFEQ '0'
+     C                     MOVEL@MS,03    D1MSG     P
+     C                     SETON                     4299
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           ECHK10    ENDSR
+      *-------------------------------------------------------------------------
+      *  UPDATE RECORD
+      *-------------------------------------------------------------------------
+     C           #DBOUT    BEGSR
+      *
+     C                     TIME           S@TIME
+      *
+     C                     MOVELD1JSYS    K@JSYS
+     C                     MOVELD1SNRV    K@SNRV
+     C                     MOVELD1DKBN    K@DKBN
+     C           K@EJK     CHAINEJKPP10              80
+      *
+      * DELETE
+     C           D1SEL     IFEQ '0'
+     C           *IN80     IFEQ '0'
+     C                     EXSR #DEL10
+     C                     ENDIF
+     C                     ELSE
+      * ADD / CHANGE
+     C           *IN80     IFEQ '0'
+      * ADD(UPDAT)
+     C           D1SEL     IFEQ '2'
+     C                     EXSR #WRT11
+     C                     ENDIF
+      * CHANGE
+     C           D1SEL     IFEQ '1'
+     C                     EXSR #UPD10
+     C                     ENDIF
+     C                     ELSE
+      * ADD(WRITE)
+     C                     EXSR #WRT10
+     C                     ENDIF
+     C                     ENDIF
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'SET10'   W@NEXT
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *  INITIAL PROCESS
+      *-------------------------------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C           KEY55     KLIST
+     C                     KFLD           D1PRT1
+     C                     KFLD           D1PRT2
+      *
+     C                     MOVEL'01'      DSPSW   2
+      *
+     C                     ENDSR
+      *----------------------------------------------------------------
+**  @SL  ( SELECT )
+DELETE
+CHANGE
+ADD
+**  @MS  ( ERR MSG )
+ER01 SELECT 0, OR 2
+ER02 ENTER PART NUMBER
+ER03 DOES NOT EXIST IN LARGE BAG FILE(ALDPP55)
+ER04 PART ALREADY DELETED
+ER05 PART ALREADY EXISTS IN LARGE BAG(ALDPP55)

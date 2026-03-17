@@ -1,0 +1,207 @@
+     H            Y.
+     F***CHKR56I****************************************************************
+     F*  PROGRAM    : CHECK ORDER QPC ERROR (PP2A)  - IAF QPC=0                *
+     F*             : READ AB#PL2Q                                             *
+     F*  WRITTEN    : 2021.08.20                                               *
+     F*  WRITTEN BY : JW (SRA)                                                 *
+     F**************************************************************************
+     FAB#PL2Q IF  E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+     E                    MSG     1   3 15
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1   80K#YMD
+     I                                        1   40K#YY
+     I                                        5   60K#MM
+     I                                        7   80K#DD
+     I            DS
+     I                                        1  15 ACMH
+     I                                        1   5 ACMHN1
+     I                                        6  10 ACMHN2
+     I                                       11  15 ACMHN3
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+     C           TODAY     SETLLAB#PL2Q
+     C                     DO   *HIVAL
+     C                     READ AB#PL2Q                  98
+     C   98                LEAVE
+      *
+     C           ACUPID    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           ACQNTY    IFEQ 0
+     C           ACUPID    ORNE ' '
+     C                     ITER
+     C                     ENDIF
+      * GET STANDARD QPC
+     C                     MOVELACTOKU    $TOKU
+     C                     MOVELACNONY    $NONY
+     C                     MOVELACMH      $MHIN
+     C                     MOVEL'USR'     $HTYP
+     C                     MOVELACPLSH    $DATE
+     C                     CALL 'UTLR35'
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $HTYP   3
+     C                     PARM           $DATE   8
+     C                     PARM           $SYOS   6
+     C                     PARM           $RTN1   1
+     C                     MOVEL$SYOS     @SYOS   60
+      *
+      * ERROR
+     C**         ACCQTY    IFEQ 0
+     C**         @SYOS     OREQ 0
+     C**         ACCQTY    ORNE @SYOS
+     C**         @SYOS     ANDNE0
+     C**                   MOVELMSG,1     XMSG   15
+     C**                   EXSR #PRINT
+      * ERROR
+     C           @SYOS     IFEQ 0
+     C                     MOVELMSG,1     XMSG   15
+     C                     EXSR #PRINT
+      * UPDATE
+     C**         $UPD      IFEQ 'Y'
+     C**         @SYOS     IFNE 0
+     C**         ACCQTY    ANDEQ0
+     C**                   Z-ADD@SYOS     ACCQTY
+     C**                   UPDATAB#PP2A1
+     C**                   ITER
+     C**                   ENDIF
+     C**         ACCQTY    IFEQ 1
+     C**                   Z-ADDACQNTY    ACCQTY
+     C**                   UPDATAB#PP2A1
+     C**                   ITER
+     C**                   ENDIF
+     C**                   ENDIF
+      *
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C           SEQ#      IFNE 0
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      * PERIOD
+     C           ACPLSH    IFNE SVPLSH
+     C           SVPLSH    IFNE 0
+     C                     EXCPT@P
+     C                     ADD  1         LIN#
+     C                     ENDIF
+     C                     Z-ADDACPLSH    SVPLSH
+     C                     ENDIF
+      * GET CUSTOMER NAME
+     C                     MOVELACNONY    $DLV
+     C                     CALL 'UTLR62'
+     C                     PARM           $DLV    4
+     C                     PARM           $GRP    3
+     C                     PARM           $NAME1 15
+     C                     PARM           $NAME2 50
+     C                     PARM           $RTN2   1
+     C                     MOVEL$NAME1    XNAME   5
+      *
+     C                     MOVELACODRN    XCODRN 10
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C**                   PARM           $UPD    1
+     C                     PARM           $RTN    1
+      *
+     C           K#PP10    KLIST
+     C                     KFLD           K#YY
+     C                     KFLD           K#MM
+     C                     KFLD           K#DD
+      *
+     C                     TIME           SDATE
+     C                     MOVELTODAY     K#YMD
+     C                     MOVE *BLANK    $RTN
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+     C                     MOVE 'Y'       FIRST   1
+      * TEMP
+     C                     Z-ADD0         BAUSYS  60
+     C                     Z-ADD0         SVPLSH  80
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   16 '(HONDA)'
+     O                                   42 '** INVALID QPC ORDER'
+     O                                   62 ' LIST (COMMON PART M'
+     O                                   82 'ASTER ERROR) **     '
+     O                                   89 'DATE'
+     O                         TODAY     92 '    .  .  '
+     O                         NOW      102 '  :  :  '
+     O                                  106 'P.'
+     O                         PAGE  Z  110
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   14 'SHP_DATE'
+     O                                   21 'BIN#'
+     O                                   30 'CUST'
+     O                                   35 'DELV'
+     O                                   58 'CUST_PART_______'
+     O                                   67 'ORDER#'
+     O                                   77 'NAME'
+     O                                   90 'ORD_QTY'
+     O                                  101 'USR_QPC'
+     O                                  110 'IAF_QPC'
+     O                                  116 'PLANT'
+     O                                  125 '_SHP_CD_'
+     O        E 1              @DTL
+     O                         SEQ#  1 +000
+     O                         ACPLSH  +001 '    /  /  '
+     O                         ACBIN   +002
+     O                         ACUPID  +003
+     O                         ACTOKU  +002
+     O                         ACNONY  +001
+     O                         ACNKOJ  +001
+     O                         ACNUKE  +001
+     O                         ACMHN1  +000
+     O                         ACMHN2  +001
+     O                         ACMHN3  +001
+     O                         XCODRN  +002
+     O                         XNAME   +002
+     O                         ACQNTY1 +001
+     O                         ACCQTY1 +002
+     O                         @SYOS 1 +002
+JW   O                         ACPLNT  +002
+JW   O                         ACSHCD  +002
+     O******                   XMSG    +001
+     O        E 1              @P
+     O                                      '.'
+** MSG (15A) .+....2....+....3....+....4
+INVALID QPC !                            01
+                                         02
+                                         03

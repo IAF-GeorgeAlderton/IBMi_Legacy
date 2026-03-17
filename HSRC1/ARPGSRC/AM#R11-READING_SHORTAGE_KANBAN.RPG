@@ -1,0 +1,848 @@
+     H            Y.
+     F** AM#R11 **************************************************
+     F* READING SHORTAGE KANBAN                                  *
+     F*    ITS.             2015.06.01                           *
+JW1  F*  J.WATANABE  07.21.2017 ADD ORDER FILE (AB#PLA5=AB#PPA1) *
+     F**=====*****************************************************
+     FAM#PW11 CF  E                    WORKSTN
+     FAB#PL15 UF  E           K        DISK
+JW1  FAB#PLA5 UF  E           K        DISK
+     FAB#PL13 IF  E           K        DISK
+     FAL#PL03 UF  E           K        DISK
+     FAM#PL01 UF  E           K        DISK
+     FAL#PP21 IF  E           K        DISK
+     FAB#PP65 IF  E           K        DISK
+     FAB#WP40 O   F     100            DISK
+     FAB#HP10 O   E                    DISK
+     FGADPL11 IF  E           K        DISK
+     FAB#PL2C UF  E           K        DISK                      A
+     E                    ER      1  11 65
+      *
+     IB2D         DS
+     I                                        1  25 BAR01
+     I                                       26  50 BAR02
+     I                                       51  75 BAR03
+     I                                       76 100 BAR04
+     I                                      101 125 BAR05
+     I                                      126 150 BAR06
+     I                                      151 175 BAR07
+     I                                      176 200 BAR08
+     I                                      201 225 BAR09
+     I                                      226 250 BAR10
+      * 2D KANBAN
+     I            DS
+     I                                        1 250 W2D
+     I                                        1  18 BARCD0
+     I                                        1   1 CTYPE
+     I                                        2  16 TXT1
+     I                                       17  31 TXT2
+     I                                       32  36 SUPP
+     I                                       37  38 DCCOD
+     I                                       39  42 SBAN
+     I                                       43  54 PART
+     I                                       43  47 MHN1
+     I                                       48  52 MHN2
+     I                                       53  54 MHN3
+     I                                       55  64 LNAD
+     I                                       65  74 STAD
+     I                                       75  79 LOTS
+     I                                       80  99 SUPNM
+     I                                      100 108 MAINR
+     I                                      109 117 SUBR
+     I                                      118 125 UNDAT
+     I                                      126 133 SHDT
+     I                                      134 139 SHTM
+     I                                      140 151 ORNO
+     I                                      152 155 BXNBR
+     I                                      156 159 BXTOT
+     I                                      160 164 DEST
+     I                                      196 197 PALT
+     I                                       19 250 FILR
+      *
+     I            DS
+     I                                        1   80K@NYMD
+     I                                        1   40K@NOYY
+     I                                        5   60K@NOMM
+     I                                        7   80K@NODD
+      *
+     I            DS
+     I                                        1   80BASKHZ
+     I                                        1   40BASKYY
+     I                                        5   60BASKMM
+     I                                        7   80BASKDD
+      *
+     I            DS
+     I                                        1   80BAKOHZ
+     I                                        1   40BAKOYY
+     I                                        5   60BAKOMM
+     I                                        7   80BAKODD
+      *
+     I            DS
+     I                                        1   60BATIME
+     I                                        1   20BAKOHH
+     I                                        3   40BAKOSS
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        7  140SDATE
+     I                                        1   60STIME
+      *
+     I            DS
+     I                                        1   6 W#TI
+     I                                        1   2 W#TH
+     I                                        3   4 W#TM
+     I                                        5   6 W#TS
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     EXSR #SB100
+     C           DSPSW     DOUEQ'99'
+     C                     EXSR #SB200
+     C                     ENDDO
+     C                     EXSR #SB300
+      *----------------------------------------------------*
+      * INZ                                                *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     TIME           WTIME
+     C                     MOVEL'01'      DSPSW   2
+     C****                 MOVEL*BLANK    PCMD    2
+     C****                 MOVELWORKER    USRCD   6
+     C                     CLEARB2D
+      *
+     CSR         ESB100    ENDSR
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C           DSPSW     DOWEQ'01'
+     C                     EXSR #SB210
+     C                     ENDDO
+      *
+     C           DSPSW     DOWEQ'02'
+     C                     EXSR #SB220
+     C                     ENDDO
+      *
+     CSR         ESB200    ENDSR
+      *----------------------------------------------------*
+      *ユーザーかんばん                                  *
+      * USER KANBAN                                        *
+      *----------------------------------------------------*
+     CSR         #SB210    BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANK    MSG
+     C                     SETOF                     3199
+      *
+     C                     TIME           WTIME
+     C           *IN01     IFEQ '1'
+     C                     MOVEL'99'      DSPSW   2
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C           B2D       IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,2      MSG
+     C                     EXSR #SB999
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     CLEARB2D
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    WKHNTE  2
+     C                     MOVELB2D       W2D
+      *
+     C                     EXSR #SB600
+     C                     EXSR #SB710
+     C           *IN99     IFEQ '1'
+     C                     SETON                     3199
+     C                     MOVELER,1      MSG
+     C                     EXSR #SB999
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     CLEARB2D
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C                     EXSR #SB720
+     C           *IN99     IFEQ '1'
+     C                     EXSR #SB999
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     CLEARB2D
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C                     EXSR #SB730
+      *
+     C                     MOVEL'02'      DSPSW
+     C                     MOVE WKNONY    D2NONY
+     C                     MOVE WKNKOJ    D2NKOJ
+     C                     MOVELDCCOD     D2NUKE
+     C                     MOVEL*BLANK    D2MHN
+     C           5         SUBSTPART:1    WKMHN1  5
+     C           5         SUBSTPART:6    WKMHN2  5
+     C           2         SUBSTPART:11   WKMHN3  2
+     C                     MOVEL*BLANK    D2MHN
+     C           D2MHN     CAT  WKMHN1:0  D2MHN
+     C           D2MHN     CAT  '-':0     D2MHN
+     C           D2MHN     CAT  WKMHN2:0  D2MHN
+     C           WKMHN3    IFNE *BLANK
+     C           D2MHN     CAT  '-':0     D2MHN
+     C           D2MHN     CAT  WKMHN3:0  D2MHN
+     C                     ENDIF
+     C                     MOVELSBAN      D2KBN#
+     C                     MOVELORNO      D2ORD#
+     C                     MOVELSHDT      D2SHID
+     C                     MOVE LOTS      D2QTY
+     C                     Z-ADDWKSCDT    D2SCDT
+     C                     MOVE *BLANK    D2SCTI
+     C                     MOVE WKSCTI    W#TI
+     C           WKSCDT    IFNE 0
+     C           D2SCTI    CAT  W#TH:0    D2SCTI
+     C           D2SCTI    CAT  ':':0     D2SCTI
+     C           D2SCTI    CAT  W#TM:0    D2SCTI
+     C           D2SCTI    CAT  ':':0     D2SCTI
+     C           D2SCTI    CAT  W#TS:0    D2SCTI
+     C                     ENDIF
+      *
+     C                     Z-ADDWKPLDT    D2PLDT
+     C                     MOVE *BLANK    D2PLTI
+     C                     MOVE WKPLTI    W#TI
+     C           WKPLDT    IFNE 0
+     C           D2PLTI    CAT  W#TH:0    D2PLTI
+     C           D2PLTI    CAT  ':':0     D2PLTI
+     C           D2PLTI    CAT  W#TM:0    D2PLTI
+     C           D2PLTI    CAT  ':':0     D2PLTI
+     C           D2PLTI    CAT  W#TS:0    D2PLTI
+     C                     ENDIF
+      *
+     CSR         ESB210    ENDSR
+      *----------------------------------------------------*
+      *                                                    *
+      *----------------------------------------------------*
+     CSR         #SB220    BEGSR
+      *
+     C                     EXFMTDSP02
+     C                     MOVEL*BLANK    MSG
+     C                     SETOF                     3199
+      *
+     C                     TIME           WTIME
+     C           *IN03     IFEQ '1'
+     C                     MOVEL'01'      DSPSW   2
+     C                     CLEARB2D
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+     C                     TIME           WTIME
+     C           *IN05     IFEQ '1'
+     C           D2SCDT    IFEQ 0
+     C                     EXSR #SB500
+     C                     MOVEL'01'      DSPSW   2
+     C                     CLEARB2D
+     C                     ELSE
+     C                     WRITEW1
+     C                     EXSR #SB810
+     C                     ENDIF
+     C                     ENDIF
+      *
+     CSR         ESB220    ENDSR
+      *----------------------------------------------------*
+      * END                                                *
+      *----------------------------------------------------*
+     CSR         #SB300    BEGSR
+     C                     SETON                     LR
+     C                     RETRN
+     CSR         ESB300    ENDSR
+      *----------------------------------------------------*
+      * UPDATE                                             *
+      *----------------------------------------------------*
+     CSR         #SB500    BEGSR
+      *
+     C                     EXSR #UPD
+     C                     EXSR #SB520
+     C                     EXSR #SB530
+      *
+     CSR         ESB500    ENDSR
+      *----------------------------------------------------------------
+     CSR         #UPD      BEGSR
+      *----------------------------------------------------------------
+     C           KEY7X     KLIST
+     C                     KFLD           ##TOKU
+     C                     KFLD           ##NONY
+     C                     KFLD           ##NKOJ
+     C                     KFLD           ##NUKE
+     C                     KFLD           ##MHN1
+     C                     KFLD           ##MHN2
+     C                     KFLD           ##MHN3
+     C                     KFLD           ##MHN4
+     C                     KFLD           ##ODRN
+     C                     KFLD           ##NOYY
+     C                     KFLD           ##NOMM
+     C                     KFLD           ##NODD
+     C                     KFLD           ##NOBN
+     C                     KFLD           ##DEYY
+     C                     KFLD           ##DEMM
+     C                     KFLD           ##DEDD
+JW1   * UPDATE AB#PPA1
+JW1  C                     EXSR #UPD2
+      *
+     C           KEY7X     SETLLAB#PL15
+     C           *IN91     DOUEQ*ON
+     C           KEY7X     READEAB#PL15                  91
+     C           *IN91     IFEQ *OFF
+     C           BASKJY    ANDEQ*BLANK
+     C                     Z-SUBD2QTY     #SRYO  100
+     C****       S@QTY     SUB  BASRYO    #SRYO
+     C                     Z-ADDBASRYO    @@QTY   90
+     C                     Z-ADDSDATE     BAKOHZ
+     C                     Z-ADDSTIME     BATIME
+     C                     MOVELW#USER    BAKOME
+     C*****                Z-ADDS@QTY     BASRYO
+     C*****                Z-ADDS@QTY     BAODER
+     C           BASRYO    IFGT D2QTY
+     C           BASRYO    SUB  D2QTY     BASRYO
+     C           BAODER    SUB  D2QTY     BAODER
+     C                     ENDIF
+     C*****                MOVELD@RSN     BAHENK
+     C                     MOVEL'2'       BAHENK
+     C           BASRYO    IFEQ D2QTY
+     C                     MOVE 'D'       BASKJY
+     C                     Z-ADDSDATE     BASKHZ
+     C                     ENDIF
+     C                     UPDATAB#PL151
+     C                     EXSR #WRT1
+      *
+     C           #SRYO     IFNE *ZERO
+     C                     SETON                     U1
+     C                     EXCPTDT
+     C                     CLEARAB#HP101
+     C                     Z-ADD@@QTY     AHQTY1
+     C****                 Z-ADDS@QTY     AHQTY2
+     C                     Z-ADDBASRYO    AHQTY2
+     C                     EXSR #HST                       HISTORY FILE
+     C                     ENDIF
+      *
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     CSR                   ENDSR
+      *----------------------------------------------------------------
+JW1  CSR         #UPD2     BEGSR
+ |    *----------------------------------------------------------------
+ |   C                     MOVE *OFF      *IN93
+ |   C           KEY7X     SETLLAB#PLA5
+ |   C           *IN93     DOUEQ*ON
+ |   C           KEY7X     READEAB#PLA5                  93
+ |   C           *IN93     IFEQ *OFF
+ |   C           BASKJY    ANDEQ*BLANK
+ |   C                     Z-ADDSDATE     BAKOHZ
+ |   C                     Z-ADDSTIME     BATIME
+ |   C                     MOVELW#USER    BAKOME
+ |   C                     MOVELW#PGM     BANOPG
+ |   C           BASRYO    IFGT D2QTY
+ |   C           BASRYO    SUB  D2QTY     BASRYO
+ |   C           BAODER    SUB  D2QTY     BAODER
+ |   C                     ENDIF
+ |   C                     MOVEL'2'       BAHENK
+ |   C           BASRYO    IFEQ D2QTY
+ |   C                     MOVE 'D'       BASKJY
+ |   C                     Z-ADDSDATE     BASKHZ
+ |   C                     Z-ADDSTIME     BASKTM
+ |   C                     MOVELW#USER    BASKME
+ |   C                     MOVELW#PGM     BASKPG
+ |   C                     ENDIF
+ |   C                     UPDATAB#PLA51
+ |   C                     LEAVE
+ |   C                     ENDIF
+ |   C                     ENDDO
+ |    *
+JW1  CSR                   ENDSR
+      *----------------------------------------------------------------
+      * WRITE SIA LABEL FILE(AB#PL2C)
+      *----------------------------------------------------------------
+     CSR         #WRT1     BEGSR
+      *
+     C           KEY10     KLIST
+     C                     KFLD           BANOYY
+     C                     KFLD           BANOMM
+     C                     KFLD           BANODD
+     C                     KFLD           BANOBN
+     C                     KFLD           BATOKU
+     C                     KFLD           BANONY
+     C                     KFLD           BANKOJ
+     C                     KFLD           BANUKE
+     C                     KFLD           KASIRE  6
+     C                     KFLD           KASIRK  2
+     C                     KFLD           BAMHN1
+     C                     KFLD           BAMHN2
+     C                     KFLD           BAMHN3
+     C                     KFLD           BAMHN4
+     C                     KFLD           BAODRN
+      *
+     C                     MOVEL@@SIRE    KASIRE
+     C                     MOVE '01'      KASIRK
+     C           KEY10     CHAINAB#PL2C1             95
+      *
+     C                     Z-ADDBAKOYY    BBKOYY           UPDATE YY
+     C                     Z-ADDBAKOMM    BBKOMM                  MM
+     C                     Z-ADDBAKODD    BBKODD                  DD
+     C                     Z-ADDBAKOHH    BBKOHH                  TIME HOUR
+     C                     Z-ADDBAKOSS    BBKOSS                       MIN
+     C                     MOVE BAKOME    BBKOME                  MEMBER
+      *
+      ***   LABEL TYPE
+     C                     MOVEL@@SIRE    BBSIRE           SUPPLIER
+     C                     MOVE '01'      BBSIRK                    FACTORY
+      **   SUPPLIER DOCK
+     C                     Z-ADDBATOKU    BBTOKU           CUSTOMER
+     C                     Z-ADDBANONY    BBNONY           DELIVERY
+     C                     MOVELBANKOJ    BBNKOJ           FACTORY
+     C                     MOVELBANUKE    BBNUKE           RECEIVING
+     C                     Z-ADDBANOYY    BBNOYY           SHIPPING DATE
+     C                     Z-ADDBANOMM    BBNOMM
+     C                     Z-ADDBANODD    BBNODD
+     C                     MOVELBAMHN1    BBMHN1           USER PART NUMBER
+     C                     MOVELBAMHN2    BBMHN2
+     C                     MOVELBAMHN3    BBMHN3
+     C                     MOVELBAMHN4    BBMHN4
+     C                     MOVELBAODRN    BBODRN           ORDWER NUMBER
+      **    SERIAL NUMBER IS ASSIGNED BY BARTENDER
+      **    KANBAN NUMBER
+      **    USER PART NAME
+     C***        D@CUST    IFEQ '5149'
+     C***        D@CUST    OREQ '2855'
+     C***        D@CUST    OREQ '2856'
+     C           BATOKU    IFEQ 5149
+     C           BATOKU    OREQ 2855
+     C           BATOKU    OREQ 2856
+     C***                  MOVELS@LNFD    BBWHLC
+     C***                  MOVELS@RLOC    BBFTLC
+     C                     MOVEL*BLANK    BBWHLC
+     C                     MOVEL*BLANK    BBFTLC
+     C                     ELSE
+     C***                  MOVELS@WHLC    BBWHLC           WAREHOUSE LOCATION
+     C***                  MOVELS@FTLC    BBFTLC           FIT LOCATION
+     C                     MOVEL*BLANK    BBWHLC           WAREHOUSE LOCATION
+     C                     MOVEL*BLANK    BBFTLC           FIT LOCATION
+     C                     ENDIF
+      **    D/C PART LEVEL
+     C                     Z-ADDBANOBN    BBBIN
+     C           *IN95     IFEQ '0'
+     C                     UPDATAB#PL2C1
+     C                     ELSE
+     C                     WRITEAB#PL2C1
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------------------
+     CSR         #HST      BEGSR
+      *----------------------------------------------------------------
+     C                     Z-ADDSDATE     AHKYMD
+     C                     Z-ADDSTIME     AHKTIM
+     C                     MOVELW#PGM     AHKPGM
+     C                     MOVELW#USER    W@A005  5
+     C                     MOVELW@A005    AHKMID
+     C                     MOVELW#WSID    W@A005
+     C                     MOVE W@A005    AHKMID
+     C                     MOVE BATOKU    AHTOKU
+     C                     MOVE BANONY    AHNONY
+     C                     MOVE BANKOJ    AHNKOJ
+     C                     MOVE BANUKE    AHNUKE
+     C                     Z-ADDBANOYY    AHNOYY
+     C                     Z-ADDBANOMM    AHNOMM
+     C                     Z-ADDBANODD    AHNODD
+     C                     MOVE BANOBN    AHNOBN
+     C                     MOVELBAODRN    AHODRN
+     C                     MOVE BAMHN1    AHMHN1
+     C                     MOVE BAMHN2    AHMHN2
+     C                     MOVE BAMHN3    AHMHN3
+     C                     MOVE BAMHN4    AHMHN4
+     C                     MOVE BASHN1    AHSHN1
+     C                     MOVE BASHN2    AHSHN2
+     C                     MOVE BASHN3    AHSHN3
+     C                     WRITEAB#HP101
+      *
+     CSR                   ENDSR
+      *----------------------------------------------------*
+      *ＷＥＢデータ削除                                  *
+      * DELETE WEB DATA                                    *
+      *----------------------------------------------------*
+     CSR         #SB520    BEGSR
+      *
+     C                     MOVELSHDT      KKSHID  8
+     C                     MOVELSHTM      KKSHIT  6
+     C                     MOVELSUBR      KKSURT  9
+     C                     MOVE WKNONY    KKNONY  40
+     C                     MOVE WKNKOJ    KKNKOJ  1
+     C                     MOVELDCCOD     KKNUKE
+     C                     MOVELORNO      KKORD# 12
+     C                     MOVELPALT      KKPALT  2
+      *
+     C                     MOVEL'0'       GET     1
+     C                     TIME           WTIME
+     C           KEY01     SETLLAL#PL031
+     C           KEY01     READEAL#PL031                 80
+     C           *IN80     DOWEQ'0'
+     C           GET       ANDEQ'0'
+     C           CASKJY    IFEQ 'D'
+     C           CASKHZ    ANDLESDATE
+     C                     ELSE
+     C           CAMHN     IFEQ PART
+     C           CABOX#    ANDEQBXNBR
+     C                     MOVEL'1'       GET
+     C                     MOVEL'D'       CASKJY
+     C                     Z-ADDSDATE     CASKHZ
+     C                     UPDATAL#PL031
+     C                     ENDIF
+     C                     ENDIF
+     C           KEY01     READEAL#PL031                 80
+     C                     ENDDO
+      *
+     CSR         ESB520    ENDSR
+      *----------------------------------------------------*
+      *パレット照合実績削除                              *
+      * DELETE PALLET PACKING FILE                         *
+      *----------------------------------------------------*
+     CSR         #SB530    BEGSR
+      *
+     C           B2D       SETLLAM#PL011
+     C           B2D       READEAM#PL011                 80
+     C           *IN80     DOWEQ'0'
+     C           R1SKJY    IFEQ 'D'
+     C           R1SKHZ    ANDLESDATE
+     C                     ELSE
+     C                     MOVEL'D'       R1SKJY
+     C                     Z-ADDSDATE     R1SKHZ
+     C                     UPDATAM#PL011
+     C                     ENDIF
+     C           B2D       READEAM#PL011                 80
+     C                     ENDDO
+      *
+     CSR         ESB530    ENDSR
+      *----------------------------------------------------*
+      *ユーザーコード                                    *
+      * USER CODE                                          *
+      *----------------------------------------------------*
+     CSR         #SB600    BEGSR
+      *
+     C                     Z-ADD0         WKTOKU  40
+     C                     Z-ADD0         WKNONY  40
+     C                     MOVEL*BLANK    WKNKOJ  1
+     C           DEST      CHAINAL#PP211             26
+     C           *IN26     IFEQ '0'
+     C           C2SKJY    ANDEQ'D'
+     C           C2SKHZ    ANDLESDATE
+     C                     SETON                     26
+     C                     ENDIF
+     C           *IN26     IFEQ '0'
+     C                     MOVELC2TOKU    WKTOKU
+     C                     MOVELC2NONY    WKNONY
+     C                     MOVELC2NKOJ    WKNKOJ
+     C                     ENDIF
+      *
+     C           KEY2      KLIST
+     C                     KFLD           WKTOKU
+     C                     KFLD           WKNONY
+     C                     KFLD           WKNKOJ
+     C                     KFLD           WKNUKE
+     C                     MOVELDCCOD     WKNUKE  4
+     C                     MOVEL*BLANK    @@SIRE  4        SUPPLIER CODE
+     C                     MOVEL*BLANK    @@SIRK  1        FACTORY CODE
+     C           KEY2      CHAINGADPL111             70
+     C           *IN70     IFEQ '0'
+     C           B5SKJY    ANDEQ'D'
+     C           B5SKHZ    ANDLESDATE
+     C                     ELSE
+     C                     MOVELB5SIRE    @@SIRE           SUPPLIER CODE
+     C                     MOVELB5SMEI    @@SIRK           FACTORY CODE
+     C                     ENDIF
+      *
+     CSR         ESB600    ENDSR
+      *----------------------------------------------------*
+      *受注データ                                        *
+      * ORDER DATA                                         *
+      *----------------------------------------------------*
+     CSR         #SB710    BEGSR
+      *
+     C                     MOVE WKTOKU    KKTOKU  40
+     C                     MOVE WKNONY    KKNONY  40
+     C                     MOVE WKNKOJ    KKNKOJ  1
+     C                     MOVELDCCOD     KKNUKE  4
+     C                     MOVELORNO      K@ODRN 10
+     C                     MOVELORNO      @@INVN 16
+     C                     MOVE SHDT      K@NYMD
+     C                     MOVELSHTM      @SHTM   40
+     C                     MOVELMHN1      KKMHN1
+     C                     MOVELMHN2      KKMHN2
+     C                     MOVELMHN3      KKMHN3
+     C                     MOVEL*BLANK    KKMHN4
+     C           K#15      KLIST
+     C                     KFLD           KKTOKU  40
+     C                     KFLD           KKNONY  40
+     C                     KFLD           KKNKOJ  1
+     C                     KFLD           KKNUKE  4
+     C                     KFLD           KKMHN1  5
+     C                     KFLD           KKMHN2  5
+     C                     KFLD           KKMHN3  5
+     C                     KFLD           K@MHN4  5
+     C                     KFLD           K@ODRN
+     C                     KFLD           K@NOYY
+     C                     KFLD           K@NOMM
+     C                     KFLD           K@NODD
+     C           K#13      KLIST
+     C                     KFLD           KKNONY  40
+     C                     KFLD           K@NOYY
+     C                     KFLD           K@NOMM
+     C                     KFLD           K@NODD
+     C                     KFLD           KKNUKE  4
+     C                     KFLD           KKMHN1  5
+     C                     KFLD           KKMHN2  5
+     C                     KFLD           KKMHN3  5
+     C                     KFLD           KKMHN4  5
+      *
+     C                     Z-ADD0         ##TOKU  40
+     C                     Z-ADD0         ##NONY  40
+     C                     MOVEL*BLANK    ##NKOJ  1
+     C                     MOVEL*BLANK    ##NUKE  4
+     C                     MOVEL*BLANK    ##MHN1  5
+     C                     MOVEL*BLANK    ##MHN2  5
+     C                     MOVEL*BLANK    ##MHN3  5
+     C                     MOVEL*BLANK    ##MHN4  5
+     C                     MOVEL*BLANK    ##ODRN 10
+     C                     Z-ADD0         ##NOYY  40
+     C                     Z-ADD0         ##NOMM  20
+     C                     Z-ADD0         ##NODD  20
+     C                     Z-ADD0         ##NOBN  20
+     C                     Z-ADD0         ##DEYY  40
+     C                     Z-ADD0         ##DEMM  20
+     C                     Z-ADD0         ##DEDD  20
+     C                     MOVEL'0'       GETAB#  1
+     C           K#15      SETLLAB#PL15
+     C           K#15      READEAB#PL15             N    92
+     C           *IN92     DOWEQ'0'
+     C           GETAB#    ANDEQ'0'
+     C           BASKJY    IFEQ 'D'
+     C**JW       BASKHZ    ANDLESDATE
+     C                     ELSE
+     C                     MOVEL'1'       GETAB#  1
+     C                     MOVELBATOKU    ##TOKU
+     C                     MOVELBANONY    ##NONY
+     C                     MOVELBANKOJ    ##NKOJ
+     C                     MOVELBANUKE    ##NUKE
+     C                     MOVELBAMHN1    ##MHN1
+     C                     MOVELBAMHN2    ##MHN2
+     C                     MOVELBAMHN3    ##MHN3
+     C                     MOVELBAMHN4    ##MHN4
+     C                     MOVELBAODRN    ##ODRN
+     C                     MOVELBANOYY    ##NOYY
+     C                     MOVELBANOMM    ##NOMM
+     C                     MOVELBANODD    ##NODD
+     C                     MOVELBANOBN    ##NOBN
+     C                     MOVELBADEYY    ##DEYY
+     C                     MOVELBADEMM    ##DEMM
+     C                     MOVELBADEDD    ##DEDD
+     C                     ENDIF
+     C           K#15      READEAB#PL15             N    92
+     C                     ENDDO
+      *
+     C           GETAB#    IFEQ '0'
+     C           K#13      SETLLAB#PL13
+     C           K#13      READEAB#PL13                  92
+     C           *IN92     DOWEQ'0'
+     C           BASKJY    IFEQ 'D'
+     C**JW       BASKHZ    ANDLESDATE
+     C                     ELSE
+     C           BAINVN    IFEQ @@INVN
+     C                     MOVEL'1'       GETAB#  1
+     C                     MOVELBATOKU    ##TOKU
+     C                     MOVELBANONY    ##NONY
+     C                     MOVELBANKOJ    ##NKOJ
+     C                     MOVELBANUKE    ##NUKE
+     C                     MOVELBAMHN1    ##MHN1
+     C                     MOVELBAMHN2    ##MHN2
+     C                     MOVELBAMHN3    ##MHN3
+     C                     MOVELBAMHN4    ##MHN4
+     C                     MOVELBAODRN    ##ODRN
+     C                     MOVELBANOYY    ##NOYY
+     C                     MOVELBANOMM    ##NOMM
+     C                     MOVELBANODD    ##NODD
+     C                     MOVELBANOBN    ##NOBN
+     C                     MOVELBADEYY    ##DEYY
+     C                     MOVELBADEMM    ##DEMM
+     C                     MOVELBADEDD    ##DEDD
+     C                     ENDIF
+     C                     ENDIF
+     C           K#13      READEAB#PL13                  92
+     C                     ENDDO
+     C                     ENDIF
+     C           GETAB#    IFEQ '0'
+     C                     SETON                     3199
+     C                     ENDIF
+      *
+     CSR         ESB710    ENDSR
+      *----------------------------------------------------*
+      *ＷＥＢデータ                                      *
+      * WEB DATA                                           *
+      *----------------------------------------------------*
+     CSR         #SB720    BEGSR
+      *
+     C           KEY01     KLIST
+     C                     KFLD           KKSHID  8
+     C                     KFLD           KKSHIT  6
+     C                     KFLD           KKSURT  9
+     C                     KFLD           KKNONY  40
+     C                     KFLD           KKNKOJ  1
+     C                     KFLD           KKNUKE  4
+     C                     KFLD           KKORD# 12
+     C                     KFLD           KKPALT  2
+      *
+     C                     MOVELSHDT      KKSHID  8
+     C                     MOVELSHTM      KKSHIT  6
+     C                     MOVELSUBR      KKSURT  9
+     C                     MOVE WKNONY    KKNONY  40
+     C                     MOVE WKNKOJ    KKNKOJ  1
+     C                     MOVELDCCOD     KKNUKE
+     C                     MOVELORNO      KKORD# 12
+     C                     MOVELPALT      KKPALT  2
+      *
+     C                     MOVEL'0'       GET     1
+     C                     TIME           WTIME
+     C                     Z-ADD0         WKPLDT  80
+     C                     Z-ADD0         WKPLTI  60
+     C           KEY01     SETLLAL#PL031
+     C           KEY01     READEAL#PL031                 80
+     C           *IN80     DOWEQ'0'
+     C           GET       ANDEQ'0'
+     C           CAMHN     IFEQ PART
+     C           CABOX#    ANDEQBXNBR
+     C           CASKJY    IFEQ 'D'
+     C           CASKHZ    ANDLESDATE
+     C                     MOVEL'2'       GET
+     C                     ELSE
+     C                     MOVEL'1'       GET
+     C                     Z-ADDCAPLDT    WKPLDT
+     C                     Z-ADDCAPLTI    WKPLTI
+     C                     ENDIF
+     C                     ENDIF
+     C           KEY01     READEAL#PL031                 80
+     C                     ENDDO
+      *
+     C                     SELEC
+     C           GET       WHEQ '0'
+     C                     MOVELER,3      MSG
+     C                     SETON                     3199
+     C           GET       WHEQ '2'
+     C                     MOVELER,4      MSG
+     C                     SETON                     3199
+     C                     ENDSL
+      *
+     CSR         ESB720    ENDSR
+      *----------------------------------------------------*
+      *出荷データ                                        *
+      * SHIPPING DATA                                      *
+      *----------------------------------------------------*
+     CSR         #SB730    BEGSR
+      *
+     C           K#65      KLIST
+     C                     KFLD           K@DEST  5
+     C                     KFLD           K@NUKE  4
+     C                     KFLD           K@ORNO 12
+     C                     KFLD           K@KANO  4
+     C                     KFLD           K@BOXN  4
+     C                     MOVELDEST      K@DEST  5
+     C                     MOVELDCCOD     K@NUKE  4
+     C                     MOVELORNO      K@ORNO 12
+     C                     MOVELSBAN      K@KANO  4
+     C                     MOVELBXNBR     K@BOXN  4
+     C                     Z-ADD0         WKSCDT  80
+     C                     Z-ADD0         WKSCTI  60
+     C           K#65      SETLLAB#PP65              90
+     C           K#65      READEAB#PP65                  90
+     C           *IN90     DOWEQ'0'
+     C           A6SKJY    IFEQ *BLANK
+     C                     Z-ADDA6KDAT    WKSCDT
+     C                     Z-ADDA6TIME    WKSCTI
+     C                     ENDIF
+     C           K#65      READEAB#PP65                  90
+     C                     ENDDO
+      *
+     CSR         ESB730    ENDSR
+      *----------------------------------------------------*
+      * WARNING                                            *
+      *----------------------------------------------------*
+     CSR         #SB810    BEGSR
+      *
+     C                     MOVELER,9      DAERR1
+     C                     MOVELER,10     DAERR2
+     C                     MOVELER,11     DAERR3
+     C                     MOVEL*BLANK    WKCMD   2
+     C           DSP01A    TAG
+     C                     EXFMTAM#PW11A
+     C                     SELEC
+     C           *IN03     WHEQ '1'
+     C                     MOVEL'03'      WKCMD   2
+     C                     GOTO ESB810
+     C           *IN05     WHEQ '1'
+     C                     MOVEL'05'      WKCMD   2
+     C                     OTHER
+     C                     GOTO DSP01A
+     C                     ENDSL
+      *
+     C           WKCMD     IFEQ '05'
+     C                     EXSR #SB500
+     C                     MOVEL'01'      DSPSW   2
+     C                     CLEARB2D
+     C                     ENDIF
+      *
+     CSR         ESB810    ENDSR
+      *----------------------------------------------------*
+      * ERROR                                              *
+      *----------------------------------------------------*
+     CSR         #SB999    BEGSR
+      *
+     C                     MOVELMSG       P1ERR
+     C                     CALL 'AM#R08'
+     C                     PARM           P1ERR  25
+      *
+     CSR         ESB999    ENDSR
+      *
+     OAB#WP40 E                DT
+     O                         @@SIRE     4
+     O                         @@SIRK     5
+     O                         BATOKU     9
+     O                         BANONY    13
+     O                         BANKOJ    14
+     O                         BANUKE    18
+     O                         BASBAN    22
+     O                         BAMHIN    42
+     O                         BANOHZ    50
+     O                         BAODRN    60
+     O                         #SRYO     70
+%0001O                         BAUSYS    76
+     O                         BANOTM    80
+     O                         BASHIN    92
+%0001O                         BACARD    96
+     O                         BANOBN    98
+**
+NO ORDER DATA.
+INPUT USER KANBAN.
+NO KANBAN DATA.
+ALREADY DELETED.
+ALREADY SCANNING.
+OTHER PALLET#.
+NO PALLET DATA.
+NO SHIPPING DATA.
+ALREADY SCANNED DATA.
+PLEASE CHECK THE
+SHIPPING SITUATION.

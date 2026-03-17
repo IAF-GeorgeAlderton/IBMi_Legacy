@@ -1,0 +1,271 @@
+     H            Y.
+     ** ABVRE5 **************************************************
+     *  VW EDI DELFOR                                           *
+     *                                                          *
+     * T.SAKAKI    2015/08/28                                   *
+JW1  * J.WATANABE  2017.06.01  CHG FILE FIELD ID A2 TO V2       *
+JW1  *                         ADD UPDATE ABBPP50 (FC LOG)      *
+JW2  * J.WATANABE  2018.03.08  ADD FC DATA UPTO 6 MONTHS        *
+JW3  * J.WATANABE  2018.11.15  ADD V2DCNM FOR PRE SERIES ASN    *
+     ************************************************************
+     FABVEP21 IP  E                    DISK
+     FABVEL22 IF  E           K        DISK
+     FABVPP25 O   E                    DISK
+JW1  FABBPL50 UF  E           K        DISK                      A
+      *---------------------------------------------------------
+     E                    MH1        22  1
+     E                    MH2        20  1
+      *---------------------------------------------------------
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     I            DS
+     I                                        1  140WWTIME
+     I                                        1   60WTIME
+     I                                        1   20WSTMHH
+     I                                        3   40WSTMMM
+     I                                        5   60WSTMSS
+     I                                        7  140WSSDAT
+     I                                        7  100WSYYYY
+     I                                       11  120WSMMMM
+     I                                       13  140WSDDDD
+     I            DS
+     I                                        1   8 AEFD01
+     I                                        1   4 WNOYY
+     I                                        5   6 WNOMM
+     I                                        7   8 WNODD
+JW1  I            DS
+ |   I                                        1   80V2FRHZ
+ |   I                                        1   40V2FRYY
+ |   I                                        5   60V2FRMM
+JW1  I                                        7   80V2FRDD
+     I            DS
+     I                                        1  20 WMHIN
+     I                                        1   5 WMHN1
+     I                                        6  10 WMHN2
+     I                                       11  15 WMHN3
+     I                                       16  20 WMHN4
+     I            DS
+     I                                        1  12 WSHIN
+     I                                        1   5 WHIN1
+     I                                        6  10 WHIN2
+     I                                       11  12 WHIN3
+     I*
+     I            DS
+     I                                        1  35 W@PKDT
+     I                                        1   8 W@PYMD
+     I                                        9  12 W@PTIM
+      *---------------------------------------------------------
+      *
+     C                     MOVELAETOKU    WTOKU   40
+     C                     MOVELAENONY    WNONY   40
+     C                     MOVELAENKOJ    WNKOJ   1
+     C                     MOVELAENUKE    WNUKE   4
+     C                     Z-ADD1         WNOBN   20
+     C                     MOVELAENONY    WSIRE   40
+     C                     MOVELAENKOJ    WSIRK   1
+      *
+      * FORECAST DATE OR QTY. = 0
+     C           AEFR01    CABEQ0         @@JUMP
+     C           AEFD01    CABEQ*BLANK    @@JUMP
+      *
+JW2   * FORECAST DATE WITHIN 6 MONTH
+ |   C                     MOVELAEFD01    AEFDX   6
+JW2  C           AEFDX     CABGTXY4M2     @@JUMP
+      *
+      * CUSTOMER PART#
+     C                     MOVEAAEMHIN    MH1       P
+     C                     MOVEL*BLANK    MH2
+     C                     Z-ADD*ZERO     Y       20
+     C           1         DO   22        X       20
+     C           MH1,X     IFNE '-'
+     C           MH1,X     ANDNE'/'
+     C           MH1,X     ANDNE'.'
+     C           MH1,X     ANDNE*BLANK
+     C                     ADD  1         Y
+     C           Y         IFGT 20
+     C                     LEAVE
+     C                     ENDIF
+     C                     MOVE MH1,X     MH2,Y
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     MOVEAMH2       WMHIN     P
+      * IAF PART#
+     C                     MOVELAETOKU    PTOKU   4
+     C                     MOVELAENKOJ    PNKOJ   1
+     C                     MOVELAENUKE    PNUKE   4
+     C                     MOVE AENONY    PNONY   4
+     C                     MOVELWMHIN     @MHIN  20
+     C                     MOVEL*BLANK    @SHIN  12
+     C                     MOVEL*BLANK    @FLG    1
+      *
+     C                     CALL 'BBHR50'
+     C                     PARM           PTOKU   4
+     C                     PARM           PNONY   4
+     C                     PARM           PNKOJ   1
+     C                     PARM           PNUKE   4
+     C                     PARM           @MHIN  20
+     C                     PARM           @SHIN  12
+     C                     PARM           @FLG    1
+      *
+     C                     MOVEL@SHIN     WSHIN
+      *
+      * CHECK ABVEP22
+     C           K#E22     KLIST
+     C                     KFLD           KEDPDT  8
+     C                     KFLD           KEMHIN 22
+     C                     KFLD           KEORNO  6
+     C                     KFLD           KEDSIN  9
+      *
+     C                     MOVELAEDPDT    KEDPDT
+     C                     MOVELAEMHIN    KEMHIN
+     C                     MOVELAEORNO    KEORNO
+     C                     MOVELAEDSIN    KEDSIN
+      *
+      * CHECK ABVEL22
+     C                     SETON                     10
+     C           K#E22     CHAINABVEL221             10
+     C           *IN10     IFEQ '0'
+     C                     MOVELAECMRP    V2CMRP
+     C                     END
+      *
+      * WRITE RECORD  ABVPP25
+     C                     EXSR #P25
+JW1   * WRITE RECORD  ABBPP50
+JW1  C                     EXSR #P50
+      *
+     C           @@JUMP    TAG
+      *-----------------------------------------------------------
+      *  INITIALIZE
+      *-----------------------------------------------------------
+     C           *INZSR    BEGSR
+      *
+     C                     TIME           WWTIME
+      *
+JW1  C           K#P50     KLIST
+ |   C                     KFLD           V2EDID
+ |   C                     KFLD           V@TOKU  40
+ |   C                     KFLD           V@NONY  40
+ |   C                     KFLD           V2NKOJ
+ |   C                     KFLD           V2NUKE
+ |   C                     KFLD           V2MHN1
+ |   C                     KFLD           V2MHN2
+ |   C                     KFLD           V2MHN3
+ |   C                     KFLD           V2MHN4
+JW1  C                     KFLD           V2FRHZ
+      * SET 6 MONTH FUTURE
+JW2  C                     Z-ADDWSYYYY    XY4     40
+ |   C           WSMMMM    ADD  6         XM2     20
+ |   C           XM2       IFGT 12
+ |   C                     SUB  12        XM2
+ |   C                     ADD  1         XY4
+ |   C                     ENDIF
+ |   C                     MOVELXY4       XY4M2   6
+JW2  C                     MOVE XM2       XY4M2
+      *
+     C                     ENDSR
+      *---------------------------------------------------------
+      *  WRITE RECORDS TO ABVPP25
+      *---------------------------------------------------------
+     C           #P25      BEGSR
+      *
+     C                     MOVELAEPRTR    V2PRTR
+     C                     MOVELAETOKU    V2TOKU
+     C                     MOVELAENONY    V2NONY
+     C                     MOVELAENKOJ    V2NKOJ
+     C                     MOVELAENUKE    V2NUKE
+     C                     MOVELAEDPDT    V2DPDT
+     C                     MOVELAESUPL    V2SUPL
+     C                     MOVELAEPLNT    V2PLNT
+     C                     MOVELAEMHIN    V2MHIN
+     C                     MOVELAEMHNM    V2MHNM
+     C                     MOVELAEDOC2    V2DOC2
+     C                     MOVELAEORNO    V2ORNO
+     C                     MOVELAEPDIN    V2PDIN
+     C                     Z-ADDAEPDAT    V2PDAT
+     C                     MOVELAEDSIN    V2DSIN
+     C                     Z-ADDAEDSDT    V2DSDT
+     C                     Z-ADDAECQTY    V2CQTY
+     C                     Z-ADDAECDAT    V2CDAT
+      * RCVD AND ACCPT
+     C                     Z-ADDAERAQ1    V2RAQ1
+     C                     MOVELAEDLN1    V2DLN1
+     C                     Z-ADDAEDTN1    V2DTN1
+     C                     Z-ADDAERAQ2    V2RAQ2
+     C                     MOVELAEDLN2    V2DLN2
+     C                     Z-ADDAEDTN2    V2DTN2
+     C                     Z-ADDAERAQ3    V2RAQ3
+     C                     MOVELAEDLN3    V2DLN3
+     C                     Z-ADDAEDTN3    V2DTN3
+      * INTERNAL PART #
+     C                     MOVELWHIN1     V2SHN1
+     C                     MOVELWHIN2     V2SHN2
+     C                     MOVELWHIN3     V2SHN3
+      * USER PART #
+     C                     MOVELWMHN1     V2MHN1
+     C                     MOVELWMHN2     V2MHN2
+     C                     MOVELWMHN3     V2MHN3
+     C                     MOVELWMHN4     V2MHN4
+      * FORECAST DATE
+     C                     MOVELWNOYY     V2FRYY
+      * YYYYWW   616
+     C           AEFQ01    IFEQ '616'
+     C                     Z-ADD0         V2FRMM
+     C                     Z-ADD0         V2FRDD
+     C                     MOVELWNOMM     V2FRWW
+      * YYYYMMDD  102
+     C                     ELSE
+     C                     MOVELWNOMM     V2FRMM
+     C                     MOVELWNODD     V2FRDD
+     C                     Z-ADD0         V2FRWW
+     C                     ENDIF
+      * FORECAST DATA
+     C                     Z-ADDAEFR01    V2FR01
+     C                     MOVELAEFQ01    V2FQ01
+      *
+      *  EDI RECEIVING DATE
+     C                     Z-ADDWSSDAT    V2EDID
+     C                     Z-ADDWTIME     V2EDIT
+JW   C                     MOVEL#PGM      V2PGM
+      *
+JW3  C                     MOVELAEDCNM    V2DCNM
+      *
+     C                     WRITEABVPP251
+      *
+     C                     ENDSR
+      *---------------------------------------------------------
+      *  WRITE RECORDS TO ABVPP50
+      *---------------------------------------------------------
+     C           #P50      BEGSR
+      *
+     C                     MOVELV2TOKU    V@TOKU
+     C                     MOVELV2NONY    V@NONY
+     C           K#P50     CHAINABBPL50              90
+     C           *IN90     IFEQ *ON
+     C                     CLEARABBPP501
+     C                     ENDIF
+     C                     Z-ADDV2EDID    BBRCDT
+     C                     MOVELV2TOKU    BBTOKU
+     C                     MOVELV2NONY    BBNONY
+     C                     MOVELV2NKOJ    BBNKOJ
+     C                     MOVELV2NUKE    BBNUKE
+     C                     MOVELV2MHN1    BBMHN1
+     C                     MOVELV2MHN2    BBMHN2
+     C                     MOVELV2MHN3    BBMHN3
+     C                     MOVELV2MHN4    BBMHN4
+     C                     Z-ADDV2FRHZ    BBSDAT
+     C           V2FR01    DIV  100       BBSQTY
+     C                     MOVEL'0000'    BBSEBN
+     C                     MOVELV2SHN1    BBSHN1
+     C                     MOVELV2SHN2    BBSHN2
+     C                     MOVELV2SHN3    BBSHN3
+     C                     MOVE *BLANK    BBFLG1
+     C                     MOVE 'E'       BBFLG2
+      *
+     C   90                WRITEABBPP501
+     C  N90                UPDATABBPP501
+      *
+      *
+     C                     ENDSR

@@ -1,0 +1,74 @@
+             PGM
+             /** ALDC04 **********************************************/
+             /*  THE NUMBER OF PROCESSED BOXES BY WORKER LIST        */
+             /*  TCH 00.08.14                                        */
+             /*  THE NUMBER OF PROCESSED BOXES BY DATE(ALDR08)ADDED  */
+             /*  TCH 00.01.15                                        */
+             /*  ADD DAILY REPORT OPTION(F09)    TCH OCT/10/02       */
+             /*  TCH 02/02/05 SCREEN VERSION                         */
+             /*  TCHK1 04/21/06 CHG HWFILE1 ---> QTEMP               */
+             /*  TCHK3 03/05/07 BUG FIX                              */
+             /********************************************** ALDC04 **/
+             DCLF       FILE(ALDPW05)
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&USR)  TYPE(*CHAR) LEN(10)
+             DCL        VAR(&ST)   TYPE(*CHAR) LEN(02)
+
+             RTVJOBA    JOB(&WSID) USER(&USR)
+
+             CHGVAR     VAR(&YEAR) VALUE(0)
+             CHGVAR     VAR(&MM)   VALUE(0)
+             CHGVAR     VAR(&DD)   VALUE(0)
+    /*       CHGVAR     VAR(&USER) VALUE('      ')     */
+
+ STP1:       SNDRCVF    DEV(&WSID) RCDFMT(ALDPW051)
+
+             CHGVAR     VAR(&IN02) VALUE('0')
+             CHGVAR     VAR(&IN03) VALUE('0')
+             CHGVAR     VAR(&IN99) VALUE('0')
+
+             IF         (&IN01 *EQ '1') GOTO END
+
+             IF         (&YEAR *NE 0) GOTO STP2
+             CHGVAR     VAR(&IN02) VALUE('1')
+             CHGVAR     VAR(&IN99) VALUE('1')
+             GOTO       STP1
+
+ STP2:
+             IF         ((&MM *GE 01) *AND (&MM *LE 12)) GOTO STP3
+             CHGVAR     VAR(&IN03) VALUE('1')
+             CHGVAR     VAR(&IN99) VALUE('1')
+             GOTO       STP1
+
+
+ STP3:
+      /*     IF         COND(&IN05 *EQ '0' *AND &IN09 *EQ '0') +
+                          THEN(GOTO CMDLBL(STP1))      */
+
+      /*     CLRPFM     FILE(ALDWP05)   */
+/* TCHK1     CLRPFM     FILE(HWFILE1/ALDWP07) */
+/* TCHK1 */  CRTDUPOBJ  OBJ(ALDWP07) FROMLIB(HWFILE1) +
+                          OBJTYPE(*FILE) TOLIB(QTEMP)
+/* TCHK1 */  MONMSG     MSGID(CPF0000)
+/* TCHK1 */  CLRPFM     FILE(QTEMP/ALDWP07)
+      /*     MONMSG     MSGID(CPF0000)   */
+/* TCHK2 */  CRTDUPOBJ  OBJ(ALDL704) FROMLIB(HWFILE1) +
+                          OBJTYPE(*FILE) TOLIB(QTEMP)
+/* TCHK2 */  MONMSG     MSGID(CPF0000)
+
+/* TCHK1     OVRDBF     FILE(ALDWP05) TOFILE(ALDWP07) */
+/* TCHK1 */  OVRDBF     FILE(ALDWP05) TOFILE(QTEMP/ALDWP07)
+/* TCHK2     OVRDBF     FILE(ALDWL04) TOFILE(ALDL704) */
+/* TCHK2 */  OVRDBF     FILE(ALDWL04) TOFILE(QTEMP/ALDL704)
+
+/* TCHK1     CALL       PGM(ALDR05) PARM(&YEAR &MM) */
+             CALL       PGM(ALDR13) PARM(&YEAR &MM &DD)
+
+   /*        CALL       PGM(ALDR12) PARM(&USER &YEAR &MM &DD &ST)  */
+             CALL       PGM(ALDR12) PARM(&YEAR &MM &DD &ST)
+             IF         COND(&ST *EQ '12') THEN(GOTO CMDLBL(STP1))
+ END:
+             DLTOVR     FILE(*ALL)
+             MONMSG     MSGID(CPF0000)
+
+             ENDPGM

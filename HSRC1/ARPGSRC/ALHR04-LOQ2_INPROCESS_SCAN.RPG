@@ -1,0 +1,876 @@
+     H            Y.                                    1
+     H***ALHR04*****************************************************************
+     H*  LOQ INPROCESS SCAN                                                    *
+     H*
+     H* TCHK  03/26/12 CREATE(COPY FROM ALGR01)
+     H* TCHK1 08/31/12 CHG GET MATERIAL & KANBAN READ
+     H* TCHK2 09/12/12 BUG FIX
+     H* TCHK3 11/07/13 ADD PRINTER SELECT
+     H* LEC   07/22/2019 CHG PRINTOUT TO 3 COPIES PER SHEET WITH BARCODE
+     H* LEC   01/25/2021 CHG MAKE SURE LOQ#/KANBAN NOT ALREADY SCANNED
+     H* LEC   11/05/2021 ADD PRINT OF EXTRA LOT ID TAG FOR EACH 1 SCANNED
+     H**************************************************************************
+     FALHPW03 CF  E                    WORKSTN
+     FALBPL30 IF  E           K        DISK
+     FFCEPL07 IF  E           K        DISK
+TCHK1FFCETL06 IF  E           K        DISK
+     FADHPL07 IF  E           K        DISK
+     FAAHTL06 IF  E           K        DISK
+     FAB#PPCT UF  E           K        DISK                      A
+      *
+     FALHPP01 IF  E           K        DISK                      A
+     FALHPP11 IF  E           K        DISK                      A
+     FMRHPL25 IF  E           K        DISK
+     FMRHPL51 IF  E           K        DISK
+      *
+     FALHPR02 O   E                    PRINTER                        UC
+      **************************************************************************
+TCHK3E*                   CMD     1   1 75
+     E                    ERR     1  20 17
+     E                    LOT         4  8
+     E                    KAN         6 17
+      **************************************************************************
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     I* SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60WSSTM6
+     I                                        1   40WSSTM4
+     I                                        1   20WSSHHH
+     I                                        3   40WSSNNN
+     I                                        5   60WSSSSS
+     I                                        7  140WSSDAT
+     I                                        9  140WSSYMD
+     I                                        7  120WSSYM
+     I                                        7  100WSSYYY
+     I                                       11  120WSSMMM
+     I                                       13  140WSSDDD
+     I*
+     I            DS
+     I                                        1  32 LOT
+     I                                        1   8 F4LOT1
+     I                                        9  16 F4LOT2
+     I                                       17  24 F4LOT3
+     I                                       25  32 F4LOT
+     I*
+     I*
+     I            DS
+     I                                        1  15 W2KAN
+     I                                        1   1 W2TYPE
+     I                                        2   2 W2ZET1
+     I                                        2   5 W2ZETI
+     I                                        6   7 W2ATOJ
+     I                                        8   8 W2ATYP
+     I                                        9  11 W2ATOK
+     I                                       15  15 W2CHKD
+     I                                        2   5 W2THI1
+     I                                        6   8 W2THI2
+     I*
+     I*
+     I*
+     I            DS
+     I                                        1   8 W4LOT
+     I                                        1   7 W4LOT1
+     I                                        8   8 W4CHKD
+     I*
+     I            DS
+     I                                        1   60W@YYMM
+     I                                        1   40W@YYYY
+     I                                        5   60W@MMMM
+     I*
+     I            DS
+     I                                        1  14 W@SHIN
+     I                                        1   5 W@SHN1
+     I                                        6   6 W@SHNA
+     I                                        7  11 W@SHN2
+     I                                       12  12 W@SHNB
+     I                                       13  14 W@SHN3
+     I            DS
+     I                                        1  12 W@BARC
+     I                                        1  11 W@BAR@
+     I                                        1   60W@BAR1
+     I                                        7  110W@BAR2
+     I                                       12  12 W@BAR3
+      *
+     I            DS
+     I                                        1  12 A2BHB
+     I                                        1   5 A2BHB1
+     I                                        6  10 A2BHB2
+     I                                       11  12 A2BHB3
+     I            DS
+     I                                        1  12 EABHB
+     I                                        1   5 EASHN1
+     I                                        6  10 EASHN2
+     I                                       11  12 EASHN3
+     C**************************************************************************
+     C*                    MAIN ROUTINE
+     C**************************************************************************
+     C           @@ID      DOWNE'99'
+     C           @@ID      CASEQ'10'      #FMT10
+     C           @@ID      CASEQ'20'      #FMT20
+     C           @@ID      CASEQ'40'      #FMT40
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+     C**************************************************************************
+     C*         INITIALIZE
+     C**************************************************************************
+     C           *INZSR    BEGSR
+      * FOR KANBAN CHECK DEGIT
+     C           P#BRC     PLIST
+     C                     PARM           PMAREA100
+     C                     PARM           PMBYTE  3
+     C                     PARM           PMCHK   1
+     C                     PARM           PMRTCD  1
+      *
+     C                     TIME           WSDT
+      *
+     C*----------------------------*
+     C* GET DAY 1 YEAR AGO        *
+     C*----------------------------*
+     C                     MOVE WSSDAT    PDATE
+     C                     MOVE '-'       PPORM
+     C                     MOVE '0030'    PDAYS
+     C                     CALL 'DATR12'
+     C                     PARM           PDATE   8
+     C                     PARM           PPORM   1        + OR -
+     C                     PARM           PDAYS   4
+     C                     PARM           PRDAT   8
+     C                     PARM           PRTN    1
+     C                     MOVE PRDAT     XDATE   80
+      *
+     C*
+     C                     CLEARFMT100
+     C                     CLEARFMT200
+     C                     CLEARFMT400
+     C*
+     C                     MOVEL'10'      @@ID    2
+     C                     MOVEL'P'       W@KKND  1
+     C* DUMMY READ
+     C                     READ ALHPP01                  98
+     C                     READ ALHPP11                  98
+     C*
+      * get label name and outq name for lot id tags...
+     C                     MOVEL'LOQ2'    K@WD1     P
+     C                     MOVEL'LOTTAG'  K@WD2     P
+     C           K#PCT1    CHAINAB#PPCT              72
+     C           *IN72     IFEQ *OFF
+     C                     MOVELCTCHR1    ##LBLN  8
+     C                     MOVELCTCHR1    DFLBLN  8
+     C                     MOVELCTCHR2    ##OUTQ 10
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C*************************************************************************
+     C*     1ST SCREEN(TM-CODE ENTRY)
+     C**************************************************************************
+     C           #FMT10    BEGSR
+      *
+     C                     EXFMTFMT100
+     C                     MOVEL*BLANK    F1ERR
+      *
+     C                     SELEC
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'99'      @@ID
+     C                     OTHER
+     C                     EXSR #CHK10
+     C           *IN99     IFEQ *OFF
+     C                     MOVEL'20'      @@ID
+     C                     END
+     C                     ENDSL
+      *
+     C                     ENDSR
+     C*************************************************************************
+     C*     1ST SCREEN CHECK
+     C**************************************************************************
+     C           #CHK10    BEGSR
+     C*
+     C                     SETOF                     6162
+     C                     SETOF                     9964
+     C* TM-CODE CHECK
+     C           F1USRC    CHAINALBPL301             90
+     C           *IN90     IFEQ *OFF
+     C           ALSKJY    ANDEQ*BLANK
+     C                     ELSE
+     C                     SETON                     6199
+     C           F1ERR     IFEQ *BLANK
+     C                     MOVELERR,1     F1ERR
+     C                     END
+     C                     END
+     C* SHIFT CODE CHECK
+     C           F1SHFT    IFEQ '1'
+     C           F1SHFT    OREQ '2'
+     C           F1SHFT    OREQ '3'
+     C                     ELSE
+     C                     SETON                     6299
+     C           F1ERR     IFEQ *BLANK
+     C                     MOVELERR,2     F1ERR
+     C                     END
+     C                     END
+     C*
+TCHK3C*          *IN99     IFEQ *OFF
+TCHK3C*                    MOVEACMD,1     P@CMD
+TCHK3C*                    Z-ADD75        P@LEN
+TCHK3C*                    CALL 'QCMDEXC' P#CMD
+TCHK3C*                    END
+     C*
+     C                     ENDSR
+     C*************************************************************************
+     C*     2ND SCREEN(APICS KANBAN)
+     C**************************************************************************
+     C           #FMT20    BEGSR
+     C*
+     C                     EXFMTFMT200
+     C                     MOVEL*BLANK    F2ERR
+     C*
+     C                     SELEC
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'99'      @@ID
+     C                     OTHER
+     C                     EXSR #CHK20
+     C           *IN99     IFEQ *OFF
+     C                     MOVEL'40'      @@ID
+     C           X         IFLT 6
+     C                     ADD  1         X       10
+     C                     ELSE
+     C                     Z-ADD1         X
+     C                     ENDIF
+     C                     MOVELOQKAN     KAN,X
+     C                     END
+     C                     ENDSL
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*     2ND SCREEN CHECK
+     C**************************************************************************
+     C           #CHK20    BEGSR
+     C*
+     C                     MOVELF2KAN     KTYPE   3
+      *
+     C           KTYPE     IFEQ 'B01'
+     C                     MOVELF2KAN     P1QR1 256
+     C                     MOVEL*BLANKS   P1QR2 256
+     C                     MOVEL*BLANKS   P9BAR  20
+     C                     CALL 'UEXR13'
+     C                     PARM           P1QR1
+     C                     PARM           P1QR2
+     C                     PARM           P9BAR
+      *
+     C                     MOVELP9BAR     F2KAN     P
+     C                     MOVEL*BLANKS   P9BAR
+     C                     ENDIF
+      *
+     C                     MOVELF2KAN     W2KAN
+     C                     SETOF                     616263
+     C                     SETOF                     99
+     C*
+     C                     DO
+     C*
+     C           W2KAN     IFEQ *BLANK
+     C                     SETON                     9961
+     C                     MOVELERR,4     F2ERR
+     C                     MOVELERR,4     F99ER1
+     C                     MOVELERR,5     F99ER2
+     C                     LEAVE
+     C                     END
+     C* CHECK DIGIT
+     C                     MOVELW2KAN     PMAREA    P
+     C                     MOVE '014'     PMBYTE
+     C                     MOVE *BLANK    PMCHK
+     C                     MOVE *BLANK    PMRTCD
+     C                     CALL 'ALBRCC'  P#BRC
+     C           PMRTCD    IFNE *BLANK
+     C                     SETON                     9961
+     C           F2ERR     IFEQ *BLANK
+     C                     MOVELERR,4     F2ERR
+     C                     MOVELERR,4     F99ER1
+     C                     MOVELERR,6     F99ER2
+     C                     END
+     C                     END
+     C           PMCHK     IFNE W2CHKD
+     C                     SETON                     9961
+     C           F2ERR     IFEQ *BLANK
+     C                     MOVELERR,4     F2ERR
+     C                     MOVELERR,4     F99ER1
+     C                     MOVELERR,6     F99ER2
+     C                     END
+     C                     END
+     C   99                LEAVE
+     C*
+     C           W2ZETI    CHAINFCEPL07              90
+     C           *IN90     IFEQ *ON
+     C           A2GSKD    ORNE *BLANK
+     C           W2ZETI    CHAINMRHPL25              90
+     C           *IN90     IFEQ *ON
+     C           EAGSJY    ORNE *BLANK
+     C                     SETON                     9961
+     C                     MOVELERR,4     F2ERR
+     C                     MOVELERR,4     F99ER1
+     C                     MOVELERR,7     F99ER2
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+     C           *IN90     IFEQ *ON
+     C           A2GSKD    ORNE *BLANK
+     C                     SETON                     9961
+     C                     MOVELERR,4     F2ERR
+     C                     MOVELERR,4     F99ER1
+     C                     MOVELERR,7     F99ER2
+     C                     LEAVE
+     C                     END
+      *
+     C                     MOVEL*BLANK    GETKAN  1
+     C                     Z-ADD*ZERO     W@HOJI  20
+     C                     Z-ADD*ZERO     W@ONDO  30
+      *
+     C           W2ZET1    IFEQ 'Z'
+     C                     EXSR #MRH01                     POS
+     C           GETKAN    IFEQ *BLANK
+     C                     SETON                     9961
+     C                     MOVELERR,4     F2ERR
+     C                     MOVELERR,4     F99ER1
+     C                     MOVELERR,8     F99ER2
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ELSE
+     C* INTRA-PROC
+     C           W2TYPE    IFGE '0'
+     C           W2TYPE    ANDLE'9'
+     C                     MOVELW2TYPE    #KKSNK
+     C                     MOVELW2ZETI    #KZETI
+     C                     MOVELW2ATOJ    #KATOJ
+     C                     MOVELW2ATYP    #KATYP
+     C                     MOVELW2ATOK    #KATOK
+     C*
+     C                     EXSR #ADH01                     HEAT TRT
+     C           GETKAN    IFEQ *BLANK
+     C                     SETON                     9961
+     C                     MOVELERR,4     F2ERR
+     C                     MOVELERR,4     F99ER1
+     C                     MOVELERR,8     F99ER2
+     C                     LEAVE
+     C                     ENDIF
+     C* A-PICS
+     C                     ELSE
+     C           K#AAH     KLIST
+     C                     KFLD           A2BHB1
+     C                     KFLD           A2BHB2
+     C                     KFLD           A2BHB3
+     C           K#AAH     SETGTAAHTL06
+     C                     DO   *HIVAL
+     C           K#AAH     REDPEAAHTL06                  90
+     C           *IN90     IFEQ *ON
+     C                     SETON                     9961
+     C                     MOVELERR,4     F2ERR
+     C                     MOVELERR,4     F99ER1
+     C                     MOVELERR,8     F99ER2
+     C                     LEAVE
+     C                     END
+     C           L6SKJY    IFNE *BLANK
+     C                     ITER
+     C                     END
+TCHK1C           WSSDAT    IFGE L6UKHZ
+TCHK1C           WSSDAT    ANDLTL6STHZ
+TCHK1C                     ELSE
+TCHK1C                     ITER
+TCHK1C                     END
+     C                     LEAVE
+     C                     ENDDO
+     C*
+     C                     ENDIF
+     C*
+     C                     ENDIF
+     C*
+     C                     ENDDO
+     C* OQ#
+     C           F2OQNO    IFEQ '21'
+     C                     ELSE
+     C                     SETON                     9962
+     C           F2ERR     IFEQ *BLANK
+     C                     MOVELERR,12    F2ERR
+     C                     MOVELERR,12    F99ER1
+     C                     MOVEL*BLANK    F99ER2
+     C                     END
+     C                     END
+     C* CHARGE#
+     C           F2CHG#    IFEQ *ZERO
+     C                     SETON                     9963
+     C           F2ERR     IFEQ *BLANK
+     C                     MOVELERR,13    F2ERR
+     C                     MOVELERR,13    F99ER1
+     C                     MOVEL*BLANK    F99ER2
+     C                     END
+     C                     END
+     C*
+      *
+      * make sure this LOQ#/KANBAN hasn't already been scanned...
+     C           F2OQNO    CAT  F2KAN     OQKAN  17
+     C           OQKAN     LOKUPKAN                      10
+     C           *IN10     IFEQ *ON
+     C                     SETON                     996162
+     C                     MOVELERR,4     F2ERR
+     C                     MOVELERR,4     F99ER1
+     C                     MOVELERR,11    F99ER2
+     C                     ENDIF
+      *
+     C           *IN99     IFEQ *ON
+     C                     EXFMTFMT999
+     C                     END
+     C*
+     C                     ENDSR
+     C*************************************************************************
+     C*     4TH SCREEN(LOTID)
+     C**************************************************************************
+     C           #FMT40    BEGSR
+      *
+     C                     EXFMTFMT400
+     C                     MOVEL*BLANK    F4ERR
+      *
+     C                     SELEC
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'99'      @@ID
+     C           *INKI     WHEQ *ON
+     C                     CLEARFMT200
+     C                     CLEARFMT400
+     C                     MOVEL'20'      @@ID
+     C*
+     C                     OTHER
+     C                     EXSR #CHK40
+     C           *IN99     IFEQ *OFF
+     C           *INKE     ANDEQ*ON
+     C                     EXSR #WRTOK
+     C                     CLEARFMT200
+     C                     CLEARFMT400
+     C                     MOVEL'20'      @@ID
+     C                     END
+     C                     ENDSL
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*     4TH SCREEN CHECK
+     C**************************************************************************
+     C           #CHK40    BEGSR
+     C*
+     C                     MOVELF4LOT     W4LOT
+     C                     SETOF                     9961
+     C*
+     C                     DO
+     C*
+     C           F4LOT     IFEQ *BLANK
+     C           F4LOT1    ANDEQ*BLANK
+     C           F4LOT2    ANDEQ*BLANK
+     C           F4LOT3    ANDEQ*BLANK
+     C                     SETON                     9961
+     C                     MOVELERR,9     F4ERR
+     C                     MOVELERR,9     F99ER1
+     C                     MOVELERR,10    F99ER2
+     C                     LEAVE
+     C                     END
+     C           F4LOT     IFEQ *BLANK
+     C                     LEAVE
+     C                     END
+     C* CHECK DIGIT
+     C           #USER     IFNE 'TEST'
+     C           #USER     ANDNE'I0777'
+     C           #USER     ANDNE'I0778'
+     C                     MOVELW4LOT1    PMAREA    P
+     C                     MOVE '007'     PMBYTE
+     C                     MOVE *BLANK    PMCHK
+     C                     MOVE *BLANK    PMRTCD
+     C                     CALL 'ALBRCC'  P#BRC
+     C           PMRTCD    IFNE *BLANK
+     C                     SETON                     9961
+     C           F4ERR     IFEQ *BLANK
+     C                     MOVELERR,9     F4ERR
+     C                     MOVELERR,9     F99ER1
+     C                     MOVELERR,6     F99ER2
+     C                     END
+     C                     END
+     C           PMCHK     IFNE W4CHKD
+     C                     SETON                     9961
+     C           F4ERR     IFEQ *BLANK
+     C                     MOVELERR,9     F4ERR
+     C                     MOVELERR,9     F99ER1
+     C                     MOVELERR,6     F99ER2
+     C                     END
+     C                     END
+     C                     END
+     C   99                LEAVE
+     C*
+     C           F4LOT     IFEQ F4LOT1
+     C           F4LOT     OREQ F4LOT2
+     C           F4LOT     OREQ F4LOT3
+     C                     SETON                     9961
+     C           F4ERR     IFEQ *BLANK
+     C                     MOVELERR,9     F4ERR
+     C                     MOVELERR,9     F99ER1
+     C                     MOVELERR,11    F99ER2
+     C                     END
+     C                     LEAVE
+     C                     END
+     C*
+     C           *IN99     IFEQ *OFF
+     C                     SELEC
+     C           F4LOT1    WHEQ *BLANK
+     C                     MOVELF4LOT     F4LOT1
+     C                     MOVEL*BLANK    F4LOT
+     C           F4LOT2    WHEQ *BLANK
+     C                     MOVELF4LOT     F4LOT2
+     C                     MOVEL*BLANK    F4LOT
+     C           F4LOT3    WHEQ *BLANK
+     C                     MOVELF4LOT     F4LOT3
+     C                     MOVEL*BLANK    F4LOT
+     C                     ENDSL
+     C                     END
+     C*
+     C                     ENDDO
+     C*
+     C           *IN99     IFEQ *ON
+     C                     EXFMTFMT999
+     C                     END
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*       WRITE A OK RECORD
+     C**************************************************************************
+     C           #WRTOK    BEGSR
+     C*
+     C                     CLEARALHPP011
+     C                     CLEARALHPP111
+     C*
+     C                     TIME           WSDT
+     C                     Z-ADDWSSYYY    A1KOYY
+     C                     Z-ADDWSSMMM    A1KOMM
+     C                     Z-ADDWSSDDD    A1KODD
+     C                     Z-ADDWSSTM6    A1KOTM
+     C                     Z-ADDWSSYYY    A1SCYY
+     C                     Z-ADDWSSMMM    A1SCMM
+     C                     Z-ADDWSSDDD    A1SCDD
+     C                     Z-ADDWSSTM6    A1SCTM
+     C                     MOVEL#USER     A1USER
+     C                     MOVEL#WSID     A1WSID
+     C                     MOVEL#PGM      A1PGID
+     C*
+     C                     MOVELF2OQNO    W@OQNO  2
+     C                     Z-ADDF2CHG#    W@CHG#  20
+     C*
+     C           K#PCT1    KLIST
+     C                     KFLD           K@WD1   8
+     C                     KFLD           K@WD2   8
+     C                     MOVEL'ALHR021 'K@WD1     P
+     C                     MOVEL*BLANK    K@WD2     P
+     C           K#PCT1    CHAINAB#PPCT              97
+     C           *IN97     IFEQ *ON
+     C                     CLEARAB#PPCT1
+     C                     MOVEL'ALHR021 'CTKEY1
+     C                     MOVEL*BLANK    CTKEY2    P
+     C                     Z-ADDWSSYM     CTNBR1
+     C                     END
+     C           WSSYM     IFNE CTNBR1
+     C                     Z-ADDWSSYM     CTNBR1
+     C                     Z-ADD*ZERO     CTNBR2
+     C                     END
+     C                     Z-ADDCTNBR1    W@YYMM
+     C                     Z-ADDW@YYYY    A1TSQY
+     C                     Z-ADDW@MMMM    A1TSQM
+     C                     ADD  1         CTNBR2
+     C                     Z-ADDCTNBR2    A1TSQ#
+     C   97                WRITEAB#PPCT1
+     C  N97                UPDATAB#PPCT1
+     C*
+     C                     MOVELF1USRC    A1TMCD
+     C                     MOVELF1SHFT    A1SHFT
+     C*
+     C                     MOVELA2BHB1    A1SHN1
+     C                     MOVELA2BHB2    A1SHN2
+     C                     MOVELA2BHB3    A1SHN3
+TCHK2C                     MOVELA2ZAIC    A1ZACD
+TCHK2C*
+TCHK2C           A1ZACD    CHAINFCETL06              97
+TCHK1C           *IN97     IFEQ *OFF
+     C                     MOVELA2ZANM    A1ZANM
+TCHK1C                     END
+     C           W2ZET1    IFEQ 'Z'
+     C                     MOVELEASHN1    A1SHN1
+     C                     MOVELEASHN2    A1SHN2
+     C                     MOVELEASHN3    A1SHN3
+     C                     MOVELEAZAIC    A1ZACD
+     C                     MOVELEAZANM    A1ZANM
+     C                     ENDIF
+     C*
+     C                     MOVELF2KAN     A1KAN
+     C                     Z-ADDW@HOJI    A1HOJI
+     C                     Z-ADDW@ONDO    A1ONDO
+     C*
+     C                     MOVELW@KKND    A1KKND
+     C                     MOVELW@OQNO    A1OQNO
+     C                     Z-ADDW@CHG#    A1CHG#
+     C*
+      * ------------------------------------------------------------
+      * THIS SECTION OF CODE WAS MOVED FROM BOTTOM OF THIS SUBR ****
+      *  SO THAT SERIAL BARCODE COULD BE STORED IN DATA FILES ALSO.  ****
+      *
+     C           'ALHR022 'CHAINAB#PPCT              97
+     C           *IN97     IFEQ *ON
+     C                     CLEARAB#PPCT1
+     C                     MOVEL'ALHR022 'CTKEY1
+     C                     Z-ADDWSSYMD    CTNBR1
+     C                     END
+     C           WSSYMD    IFNE CTNBR1
+     C                     Z-ADDWSSYMD    CTNBR1
+     C                     Z-ADD*ZERO     CTNBR2
+     C                     END
+     C                     Z-ADDCTNBR1    W@BAR1
+     C                     ADD  1         CTNBR2
+     C                     Z-ADDCTNBR2    W@BAR2
+     C   97                WRITEAB#PPCT1
+     C  N97                UPDATAB#PPCT1
+     C*
+     C* CHECK DIGIT
+     C                     MOVELW@BAR@    PMAREA    P
+     C                     MOVE '011'     PMBYTE
+     C                     MOVE *BLANK    PMCHK
+     C                     MOVE *BLANK    PMRTCD
+     C                     CALL 'ALBRCC'  P#BRC
+     C                     MOVELPMCHK     W@BAR3
+      *
+     C                     MOVELW@BARC    A1SERL
+      *
+      * ------------------------------------------------------------
+      *
+     C                     WRITEALHPP011
+     C*
+     C                     Z-ADD*ZERO     Y       20
+     C                     DO   *HIVAL
+     C*
+     C                     ADD  1         Y
+     C           Y         IFGT 4
+     C                     LEAVE
+     C                     END
+     C           LOT,Y     IFEQ *BLANK
+     C                     LEAVE
+     C                     END
+     C*
+     C                     CLEARALHPP111
+     C*
+     C                     Z-ADDA1KOYY    ABKOYY
+     C                     Z-ADDA1KOMM    ABKOMM
+     C                     Z-ADDA1KODD    ABKODD
+     C                     Z-ADDA1KOTM    ABKOTM
+     C                     MOVELA1USER    ABUSER
+     C                     MOVELA1WSID    ABWSID
+     C                     MOVELA1PGID    ABPGID
+     C*
+     C                     MOVELA1OQNO    ABOQNO
+     C                     Z-ADDA1TSQY    ABTSQY
+     C                     Z-ADDA1TSQM    ABTSQM
+     C                     Z-ADDA1TSQ#    ABTSQ#
+     C                     Z-ADDA1SCYY    ABSCYY
+     C                     Z-ADDA1SCMM    ABSCMM
+     C                     Z-ADDA1SCDD    ABSCDD
+     C                     Z-ADDA1SCTM    ABSCTM
+     C*
+     C                     MOVELLOT,Y     ABLOT0
+     C                     MOVELLOT,Y     W4LOT
+     C                     MOVELW4LOT1    ABLOT1
+     C                     MOVELW4CHKD    ABLOT2
+     C*
+     C                     MOVELW@BARC    ABSERL
+     C*
+     C                     WRITEALHPP111
+     C*
+     C                     ENDDO
+     C*
+     C                     OPEN ALHPR02
+     C*
+     C                     SORTALOT
+     C                     DO   4
+     C           LOT,1     IFEQ *BLANK
+     C                     MOVELLOT,2     LOT,1
+     C                     MOVELLOT,3     LOT,2
+     C                     MOVELLOT,4     LOT,3
+     C                     MOVEL*BLANK    LOT,4
+     C                     END
+     C           LOT,2     IFEQ *BLANK
+     C                     MOVELLOT,3     LOT,2
+     C                     MOVELLOT,4     LOT,3
+     C                     MOVEL*BLANK    LOT,4
+     C                     END
+     C           LOT,3     IFEQ *BLANK
+     C                     MOVELLOT,4     LOT,3
+     C                     MOVEL*BLANK    LOT,4
+     C                     END
+     C                     ENDDO
+     C*
+     C                     Z-ADDWSSMMM    P@MM
+     C                     Z-ADDWSSDDD    P@DD
+     C                     Z-ADDWSSYYY    P@YY
+     C                     MOVELF1SHFT    P@SHFT
+     C           LOT,1     IFNE *BLANK
+     C                     MOVELLOT,1     W4LOT
+     C                     MOVELW4LOT1    P@LOT1    P
+     C                     MOVELLOT,2     W4LOT
+     C                     MOVELW4LOT1    P@LOT2    P
+     C                     MOVELLOT,3     W4LOT
+     C                     MOVELW4LOT1    P@LOT3    P
+     C                     MOVELLOT,4     W4LOT
+     C                     MOVELW4LOT1    P@LOT4    P
+     C                     END
+     C                     MOVELA1OQNO    P@OQNO
+     C                     Z-ADDA1CHG#    P@CHG#
+     C                     Z-ADDA1TSQ#    P@TSQ#
+     C                     CLEARW@SHIN
+     C           W2ZET1    IFEQ 'Z'
+     C                     MOVELEASHN1    W@SHN1
+     C           EASHN2    IFNE *BLANK
+     C                     MOVEL'-'       W@SHNA
+     C                     ENDIF
+     C                     MOVELEASHN2    W@SHN2
+     C           EASHN3    IFNE *BLANK
+     C                     MOVEL'-'       W@SHNB
+     C                     ENDIF
+     C                     MOVELEASHN3    W@SHN3
+     C                     MOVELW@SHIN    P@SHIN
+     C                     MOVELEAZANM    P@ZANM
+     C                     ELSE
+     C                     MOVELA2BHB1    W@SHN1
+     C           A2BHB2    IFNE *BLANK
+     C                     MOVEL'-'       W@SHNA
+     C                     END
+     C                     MOVELA2BHB2    W@SHN2
+     C           A2BHB3    IFNE *BLANK
+     C                     MOVEL'-'       W@SHNB
+     C                     END
+     C                     MOVELA2BHB3    W@SHN3
+     C                     MOVELW@SHIN    P@SHIN
+     C                     MOVELA2ZANM    P@ZANM
+     C                     ENDIF
+     C*
+     C                     Z-ADDA1HOJI    P@HOJI
+     C                     Z-ADDA1ONDO    P@ONDO
+     C*
+     C                     MOVELW@BARC    P@BARC
+     C                     MOVELW@BARC    P@BAR2
+     C                     WRITEP@REC1
+     C                     WRITEP@REC2
+     C                     WRITEP@REC3
+     C*
+     C                     CLOSEALHPR02
+     C*
+      *
+      * call program to print extra lot id tag for partials...
+     C                     DO   4         IX      40
+      *
+     C           LOT,IX    IFNE *BLANKS
+     C                     MOVELLOT,IX    ##LOTN  8
+     C                     MOVELF1USRC    ##WKCD  6
+     C                     MOVELA1ZANM    ##MATL 15
+     C           W2ZET1    IFEQ 'Z'
+     C                     MOVELEABHB     ##SHIN 12
+     C                     ELSE
+     C                     MOVELA2BHB     ##SHIN 12
+     C                     ENDIF
+     C                     MOVELW@BARC    ##SERL 12
+      *
+      * if first char of Lot# = 'R', then it's ASJ BPT so use ASJ LOT tag...
+      *    else use default Lot Id Tag label name....
+     C                     MOVEL##LOTN    FIRST   1
+     C           FIRST     IFEQ 'R'
+     C                     MOVEL'ASJLOT'  ##LBLN
+     C                     ELSE
+     C                     MOVELDFLBLN    ##LBLN
+     C                     ENDIF
+      *
+     C                     CALL 'ALHR111'
+     C                     PARM           ##WKCD
+     C                     PARM           ##LOTN
+     C                     PARM           ##MATL
+     C                     PARM           ##SHIN
+     C                     PARM           ##SERL
+     C                     PARM           ##LBLN
+     C                     PARM           ##OUTQ
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+     C* ****************************************************
+      *----------------------------------------------------*
+      * ADHPP01
+      *----------------------------------------------------*
+     CSR         #ADH01    BEGSR
+      *
+     C           KEYJ6     KLIST
+     C                     KFLD           #KKSNK  10
+     C                     KFLD           #KZETI  40
+     C                     KFLD           #KATOJ  2
+     C                     KFLD           #KATYP  1
+     C                     KFLD           #KATOK  3
+      *
+     C           KEYJ6     SETGTADHPL071
+     C           KEYJ6     REDPEADHPL071                 87
+1    C           *IN87     DOWEQ'0'
+|2   C           J6SKJY    IFEQ 'D'
+||   C           J6SKHZ    ANDLEWSSDAT
+|2   C                     ELSE
+||   C**         J6UKHZ    IFLE WSSDAT
+||   C**         J6STHZ    ANDGTWSSDAT
+||   C           J6STHZ    IFGT XDATE
+||   C                     MOVEL'1'       GETKAN  1
+||   C                     Z-ADDJ6HOJI    W@HOJI  20
+||   C                     Z-ADDJ6ONDO    W@ONDO  30
+||   C                     LEAVE
+|2   C                     ENDIF
+|2   C                     ENDIF
+|    C           KEYJ6     REDPEADHPL071                 87
+1    C                     ENDDO
+      *
+     CSR         EADH01    ENDSR
+      *----------------------------------------------------*
+      * MRHPP51
+      *----------------------------------------------------*
+     CSR         #MRH01    BEGSR
+      *
+     C           K#MRH5    KLIST
+     C                     KFLD           W2THI1
+     C                     KFLD           W2THI2
+      *
+     C           K#MRH5    SETGTMRHPL51
+     C           K#MRH5    REDPEMRHPL51                  87
+1    C           *IN87     DOWEQ'0'
+||   C                     MOVEL'1'       GETKAN  1
+||   C                     Z-ADDSTKPTM    W@HOJI  20
+||   C                     Z-ADDSTTMTP    W@ONDO  30
+||   C                     LEAVE
+|    C           K#MRH5    REDPEMRHPL51                  87
+1    C                     ENDDO
+      *
+     CSR         EMRH01    ENDSR
+     C**************************************************************************
+******* CMD
+** ERR
+USER CODE ERROR                  #01
+SHIFT CODE ERROR                 #02
+PRINTER# ERROR                   #03
+KANBAN ERROR                     #04
+BLANK                            #05
+CHECK DIGIT ERROR                #06
+PART M/F ERROR                   #07
+KANBAN M/F ERROR                 #08
+LOT ID ERROR                     #09
+BLANK                            #10
+DUPLICATE                        #11
+OQ NO ERROR                      #12
+CHARGE NO ERROR                  #13
+                                 #14
+                                 #15
+                                 #16
+                                 #17
+                                 #18
+                                 #19
+                                 #20

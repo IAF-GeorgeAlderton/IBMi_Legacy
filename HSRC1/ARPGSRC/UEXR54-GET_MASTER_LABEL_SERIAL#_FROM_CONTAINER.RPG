@@ -1,0 +1,205 @@
+     H            Y.
+      ** UEXR54 ****************************************************
+      *  GET MASTER SERIAL# FROM CONTAINER SERIAL#                 *
+      *  JW     2024.12.09                                         *
+      **************************************************************
+      *  CALLING SEQ.
+      *                    CALL 'UEXR54 '
+      *                    PARM           $CONT# 18
+      *                    PARM           $MAST# 18
+      *                    PARM           $RTN    1
+      * IN   $CONT#  18A  CONTAINER SERIAL# (MUST BE NUMBER)
+      * OUT  $MAST#  18A  MASTER    SERIAL# (NUMBER)
+      *  "   $RTN     1A  RETURN CODE (BLANK=GOOD, 1/2/3=BAD)
+      *                   1: CONTAINER# NOT FOUND
+      *                   2: FIRST MASTER# NOT FOUND
+      *                   3: DO NOT MATCH MASTER# AND CONTAINER POSITION
+      *===================================================================
+     FAB#XL01CIF  E           K        DISK
+     FAB#XL01 IF  E           K        DISK
+     F            AB#XP1A1                          KRENAMEAB#XP1AR
+     FAB#PL71 IF  E           K        DISK
+      *==========================================================
+     I            DS
+     I                                        1   80EKKOHZ
+     I                                        1   40EKKOYY
+     I                                        5   60EKKOMM
+     I                                        7   80EKKODD
+     I            DS
+     I                                        1   40EKKOTM
+     I                                        1   20EKKOHH
+     I                                        3   40EKKOMN
+     I            DS
+     I                                        1  20 EKMHIN
+     I                                        1   5 EKMHN1
+     I                                        6  10 EKMHN2
+     I                                       11  15 EKMHN3
+     I                                       16  20 EKMHN4
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *==========================================================
+      ** MAIN ROUTINE
+      *==========================================================
+     C                     EXSR #INIT
+      *
+      * 1. GET FIRST CONTAINER#
+     C                     EXSR #1STCN
+     C           *IN85     IFEQ *ON
+     C                     MOVE '1'       XRTN
+     C                     GOTO ENDP
+     C                     ENDIF
+      *
+      * 2. GET FIRST MASTER#
+     C                     EXSR #1STMS
+     C           *IN85     IFEQ *ON
+     C                     MOVE '2'       XRTN
+     C                     GOTO ENDP
+     C                     ENDIF
+      *
+      * 3. GET MASTER TARGET SERIAL#
+     C                     EXSR #GET
+     C           *IN85     IFEQ *ON
+     C                     MOVE '3'       XRTN
+     C                     GOTO ENDP
+     C                     ENDIF
+      *
+     C           ENDP      TAG
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *==========================================================
+      ** 1. GET FIRST CONTAINER# FROM PP70
+      *==========================================================
+     C           #1STCN    BEGSR
+      *
+     C                     MOVE *OFF      *IN85
+     C                     MOVE *BLANK    XCONT1 18
+     C           XCONT#    CHAINAB#PL71              99
+     C           *IN99     IFEQ *ON
+     C                     MOVE *ON       *IN85
+     C                     GOTO X1STCN
+     C                     ENDIF
+      * SAVE
+     C                     Z-ADDEKKOHZ    SVKOHZ  80
+     C                     Z-ADDEKKOTM    SVKOTM  60
+     C                     Z-ADDEKKOTM    SVKOT4  40
+     C                     MOVELEKNONY    SVNONY  4
+     C                     MOVELEKMHIN    SVMHIN 20
+     C                     MOVELEKSERL    XCONT1           TEMP
+      *
+     C           XCONT#    SETLLAB#PL71
+     C                     DO   *HIVAL
+     C                     READPAB#PL71                  97
+     C   97                LEAVE
+      *
+     C           EKSKJY    IFEQ 'D'
+     C           EKSRYO    OREQ 0
+     C                     ITER
+     C                     ENDIF
+      *
+     C           EKNONY    IFNE XNONY
+     C           EKKOHZ    ORNE SVKOHZ
+     C           EKKOTM    ORNE SVKOT4
+     C           EKMHIN    ORNE SVMHIN
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     MOVELEKSERL    XCONT1           FIRST CONT SERL#
+      *
+     C                     ENDDO
+      * IF XCONT1 NOT FOUND
+     C           XCONT1    IFEQ *BLANK
+     C                     MOVE *ON       *IN85
+     C                     GOTO X1STCN
+     C                     ENDIF
+      *
+      * GET CONTAINER# POSITION
+     C                     MOVE XCONT1    @CONT1
+     C           @CONT#    SUB  @CONT1    @POS    50       CONTAINER POSITION
+     C                     ADD  1         @POS
+      *
+     C           X1STCN    ENDSR
+      *==========================================================
+      ** 2. GET FIRST MASTER# FROM XP01A
+      *==========================================================
+     C           #1STMS    BEGSR
+      *
+     C                     MOVE *OFF      *IN85
+     C                     MOVE *BLANK    XMAST1 18        FIRST MASTER#
+     C                     MOVELSVKOT4    K#KOTM
+     C           KEY1      SETLLAB#XL01
+     C                     DO   *HIVAL
+     C                     READ AB#XL01                  96
+     C   96                LEAVE
+      * SELECT
+     C           IXNONY    IFNE XNONY
+     C           IXWRKF    ORNE 'AB#WP2O'
+     C           IXMHIN    ORNE SVMHIN
+     C                     ITER
+     C                     ENDIF
+      * END?
+     C           IXKOHZ    IFNE SVKOHZ
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     MOVELIXSERL    XMAST1           FIRST MAST SERL#
+     C                     LEAVE
+      *
+     C                     ENDDO
+      * IF MAST1 NOT FOUND
+     C           XMAST1    IFEQ *BLANK
+     C                     MOVE *ON       *IN85
+     C                     ENDIF
+      *
+     C           X1STMS    ENDSR
+      *==========================================================
+      ** 3. GET MASTER SERIAL# BY POSITION
+      *==========================================================
+     C           #GET      BEGSR
+      *
+     C           XMAST1    SETLLAB#XL01C
+     C                     DO   *HIVAL
+     C                     READ AB#XL01C                 85
+     C   85                LEAVE
+      *
+     C                     ADD  IXFIL3    BOX#
+     C           BOX#      IFGE @POS
+      *
+     C           XNONY     IFEQ '5426'
+     C                     MOVE IXSERL    LTR10  10
+     C                     MOVELLTR10     XMAST#    P
+     C                     ELSE
+     C                     MOVELIXSERL    XMAST#
+     C                     ENDIF
+      *
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *==========================================================
+      ** INITIAL SETTINGS
+      *==========================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           XCONT# 18        IN
+     C                     PARM           XMAST# 18        OUT
+     C                     PARM           XRTN    1        RETURN
+      *
+     C           KEY1      KLIST
+     C                     KFLD           SVKOHZ
+     C                     KFLD           K#KOTM  60
+      *
+     C                     MOVELXCONT#    XNONY   4        DELIVERY#
+     C                     MOVE XCONT#    @CONT# 100
+     C                     Z-ADD0         @CONT1 100       FIRST CONTAINER#
+     C                     MOVE *ALL'0'   XMAST#
+     C                     MOVE ' '       XRTN
+      *
+     C                     Z-ADD0         BOX#    50       BOX#
+     C                     Z-ADD0         K#KOTM
+      *
+     C                     ENDSR

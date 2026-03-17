@@ -1,0 +1,817 @@
+     H            Y.
+     F** AB#RT3 ***************************************************
+     F*  SPLIT TSUSHO ORDER OVER 60 BOX                           *
+     F*   (COPIED FROM AB#R1H)                                    *
+     F*  J.WATANABE  2024.10.28                                   *
+     F*************************************************************
+     FAB#PP2T UF  E           K        DISK
+PP10 FAB#PL1J UF  E           K        DISK                      A
+PPA1 FAB#PLAJ UF  E           K        DISK                      A
+     FAB#PPCT UF  E           K        DISK                      A
+     FQPRINT  O   F     132     OF     PRINTER
+      *============================================================
+     E                    MSG     1   9 70
+     I            DS
+     I                                        1   80WDATE
+     I                                        1   40WYY
+     I                                        5   60WMM
+     I                                        7   80WDD
+     I            DS
+     I                                        1   80BANOHZ
+     I                                        1   40BANOYY
+     I                                        5   60BANOMM
+     I                                        7   80BANODD
+     I            DS
+     I                                        1  20 M2MHIN
+     I                                        1   5 W2MHN1
+     I                                        6  10 W2MHN2
+     I                                       11  15 W2MHN3
+     I                                       16  20 W2MHN4
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *============================================================
+      *
+     C                     EXSR #INIT
+      * LOOP AB#PP2T
+     C           *LOVAL    SETLLAB#PP2T
+     C                     DO   *HIVAL
+     C                     READ AB#PP2T                  98
+     C   98
+      *
+     C           M2UFLG    IFEQ *BLANK
+JW3   * TEMP (FOR TEST)+++++++++++++++
+      * IF 3135-3135, DO NOT SPLIT
+     C**         M2TOKU    IFEQ '3135'
+     C**         M2NONY    ANDEQ'3135'
+     C**                   MOVE '*'       M2UFLG
+     C**                   MOVELTODAY     M2SPDT
+     C**                   MOVEL'PASS    'M2PGID
+     C**                   UPDATAB#PP2T1
+     C**                   ITER
+     C**                   ENDIF
+      *+++++++++++++++++++++++++++++++
+      * IGNORE IF TARGET ORDER IS INSUFFICIENT
+     C           M2NONY    IFEQ XXNONY
+     C           M2NKOJ    ANDEQXXNKOJ
+     C           M2NUKE    ANDEQXXNUKE
+     C           M2NOHZ    ANDEQXXNOHZ
+     C                     MOVELMSG,9     XMSG             SKIP SPLIT
+JW3  C                     MOVE '*'       $RTN
+     C                     EXSR #PRNT
+     C                     MOVE '9'       M2UFLG
+     C                     MOVELTODAY     M2SPDT
+     C                     MOVEL'AB#RT39 'M2PGID
+     C                     UPDATAB#PP2T1
+     C                     ITER
+     C                     ENDIF
+      * CHECK DATA
+JW1  C                     Z-ADDM2SYOS    SVSYOS  60
+     C                     EXSR #CK10
+      * IGNORE IF TARGET ORDER STATUS IS NOT GOOD
+     C           XMSG      IFNE *BLANK
+     C                     MOVELTODAY     M2SPDT
+     C                     MOVEL'AB#RT31 'M2PGID
+     C                     UPDATAB#PP2T1
+     C                     ITER
+     C                     ENDIF
+      *+++++++++++++++++++++++++++++++
+      * IGNORE IF TARGET ORDER QTY/BOX=0 OR 1
+JW1  C                     Z-ADDM2SYOS    SVSYOS  60
+     C           SVSYOS    IFEQ 0
+     C           SVSYOS    OREQ 1
+     C                     EXSR #SYOS
+     C           WSYOS     IFEQ 0
+     C           WSYOS     OREQ 1
+     C                     MOVE 'E'       M2UFLG
+JW3  C                     MOVE '*'       $RTN
+     C                     MOVELTODAY     M2SPDT
+     C                     MOVEL'AB#RT32 'M2PGID
+     C                     UPDATAB#PP2T1
+     C                     MOVELMSG,5     XMSG             IGNORE FOR QPC=0/1
+     C                     EXSR #PRNT
+     C                     ITER
+     C                     ELSE
+     C                     Z-ADDWSYOS     SVSYOS
+     C                     ENDIF
+     C                     ENDIF
+      * FIRST? ---------------------------------
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     Z-ADD0         WBIN
+     C                     Z-ADD0         WBIN1
+     C                     Z-ADD0         WBIN2
+     C                     MOVELM2NONY    SVNONY
+     C                     MOVELM2NKOJ    SVNKOJ
+     C                     MOVELM2NUKE    SVNUKE
+     C                     MOVELM2NOHZ    SVNOHZ
+     C                     MOVELM2NOBN    SVNOBN
+     C                     MOVELM2ODRN    SVODRN
+     C                     MOVELM2MHIN    SVMHIN
+     C                     EXSR #CK00
+     C                     ENDIF
+      * BREAK? ----------------------------------
+     C           M2NONY    IFNE SVNONY
+     C           M2NKOJ    ORNE SVNKOJ
+     C           M2NUKE    ORNE SVNUKE
+     C           M2NOHZ    ORNE SVNOHZ
+     C           M2NOBN    ORNE SVNOBN
+     C           M2ODRN    ORNE SVODRN
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * DETAIL PROCESS --------------------------
+      * COUNT DETAIL RECORD
+     C                     ADD  1         DT@CNT
+      * ADD BOX COUNT
+     C**         M2SURY    DIV  M2SYOS    WBOX    50
+JW1  C           M2SURY    DIV  SVSYOS    WBOX    50
+     C                     MVR            MVR1    53
+     C           MVR1      IFNE 0
+     C                     ADD  1         WBOX
+     C                     ENDIF
+     C                     ADD  WBOX      BX@CNT
+     C                     Z-ADDWBOX      LASTBX  50
+      * IF BOX > 60, GO TO SPLIT PROCESS
+     C                     Z-ADD0         PT@CNT  30
+     C           BX@CNT    DOWGT60
+     C                     EXSR #SPLT
+     C                     ENDDO
+      * UPDATE AN#PP2T
+     C           M2UFLG    IFEQ ' '
+     C           SP@CNT    IFEQ 0
+     C                     MOVE '*'       M2UFLG
+     C                     ELSE
+     C                     MOVE 'S'       M2UFLG
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           M2BIN2    IFEQ '  '
+     C           SP@CNT    IFEQ 0
+     C                     MOVELM2NOBN    M2BIN2
+     C                     ELSE
+     C                     MOVELWBIN2     M2BIN2
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     MOVELTODAY     M2SPDT
+     C                     MOVEL'AB#RT33 'M2PGID
+     C                     UPDATAB#PP2T1
+      * ------------------------------------------
+     C                     ENDIF
+     C                     ENDDO
+      * IF UNPROCESS DETAIL TRANSACTION REMAINS, DO REMAIN PROCESS
+     C           DT@CNT    IFNE 0
+     C           SP@CNT    ANDNE0
+     C                     EXSR #REM
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *============================================================
+      * FIRST TIME CHECK
+      *============================================================
+     C           #CK00     BEGSR
+     C                     MOVE *BLANK    XMSG
+      * CHECK AB#PP10
+     C                     MOVELM2NONY    K@NONY
+     C                     MOVELM2NKOJ    K@NKOJ
+     C                     MOVELM2NUKE    K@NUKE
+     C                     MOVELM2NOHZ    K@NOHZ
+     C                     MOVELM2NOBN    K@NOBN
+     C                     MOVELM2ODRN    K@ODRN
+     C           K@PP10    SETLLAB#PL1J
+     C                     MOVE *OFF      *IN95
+     C           *IN95     DOWEQ*OFF
+     C           K@PP10    READEAB#PL1J             N    95
+     C           *IN95     IFEQ *OFF
+     C                     MOVELM2SURY    W2SURY  70
+     C                     SELEC
+     C           BASKJY    WHEQ 'D'
+     C                     MOVELMSG,2     XMSG             PP10 DELETED
+     C                     EXSR #PRNT
+     C           BAURHZ    WHNE 0
+     C                     MOVELMSG,3     XMSG             PP10 SHIPPED
+     C                     EXSR #PRNT
+     C           BASRYO    WHNE W2SURY
+     C                     MOVELMSG,4     XMSG             QTY NOT MATCHED
+     C                     Z-ADDBASRYO    NUM6    60
+     C                     MOVE NUM6      XMSG
+     C                     EXSR #PRNT
+     C                     ENDSL
+     C                     ENDIF
+     C                     ENDDO
+      * ERROR
+     C           XMSG      IFNE *BLANK
+     C                     MOVELM2NONY    XXNONY           ERROR
+     C                     MOVELM2NKOJ    XXNKOJ             "
+     C                     MOVELM2NUKE    XXNUKE             "
+     C                     MOVELM2NOHZ    XXNOHZ             "
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *============================================================
+      * CHECK STATUS OF AB#PP10
+      *============================================================
+     C           #CK10     BEGSR
+      * CHECK AB#PP10
+     C                     MOVE *BLANK    XMSG
+     C                     MOVELM2NONY    K@NONY
+     C                     MOVELM2NKOJ    K@NKOJ
+     C                     MOVELM2NUKE    K@NUKE
+     C                     MOVELM2NOHZ    K@NOHZ
+     C                     MOVELM2NOBN    K@NOBN
+     C                     MOVELM2ODRN    K@ODRN
+     C                     MOVELM2MHIN    K@MHIN
+     C           K@PP10    CHAINAB#PL1J             N99
+     C           *IN99     IFEQ *ON
+     C                     MOVELMSG,1     XMSG             PP10 NOT FOUND
+JW3  C                     MOVE '*'       $RTN
+     C                     MOVE '1'       M2UFLG
+     C                     EXSR #PRNT
+     C                     GOTO #CK10X
+     C                     ENDIF
+      * DELETED RECORD?
+     C           *IN99     IFEQ *OFF
+     C           BASKJY    ANDEQ'D'
+     C                     MOVELMSG,2     XMSG             PP10 DELETED
+JW3  C                     MOVE '*'       $RTN
+     C                     MOVE '2'       M2UFLG
+     C                     EXSR #PRNT
+     C                     GOTO #CK10X
+     C                     ENDIF
+      * BILLED?
+     C           *IN99     IFEQ *OFF
+     C           BAURHZ    ANDNE0
+     C                     MOVELMSG,3     XMSG             PP10 SHIPPED
+JW3  C                     MOVE '*'       $RTN
+     C                     MOVE '3'       M2UFLG
+     C                     EXSR #PRNT
+     C                     GOTO #CK10X
+     C                     ENDIF
+      * DIFFERENT QTY?
+     C                     MOVELM2SURY    W2SURY  70
+     C           *IN99     IFEQ *OFF
+     C           BASRYO    ANDNEW2SURY
+     C                     MOVELMSG,4     XMSG             QTY NOT MATCHED
+JW3  C                     MOVE '*'       $RTN
+     C                     MOVE '4'       M2UFLG
+     C                     Z-ADDBASRYO    NUM6
+     C                     MOVE NUM6      XMSG
+     C                     EXSR #PRNT
+     C                     GOTO #CK10X
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           #CK10X    ENDSR
+      *============================================================
+      * GET LATEST QTY/BOX FROM MASTER  --> WSYOS
+      *============================================================
+     C           #SYOS     BEGSR
+      *
+     C                     Z-ADD0         WSYOS   60
+     C                     MOVELM2TOKU    $TOKU
+     C                     MOVELM2NONY    $NONY
+     C                     MOVELM2MHIN    $MHIN
+     C                     MOVELM2NOHZ    $DATE
+     C                     CALL 'UTLR09'
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $DATE   8
+     C                     PARM           $SYOS   6
+     C                     PARM           $RTN1   1
+     C           $RTN1     IFNE '*'
+     C                     MOVEL$SYOS     WSYOS
+     C                     ENDIF
+      *
+     C           WSYOS     IFEQ 0
+     C                     Z-ADDM2USYS    WSYOS
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *============================================================
+      * BREAK
+      *============================================================
+     C           #BRK1     BEGSR
+      * SAVE M2NOHZ AND M2NOBN
+JW1  C                     MOVELM2NOBN    S2NOBN  2
+JW1  C                     MOVELM2NOHZ    S2NOHZ  8
+      * IF UNPROCESS DETAIL TRANSACTION REMAINS, DO REMAIN PROCESS
+     C           SP@CNT    IFNE 0
+     C           DT@CNT    ANDNE0
+     C                     EXSR #REM
+     C                     ENDIF
+      * RESET
+     C                     Z-ADD0         SP@CNT
+     C                     Z-ADD0         PT@CNT
+     C                     Z-ADD0         BX@CNT
+     C                     Z-ADD0         DT@CNT
+     C                     Z-ADD0         LASTBX
+     C                     Z-ADD0         WBIN1
+     C                     Z-ADD0         WBIN2
+     C                     MOVELM2NONY    SVNONY
+     C                     MOVELM2NKOJ    SVNKOJ
+     C                     MOVELM2NUKE    SVNUKE
+JW1  C                     MOVELS2NOBN    M2NOBN
+JW1  C                     MOVELS2NOHZ    M2NOHZ
+     C                     MOVELM2NOHZ    SVNOHZ
+     C                     MOVELM2NOBN    SVNOBN
+     C                     MOVELM2ODRN    SVODRN
+     C                     MOVELM2MHIN    SVMHIN
+     C                     MOVE *BLANK    XXNONY
+     C                     MOVE *BLANK    XXNKOJ
+     C                     MOVE *BLANK    XXNUKE
+     C                     Z-ADD0         XXNOHZ
+      *FIRST TIME CHECK
+     C                     EXSR #CK00
+      *
+     C                     ENDSR
+      *============================================================
+      * REMAIN PROCESS
+      *============================================================
+     C           #REM      BEGSR
+      * << READ PP10 AND CHANGE BIN# >>
+     C                     MOVELSVNONY    K@NONY
+     C                     MOVELSVNKOJ    K@NKOJ
+     C                     MOVELSVNUKE    K@NUKE
+     C                     MOVELSVNOHZ    K@NOHZ
+     C                     MOVELSVODRN    K@ODRN
+     C                     MOVELSVNOBN    K@NOBN
+     C                     Z-ADDTODAY     WDATE
+      * ===============
+     C           K@PP11    SETLLAB#PL1J
+     C                     MOVE *OFF      *IN92
+     C           *IN92     DOWEQ*OFF
+     C           K@PP11    READEAB#PL1J                  92
+     C           *IN92     IFEQ *OFF
+     C           BASKJY    ANDEQ*BLANK
+      * << DELETE PP10 >>
+     C                     MOVE 'D'       BASKJY
+     C                     Z-ADDWYY       BASKYY
+     C                     Z-ADDWMM       BASKMM
+     C                     Z-ADDWDD       BASKDD
+     C                     MOVEL'R1H1'    BARESE
+     C                     UPDATAB#PL1J1
+      *
+     C                     CLEARBASKJY
+     C                     CLEARBASKYY
+     C                     CLEARBASKMM
+     C                     CLEARBASKDD
+     C                     CLEARBARESE
+     C                     Z-ADDWBIN2     BANOBN
+     C                     MOVELWINV2     BAINVN
+     C                     Z-ADDWYY       BAKOYY
+     C                     Z-ADDWMM       BAKOMM
+     C                     Z-ADDWDD       BAKODD
+     C                     MOVEL'AB#RT3.1'BAKOME
+     C                     WRITEAB#PL1J1
+JW2   * ADD PPA1
+ |   C                     Z-ADDTODAY     BACRHZ
+ |   C                     Z-ADDNOW       BACRTM
+ |   C                     MOVEL#USER     BACRME
+ |   C                     MOVEL'AB#RT3.1'BACRPG
+JW2  C                     WRITEAB#PLAJ1
+      *
+     C                     ENDIF
+     C                     ENDDO
+JW2   * DELETE PPA1 ==========
+ |   C           K@PP11    SETLLAB#PLAJ
+ |   C                     MOVE *OFF      *IN93
+ |   C           *IN93     DOWEQ*OFF
+ |   C           K@PP11    READEAB#PLAJ                  93
+ |   C           *IN93     IFEQ *OFF
+ |   C           BASKJY    ANDEQ*BLANK
+ |    * << DELETE PPA1 >>
+ |   C                     MOVE 'D'       BASKJY
+ |   C                     Z-ADDWYY       BASKYY
+ |   C                     Z-ADDWMM       BASKMM
+ |   C                     Z-ADDWDD       BASKDD
+ |   C                     MOVEL'R1H1'    BARESE
+ |    * DELETE PPA1
+ |   C                     UPDATAB#PLAJ1
+ |    *
+ |   C                     ENDIF
+JW2  C                     ENDDO
+      *
+     C                     ENDSR
+      *============================================================
+      * SPLIT PROCESS
+      *============================================================
+     C           #SPLT     BEGSR
+      *    (PT@CNT= COUNT SPLIT ONE ORDER : BIN HAS ONLY ONE PART)
+      *    (SP@CNT= COUNT SPLIT ORDERS    : BIN HAS MULTIPLE PART)
+     C                     ADD  1         PT@CNT
+     C                     ADD  1         SP@CNT
+      * GET BIN1 & BIN2
+      *    (BIN1 FOR THE ORDER OF CURRENT BIN#)
+      *    (BIN2 FOR THE ORDER OF NEXT    BIN#)
+     C                     EXSR #BIN
+     C           WBIN      IFEQ 0
+     C           WBIN      OREQ 99
+     C                     EXSR #ABEND
+     C                     GOTO #SPLTX
+     C                     ENDIF
+      * GET BOX1 AND BOX2
+      *    (BOX1 FOR THE ORDER OF CURRENT BIN#)
+      *    (BOX2 FOR THE ORDER OF NEXT    BIN#)
+     C           LASTBX    ADD  60        WBOX1   50
+     C                     SUB  BX@CNT    WBOX1
+     C           BX@CNT    SUB  60        WBOX2   50
+     C                     SUB  60        BX@CNT
+      *
+      * CREATE ORDER (AB#PP10)
+     C                     EXSR #CRT1
+      *
+     C                     MOVE 'S'       M2UFLG
+     C                     MOVELWBIN2     M2BIN2
+      *
+     C           #SPLTX    TAG
+      * RESET UNPROCESS DEETAIL TRANSACTION COUNT
+     C                     Z-ADD0         DT@CNT
+      *
+     C                     ENDSR
+      *============================================================
+      * GET BIN#
+      *============================================================
+     C           #BIN      BEGSR
+      * SET PARAMETER
+     C                     MOVELM2NONY    $NONY
+     C                     MOVELM2NKOJ    $NKOJ
+     C                     MOVELM2NUKE    $NUKE
+     C                     MOVELM2NOHZ    $NOHZ
+      * FIRST TIME ---------------------------------------
+     C           WBIN1     IFEQ 0
+      * GET BIN#1
+     C                     MOVELM2NOBN    WBIN    20
+     C                     EXSR #BIN@@
+     C                     EXSR #HINV
+     C           BINFLG    IFEQ *OFF
+     C                     Z-ADDWBIN      WBIN1   20
+     C                     MOVELW@8       WINV1  16 P
+     C                     ENDIF
+      * GET BIN#2
+     C                     EXSR #BIN@@
+     C                     EXSR #HINV
+     C           BINFLG    IFEQ *OFF
+     C                     Z-ADDWBIN      WBIN2   20
+     C                     MOVELW@8       WINV2  16 P
+     C                     ENDIF
+      * NOT FIRST ---------------------------------------
+     C                     ELSE
+      * GET BIN#1
+     C                     Z-ADDWBIN2     WBIN1
+     C                     MOVELWINV2     WINV1
+      * GET BIN#2
+     C                     Z-ADDWBIN1     WBIN
+     C                     EXSR #BIN@@
+     C                     EXSR #HINV
+     C           BINFLG    IFEQ *OFF
+     C                     Z-ADDWBIN      WBIN2
+     C                     MOVELW@8       WINV2     P
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *============================================================
+      * GET NEXT AVAILABLE BIN#
+      *============================================================
+     C           #BIN@@    BEGSR
+      *
+     C                     MOVE *OFF      BINFLG  1
+     C                     DO   *HIVAL
+     C                     ADD  1         WBIN
+      * BIN#=99 --> ABNORMAL END
+     C           WBIN      IFEQ 0
+     C           WBIN      OREQ 99
+     C                     MOVE *ON       BINFLG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     MOVELWBIN      $NOBN
+     C                     CALL 'UTLR50'
+     C                     PARM           $NONY   4
+     C                     PARM           $NKOJ   1
+     C                     PARM           $NUKE   4
+     C                     PARM           $NOHZ   8
+     C                     PARM           $NOBN   2
+     C                     PARM           $RTN2   1
+     C           $RTN2     IFEQ *BLANK
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *============================================================
+      * CREATE ORDER (AB#PP10)
+      *============================================================
+     C           #CRT1     BEGSR
+     C                     MOVELTODAY     WDATE
+      * << READ PP10 AND DELETE ORIGINAL ORDER ...
+      *              AND COPY RECORD WITH ANOTHER BIN# (BIN#1 & #BIN#2 >>
+     C                     MOVELM2NONY    K@NONY
+     C                     MOVELM2NKOJ    K@NKOJ
+     C                     MOVELM2NUKE    K@NUKE
+     C                     MOVELM2NOHZ    K@NOHZ
+     C                     MOVELM2ODRN    K@ODRN
+     C           PT@CNT    IFEQ 1
+     C                     MOVELM2NOBN    K@NOBN
+     C                     ELSE
+     C                     MOVELWBIN1     K@NOBN
+     C                     ENDIF
+      *
+     C           K@PP11    SETLLAB#PL1J
+     C                     MOVE *OFF      *IN91
+     C           *IN91     DOWEQ*OFF
+     C           K@PP11    READEAB#PL1J                  91
+     C           *IN91     IFEQ *OFF
+     C           BASKJY    ANDEQ*BLANK
+     C           BAMHIN    ANDLEM2MHIN
+      * << DELETE PP10 >>
+     C           PT@CNT    IFEQ 1
+     C                     MOVE 'D'       BASKJY
+     C                     Z-ADDWYY       BASKYY
+     C                     Z-ADDWMM       BASKMM
+     C                     Z-ADDWDD       BASKDD
+     C                     MOVEL'R1H2'    BARESE
+     C                     UPDATAB#PL1J1
+JW2   * DELETE PPA1
+ |   C                     MOVEL'D'       POPT
+ |   C                     Z-ADDBANONY    PANONY
+ |   C                     MOVELBANKOJ    PANKOJ
+ |   C                     MOVELBANUKE    PANUKE
+ |   C                     Z-ADDBANOHZ    PANOHZ
+ |   C                     Z-ADDBANOBN    PANOBN
+ |   C                     MOVELBAODRN    PAODRN
+ |   C                     MOVELBAMHIN    PAMHIN
+ |   C                     MOVEL'AB#RT3  'PAFROM
+ |   C                     MOVELBAKOME    PAFIL1
+ |   C                     MOVEL'AB#RT3.1'PAFIL2
+ |   C                     CALL 'UEXR02'
+ |   C                     PARM           POPT    1
+ |   C                     PARM           PANONY  40
+ |   C                     PARM           PANKOJ  1
+ |   C                     PARM           PANUKE  4
+ |   C                     PARM           PANOHZ  80
+ |   C                     PARM           PANOBN  20
+ |   C                     PARM           PAODRN 10
+ |   C                     PARM           PAMHIN 20
+ |   C                     PARM           PAFROM 10
+ |   C                     PARM           PAFIL1 10
+ |   C                     PARM           PAFIL2 20
+ |   C                     PARM           PAFIL3 20
+JW2  C                     PARM           PRTN    1
+      *
+     C                     ENDIF
+      * << CREATE PP10 WITH ANOTHER BIN# >>
+     C                     CLEARBASKJY
+     C                     CLEARBASKYY
+     C                     CLEARBASKMM
+     C                     CLEARBASKDD
+     C                     CLEARBARESE
+      * NOT SPLIT -------------------------------
+     C           BAMHIN    IFNE M2MHIN
+     C                     Z-ADDWBIN1     BANOBN
+     C                     MOVELWINV1     BAINVN
+     C                     Z-ADDWYY       BAKOYY
+     C                     Z-ADDWMM       BAKOMM
+     C                     Z-ADDWDD       BAKODD
+     C                     MOVEL'AB#RT3.2'BAKOME
+     C                     WRITEAB#PL1J1
+JW2   * ADD PPA1
+ |   C                     Z-ADDTODAY     BACRHZ
+ |   C                     Z-ADDNOW       BACRTM
+ |   C                     MOVEL#USER     BACRME
+ |   C                     MOVEL'AB#RT3.2'BACRPG
+JW2  C                     WRITEAB#PLAJ1
+      *
+     C                     ENDIF
+      * SPLIT -----------------------------------
+     C           BAMHIN    IFEQ M2MHIN
+      * SPLIT DATA(1 OF 2)
+     C           PT@CNT    IFEQ 1
+      *   WRITE CASE
+     C**JW1                Z-ADDWSYOS     BASYOS
+JW1  C                     Z-ADDSVSYOS    BASYOS
+     C           BASYOS    MULT WBOX1     BASRYO
+     C                     Z-ADDBASRYO    BAODER
+     C                     Z-ADDWBIN1     BANOBN
+     C                     MOVELWINV1     BAINVN
+     C                     Z-ADDWYY       BAKOYY
+     C                     Z-ADDWMM       BAKOMM
+     C                     Z-ADDWDD       BAKODD
+     C                     MOVEL'AB#RT3.3'BAKOME
+      * ADJUST (AVOID 0 QTY)
+     C           BASRYO    IFNE 0
+     C                     WRITEAB#PL1J1
+JW2   * ADD PPA1
+ |   C                     Z-ADDTODAY     BACRHZ
+ |   C                     Z-ADDNOW       BACRTM
+ |   C                     MOVEL#USER     BACRME
+ |   C                     MOVEL'AB#RT3.3'BACRPG
+JW2  C                     WRITEAB#PLAJ1
+      *
+     C                     ENDIF
+     C                     ELSE
+      *   UPDATE CASE
+     C**JW1                Z-ADDWSYOS     BASYOS
+JW1  C                     Z-ADDSVSYOS    BASYOS
+     C           BASYOS    MULT WBOX1     BASRYO
+     C                     Z-ADDBASRYO    BAODER
+     C                     Z-ADDWYY       BAKOYY
+     C                     Z-ADDWMM       BAKOMM
+     C                     Z-ADDWDD       BAKODD
+     C                     MOVEL'AB#RT3.4'BAKOME
+     C                     UPDATAB#PL1J1
+JW2   * UPDATE PPA1
+ |   C                     MOVEL'U'       POPT
+ |   C                     Z-ADDBANONY    PANONY
+ |   C                     MOVELBANKOJ    PANKOJ
+ |   C                     MOVELBANUKE    PANUKE
+ |   C                     Z-ADDBANOHZ    PANOHZ
+ |   C                     Z-ADDBANOBN    PANOBN
+ |   C                     MOVELBAODRN    PAODRN
+ |   C                     MOVELBAMHIN    PAMHIN
+ |   C                     MOVEL'AB#RT3  'PAFROM
+ |   C                     MOVELBAKOME    PAFIL1
+ |   C                     MOVEL'AB#RT3.2'PAFIL2
+ |   C                     CALL 'UEXR02'
+ |   C                     PARM           POPT    1
+ |   C                     PARM           PANONY  40
+ |   C                     PARM           PANKOJ  1
+ |   C                     PARM           PANUKE  4
+ |   C                     PARM           PANOHZ  80
+ |   C                     PARM           PANOBN  20
+ |   C                     PARM           PAODRN 10
+ |   C                     PARM           PAMHIN 20
+ |   C                     PARM           PAFROM 10
+ |   C                     PARM           PAFIL1 10
+ |   C                     PARM           PAFIL2 20
+ |   C                     PARM           PAFIL3 20
+JW2  C                     PARM           PRTN    1
+      *
+     C                     EXSR #PP2U
+     C                     ENDIF
+      * SPLIT DATA(2 OF 2)
+     C**JW1                Z-ADDWSYOS     BASYOS
+JW1  C                     Z-ADDSVSYOS    BASYOS
+     C           BASYOS    MULT WBOX2     BASRYO
+     C                     Z-ADDBASRYO    BAODER
+     C                     Z-ADDWBIN2     BANOBN
+     C                     MOVELWINV2     BAINVN
+     C                     Z-ADDWYY       BAKOYY
+     C                     Z-ADDWMM       BAKOMM
+     C                     Z-ADDWDD       BAKODD
+     C                     MOVEL'AB#RT3.5'BAKOME
+     C                     WRITEAB#PL1J1
+JW2   * ADD AB#PPA1
+ |   C                     Z-ADDTODAY     BACRHZ
+ |   C                     Z-ADDNOW       BACRTM
+ |   C                     MOVEL#USER     BACRME
+ |   C                     MOVEL'AB#RT3.5'BACRPG
+JW2  C                     WRITEAB#PLAJ1
+      *
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           #CRT1X    ENDSR
+      *============================================================
+      * ABNORMAL END PROCESS
+      *============================================================
+     C           #ABEND    BEGSR
+      *
+     C                     MOVELMSG,6     XMSG             BIN# REACHED 99
+     C                     EXSR #PRNT
+      *
+     C                     ENDSR
+      *============================================================
+      * PRINT ERROR MSG
+      *============================================================
+     C           #PRNT     BEGSR
+      *
+     C           LCNT      IFGE 60
+     C                     EXCPT@HDR1
+     C                     Z-ADD4         LCNT
+     C                     ENDIF
+      *
+     C                     MOVELSVSYOS    WSYOS
+     C                     MOVELM2SURY    W2SURY
+     C                     EXCPT@DTL1
+     C                     ADD  1         LCNT
+      *
+     C                     ENDSR
+      *============================================================
+      * INITIAL SET
+      *============================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $RTN    1
+      *
+     C           K@PP10    KLIST
+     C                     KFLD           K@NONY
+     C                     KFLD           K@NKOJ
+     C                     KFLD           K@NUKE
+     C                     KFLD           K@NOHZ
+     C                     KFLD           K@NOBN
+     C                     KFLD           K@ODRN
+     C                     KFLD           K@MHIN
+      *
+     C           K@PP11    KLIST
+     C                     KFLD           K@NONY
+     C                     KFLD           K@NKOJ
+     C                     KFLD           K@NUKE
+     C                     KFLD           K@NOHZ
+     C                     KFLD           K@NOBN
+     C                     KFLD           K@ODRN
+      *
+     C           *LIKE     DEFN BANONY    K@NONY
+     C           *LIKE     DEFN BANKOJ    K@NKOJ
+     C           *LIKE     DEFN BANUKE    K@NUKE
+     C           *LIKE     DEFN BANOHZ    K@NOHZ
+     C           *LIKE     DEFN BANOBN    K@NOBN
+     C           *LIKE     DEFN BAODRN    K@ODRN
+     C           *LIKE     DEFN BAMHIN    K@MHIN
+      *
+     C           *LIKE     DEFN M2NONY    SVNONY
+     C           *LIKE     DEFN M2NKOJ    SVNKOJ
+     C           *LIKE     DEFN M2NUKE    SVNUKE
+     C           *LIKE     DEFN M2NOHZ    SVNOHZ
+     C           *LIKE     DEFN M2NOBN    SVNOBN
+     C           *LIKE     DEFN M2ODRN    SVODRN
+     C           *LIKE     DEFN M2MHIN    SVMHIN
+      *
+     C           K#CNT     KLIST
+     C                     KFLD           K@KWD1  8
+     C                     KFLD           K@KWD2  8
+      *
+JW3  C                     MOVE *BLANK    $RTN
+     C                     TIME           SDATE
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD90        LCNT    30
+     C                     MOVE *BLANK    XMSG   51
+     C                     Z-ADD0         XQTY    60
+      * CUMULATE BOX COUNT
+     C                     Z-ADD0         BX@CNT  40
+      * CUMULATE SPLITTING COUNT
+     C                     Z-ADD0         SP@CNT  20
+      * CUMULATE UNPROCESS DETAIL COUNT
+     C                     Z-ADD0         DT@CNT  30
+      * BAD TRANSACTION
+     C                     MOVE *BLANK    XXNONY  4
+     C                     MOVE *BLANK    XXNKOJ  1
+     C                     MOVE *BLANK    XXNUKE  4
+     C                     Z-ADD0         XXNOHZ  80
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR1
+     O                         #PGM       9
+     O                                   99 'DATE'
+     O                         TODAY    102 '    .  .  '
+     O                         NOW      112 '  :  :  '
+     O                                  115 'P.'
+     O                         PAGE  Z  119
+     O        E   02           @HDR1
+     O                                   40 '** SPLIT ORDER BY PA'
+     O                                   60 'LLET ERRORREPORT ** '
+     O                                   80 '                    '
+      *
+     O        E   04           @HDR1
+     O                                    5 'DLV#'
+     O                                    7 'F'
+     O                                    9 'D'
+     O                                   20 'SHIP_DATE'
+     O                                   24 'BIN'
+     O                                   30 'PART#'
+     O                                   51 'ORDER#'
+     O                                   65 'TOBE_SPLT_QTY'
+     O                                   74 'QTY/BOX'
+     O                                   83 'MESSAGE'
+     O        E 1              @DTL1
+     O                         M2NONY  + 01
+     O                                 + 01 '0'
+     O                                 + 01 '00'
+     O                         M2NOHZ  + 01
+     O                         M2NOBN  + 02
+     O                         M2MHIN  + 02
+     O                         M2ODRN  + 00
+     O                         W2SURY1 + 01
+     O                         WSYOS 1 + 02
+     O                         XMSG    + 02
+** MSG (70A) ......2.........3.........4.........5.........6.........7
+ERR1: IAF ORDER(AB#PP10) DOES NOT EXIST!
+ERR2: IAF ORDER(AB#PP10) ALREADY DELETED!
+ERR3: IAF ORDER(AB#PP10) ALREADY SHIPPED!
+ERR4: IAF ORDER(AB#PP10) QTY DOES NOT MATCH! XXXXXX
+ERR5: CURRENT QTY/BOX=0 OR 1 (RECORD IGNORED)
+ERR6: BIN# REACHED 99! (RECORD IGNORED)
+ERR7:
+MSG8:
+ERR9: SKIP SPLIT BECAUSE INSUFFICIENT CONDITION!

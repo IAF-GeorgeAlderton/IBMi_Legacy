@@ -1,0 +1,321 @@
+     H            Y.
+     F** AM#R21Z   ******************************************
+     F* PALLET RESEND                                       *
+     F*    LEC              2023.12.12                      *
+     F*******************************************************
+     FAM#PW21ZCF  E                    WORKSTN
+     FALBPL30 IF  E           K        DISK
+     FAM#PL04 IF  E           K        DISK
+     FAM#PL22 IF  E           K        DISK
+     FAM#PL410IF  E           K        DISK
+     E                    ER      1   5 65
+     E                    MFBC      300 50
+     E                    TICK       12  1
+      *
+     IB2D         DS
+     I                                        1  19 BAR01
+      *
+      * TRUCK TICKET QR BARCODE
+     I            DS
+     I                                        1  25 TT
+     I                                        1   7 TTSURT
+     I                                        8  15 TTSHDT
+     I                                        8  11 TTSHYY
+     I                                       12  13 TTSHMM
+     I                                       14  15 TTSHDD
+     I                                       16  21 TTSHTM
+     I                                       16  17 TTSHHH
+     I                                       18  19 TTSHMN
+     I                                       20  21 TTSHSS
+     I                                        8  19 TTDTTM
+     I                                       22  25 TTFILR
+      * 2D MANIFEST BARCODE
+     I            DS
+     I                                        1  50 MF
+     I                                        1   5 MFNAMC
+     I                                        3   5 MFTYPE
+     I                                        6  10 MFSUPP
+     I                                       11  12 MFDOCK
+     I                                       13  24 MFORD#
+     I                                       25  33 MFMRTE
+     I                                       34  36 MFSDCK
+     I                                       37  38 MFPALT
+     I                                       39  40 MFMROS
+     I                                       41  43 MFSKID
+     I                                       45  50 MFFILR
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        7  140SDATE
+     I                                        1   60STIME
+      *
+     I            DS
+     I                                        1  10 SHDT
+     I                                        1   4 SHYY
+     I I            '/'                       5   5 SLSH1
+     I                                        6   7 SHMM
+     I I            '/'                       8   8 SLSH2
+     I                                        9  10 SHDD
+      *
+     I            DS
+     I                                        1   8 SHTM
+     I                                        1   2 SHHH
+     I I            ':'                       3   3 COLN1
+     I                                        4   5 SHMN
+     I I            ':'                       6   6 COLN2
+     I                                        7   8 SHSS
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           WORKER  6
+     C                     PARM           WUSRID 10
+     C                     PARM           WTT    25
+     C                     PARM           WCMD    2
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     EXSR #SB100
+     C           DSPSW     DOUEQ'99'
+     C                     EXSR #SB200
+     C                     ENDDO
+     C                     EXSR #SB300
+      *----------------------------------------------------*
+      * INZ                                                *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     MOVELWORKER    WKCD    60
+     C           WKCD      CHAINALBPL30              61
+     C           *IN61     IFEQ *ON
+     C                     MOVE *BLANKS   ALWKNM
+     C                     ENDIF
+      *
+     C                     TIME           WTIME
+     C                     MOVEL'01'      DSPSW   2
+     C                     MOVEL*BLANK    WCMD    2
+     C                     CLEARB2D
+      *
+     C           KEY04     KLIST
+     C                     KFLD           SURT    9
+     C                     KFLD           SHID    8
+      *
+     C           KEY22     KLIST
+     C                     KFLD           SURT
+      *
+     C           KEY410    KLIST
+     C                     KFLD           MFSUPP
+     C                     KFLD           MFORD#
+     C                     KFLD           MFNAMC
+     C                     KFLD           MFDOCK
+     C                     KFLD           MFPALT
+     C                     KFLD           MFSKID
+      *
+     CSR         ESB100    ENDSR
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C           DSPSW     DOWEQ'01'
+     C                     EXSR #SB210
+     C                     ENDDO
+      *
+     CSR         ESB200    ENDSR
+      *----------------------------------------------------*
+      *　⒳�痧���Ј灈�聭饎�　　　　　　　　　　　　�
+      *----------------------------------------------------*
+     CSR         #SB210    BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANK    MSG
+     C                     MOVEL*BLANK    EXCODE  3
+     C                     SETOF                     3199
+      *
+     C                     TIME           WTIME
+     C           *IN03     IFEQ '1'
+     C                     MOVEL'03'      WCMD    2
+     C                     MOVEL'99'      DSPSW   2
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C           BAR01     IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,1      MSG
+     C                     EXSR #SB999
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C                     MOVELBAR01     TT
+      *
+      * adjust the seconds in the ship time...
+     C           3         SUBSTTTSURT:1  CHKEX   3
+     C           CHKEX     IFEQ 'EX-'
+     C                     MOVE '  '      TTSHSS
+     C                     ELSE
+     C                     MOVE '00'      TTSHSS
+      *
+      * check truck ticket date and time for blanks.
+      * if date and time contains a blank it's invalid.
+     C                     MOVE *BLANKS   TICK
+      *
+     C                     MOVEATTDTTM    TICK
+     C                     DO   12        X
+     C           TICK,X    IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,3      MSG
+     C                     EXSR #SB999
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     GOTO ESB210
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDIF
+      *
+      * get all manifest barcodes for this route/ship date
+     C                     MOVELTTSURT    SURT      P
+     C                     MOVELTTSHDT    SHID
+      *
+     C           CHKEX     IFEQ 'EX-'
+     C                     EXSR #SB255
+     C                     ELSE
+     C                     EXSR #SB250
+     C                     ENDIF
+      *
+      * if no records for route/ship date found, then display error
+     C           X         IFEQ *ZERO
+     C                     SETON                     3199
+     C                     MOVELER,2      MSG
+     C                     EXSR #SB999
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     CLEARB2D
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+      * check and resend all manifests that don't have a confirmation#
+     C                     MOVELTT        WTT
+     C                     EXSR #SB260
+     C                     MOVEL'99'      DSPSW
+     C                     CLEARB2D
+     C                     CLEARMF
+      *
+     CSR         ESB210    ENDSR
+      *----------------------------------------------------*
+      * GET ALL MANIFEST BARCODES FOR THE ROUTE/SHIP DATE  *
+      *----------------------------------------------------*
+     C           #SB250    BEGSR
+      *
+     C                     Z-ADD*ZERO     X       40
+     C                     MOVEA*BLANKS   MFBC
+      *
+     C           KEY04     CHAINAM#PL04              50
+     C           *IN50     DOWEQ*OFF
+      *
+     C           R1MFBC    LOKUPMFBC                     55     found
+     C           *IN55     IFEQ *OFF
+     C                     ADD  1         X
+     C                     MOVELR1MFBC    MFBC,X
+     C                     ENDIF
+      *
+     C           KEY04     READEAM#PL04                  50
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * GET ALL MANIFEST BARCODES FOR THE EXPEDITE ROUTE   *
+      *----------------------------------------------------*
+     C           #SB255    BEGSR
+      *
+     C                     Z-ADD*ZERO     X       40
+     C                     MOVEA*BLANKS   MFBC
+      *
+     C           KEY22     CHAINAM#PL22              50
+     C           *IN50     DOWEQ*OFF
+      *
+     C           R22D      LOKUPMFBC                     55     found
+     C           *IN55     IFEQ *OFF
+     C                     ADD  1         X
+     C                     MOVELR22D      MFBC,X
+     C                     ENDIF
+      *
+     C           KEY22     READEAM#PL22                  50
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * CHECK AND RESEND ALL MANIFESTS THAT DON'T HAVE A   *
+      *   CONFIRMATION #.                                  *
+      *----------------------------------------------------*
+     C           #SB260    BEGSR
+      *
+     C                     Z-ADDX         TIMES   40
+     C                     Z-ADD*ZERO     X
+      *
+     C                     DO   TIMES     X
+      *
+     C                     MOVELMFBC,X    MF
+     C                     MOVE 'N'       RESEND  1
+     C                     EXSR CHKLOG
+     C           RESEND    IFEQ 'Y'
+     C                     CALL 'AM#R413'
+     C                     PARM           MF
+     C                     PARM           WORKER
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * ERROR ON SCREEN BUT NOT RECORDABLE.                *
+      *----------------------------------------------------*
+     CSR         #SB999    BEGSR
+      *
+     C                     MOVELMSG       P1ERR
+     C                     CALL 'AM#R08'
+     C                     PARM           P1ERR  25
+      *
+     CSR         ESB999    ENDSR
+      *----------------------------------------------------*
+      * END PROGRAM.                                       *
+      *----------------------------------------------------*
+     CSR         #SB300    BEGSR
+     C                     SETON                     LR
+     C                     RETRN
+     CSR         ESB300    ENDSR
+      *----------------------------------------------------*
+      * CHECK SCS LOG TO SEE IF PALLET SEND WAS CONFIRMED  *
+      *  IF NOT, SET RESEND STATUS TO YES.                 *
+      *----------------------------------------------------*
+     CSR         CHKLOG    BEGSR
+      *
+     C           KEY410    CHAINAM#PL410             55
+     C           *IN55     DOWEQ*OFF
+      *
+     C           L1CFM#    IFNE *BLANK
+     C           L1CFM#    ANDNE'*NULL'
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           KEY410    READEAM#PL410                 55
+     C                     ENDDO
+      *
+     C           *IN55     IFEQ *ON
+     C                     MOVE 'Y'       RESEND
+     C                     ENDIF
+      *
+     CSR                   ENDSR
+      *----------------------------------------------------*
+**
+INPUT TRUCK TICKET.
+NO TRUCK DATA IN PACKING.
+INVALID TRUCK TICKET
+
+

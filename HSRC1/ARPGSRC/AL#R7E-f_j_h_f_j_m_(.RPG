@@ -1,0 +1,251 @@
+     H            Y.
+     F** AL#R7E **************************************
+     F*かんばんデータワークから転送データ作成（仕切り含む）
+     F*かんばん発行順マスターに登録がない番地
+     F*        ITS.         2015.06.09               *
+     F************************************************
+     FAL#WP71 UF  E           K        DISK
+     FAL#WP46 IF  E                    DISK
+     FAL#WP73 O   F     256            DISK                      A
+     E                    PLT        99  3
+     E                    PUL        99  1
+     E                    ZON        99  1
+      *
+     I            DS
+     I                                        1  17 WKBAR
+     I                                        1  16 WKCONT
+     I                                        1   8 BAFIXD
+     I                                        9  10 BATIMS
+     I                                       11  13 BAIAFB
+     I                                       14  14 BAEXT
+     I                                       15  16 BAPP
+     I                                       17  17 WKCD
+      *
+     I            DS
+     I                                        1   80WKHZ
+     I                                        1   40WKYY
+     I                                        5   60WKMM
+     I                                        7   80WKDD
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60STIME
+     I                                        7  140SDATE
+      *
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W$WSID
+     I                                      254 263 @@USER
+     I                                      264 269 W$JBNO
+      *----------------------------------------------------*
+      * PLIST                                              *
+      *----------------------------------------------------*
+      *----------------------------------------------------*
+      *   K  E  Y   L I  S  T                              *
+      *----------------------------------------------------*
+      *
+     C                     TIME           WTIME
+     C                     MOVEL*BLANK    WKIAFB  3
+     C                     MOVEL*BLANK    WKEXT   1
+     C                     Z-ADD0         WKEXTR  20
+     C                     Z-ADD0         WKPAG#  30
+     C                     Z-ADD0         WKPAGT  30
+     C                     Z-ADD0         WKFIXD  80
+     C                     Z-ADD0         WKTIMS  30
+     C                     MOVEL'0'       WKSIK   1
+     C                     EXSR #SB100
+     C                     Z-ADD0         WKCNT   30
+     C*****                Z-ADDP9MAIS    WKCNT   30
+     C                     READ AL#WP711                 22
+     C           *IN22     DOWEQ'0'
+     C           W1#K01    IFEQ '0'
+      *
+     C           WKSIK     IFEQ '0'
+     C                     EXCPTSIK
+     C                     MOVEL'1'       WKSIK   1
+     C                     ENDIF
+      *
+     C*****      WKCNT     IFGE P9MAIS
+     C*****                Z-ADD0         WKCNT
+     C*****                EXCPTSIK
+     C*****                ENDIF
+     C                     EXCPTDT
+     C                     MOVEL'1'       W1FLG
+     C                     UPDATAL#WP711
+     C           W1SYOT    IFEQ 'D'
+     C                     ADD  2         WKCNT
+     C                     ELSE
+     C                     ADD  1         WKCNT
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     READ AL#WP711                 22
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *-----------------------------------------------------
+      *仕切りデータ
+      *-----------------------------------------------------
+     CSR         #SB100    BEGSR
+      *
+     C                     CLEARPLT
+     C                     CLEARPUL
+     C                     CLEARZON
+     C                     Z-ADD0         A       30
+     C                     Z-ADD0         Z       30
+     C                     Z-ADD0         ZA      30
+     C                     Z-ADD4         ZB      30
+     C                     Z-ADD8         ZC      30
+     C                     Z-ADD12        ZD      30
+     C           1         SETLLAL#WP461
+     C                     READ AL#WP461                 88
+     C           *IN88     DOWEQ'0'
+     C                     ADD  1         A
+     C                     SELEC
+     C           W6ZONE    WHEQ 'A'
+     C                     ADD  1         ZA
+     C                     Z-ADDZA        Z
+     C           W6ZONE    WHEQ 'B'
+     C                     ADD  1         ZB
+     C                     Z-ADDZB        Z
+     C           W6ZONE    WHEQ 'C'
+     C                     ADD  1         ZC
+     C                     Z-ADDZC        Z
+     C           W6ZONE    WHEQ 'D'
+     C                     ADD  1         ZD
+     C                     Z-ADDZD        Z
+     C                     ENDSL
+     C                     MOVELW6IAFP    PLT,Z
+     C                     MOVELW6PPUL    PUL,Z
+     C                     MOVELW6ZONE    ZON,Z
+     C           A         IFEQ 1
+     C                     MOVELW6IAFB    WKIAFB
+     C                     MOVELW6EXT     WKEXT
+     C                     Z-ADDW6EXTR    WKEXTR
+     C                     Z-ADDW6FIXD    WKFIXD
+     C                     Z-ADDW6TIMS    WKTIMS
+     C                     ENDIF
+     C                     READ AL#WP461                 88
+     C                     ENDDO
+      *
+     C                     MOVEL*BLANK    WKPPUL  1
+     C                     MOVE WKFIXD    BAFIXD
+     C                     MOVE WKTIMS    BATIMS
+     C                     MOVE WKIAFB    BAIAFB
+     C           WKEXTR    IFEQ 0
+     C                     MOVE 'A'       BAEXT
+     C                     ELSE
+     C                     MOVE '1'       BAEXT
+     C                     ENDIF
+     C                     MOVE WKEXTR    BAPP
+     C                     MOVEL*BLANK    WKCD
+     C                     MOVELWKCONT    PMAREA
+     C                     MOVEL'016'     PMBYTE
+     C                     MOVEL*BLANK    PMCHK
+     C                     MOVEL*BLANK    PMRTCD
+     C                     CALL 'ALBRCC'
+     C                     PARM           PMAREA100        *フィールド
+     C                     PARM           PMBYTE  3        *有効桁数
+     C                     PARM           PMCHK   1        * kｩｮhmﾞﾆﾞｮn
+     C                     PARM           PMRTCD  1        * ﾒjｰ]ﾃｰnﾞ
+     C                     MOVELPMCHK     WKCD
+      *
+     CSR         ESB100    ENDSR
+     OAL#WP73 EADD             DT
+     O                                      '2'
+     O                         W1CADT
+     O                         W1SUPI
+     O                         W1SUPC
+     O                         W1DOCK
+     O                         W1KNB#
+     O                         W1MHN
+     O                         W1LIAD
+     O                         W1STAD
+     O                         W1QTBO
+     O                         W1SUPN
+     O                         W1MART
+     O                         W1SURT
+     O                         W1ULDA
+     O                         W1SHID
+     O                         W1SHIT
+     O                         W1ORD#
+     O                         W1BOX#
+     O                         W1BOXT
+     O                         W1NAMC
+     O                         W1INKK
+     O                         W1LPOS
+     O                         W1NAM2
+     O                         W1NAM3
+     O                         W1PALT
+     O                         W1NAD5
+     O                         W1NAD6
+     O                         W1SEQ#
+     O                         W1IAFB
+     O                         W1IAFP
+     O                         W1TKR1
+     O                         W1TKR2
+     O                         W1TKR3
+     O                         W1TKR4
+     O                         W1PPUL
+     O                         W1EXT
+     O                         W1SAT
+     O                         W1ZONE
+     O        EADD             SIK
+     O                                      '3'
+     O                         WKIAFB
+     O                         WKPPUL
+     O                         WKEXT
+     O                         WKEXTR
+     O                         WKPAG#
+     O                         WKPAGT
+      * BARCODE
+     O                         WKBAR
+     O                         PUL,01
+     O                         PLT,01
+     O                         PUL,02
+     O                         PLT,02
+     O                         PUL,03
+     O                         PLT,03
+     O                         PUL,04
+     O                         PLT,04
+     O                         PUL,05
+     O                         PLT,05
+     O                         PUL,06
+     O                         PLT,06
+     O                         PUL,07
+     O                         PLT,07
+     O                         PUL,08
+     O                         PLT,08
+     O                         PUL,09
+     O                         PLT,09
+     O                         PUL,10
+     O                         PLT,10
+     O                         PUL,11
+     O                         PLT,11
+     O                         PUL,12
+     O                         PLT,12
+     O                         PUL,13
+     O                         PLT,13
+     O                         PUL,14
+     O                         PLT,14
+     O                         PUL,15
+     O                         PLT,15
+     O                         PUL,16
+     O                         PLT,16
+     O                         ZON,01
+     O                         ZON,02
+     O                         ZON,03
+     O                         ZON,04
+     O                         ZON,05
+     O                         ZON,06
+     O                         ZON,07
+     O                         ZON,08
+     O                         ZON,09
+     O                         ZON,10
+     O                         ZON,11
+     O                         ZON,12
+     O                         ZON,13
+     O                         ZON,14
+     O                         ZON,15
+     O                         ZON,16

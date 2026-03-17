@@ -1,0 +1,7 @@
+/** GDGTTT  (GDGT13)***************/
+/*   SEND TO ODER DATA  IAF-->ASJ */
+/*           K.YASUDA  2000.01.11 */
+/*********************** GDGT13  **/
+//BCHJOB   JOB(GDGT13) JOBD(QBATCH4) JOBQ(JOBQ4) MSGQ(QSYSOPR)
+CALL       PGM(GSTC80) PARM('GDIWP13IAF')
+//ENDBCHJOB

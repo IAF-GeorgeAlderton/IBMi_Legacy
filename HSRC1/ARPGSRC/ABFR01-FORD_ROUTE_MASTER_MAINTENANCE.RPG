@@ -1,0 +1,435 @@
+     H            Y/
+     F***************************************************
+     F*  FORD ROUTE MASTER MAINTENANCE                  *
+     F*             08/07/01                            *
+     F*--------------------------------                 *
+     F*  JW      2022.01.20 CHK DUPLICATE KEYS          *
+     F***************************************************
+     FABFPW01 CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     F                                              KINFDS @INFDS
+     FABFDL01 UF  E           K        DISK                      A
+     FABF9L01 IF  E           K        DISK
+     FAGDPL12 IF  E           K        DISK
+      *------------------------------------------------------------
+     E                    CMD     1   2 78
+     E                    ER      1  12 70
+     E                    DL      1   1 60
+      *------------------------------------------------------------
+     I@INFDS      DS
+     I                                    B 378 3790@@REC
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     I            DS
+     I                                        1   60@@TIME
+     I                                        1   20@@HH
+     I                                        3   40@@MM
+     I            DS
+     I                                        1   80WWDAT
+     I                                        1   40WWYY
+     I                                        5   60WWMM
+     I                                        7   80WWDD
+      *------------------------------------------------------
+      *  MAIN ROUTINE
+      *------------------------------------------------------
+     C           W@ID      DOWNE'99'
+     C           W@ID      CASEQ'01'      #DSP01
+     C           W@ID      CASEQ'02'      #DSP02
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *------------------------------------------------------
+      *  INITIALIZE
+      *------------------------------------------------------
+     C           *INZSR    BEGSR
+      *
+     C           K#ABF     KLIST
+     C                     KFLD           D@NONY
+     C                     KFLD           D@DOCK
+     C           K#ABFX    KLIST
+     C                     KFLD           D@NONY
+     C                     KFLD           D@DOCK
+     C                     KFLD           K@YY    40
+     C                     KFLD           K@MM    20
+     C                     KFLD           K@DD    20
+     C           K#AGD     KLIST
+     C                     KFLD           WWYY
+     C                     KFLD           WWMM
+     C                     KFLD           WWDD
+     C           K#AX      KLIST
+     C                     KFLD           D@NONY
+     C                     KFLD           K@DOCK
+      *
+     C           *LIKE     DEFN QADOCK    K@DOCK
+     C                     Z-ADD*ZERO     RRN1    40
+     C                     MOVEL'01'      W@ID    2
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *   1ST SCREEN
+      *------------------------------------------------------
+     C           #DSP01    BEGSR
+      *
+     C                     MOVE CMD,1     D@CMD
+     C                     WRITEDSP99
+     C                     EXFMTDSP01
+      *
+     C                     SELEC
+      * F1: END
+JW   C           *INKA     WHEQ *ON
+.    C                     MOVEL'99'      W@ID
+      * F3: END
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+      *
+      * F10: ROUTE MASTER INQ BY PLANT
+     C           *INKJ     WHEQ *ON
+     C                     MOVE *BLANK    $PLNT2
+     C*****                CALL 'ABFR07'
+JW   C                     CALL 'ABFR07A'
+     C                     PARM           $PLNT2  5
+      *
+      * F11: ROUTE MASTER INQ BY DELIV#
+     C           *INKK     WHEQ *ON
+     C                     MOVE *BLANK    $NONY2
+     C                     CALL 'ABFR08'
+     C                     PARM           $NONY2  4
+      *
+     C                     OTHER
+     C                     EXSR #CHK1
+     C           *IN99     IFEQ *OFF
+     C                     MOVEL'02'      W@ID
+     C                     EXSR #SET1
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *   CHECK FOR 1ST SCREEN
+      *------------------------------------------------------
+     C           #CHK1     BEGSR
+      *
+     C                     EXSR #CLR
+JW1   * DELIVE# = BLANK
+ .   C           D@NONY    IFEQ 0
+ .   C                     MOVE *ON       *IN61
+ .   C                     MOVE *ON       *IN99
+ .   C                     MOVE *ON       *IN50
+ .   C                     MOVELER,5      D@MSG
+ .   C                     GOTO XCHK1
+JW1  C                     ENDIF
+      *
+     C                     MOVELD@NONY    @@NONY  4
+     C           @@NONY    CHAINABF9L01              91
+     C           *IN91     IFEQ *ON
+     C                     MOVE *ON       *IN61
+     C                     MOVE *ON       *IN99
+     C                     MOVELER,1      D@MSG
+ .   C                     GOTO XCHK1
+     C                     ENDIF
+      * DOCK CODE = BLANK
+     C           D@DOCK    IFEQ *BLANK
+     C           *IN50     ANDEQ*OFF
+     C                     MOVE *ON       *IN62
+     C                     MOVE *ON       *IN99
+     C                     MOVE *ON       *IN50
+     C                     MOVELER,4      D@MSG
+     C                     ELSE
+     C                     MOVE *OFF      *IN50
+     C                     ENDIF
+      * IF NO ERRR,
+     C           K#ABF     CHAINABFDL01             N90
+      *
+     C           XCHK1     ENDSR
+      *------------------------------------------------------
+      *   CLEARANCE
+      *------------------------------------------------------
+     C           #CLR      BEGSR
+      *
+     C                     MOVEA'00000000'*IN,60
+     C                     MOVE *OFF      *IN99
+     C                     MOVE *BLANK    D@MSG
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *   SET DATA FOR 2ND SCREEN
+      *------------------------------------------------------
+     C           #SET1     BEGSR
+      *
+     C                     MOVE *BLANK    @@DL    1
+     C           K#ABF     SETGTABFDL01
+     C           @@AGAN    TAG
+     C           K#ABF     REDPEABFDL01                  90
+     C           *IN90     IFEQ *OFF
+     C                     MOVE '1'       @@DL
+     C           QASKJY    CABNE*BLANK    @@AGAN
+     C                     MOVE *BLANK    @@DL    1
+     C                     MOVELQAPLAN    D@PLNT
+     C                     MOVELQAROUT    D@ROUT
+     C                     MOVELQAMODE    D@MODE
+     C                     MOVELQAICCD    D@ICCD
+     C                     Z-ADDQAEFYY    WWYY
+     C                     Z-ADDQAEFMM    WWMM
+     C                     Z-ADDQAEFDD    WWDD
+     C                     Z-ADDWWDAT     D@VALD
+     C                     Z-ADDWWDAT     WWVALD  80
+     C                     ELSE
+     C                     MOVE *BLANK    D@PLNT
+     C                     MOVEL*BLANK    D@ROUT
+     C                     MOVEL*BLANK    D@MODE
+     C                     MOVEL*BLANK    D@ICCD
+     C                     Z-ADD*ZERO     D@VALD
+     C                     Z-ADD*ZERO     WWVALD  80
+     C                     ENDIF
+      *
+     C           @@DL      IFEQ '1'
+     C                     MOVELDL,1      D@DELT
+     C                     ELSE
+     C                     MOVE *BLANK    D@DELT
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *IN52
+     C                     WRITECTL01
+     C                     MOVE *OFF      *IN52
+     C                     Z-ADD*ZERO     RRN1
+      *
+     C           D@NONY    SETLLABFDL01
+     C           *IN80     DOUEQ*ON
+     C           D@NONY    READEABFDL01             N    80
+     C           *IN80     IFEQ *OFF
+     C           QADOCK    ANDNED@DOCK
+     C           QASKJY    ANDEQ*BLANK
+     C                     MOVE QADOCK    K@DOCK
+     C           K#AX      SETGTABFDL01
+     C           K#AX      REDPEABFDL01                  80
+     C                     ADD  1         RRN1
+     C                     MOVELQAPLAN    S@PLNT
+     C                     MOVELQAROUT    S@ROUT
+     C                     MOVELQAMODE    S@MODE
+     C                     MOVELQADOCK    S@DOCK
+     C                     MOVELQAICCD    S@ICCD
+     C                     Z-ADDQAEFYY    WWYY
+     C                     Z-ADDQAEFMM    WWMM
+     C                     Z-ADDQAEFDD    WWDD
+     C                     Z-ADDWWDAT     S@VALD
+     C                     WRITESFL01
+     C           K#AX      SETGTABFDL01
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           RRN1      IFEQ 0
+     C                     CLEARSFL01
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *   2ND SCREEN
+      *------------------------------------------------------
+     C           #DSP02    BEGSR
+      *
+     C                     MOVE CMD,2     D@CMD
+     C                     WRITEDSP99
+     C                     MOVE *ON       *IN51
+     C                     EXFMTCTL01
+     C                     MOVE *OFF      *IN51
+      *
+     C                     SELEC
+      * F3 EXIT
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+      * F12 BACK
+     C           *INKL     WHEQ *ON
+     C                     EXSR #CLR
+     C                     MOVE *OFF      *IN50
+     C                     MOVEL'01'      W@ID
+      * F23 DELETE
+     C           *INKX     WHEQ *ON
+     C                     EXSR #DEL
+     C                     MOVEL'01'      W@ID
+     C                     MOVE *OFF      *IN50
+      *
+     C                     OTHER
+     C                     EXSR #CHK2
+     C           *IN99     IFEQ *OFF
+     C           *INKE     ANDEQ*ON
+     C                     EXSR #UPD
+     C                     MOVEL'01'      W@ID
+     C                     MOVE *BLANK    D@MSG
+     C                     MOVE *OFF      *IN50
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *   CHECK FOR 2ND SCREEN
+      *------------------------------------------------------
+     C           #CHK2     BEGSR
+      *
+     C                     EXSR #CLR
+      *
+     C           D@ROUT    IFEQ *BLANK
+     C                     MOVE *ON       *IN62
+     C                     MOVE *ON       *IN99
+     C                     MOVELER,3      D@MSG
+     C                     GOTO XCHK2
+     C                     ENDIF
+      *
+     C           D@PLNT    IFEQ *BLANK
+     C                     MOVE *ON       *IN63
+     C                     MOVE *ON       *IN99
+     C                     MOVELER,10     D@MSG
+     C                     GOTO XCHK2
+     C                     ENDIF
+      *
+     C           D@VALD    IFEQ 0
+     C                     MOVE *ON       *IN64
+     C                     MOVE *ON       *IN99
+     C                     MOVELER,8      D@MSG
+     C                     GOTO XCHK2
+     C                     ENDIF
+      *
+     C                     Z-ADDD@VALD    WWDAT
+     C           K#AGD     CHAINAGDPL12              90
+     C           *IN90     IFEQ *ON
+     C                     MOVE *ON       *IN64
+     C                     MOVE *ON       *IN99
+     C                     MOVELER,2      D@MSG
+     C                     GOTO XCHK2
+     C                     ENDIF
+      * DEUPLICATE
+     C                     MOVELD@PLNT    $PLNT
+     C                     MOVELD@DOCK    $DOCK
+     C                     MOVELD@ICCD    $ICCD
+     C                     CALL 'UTLR34C'
+     C                     PARM           $PLNT   5
+     C                     PARM           $DOCK   4
+     C                     PARM           $ICCD   5
+     C                     PARM           $NONY   4
+     C           $NONY     IFNE *ZERO
+     C           $NONY     ANDNE@@NONY
+     C                     MOVE *ON       *IN63
+     C                     MOVE *ON       *IN65
+     C                     MOVE *ON       *IN99
+     C                     MOVELER,11     D@MSG
+     C                     GOTO XCHK2
+     C                     ENDIF
+      * IF NO ERROR.....
+     C                     MOVELER,9      D@MSG
+      *
+     C           XCHK2     ENDSR
+      *------------------------------------------------------
+      *   UPDATE
+      *------------------------------------------------------
+     C           #UPD      BEGSR
+      * UPDATE
+     C           WWVALD    IFNE *ZERO
+     C           D@VALD    ANDLEWWVALD
+     C                     Z-ADDWWVALD    WWDAT
+     C                     Z-ADDWWYY      K@YY
+     C                     Z-ADDWWMM      K@MM
+     C                     Z-ADDWWDD      K@DD
+     C           K#ABFX    CHAINABFDL01              90
+     C           *IN90     IFEQ *OFF
+     C                     Z-ADD*DATE     WWDAT
+     C                     MOVEL*BLANK    QASKJY
+     C                     Z-ADD*ZERO     QASKYY
+     C                     Z-ADD*ZERO     QASKMM
+     C                     Z-ADD*ZERO     QASKDD
+     C                     Z-ADDWWYY      QAKOYY
+     C                     Z-ADDWWMM      QAKOMM
+     C                     Z-ADDWWDD      QAKODD
+     C                     TIME           @@TIME
+     C                     Z-ADD@@HH      QAKOHH
+     C                     Z-ADD@@MM      QAKOSS
+     C                     MOVEL#USER     QAKOME
+     C                     MOVELD@PLNT    QAPLAN
+     C                     MOVELD@ROUT    QAROUT
+     C                     MOVELD@MODE    QAMODE
+     C                     MOVELD@ICCD    QAICCD
+     C                     Z-ADDD@VALD    WWDAT
+     C                     Z-ADDWWYY      QAEFYY
+     C                     Z-ADDWWMM      QAEFMM
+     C                     Z-ADDWWDD      QAEFDD
+     C                     UPDATABFDL01R
+     C                     ENDIF
+      **WRITE
+     C                     ELSE
+     C                     CLEARABFDL01R
+     C                     Z-ADD*DATE     WWDAT
+     C                     Z-ADDWWYY      QAKOYY
+     C                     Z-ADDWWMM      QAKOMM
+     C                     Z-ADDWWDD      QAKODD
+     C                     TIME           @@TIME
+     C                     Z-ADD@@HH      QAKOHH
+     C                     Z-ADD@@MM      QAKOSS
+     C                     MOVEL#USER     QAKOME
+     C                     Z-ADDD@NONY    QANONY
+     C                     MOVELD@DOCK    QADOCK
+     C                     MOVELD@PLNT    QAPLAN
+     C                     MOVELD@ROUT    QAROUT
+     C                     MOVELD@MODE    QAMODE
+     C                     MOVELD@ICCD    QAICCD
+     C                     Z-ADDD@VALD    WWDAT
+     C                     Z-ADDWWYY      QAEFYY
+     C                     Z-ADDWWMM      QAEFMM
+     C                     Z-ADDWWDD      QAEFDD
+     C                     WRITEABFDL01R
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *   DELETE
+      *------------------------------------------------------
+     C           #DEL      BEGSR
+      *
+     C                     Z-ADDWWVALD    WWDAT
+     C                     Z-ADDWWYY      K@YY
+     C                     Z-ADDWWMM      K@MM
+     C                     Z-ADDWWDD      K@DD
+     C           K#ABF     SETLLABFDL01
+     C           *IN90     DOUEQ*ON
+     C           K#ABF     READEABFDL01                  90
+     C           *IN90     IFEQ *OFF
+     C           QASKJY    ANDEQ*BLANK
+     C                     MOVEL'D'       QASKJY
+     C                     Z-ADD*DATE     WWDAT
+     C                     Z-ADD*YEAR     QASKYY
+     C                     Z-ADD*MONTH    QASKMM
+     C                     Z-ADD*DAY      QASKDD
+     C                     Z-ADD*YEAR     QAKOYY
+     C                     Z-ADD*MONTH    QAKOMM
+     C                     Z-ADD*DAY      QAKODD
+     C                     TIME           @@TIME
+     C                     Z-ADD@@HH      QAKOHH
+     C                     Z-ADD@@MM      QAKOSS
+     C                     MOVEL#USER     QAKOME
+     C                     UPDATABFDL01R
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+** CMD(78A) .......2.........3.........4.........5.........6.........7........
+F3:END             F10:MASTER INQ BY PLANT    F11:MASTER INQ BY DELIV#
+F3:END    F5:UPDATE    F12:PREV    F23:DELETE
+** ERR(70A) .......2.........3.........4.........5.........6.........7
+DELIVERY CODE DOES NOT EXIST IN FORD ADDRESS MASTER(ABF9P01)!          01
+DATE IS INVALID!                                                       02
+ENTER ROUTE CODE!                                                      03
+DOCK CODE IS BLANK. IF IT'S OK, PRESS ENTER KEY AGAIN.                 04
+ENTER DELLIVERY CODE!                                                  05
+ENTER EFFECTIVE DATE!                                                  06
+DELIVERY CODE DOES NOT EXIST IN FORD ROUTES MASTER(ABFDP01)!           07
+ENTER VALID FROM DATE!                                                 08
+PRESS F5 TO UPDATE...                                                  09
+ENTER PLANT CODE!                                                      10
+DUPLICATE KEYS FOUND! CHECK <DELIBERY# + DOCK + IC CODE>.              11
+                                                                       12
+** DL(60A) ........2.........3.........4.........5.........6
+THIS DOCK CODE WAS DELETED.

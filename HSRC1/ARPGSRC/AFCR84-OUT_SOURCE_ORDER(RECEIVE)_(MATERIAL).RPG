@@ -1,0 +1,255 @@
+     H            Y.                                    1
+     H** AFCR84 *******************************************************
+     H* OUT SOURCE ORDER(RECEIVE) (MATERIAL)                          *
+     H*                                                               *
+     H* TCH 2000.06.19                                                *
+     H**************************************************************************
+     H*
+     H* *INKC = 1(CF03)
+     H* *IN30 = 1(ERROR)
+     H* *IN90 = 1(NOT READ AFBPL82 ORDER DETAIL FILE)
+     H* *IN91 = 1(NOT READ AFBPL95 ORDER SUMMARY FILE)
+     H**************************************************************************
+     FAFCPW84 CF  E                    WORKSTN
+     FAFCPL82 UF  E           K        DISK
+     FAFCPL95 UF  E           K        DISK
+     I**************************************************************************
+     E                    BCD         8  1
+     E                    ER      1  30 15
+     I**************************************************************************
+     I* BARCODE
+     I*(UPDATE CODE + MATERIAL KIND +ABSOLUTE # +  HAKKO #)
+     I            DS
+     I                                        1   8 BCD
+     I                                        1   8 BARCD
+     I                                        1   1 BCOCD
+     I                                        2   5 BZETI
+     I                                        6   8 BHKNO
+     I*
+     I            DS
+     I                                        1  120WTMDT
+     I                                        1   20WHHHH
+     I                                        3   40WSSSS
+     I                                        7   80WYYYY
+     I                                        9  100WMMMM
+     I                                       11  120WDDDD
+     I* AFCPP80(RECEIVED DATE)
+     I            DS
+     I                                        1   80C8NODT
+     I                                        1   40C8NOYY
+     I                                        5   60C8NOMM
+     I                                        7   80C8NODD
+     I* AFCPP80(SUMMARY  DATE)
+     I            DS
+     I                                        1   80C8SUDT
+     I                                        1   40C8SUYY
+     I                                        5   60C8SUMM
+     I                                        7   80C8SUDD
+     I* AFCPP90(RECEIVED DATE)
+     I            DS
+     I                                        1   80C9NODT
+     I                                        1   40C9NOYY
+     I                                        5   60C9NOMM
+     I                                        7   80C9NODD
+     I* AFCPP90(COMPLETED DATE)
+     I            DS
+     I                                        1   80C9KNDT
+     I                                        1   40C9KNYY
+     I                                        5   60C9KNMM
+     I                                        7   80C9KNDD
+     I**************************************************************************
+     C*
+     C           *ENTRY    PLIST
+     C                     PARM           PUSR   10
+     C                     PARM           PWKCD   6
+     C* AFCPL95
+     C           KEY3      KLIST
+     C                     KFLD           C8ODNO           ORDER #
+     C                     KFLD           C8ZAIS           WIRE
+     C                     KFLD           C8ZAIK           DIAMETER
+     C                     KFLD           C8ZETI           ABSOLUTE #
+     C* AFCPL82
+     C           KEY4      KLIST
+     C                     KFLD           BCOCD            CONTROL CD
+     C                     KFLD           BZETI            ABSOLUTE #
+     C                     KFLD           BHKNO            HAKKO #
+     C**************************************************************************
+     C*                    MAIN ROUTINE
+     C**************************************************************************
+     C                     EXSR @INT
+     C                     EXSR @MAIN
+     C                     EXSR @END
+     C**************************************************************************
+     C*                    @INT
+     C**************************************************************************
+     C           @INT      BEGSR
+     C*
+     C                     SETOF                     30
+     C                     MOVE *BLANK    MSG
+     C*
+     C                     TIME           WTMDT
+     C*
+     C                     Z-ADD*ZERO     I       20
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @MAIN
+     C**************************************************************************
+     C           @MAIN     BEGSR
+     C*
+B01  C           *INKC     DOUEQ'1'
+     C* DISPLAY ERROR
+B03  C           *IN30     IFEQ '1'
+     C                     EXFMTAFCPW899
+     C*
+     C                     SETOF                     30
+     C                     MOVE *BLANK    MSG
+     C*
+     C                     ELSE
+     C                     EXFMTAFCPW841
+B02  C           *INKC     IFEQ '1'
+     C*
+     C                     ELSE
+     C                     EXSR @CHK1
+     C*
+B04  C           *IN30     IFEQ '0'
+     C                     EXSR @UPD1
+     C                     EXSR @UPD2
+     C                     MOVE *BLANK    BARCD
+     C                     END
+     C                     END
+     C                     END
+     C                     END
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @CHK1
+     C**************************************************************************
+     C           @CHK1     BEGSR
+     C*
+     C* READ ALL DATA?
+     C                     Z-ADD1         I
+     C           1         DO   8         I
+     C           BCD,I     IFEQ *BLANK
+     C                     SETON                     30
+     C                     MOVE ER,1      MSG
+     C                     GOTO #ECHK1
+     C                     END
+     C                     END
+     C*
+     C* ORDER DETAIL FILE
+     C           KEY4      SETGTAFCPL821
+     C*
+     C           #READ1    TAG
+     C           KEY4      REDPEAFCPL821                 90
+     C*
+     C           *IN90     IFEQ '0'
+     C           C8SKJY    ANDEQ'D'
+     C                     GOTO #READ1
+     C                     END
+     C*
+     C           *IN90     IFEQ '1'
+     C                     SETON                     30
+     C                     MOVE ER,2      MSG
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C*
+     C* ORDER SUMMARY PROCESSED ?
+     C           C8SUDT    IFEQ *ZERO
+     C                     SETON                     30
+     C                     MOVE ER,3      MSG
+     C                     UPDATAFCPL821
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C* ALREADY ORDERED ?
+     C           C8ODNO    IFEQ *ZERO
+     C                     SETON                     30
+     C                     MOVE ER,7      MSG
+     C                     UPDATAFCPL821
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C* ALREADY SCANNED ?
+     C           C8NODT    IFNE *ZERO
+     C                     SETON                     30
+     C                     MOVE ER,4      MSG
+     C                     UPDATAFCPL821
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C* EXIST ORDER FILE ?
+     C           KEY3      CHAINAFCPL951             91
+     C           *IN91     IFEQ '1'
+     C                     SETON                     30
+     C                     MOVE ER,5      MSG
+     C                     UPDATAFCPL821
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C* ALREADY ALL KANBAN RECEIVED ?
+     C           C9KNDT    IFNE *ZERO
+     C                     SETON                     30
+     C                     MOVE ER,6      MSG
+     C                     UPDATAFCPL821
+     C                     UPDATAFCPL951
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C           #ECHK1    ENDSR
+     C**************************************************************************
+     C*                    @UPD1:AFCPP80
+     C**************************************************************************
+     C           @UPD1     BEGSR
+     C*
+     C                     Z-ADD2000      C8KOYY           UPDATE YEAR
+     C                     ADD  WYYYY     C8KOYY
+     C                     Z-ADDWMMMM     C8KOMM                  MONTH
+     C                     Z-ADDWDDDD     C8KODD                  DAY
+     C                     Z-ADDWHHHH     C8KOHH                  HOUR
+     C                     Z-ADDWSSSS     C8KOSS                  MINUTE
+     C                     MOVE PUSR      C8KOME                  USER
+     C                     MOVEL'AFCR84'  C8KOPG                  PGM-ID
+     C                     MOVE PWKCD     C8WORK                  WORKER CD
+     C                     Z-ADD*DATE     C8NODT
+     C                     UPDATAFCPL821
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @UPD2:AFCPP90
+     C**************************************************************************
+     C           @UPD2     BEGSR
+     C*
+     C                     Z-ADD2000      C9KOYY           UPDATE YEAR
+     C                     Z-ADDWMMMM     C9KOMM                  MONTH
+     C                     Z-ADDWDDDD     C9KODD                  DAY
+     C                     Z-ADDWHHHH     C9KOHH                  HOUR
+     C                     Z-ADDWSSSS     C9KOSS                  MINUTE
+     C                     MOVE PUSR      C9KOME                  USER
+     C                     MOVEL'AFCR84'  C9KOPG                  PGM-ID
+     C                     Z-ADD*DATE     C9NODT
+     C                     ADD  1         C9NOSU
+     C           C9COIL    IFEQ C9NOSU
+     C                     Z-ADD*DATE     C9KNDT
+     C                     END
+     C                     UPDATAFCPL951
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @END
+     C**************************************************************************
+     C           @END      BEGSR
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+     C*
+     C                     ENDSR
+** ERROR MESSAGE
+BARCODE BLANK
+NO DETAIL FILE
+NOT SUMMARIZED
+ALREADY SCANNED
+NOT ORDER FILE
+ALL DAT RECEIVE
+NOT ORDERED

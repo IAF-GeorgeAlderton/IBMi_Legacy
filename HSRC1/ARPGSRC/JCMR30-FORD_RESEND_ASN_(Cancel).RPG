@@ -1,0 +1,173 @@
+     H            Y.
+      ** JCMR30 ********************************************************
+      *  FORD CHANGE ASN (CANCEL)                                      *
+      *  JW     2021/06/10                                             *
+      ******************************************************************
+     FJCMPW30 CF  E                    WORKSTN
+     FJCMPL11 IF  E           K        DISK
+     FEB#EL66 IF  E           K        DISK
+      *---------------------------------------------------
+     E                    MSG     1  10 70
+     I* SYSTEM TIME
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************
+      *  MAIN
+      *************************************************************
+      * INITIALIZE
+     C                     EXSR #INIT
+      * DISPLAY
+     C           W@ID      DOWEQ'01'
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANKS   XMSG1
+     C                     MOVEL*BLANKS   XMSG2
+     C                     MOVE *OFF      *IN85
+     C                     MOVE *OFF      *IN41
+JW1  C                     MOVE *OFF      *IN42
+      * F1/3 END
+     C           *INKA     IFEQ *ON
+     C           *INKC     OREQ *ON
+     C           *INKL     OREQ *ON
+     C                     MOVE '99'      W@ID
+     C                     LEAVE
+     C                     ENDIF
+      *
+      * F10 INQ
+     C           *INKJ     IFEQ *ON
+     C                     CALL 'JCMR31 '
+     C                     PARM           $ASN    8
+     C           $ASN      IFNE *BLANK
+     C                     MOVEL$ASN      LTR6
+     C                     MOVE LTR6      D@ASN
+     C                     EXSR #CHK1
+     C                     ENDIF
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     EXSR #CHK1
+      * NO ERROR & F5
+     C           *IN85     IFEQ *OFF
+     C           *INKE     ANDEQ*ON
+     C                     EXSR #ASN
+     C           $RTN1     IFEQ *BLANK
+     C                     MOVELMSG,4     XMSG1
+     C                     MOVELMSG,5     XMSG2
+     C                     ELSE
+     C                     MOVELMSG,7     XMSG1
+     C                     MOVE *BLANK    XMSG2
+     C                     ENDIF
+     C                     ENDIF
+      * NO ERROR & NOT F5
+     C           *IN85     IFEQ *OFF
+     C           *INKE     ANDEQ*OFF
+     C                     MOVELMSG,3     XMSG1
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *-----------------------------------------------------------
+      *          CHECK DATA
+      *-----------------------------------------------------------
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE *OFF      *IN85
+     C                     MOVE *BLANK    D@NONY
+     C                     MOVE *ZERO     D@NOHZ
+     C                     MOVE *BLANK    D@BIN
+     C                     MOVE *BLANK    D@SHID
+     C                     MOVE *ZERO     D@CRDT
+JW1   * CHECK FUNCTION
+     C           D@PPS     IFNE 'C'
+     C                     MOVE *ON       *IN42
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,8     XMSG1
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      * CHECK ASN#
+     C           D@ASN     IFEQ 0
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,1     XMSG1
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      *
+      * CHECK ASN EXIST IN MASTER
+     C                     MOVE D@ASN     LTR6    6
+     C                     MOVE *ALL'0'   K@ASN   8
+     C                     MOVE LTR6      K@ASN
+     C           K@ASN     CHAINJCMPL11              99
+     C           *IN99     IFEQ *ON
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,2     XMSG1
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      *
+      * CHECK ASN DUPLICATED
+     C           J1SHID    CHAINEB#EL66              98
+     C           *IN98     IFEQ *OFF
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,6     XMSG1
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      * IF NO ERROR...
+     C                     MOVELJ1NONY    D@NONY
+     C                     MOVELJ1NOHZ    D@NOHZ
+     C                     MOVELJ1BIN     D@BIN
+     C                     MOVELJ1SHID    D@SHID
+     C                     MOVELJ1DATE    D@CRDT
+      *
+     C           E#CHK1    ENDSR
+      *-----------------------------------------------------------
+      *          CREATE ASN DATA
+      *-----------------------------------------------------------
+     C           #ASN      BEGSR
+      *
+     C                     MOVELD@NONY    $NONY
+     C                     MOVELD@SHID    $SHID
+     C                     CALL 'JCMC32'
+     C                     PARM           $NONY   4
+     C                     PARM           $SHID  10
+     C                     PARM           $RTN1   1
+      *
+     C           $RTN1     IFEQ *BLANK
+     C                     MOVE *BLANK    PRTN
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *-----------------------------------------------------------
+      *          INITIALIZE
+      *-----------------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           PRTN    1
+      *
+     C                     MOVE '*'       PRTN
+     C                     TIME           SDATE
+     C                     MOVE 'C'       D@PPS
+     C                     MOVE '01'      W@ID    2
+      *
+     C                     Z-ADD0         ASN#    80
+      *
+     C                     ENDSR
+** MSG(70A) .......2.........3.........4.........5.........6.........7
+ERROR! ENTER ASN#!                                                      01
+ERROR! ASN# DOES NOT FOUND IN PAST TRANSACTION !                        02
+PRESS F5 TO SUBMIT ASN DATA...                                          03
+ASN DATA WAS CREATED.                                                   04
+PRESS F1 TO END SO THAT PROGRAM WILL SUBMIT ASN...                      05
+ERROR! YOU CANNOT SUBMIT SAME ASN# AT THIS TIME. TRY 15 MIN LATER !     06
+ERROR! ASN WAS NOT SUBMITTED ! ASK IT MEMBER.                           07
+ERROR! FUNCTION SHOULD BE C !                                           08
+                                                                        09
+                                                                        10

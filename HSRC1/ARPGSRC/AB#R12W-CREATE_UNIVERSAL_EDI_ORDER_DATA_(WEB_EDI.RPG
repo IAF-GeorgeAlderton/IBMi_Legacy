@@ -1,0 +1,149 @@
+     H            Y.
+      ** AB#R12W ************************************************
+      *  CREATE UNIVERSAL EDI ORDER DATA (WEB EDI)              *
+      *  J.WATANABE   2025.04.10                                *
+      ***********************************************************
+     FRDBWL21 IF  E           K        DISK
+     FAB#EP12 O   E                    DISK
+      ***********************************************************
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      254 263 #USER
+      ***********************************************************
+      * MAIN ROUTINE
+      ***********************************************************
+     C                     EXSR #INIT
+      * CREATE HEADER DATA
+     C                     EXSR #HDR
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *=================================================
+      * CREATE HEADER
+      *=================================================
+     C           #HDR      BEGSR
+      *
+     C           *LOVAL    SETLLRDBWL21
+     C                     DO   *HIVAL
+     C                     READ RDBWL21                  98
+     C   98                LEAVE
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELTDCRDT    SVCRDT
+     C                     MOVELTDCRTM    SVCRTM
+     C                     MOVELTDNAME    SVNAME
+     C                     MOVELTDORGC    SVORGC
+     C                     MOVELTDODRN    SVODRN
+     C                     MOVELTDNUKE    SVNUKE
+     C                     MOVELTDTOKU    SVTOKU
+     C                     MOVELTDNONY    SVNONY
+     C                     ENDIF
+      * BREAK?
+     C           TDCRDT    IFNE SVCRDT
+     C           TDCRTM    ORNE SVCRTM
+     C           TDNAME    ORNE SVNAME
+     C           TDORGC    ORNE SVORGC
+     C           TDODRN    ORNE SVODRN
+     C           TDNUKE    ORNE SVNUKE
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * COUNT RECORD
+     C                     ADD  1         @REC
+      *
+     C           TDMHN     IFNE SVMHN
+     C                     MOVELTDMHN     SVMHN
+     C                     ADD  1         @ORD
+     C                     ENDIF
+      *
+     C                     ENDDO
+      * LAST BREAK?
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *=================================================
+      * HEADER BREAK
+      *=================================================
+     C           #BRK1     BEGSR
+      * WRITE
+     C                     CLEARAB#EP121                           SVCRDT
+     C                     MOVELSVNAME    E2PRTN                   SVCRTM
+     C                     MOVELSVORGC    E2PLNT                   SVNAME
+     C                     MOVE ' '       E2SHCD                   SVORGC
+      * GET CUST#/DELV#                                            SVODRN
+     C                     MOVELSVTOKU    E2TOKU                   SVNUKE
+     C                     MOVELSVNONY    E2NONY
+     C                     MOVEL'0'       E2NKOJ
+     C                     MOVELSVNUKE    E2NUKE
+      * 862/830
+     C                     MOVEL'WEB'     E2TRID
+      *
+     C                     MOVELSVODRN    E2REF#
+     C                     MOVELSVNUKE    E2NUKE
+     C                     Z-ADD@ORD      E2RCD#
+     C                     MOVELSVCRDT    E2RCHZ
+     C                     MOVELSVCRTM    E2RCTM
+     C                     MOVELSVCRTM    E2RCT4
+      * DEFAULT
+     C           E2RCHZ    IFEQ 0
+     C                     Z-ADDTODAY     E2RCHZ
+     C                     Z-ADDNOW       E2RCTM
+     C                     MOVELNOW       E2RCT4
+     C                     ENDIF
+      *
+     C           E2NKOJ    IFEQ *BLANK
+     C                     MOVE '0'       E2NKOJ
+     C                     ENDIF
+     C           E2NUKE    IFEQ *BLANK
+     C                     MOVEL'00'      E2NUKE
+     C                     ENDIF
+      *
+     C                     TIME           SDATE
+     C                     Z-ADDTODAY     E2CRHZ
+     C                     Z-ADDNOW       E2CRTM
+     C                     MOVEL#USER     E2CRUS
+     C                     MOVEL#PGM      E2CRPG
+      *
+     C                     WRITEAB#EP121
+      * RESET
+     C                     MOVELTDCRDT    SVCRDT
+     C                     MOVELTDCRTM    SVCRTM
+     C                     MOVELTDNAME    SVNAME
+     C                     MOVELTDORGC    SVORGC
+     C                     MOVELTDODRN    SVODRN
+     C                     MOVELTDNUKE    SVNUKE
+     C                     MOVELTDTOKU    SVTOKU
+     C                     MOVELTDNONY    SVNONY
+     C                     MOVE *BLANK    SVMHN
+     C                     Z-ADD0         @REC
+     C                     Z-ADD0         @ORD
+      *
+     C                     ENDSR
+      *=================================================
+      * INITIAL SET
+      *=================================================
+     C           #INIT     BEGSR
+      *
+     C                     TIME           SDATE
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD0         @REC    60
+     C                     Z-ADD0         @ORD    60
+     C                     MOVE *BLANK    SVMHN
+      *
+     C           *LIKE     DEFN TDCRDT    SVCRDT
+     C           *LIKE     DEFN TDCRTM    SVCRTM
+     C           *LIKE     DEFN TDNAME    SVNAME
+     C           *LIKE     DEFN TDORGC    SVORGC
+     C           *LIKE     DEFN TDODRN    SVODRN
+     C           *LIKE     DEFN TDNUKE    SVNUKE
+     C           *LIKE     DEFN TDTOKU    SVTOKU
+     C           *LIKE     DEFN TDNONY    SVNONY
+     C           *LIKE     DEFN TDMHN     SVMHN
+      *
+     C                     ENDSR

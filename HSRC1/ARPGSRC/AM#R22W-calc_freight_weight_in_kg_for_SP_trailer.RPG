@@ -1,0 +1,171 @@
+     H            Y.
+     F** AM#R22W ********************************************
+     F*  CALCULATE FREIGHT WEIGHT IN KG
+     F*    LEC.             2022.02.16                      *
+     F*******************************************************
+     FAM#PL21BIF  E           K        DISK
+     FAB#PP66 IF  E           K        DISK
+     FAB#PL1L IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+      *
+     E                    PART     2000 20
+     E                    QTY      2000  7 0
+     E                    WGT      2000  9 5
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        7  140SDATE
+     I                                        1   60STIME
+      *
+     I            DS
+     I                                        1  20 SHN
+     I                                        1   5 A6SHN1
+     I                                        6  10 A6SHN2
+     I                                       11  12 A6SHN3
+      *
+     I            DS
+     I                                        1   80A6NYMD
+     I                                        1   40A6YY
+     I                                        5   60A6MM
+     I                                        7   80A6DD
+      *
+     I            DS
+     I                                        1  25 TT
+     I                                       20  25 FILL
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           PSUPP   5
+     C                     PARM           PTT    25
+     C                     PARM           PWGTKG  70
+      *
+     C           KEY01     KLIST
+     C                     KFLD           A6SHN1
+     C                     KFLD           A6SHN2
+     C                     KFLD           A6SHN3
+      *
+     C           KEY21     KLIST
+     C                     KFLD           PTT
+      *
+     C           KEY1L     KLIST
+     C                     KFLD           A6NONY
+     C                     KFLD           A6YY
+     C                     KFLD           A6MM
+     C                     KFLD           A6DD
+     C                     KFLD           A6NUKE
+     C                     KFLD           A6ORDN
+     C                     KFLD           A6MHN1
+     C                     KFLD           A6MHN2
+     C                     KFLD           A6MHN3
+     C                     KFLD           A6MHN4
+     C                     KFLD           A6NBIN
+      *
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+      *
+     C                     Z-ADD*ZERO     C       40       COUNT
+     C                     Z-ADD*ZERO     X       40       INDEX
+     C                     Z-ADD*ZERO     BAGS    50       TOTAL BAG COUNT
+      *
+      * get case numbers scanned to TT...
+      *
+     C           KEY21     SETLLAM#PL21B
+     C           KEY21     READEAM#PL21B                 50
+     C           *IN50     DOWEQ*OFF
+      *
+     C           S2SKJY    IFEQ *BLANK
+     C           S2SUPP    ANDEQPSUPP
+     C                     EXSR #CASE
+     C                     ENDIF
+      *
+     C           KEY21     READEAM#PL21B                 50
+     C                     ENDDO
+      *
+      * get extended weight for each part within the cases within TT...
+     C                     EXSR #WGT
+     C                     XFOOTWGT       TOTWGT 112
+     C           TBAGS     MULT 100       TARE   112
+     C                     ADD  TARE      TOTWGT
+     C           TOTWGT    DIV  1000      PWGTKG    H
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      * ACCUMULATE QTY FOR EACH PART FOR ALL CASES ON TT   *
+      *----------------------------------------------------*
+     C           #CASE     BEGSR
+      *
+     C           S2MLBL    CHAINAB#PP66              51
+     C           *IN51     DOWEQ*OFF
+      *
+     C           A6SRYO    IFGT *ZERO
+     C                     EXSR #BAGS
+     C                     EXSR #PART
+     C                     ENDIF
+      *
+     C           S2MLBL    READEAB#PP66                  51
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * ADD QTY TO PART                                    *
+      *----------------------------------------------------*
+     C           #PART     BEGSR
+      *
+     C                     Z-ADD1         X
+     C           SHN       LOKUPPART,X                   51
+     C           *IN51     IFEQ *ON
+     C                     ADD  A6SRYO    QTY,X
+     C                     ELSE
+     C                     ADD  1         C
+     C                     MOVELSHN       PART,C
+     C                     Z-ADDA6SRYO    QTY,C
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * GET NUMBER OF BAGS FOR THIS PART FROM ORDER FILE   *
+      *----------------------------------------------------*
+     C           #BAGS     BEGSR
+      *
+     C           KEY1L     CHAINAB#PL1L              51
+     C           *IN51     DOWEQ*OFF
+      *
+     C           BASKJY    IFEQ *BLANK
+     C           BAUSYS    ANDGT*ZERO
+     C           BAODER    DIV  BAUSYS    BAGS
+     C                     MVR            REMPCS  42
+     C           REMPCS    IFGT *ZERO
+     C                     ADD  1         BAGS
+     C                     ENDIF
+     C                     ADD  BAGS      TBAGS   50
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           KEY1L     READEAB#PL1L                  51
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * GET TOTAL WEIGHT FOR PART                          *
+      *----------------------------------------------------*
+     C           #WGT      BEGSR
+      *
+     C                     DO   C         X
+      *
+     C                     MOVELPART,X    SHN
+     C           KEY01     CHAINFCEPL01              52
+     C           A2KASI    MULT QTY,X     WGT,X
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*

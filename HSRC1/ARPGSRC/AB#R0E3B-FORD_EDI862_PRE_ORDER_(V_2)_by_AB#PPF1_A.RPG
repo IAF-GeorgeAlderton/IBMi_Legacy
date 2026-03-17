@@ -1,0 +1,424 @@
+     H            Y.
+     F** AB#R0E3B ***********************************************
+     F*  FORD EDI862 PRE ORDER (V.2)                            *
+     F*  (SORT BY PLANT AND PART# )                             *
+     F*  JW    2022.02.11                                       *
+     F*---------------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'AB#R0E3B'
+     F*                    PARM           $NOHZ   8      SHIP DATE
+     F*                    PARM           $TDATE  8      RCV ORD DATE
+     F*                    PARM           $ADON   1      ADD-ON (Y/N)
+     F*   $NOHZ   8      SHIP DATE
+     F*   $TDATE  8      RCV ORD DATE (TODAY)
+     F*   $ADON   1      SELECT TITLE (Y:ADD ON, N: ORDER)
+     F*---------------------------------------------------------*
+     F*   JW      2024.11.07 ADD ABBPP54 (ADD-ON LOG)           *
+JW1  F*   JW      2025.03.12 ADD ROUTE#                         *
+     F***********************************************************
+     FAB#PLF1DIF  E           K        DISK
+     FABBPP54 O   E                    DISK
+     FQPRINT  O   F     198     OF     PRINTER
+      ****************************************************
+     E                    MSG     1   5 40
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1  20 SVMHIN
+     I                                        1   5 SVMHN1
+     I                                        6  10 SVMHN2
+     I                                       11  15 SVMHN3
+     I                                       16  20 SVMHN4
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      ****************************************************
+     C                     EXSR #INIT
+      *
+     C           @NOHZ     SETLLAB#PLF1D
+     C                     DO   *HIVAL
+     C           @NOHZ     READEAB#PLF1D                 98
+     C   98                LEAVE
+      * IGNORE
+     C           F5SIDT    IFGT @TDATE
+     C**         F5NUKE    OREQ *BLANK
+     C                     ITER
+     C                     ENDIF
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELF5STID    SVSTID
+     C**                   MOVELF5NUKE    SVNUKE
+     C                     MOVELF5PART    SVPART
+     C**                   MOVELF5STFC    SVSTFC
+     C                     ENDIF
+      * BREAK?
+     C           F5STID    IFNE SVSTID                     PLANT
+     C**         F5NUKE    ORNE SVNUKE                     DOCK
+     C           F5PART    ORNE SVPART                     PART#
+     C**         F5STFC    ORNE SVSTFC                     IC CODE
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * PROCESS
+     C                     MOVELF5NUKE    SVNUKE
+     C                     MOVELF5STFC    SVSTFC
+     C                     MOVELF5SIDT    SVSIDT
+     C                     Z-ADDF5QTY     SVQTY
+     C                     MOVELF5NONY    SVNONY
+     C                     MOVELF5MHN1    SVMHN1
+     C                     MOVELF5MHN2    SVMHN2
+     C                     MOVELF5MHN3    SVMHN3
+     C                     Z-ADDF5QTY2    SVQTY2
+     C                     MOVELF5POR#    SVPOR#
+      *
+     C                     ENDDO
+      * LAST BREAK?
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     ENDIF
+      *
+     C                     EXCPT@FOT1
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+     C***********************************************************
+     C* BREAK
+     C***********************************************************
+     C           #BRK1     BEGSR
+      *
+     C           SVQTY     IFGT 10
+     C                     EXSR #CHK1
+      * FULL BOX QTY
+     C           @QPC      IFGE 10
+     C           @SB1      DIV  @QPC      @SHO    80
+     C                     MVR            @REM   104
+     C           @REM      IFGT 1
+     C                     ADD  1         @SHO
+     C                     ENDIF
+     C           @SHO      MULT @QPC      @SB2    70
+     C                     ELSE
+     C                     Z-ADD@SB1      @SB2
+     C                     ENDIF
+     C           @SB1      IFNE @SB2                       @SB2 WAS ADJTD
+     C                     MOVE '*'       FLG1
+     C                     ENDIF
+     C           @QPC      IFEQ 0                          QPC ERROR
+     C                     MOVE '*'       FLG2
+     C                     ENDIF
+      *
+     C**         @SB1      IFGE @QPC
+     C           @SB1      IFGE 10
+     C           @QPC      ANDGE10
+     C                     EXSR #PRT1
+     C                     MOVE *ON       PFLG
+     C                     ENDIF
+      *
+     C                     ENDIF
+      * PERIOD .
+     C           F5STID    IFNE SVSTID
+     C           PFLG      ANDEQ*ON
+     C                     EXSR #PRT2
+     C                     MOVE *OFF      PFLG
+     C                     ENDIF
+      * RESET
+     C                     MOVELF5STID    SVSTID           PLANT
+     C**                   MOVELF5NUKE    SVNUKE           DOCK
+     C                     MOVELF5PART    SVPART           PART#
+     C**                   MOVELF5STFC    SVSTFC           IC CODE
+     C                     MOVE *BLANK    XMSG
+     C                     MOVE *BLANK    FLG1
+     C                     MOVE *BLANK    FLG2
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  CHECK YTD QTY                                     *
+      *----------------------------------------------------*
+     C           #CHK1     BEGSR
+      *
+     C           $ADON     IFEQ 'Y'
+     C                     MOVELEDATE     $END
+     C                     ELSE
+     C                     MOVELYDATE     $END
+     C                     ENDIF
+      *
+     C                     MOVELSVNONY    $NONY   4
+     C                     MOVELSVMHIN    $MHIN  20
+     C                     CALL 'UEXR41B'
+     C                     PARM           $END    8
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $YTDQ   9
+     C                     MOVEL$YTDQ     NUM9    90
+     C                     Z-ADDNUM9      @YTDQ   80
+     C           SVQTY2    SUB  @YTDQ     @SB1    70
+     C           SVQTY     IFNE @SB1
+     C                     MOVE '*'       FLG1
+     C                     ENDIF
+      * GET QPC
+     C                     MOVE '5149'    $TOKU   4
+     C                     MOVELSVNONY    $NONY
+     C                     MOVELSVMHIN    $MHIN
+     C                     MOVE 'USR'     $HTYP
+     C                     MOVELTODAY     $DATE
+     C                     CALL 'UTLR35'
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $HTYP   3
+     C                     PARM           $DATE   8
+     C                     PARM           $SYOS   6
+     C                     PARM           $RTN2   1
+     C                     MOVEL$SYOS     @QPC    60
+     C           @QPC      IFEQ 0
+     C           XMSG      ANDEQ*BLANK
+     C                     MOVELMSG,2     XMSG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRT1     BEGSR
+      *
+      * ADJ
+     C                     MOVELSVPART    XXPART 15
+     C                     MOVELSVMHN3    XXMHN3  3
+     C           $ADON     IFEQ 'Y'
+     C                     MOVELMSG,1     XMSG
+     C                     ADD  1         ERCNT
+     C                     ENDIF
+      *
+     C           SVNUKE    IFEQ *BLANK
+     C                     MOVEL'00  '    SVNUKE
+     C                     ENDIF
+      * GET ROUTE# & BIN#
+     C                     MOVELSVNONY    $NONY
+     C                     MOVELSVNUKE    $DOCK
+     C                     CALL 'UTLR34G'
+     C                     PARM           $NONY   4
+     C                     PARM           $DOCK   4
+     C                     PARM           $BIN#   2
+     C                     PARM           $ROUT   4
+     C                     MOVEL$BIN#     SVBIN#
+     C                     MOVEL$ROUT     SVROUT
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL1
+     C                     ADD  1         LIN#
+      * ADD-ON LOG
+     C                     CLEARABBPP541
+     C                     Z-ADDTODAY     B4CRHZ
+     C                     Z-ADDNOW       B4CRTM
+     C                     Z-ADDSEQ#      B4SEQ
+     C                     MOVELSVSTID    B4PLNT
+     C                     MOVELSVNUKE    B4NUKE
+     C                     MOVELSVPOR#    B4POR#
+     C                     Z-ADDSVNONY    B4NONY
+     C                     MOVELSVMHIN    B4MHIN
+     C                     Z-ADD@SB2      B4SB2
+     C                     Z-ADD@NOHZ     B4NOHZ
+     C                     Z-ADDSVQTY     B4QTY
+     C                     Z-ADDSVQTY2    B4QTY2
+     C                     Z-ADD@YTDQ     B4YTDQ
+     C                     Z-ADD@SB1      B4SB1
+     C                     MOVELFLG1      B4FLG1
+     C                     Z-ADD@QPC      B4QPC
+     C                     MOVELFLG2      B4FLG2
+     C                     MOVELSVSTFC    B4ICCD
+     C                     WRITEABBPP541
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRT2     BEGSR
+      * TEMP
+     C                     GOTO XPRT2
+      *******
+     C                     EXCPT@DTL2
+     C                     ADD  1         LIN#
+      *
+     C           XPRT2     ENDSR
+      *--------------------------------------------------
+      * INITIALIZE
+      *--------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $NOHZ   8
+     C                     PARM           $TDATE  8
+     C                     PARM           $ADON   1
+      *
+     C                     TIME           SDATE
+     C                     MOVE *BLANK    XMSG   30
+     C                     MOVE *BLANK    FLG1    1
+     C                     MOVE *BLANK    FLG2    1
+      *
+     C           $NOHZ     IFEQ *BLANK
+     C                     MOVELTODAY     $NOHZ
+     C                     ENDIF
+      *
+     C           $TDATE    IFEQ *BLANK
+     C                     MOVELTODAY     $TDATE
+     C                     ENDIF
+      *
+     C                     MOVEL$NOHZ     @NOHZ   80
+     C                     MOVEL$TDATE    @TDATE  80
+      * TITLE
+     C           $ADON     IFEQ 'Y'
+     C                     MOVELMSG,5     XTITL  35
+     C                     ELSE
+     C                     MOVELMSG,4     XTITL
+     C                     ENDIF
+      *
+     C           *LIKE     DEFN F5STID    SVSTID
+     C           *LIKE     DEFN F5NUKE    SVNUKE
+     C           *LIKE     DEFN F5PART    SVPART
+     C           *LIKE     DEFN F5SIDT    SVSIDT
+     C           *LIKE     DEFN F5NONY    SVNONY
+     C           *LIKE     DEFN F5STFC    SVSTFC
+     C           *LIKE     DEFN F5QTY2    SVQTY2
+     C           *LIKE     DEFN F5POR#    SVPOR#
+     C                     MOVE *BLANK    SVROUT  4
+     C                     MOVE *BLANK    SVBIN#  2
+      *
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD0         SVQTY   80
+     C                     Z-ADD0         SEQ#    30
+     C                     Z-ADD0         ERCNT   30
+     C                     Z-ADD88        LIN#    30
+     C                     MOVE *OFF      PFLG    1
+      * YESTERDAY
+     C                     MOVEL$NOHZ     $DT8
+     C                     MOVE '-'       $SIGN
+     C                     MOVEL'0001'    $DAYS
+     C                     MOVE 'N'       $IAF
+     C                     CALL 'UTLR10'
+     C                     PARM           $DT8    8
+     C                     PARM           $SIGN   1
+     C                     PARM           $DAYS   4
+     C                     PARM           $IAF    1
+     C                     PARM           $TGT8   8
+     C                     PARM           $RTN1   1
+     C                     MOVEL$TGT8     YDATE   80
+      *
+     C                     MOVELTODAY     EDATE   80
+     C                     MOVE '1231'    EDATE
+      * GET DAYS
+     C                     MOVE *BLANK    XDAY    3
+     C                     MOVEL$NOHZ     $DATE
+     C                     CALL 'UTLR02'
+     C                     PARM           $DATE   8
+     C                     PARM           $DAY    1
+     C                     PARM           $WEEK#  1
+     C                     PARM           $RTNX   1
+     C                     SELEC
+     C           $DAY      WHEQ '1'
+     C                     MOVEL'MON'     XDAY
+     C           $DAY      WHEQ '2'
+     C                     MOVEL'TUE'     XDAY
+     C           $DAY      WHEQ '3'
+     C                     MOVEL'WED'     XDAY
+     C           $DAY      WHEQ '4'
+     C                     MOVEL'THU'     XDAY
+     C           $DAY      WHEQ '5'
+     C                     MOVEL'FRI'     XDAY
+     C           $DAY      WHEQ '6'
+     C                     MOVEL'SAT'     XDAY
+     C           $DAY      WHEQ '7'
+     C                     MOVEL'SUN'     XDAY
+     C                     ENDSL
+      *
+     C                     EXCPT@HDR1
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR1
+     O                         #PGM       8
+     O                         XTITL     54
+     O                                   66 '(SHIP DATE:'
+     O                         @NOHZ     77 '    /  /  '
+     O                         XDAY      81
+     O                                   82 ')'
+     O                                  101 'DATE'
+     O                         TODAY    112 '    .  .  '
+     O                         NOW      122 '  :  :  '
+     O                                  126 'P.'
+     O                         PAGE  Z  130
+      *
+     O        E   02           @HDR1
+     O                                   13 'EDI RCV DATE:'
+     O                         @TDATE    24 '    /  /  '
+      *
+     O        E   03           @HDR1
+     O                                    4 'SEQ#'
+     O                                   10 'PLANT'
+     O                                   15 'DOCK'
+     O                                   20 'PGM#'
+     O                                   28 'DELV'
+JW   O                                   34 'ROUTE'
+JW   O                                   39 'BN#'
+     O                                   49 'USER PART'
+     O                                   63 'TOBE_SHP'
+     O                                   74 'SHP_DATE'
+     O                                   85 'EDI'
+     O                                   99 'FORD_DEMAND'
+     O                                  110 'IAF_UPLDED'
+     O                                  121 'DIFF.'
+     O                                  130 'QPC'
+     O                                  139 'IC_CD'
+      *
+     O        E   04           @HDR1
+     O                                   63 'QTY'
+     O                                   85 'QTY'
+     O                                   99 '(YTD)'
+     O                                  110 '(YTD)'
+     O                                  121 '(YTD)'
+      *
+     O        E   05           @HDR1
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+     O                                  140 '--------------------'
+     O        E 1              @DTL1
+     O                         SEQ#    +001
+     O                         SVSTID  +001
+     O                         SVNUKE  +001
+     O                         SVPOR#  +001
+     O                         SVNONY  +002
+JW1  O                         SVROUT  +002
+"    O                         SVBIN#  +002
+     O                         SVMHN1  +002
+     O                         SVMHN2  +000
+     O                         XXMHN3  +000
+     O                         @SB2  1 +001                               S/B QT
+ADD  O                         @NOHZ   +001 '    /  /  '
+     O                         SVQTY 1 +001                               S/B
+     O                         SVQTY21 +001                               FORD
+     O                         @YTDQ 1 +001                               IAF
+     O                         @SB1  1 +002                               S/B QT
+     O                         FLG1    +001                               FLAG
+     O                         @QPC  1 +001
+     O                         FLG2    +001
+     O                         SVSTFC  +001
+      *
+     O        E 1              @DTL2
+     O                                    1 '.'
+      *
+     O        E 1              @FOT1
+     O                                   15 '** TOTAL ERROR '
+     O                         ERCNT 1   18
+     O                                   21 '**'
+      *
+** MSG(30A)........2.........3.........4
+ORDER NOT FOUND!                         01
+PART NOT IN COMMON MASTER!               02
+                                         03
+    ** FORD EDI ORDER CHECK LIST **      04
+ ** FORD ADD-ON ORDER CHECK LIST **      05

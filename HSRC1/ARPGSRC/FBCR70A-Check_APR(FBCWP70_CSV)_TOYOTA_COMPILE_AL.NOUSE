@@ -1,0 +1,920 @@
+     H            Y.
+     F*******************************************************************
+     F*  PROGRAM    : FBCR70A                                           *
+     F*  WRITTEN    : 10/15/2015                                        *
+     F*  WRITTEN BY : JW (SRA)                                          *
+     F*  FUNCTION   : READ FBCWP70(CSV) AND VALIDATE FIELDS             *
+     F*             : IF ERROR, CREATE ERROR REPORT                     *
+     *  ATTENTION  : COMPILE WITH OPTION - ALLOW NULL VALUES *YES      *
+JW1  F*  JW   2016/02/24 ADD SHIP TO 'TMS(N' FOR NAPCK                  *
+JW2  F*  JW   2017/10/02 ADD SHIP TO 'TTC  ' FOR TOTOTA TECHNICAL CENTER*
+JW2  F*  JW   2017/10/02 ADD SHIP TO 'TEMA ' FOR TOTOTA EXPORT          *
+JW3  F*  JW   2018/08/06 CHG EFFETIVE DATE TO ACCEPT SAME DATE          *
+JW4  F*  JW   2019/06/05 ADD SHIP TO 'TMMGT' FOR TOYOTA MFG GUANAJUATO  *
+ "   F*                  USE FBCPP36 TO SET UP DELIVERY#                *
+JW5  F*  JW   2022/11/11 ADD TOKU3 AND TOKU4                            *
+JW6  F*  JW   2024/04/23 CHG ACCEPT EFFECTIVE DATE WHEN IT'S OLDER THAN *
+     F*                      CURRENT EFFECTIVE DATE                     *
+     F*******************************************************************
+JW6  FFBCWP70AIF  E                    DISK
+     FFCEPL01 IF  E           K        DISK
+     FFBCPP36 IF  E           K        DISK
+     FFBCWP71AO   E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+      *---------------------------------------------------------------
+     E                    CSV        80  1
+     E                    FLD        20  1
+     E                    TBL1    1   9 65
+      *---------------------------------------------------------------
+      *
+     I              '0123456789'          C         WKCKSU
+      *
+     I            DS
+     I                                        1  47 LTR47
+     I                                        1  32 LTR32
+     I                                       33  46 LTR14
+     I                                       47  47 LTR1
+      *
+     I            DS
+     I                                        1  12 K@SHN
+     I                                        1   5 K@SHN1
+     I                                        6  10 K@SHN2
+     I                                       11  12 K@SHN3
+     I            DS
+     I                                        1  20 @MHIN
+     I                                        1   5 @MHIN1
+     I                                        6  10 @MHIN2
+     I                                       11  15 @MHIN3
+     I                                       16  20 @MHIN4
+     I            DS
+     I                                        1   6 W@FLD6
+     I                                        1   65W@NUM6
+     ID10@DT      DS
+     I                                        1   4 D10@YY
+     I                                        6   7 D10@MM
+     I                                        9  10 D10@DD
+     ID8@DT       DS
+     I                                        1   4 D8@YY
+     I                                        5   6 D8@MM
+     I                                        7   8 D8@DD
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      ******************************************************
+      *                    MAIN PROCESS
+      ******************************************************
+      * Initial Process
+     C                     EXSR #INIT
+      * Validate Price Data
+     C                     EXSR #CHECK
+      * Print Footer
+     C           NOM#      ADD  ER#       TTL#
+      *
+     C           SEQ       IFEQ 0
+      * If No Error...
+     C                     MOVE *OFF      #STS
+     C                     MOVELTBL1,6    FLD40  40
+     C                     MOVE TTL#      FLD40
+     C                     MOVELFLD40     #MSG1
+     C                     ELSE
+      * If Error
+     C                     MOVE *ON       #STS
+     C                     EXCPTFOT1
+     C                     MOVELTBL1,8    #MSG1
+     C                     MOVELTBL1,9    LTR47
+     C                     MOVE TTL#      LTR32
+     C                     MOVE SEQ       LTR14
+     C                     MOVELLTR47     #MSG2
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      ******************************************************
+      *          #CHECK: Validate Price Data
+      ******************************************************
+     C           #CHECK    BEGSR
+     C                     MOVE *OFF      *IN80
+      *
+     C           *IN80     DOUEQ*ON
+     C                     READ FBCWP70A                 80
+     C           *IN80     IFEQ *OFF
+     C                     ADD  1         LIN#
+     C                     EXSR #FBCW
+      * If Header, Skip
+     C           #HDFLG    IFEQ *ON
+     C                     GOTO @SKIP
+     C                     ENDIF
+      *
+     C                     MOVE *OFF      #ERFLG  1
+     C                     MOVEL#PART     K@SHN
+     C                     MOVE *OFF      #ERR1   1
+     C                     MOVE *OFF      #ERR3   1
+      *
+      * Check EFFECTIVE DATE ---------------------
+     C                     MOVEL#EFDAT    @VLDT1
+     C                     CALL 'UTLR01'
+     C                     PARM           @VLDT1 10
+     C                     PARM           #TRUE1  8
+     C                     PARM           #RTN0   1
+     C           #RTN0     IFNE *BLANK
+      *      Print Error Report
+     C                     MOVELTBL1,2    XMSG
+     C                     EXSR #PRINT
+     C                     ENDIF
+      *
+      * Check Ship To ----------------------------
+     C                     EXSR #CONV
+     C           #TOKU1    IFEQ 0
+     C           #TOKU2    ANDEQ0
+JW5  C           #TOKU3    ANDEQ0
+"    C           #TOKU4    ANDEQ0
+      *      Print Error Report
+     C                     MOVELTBL1,1    XMSG
+     C                     MOVEL#SHPTO    XMSG
+     C                     EXSR #PRINT
+     C                     ENDIF
+      *
+     C                     Z-ADD9         P@STS   10
+      *
+      * Check Part (TOKU1) ================================
+*1   C           #TOKU1    IFNE 0
+     C                     EXSR #TOKU1
+     C                     ENDIF
+      *
+      * Check Part (TOKU2) ================================
+*2   C           #TOKU2    IFNE 0
+     C                     EXSR #TOKU2
+     C                     ENDIF
+      *
+      * Check Part (TOKU3) ================================
+*3   C           #TOKU3    IFNE 0
+     C                     EXSR #TOKU3
+     C                     ENDIF
+      *
+*4   C           #TOKU4    IFNE 0
+     C                     EXSR #TOKU4
+     C                     ENDIF
+      *
+      * Check Total Price  -------------------------
+     C           #UP       ADD  #EXPND    NUM85   85
+      * Print Error Report
+     C           NUM85     IFNE #PRICE
+     C                     MOVELTBL1,5    XMSG
+     C                     EXSR #PRINT
+     C                     ENDIF
+      * IF ERROR, SKIP ------------------------------
+     C           #ERFLG    IFEQ *ON
+     C                     ADD  1         ER#
+     C                     GOTO @SKIP
+     C                     ENDIF
+      * OUT FBCWP71 (WORK)---------------------------
+     C                     ADD  1         NOM#
+JW5   *
+     C           #TOKU1    IFNE 0
+     C                     MOVEL#SHIN1    K@SHN
+     C                     Z-ADD#TOKU1    F7TOKU
+     C                     Z-ADD#NONY1    F7NONY
+     C                     EXSR #OUT71
+     C                     ENDIF
+      *
+JW5  C           #TOKU2    IFNE 0
+     C                     MOVEL#SHIN2    K@SHN
+     C                     Z-ADD#TOKU2    F7TOKU
+     C                     Z-ADD#NONY2    F7NONY
+     C                     EXSR #OUT71
+     C                     ENDIF
+      *
+JW5  C           #TOKU3    IFNE 0
+     C                     MOVEL#SHIN3    K@SHN
+     C                     Z-ADD#TOKU3    F7TOKU
+     C                     Z-ADD#NONY3    F7NONY
+     C                     EXSR #OUT71
+     C                     ENDIF
+      *
+JW5  C           #TOKU4    IFNE 0
+     C                     MOVEL#SHIN4    K@SHN
+     C                     Z-ADD#TOKU4    F7TOKU
+     C                     Z-ADD#NONY4    F7NONY
+     C                     EXSR #OUT71
+     C                     ENDIF
+      * ------------------------------------------
+     C           @SKIP     TAG
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      ******************************************************
+      * TOKU1 SETTING
+      ******************************************************
+JW5  C           #TOKU1    BEGSR
+ .    *
+*1   C                     MOVEL#TOKU1    @TOKU
+*1   C                     MOVEL#NONY1    @NONY
+     C                     MOVEL#PART     @MHIN
+     C                     EXSR #COMMO
+      * SUMMARY
+     C           CFLG1     IFEQ *BLANK
+     C           CFLG2     OREQ *BLANK
+     C           CFLG3     OREQ *BLANK
+     C           CFLG4     OREQ *BLANK
+     C                     Z-ADD1         P@STS
+     C                     MOVEL@SHIN     K@SHN
+*1   C                     MOVEL@SHIN     #SHIN1 12
+     C                     ELSE
+     C                     MOVEL#PART     K@SHN
+*1   C                     MOVEL#PART     #SHIN1
+     C                     ENDIF
+      *
+     C                     MOVE *OFF      *IN98
+     C           K#PART    CHAINFCEPL01              98
+     C           *IN98     IFEQ *ON
+      * Print Error Report
+     C                     MOVE *ON       #ERR1
+     C                     MOVELTBL1,4    XMSG
+     C                     EXSR #PRINT
+     C                     ENDIF
+      *** CHECK EFFECTIVE DATE 2****************
+     C**JW6      #TRUE1    IFNE *BLANK
+     C**                   MOVEL#PART     @MHIN
+*1   C**                   MOVEL#TOKU1    @CUST
+*1   C**                   MOVEL#NONY1    @DELV
+     C**                   MOVEL@MHIN1    @MHN1
+     C**                   MOVEL@MHIN2    @MHN2
+     C**                   MOVEL@MHIN3    @MHN3
+     C**                   MOVEL@MHIN4    @MHN4
+     C**                   CALL 'FBCR72'
+     C**                   PARM           @CUST   4
+     C**                   PARM           @DELV   4
+     C**                   PARM           @MHN1   5
+     C**                   PARM           @MHN2   5
+     C**                   PARM           @MHN3   5
+     C**                   PARM           @MHN4   5
+     C**                   PARM           #EFDAT  8
+*1   C**                   PARM           #RTN1   1
+      **
+*1   C**         #RTN1     IFEQ *BLANK
+JW3  C**         #TRUE1    ANDLT#EFDAT
+JW4  C**         #TRUE1    ANDNE*BLANK
+      **Print Error Report
+     C**                   MOVELTBL1,3    XMSG
+     C**                   EXSR #PRINT
+     C**                   ENDIF
+     C**                   ENDIF
+     C**                   ENDIF
+      *
+JW6   *** CHECK EFFECTIVE DATE 2****************
+ .   C           *IN98     IFEQ *OFF
+ .   C           #TRUE1    ANDNE*BLANK
+ .   C                     MOVEL#NONY1    $NONY
+ .   C                     MOVEL#PART     $MHIN
+ .   C                     CALL 'FBCR72C'
+ .   C                     PARM           $NONY   4
+ .   C                     PARM           $MHIN  20
+ .   C                     PARM           $EFHZ   8
+ .   C                     PARM           $PRC   10
+ .   C                     MOVEL$PRC      @CRPRC 105
+ .   C           #PRICE    IFLT @CRPRC
+ .    * Print Error Report
+ .   C                     MOVELTBL1,7    XMSG
+ .   C                     EXSR #PRINT
+ .   C                     ENDIF
+JW6  C                     ENDIF
+      *
+     C                     ENDSR
+      ******************************************************
+      * TOKU2 SETTING
+      ******************************************************
+JW5  C           #TOKU2    BEGSR
+ .    *
+*2   C                     MOVEL#TOKU2    @TOKU
+*2   C                     MOVEL#NONY2    @NONY
+     C                     MOVEL#PART     @MHIN
+     C                     EXSR #COMMO
+      * SUMMARY
+     C           CFLG1     IFEQ *BLANK
+     C           CFLG2     OREQ *BLANK
+     C           CFLG3     OREQ *BLANK
+     C           CFLG4     OREQ *BLANK
+     C                     Z-ADD1         P@STS
+     C                     MOVEL@SHIN     K@SHN
+*2   C                     MOVEL@SHIN     #SHIN2 12
+     C                     ELSE
+     C                     MOVEL#PART     K@SHN
+*2   C                     MOVEL#PART     #SHIN2
+     C                     ENDIF
+      *
+      * IF #ERR1 = *OFF, NOT CHECK TOKU2 CASE
+     C           #ERR1     IFEQ *ON
+     C                     MOVE *OFF      *IN98
+     C           K#PART    CHAINFCEPL01              98
+     C           *IN98     IFEQ *ON
+      * Print Error Report
+     C                     MOVELTBL1,4    XMSG
+     C                     EXSR #PRINT
+     C                     ELSE
+      *** CHECK EFFECTIVE DATE 2****************
+     C**JW6      #TRUE1    IFNE *BLANK
+     C**                   MOVEL#PART     @MHIN
+*2   C**                   MOVEL#TOKU2    @CUST
+*2   C**                   MOVEL#NONY2    @DELV
+     C**                   MOVEL@MHIN1    @MHN1
+     C**                   MOVEL@MHIN2    @MHN2
+     C**                   MOVEL@MHIN3    @MHN3
+     C**                   MOVEL@MHIN4    @MHN4
+     C**                   CALL 'FBCR72'
+     C**                   PARM           @CUST   4
+     C**                   PARM           @DELV   4
+     C**                   PARM           @MHN1   5
+     C**                   PARM           @MHN2   5
+     C**                   PARM           @MHN3   5
+     C**                   PARM           @MHN4   5
+     C**                   PARM           #EFDAT  8
+*2   C**                   PARM           #RTN2   1
+*2   C**         #RTN2     IFEQ *BLANK
+JW4  C**         #TRUE1    ANDLT#EFDAT
+"    C**         #TRUE1    ANDNE*BLANK
+      **Print Error Report
+     C**                   MOVELTBL1,3    XMSG
+     C**                   EXSR #PRINT
+     C**                   ENDIF
+     C**                   ENDIF
+      ******************************************
+     C                     ENDIF
+     C                     ENDIF
+     C**                   ENDIF
+ .    *
+ .   C                     ENDSR
+      ******************************************************
+      * TOKU3 SETTING
+      ******************************************************
+JW5  C           #TOKU3    BEGSR
+ .    *
+*3   C                     MOVEL#TOKU3    @TOKU
+*3   C                     MOVEL#NONY3    @NONY
+     C                     MOVEL#PART     @MHIN
+     C                     EXSR #COMMO
+      * SUMMARY
+     C           CFLG1     IFEQ *BLANK
+     C           CFLG2     OREQ *BLANK
+     C           CFLG3     OREQ *BLANK
+     C           CFLG4     OREQ *BLANK
+     C                     Z-ADD1         P@STS
+     C                     MOVEL@SHIN     K@SHN
+*3   C                     MOVEL@SHIN     #SHIN3 12
+     C                     ELSE
+     C                     MOVEL#PART     K@SHN
+*3   C                     MOVEL#PART     #SHIN3
+     C                     ENDIF
+      *
+      * IF #ERR1 = *OFF, NOT CHECK TOKU3 CASE
+     C**JW5      #ERR1     IFEQ *ON
+     C                     MOVE *OFF      *IN98
+     C           K#PART    CHAINFCEPL01              98
+     C           *IN98     IFEQ *ON
+      * Print Error Report
+     C                     MOVELTBL1,4    XMSG
+     C                     EXSR #PRINT
+     C                     ELSE
+      *** CHECK EFFECTIVE DATE 2****************
+     C**JW6      #TRUE1    IFNE *BLANK
+     C**                   MOVEL#PART     @MHIN
+*3   C**                   MOVEL#TOKU3    @CUST
+*3   C**                   MOVEL#NONY3    @DELV
+     C**                   MOVEL@MHIN1    @MHN1
+     C**                   MOVEL@MHIN2    @MHN2
+     C**                   MOVEL@MHIN3    @MHN3
+     C**                   MOVEL@MHIN4    @MHN4
+     C**                   CALL 'FBCR72'
+     C**                   PARM           @CUST   4
+     C**                   PARM           @DELV   4
+     C**                   PARM           @MHN1   5
+     C**                   PARM           @MHN2   5
+     C**                   PARM           @MHN3   5
+     C**                   PARM           @MHN4   5
+     C**                   PARM           #EFDAT  8
+*3   C**                   PARM           #RTN3   1
+*3   C**         #RTN3     IFEQ *BLANK
+JW4  C**         #TRUE1    ANDLT#EFDAT
+"    C**         #TRUE1    ANDNE*BLANK
+      **Print Error Report
+     C**                   MOVELTBL1,3    XMSG
+     C**                   EXSR #PRINT
+     C**                   ENDIF
+     C**                   ENDIF
+      ******************************************
+     C                     ENDIF
+ .    *
+ .   C                     ENDSR
+      ******************************************************
+      * TOKU4 SETTING
+      ******************************************************
+JW5  C           #TOKU4    BEGSR
+ .    *
+*4   C                     MOVEL#TOKU4    @TOKU
+*4   C                     MOVEL#NONY4    @NONY
+     C                     MOVEL#PART     @MHIN
+     C                     EXSR #COMMO
+      * SUMMARY
+     C           CFLG1     IFEQ *BLANK
+     C           CFLG2     OREQ *BLANK
+     C           CFLG3     OREQ *BLANK
+     C           CFLG4     OREQ *BLANK
+     C                     Z-ADD1         P@STS
+     C                     MOVEL@SHIN     K@SHN
+*4   C                     MOVEL@SHIN     #SHIN4 12
+     C                     ELSE
+     C                     MOVEL#PART     K@SHN
+*4   C                     MOVEL#PART     #SHIN4
+     C                     ENDIF
+      *
+      * IF #ERR1 = *OFF, NOT CHECK TOKU2 CASE
+     C           #ERR1     IFEQ *ON
+     C                     MOVE *OFF      *IN98
+     C           K#PART    CHAINFCEPL01              98
+     C           *IN98     IFEQ *ON
+      * Print Error Report
+     C                     MOVELTBL1,4    XMSG
+     C                     EXSR #PRINT
+     C                     ELSE
+      *** CHECK EFFECTIVE DATE 2****************
+     C**JW6      #TRUE1    IFNE *BLANK
+     C**                   MOVEL#PART     @MHIN
+*4   C**                   MOVEL#TOKU4    @CUST
+*4   C**                   MOVEL#NONY4    @DELV
+     C**                   MOVEL@MHIN1    @MHN1
+     C**                   MOVEL@MHIN2    @MHN2
+     C**                   MOVEL@MHIN3    @MHN3
+     C**                   MOVEL@MHIN4    @MHN4
+     C**                   CALL 'FBCR72'
+     C**                   PARM           @CUST   4
+     C**                   PARM           @DELV   4
+     C**                   PARM           @MHN1   5
+     C**                   PARM           @MHN2   5
+     C**                   PARM           @MHN3   5
+     C**                   PARM           @MHN4   5
+     C**                   PARM           #EFDAT  8
+*4   C**                   PARM           #RTN4   1
+*4   C**         #RTN4     IFEQ *BLANK
+JW4  C**         #TRUE1    ANDLT#EFDAT
+"    C**         #TRUE1    ANDNE*BLANK
+      **Print Error Report
+     C**                   MOVELTBL1,3    XMSG
+     C**                   EXSR #PRINT
+     C**                   ENDIF
+     C**                   ENDIF
+      ******************************************
+ |   C                     ENDIF
+ |   C                     ENDIF
+ |   C**                   ENDIF
+ .    *
+ .   C                     ENDSR
+      ******************************************************
+      *          #OUT71: OUTPUT FBCWP71
+      ******************************************************
+JW5  C           #OUT71    BEGSR
+ .    *
+ .   C                     MOVEL#PART     @MHIN
+ .   C                     Z-ADDLIN#      F7LINE
+     C                     MOVEL#SHPTO    F7SHIP
+     C                     MOVEL#TRUE1    F7EFDT
+     C                     MOVEL@MHIN1    F7MHN1
+     C                     MOVEL@MHIN2    F7MHN2
+     C                     MOVEL@MHIN3    F7MHN3
+     C                     MOVELK@SHN1    F7SHN1
+     C                     MOVELK@SHN2    F7SHN2
+     C                     MOVELK@SHN3    F7SHN3
+     C                     Z-ADD#UP       F7UP
+     C                     Z-ADD#EXPND    F7EXP
+     C                     Z-ADD#PRICE    F7PRC
+     C                     Z-ADD@DATE     F7CDAT
+     C                     Z-ADD@TIME     F7CTIM
+ .   C                     MOVEL#USER     F7USER
+ .   C                     WRITEFBCWP711
+ .    *
+JW5  C                     ENDSR
+      ******************************************************
+      *          #COMMO: GET COMMON PART
+      ******************************************************
+     C           #COMMO    BEGSR
+     C                     MOVE *ON       CFLG1   1
+     C                     MOVE *ON       CFLG2   1
+     C                     MOVE *ON       CFLG3   1
+     C                     MOVE *ON       CFLG4   1
+      * CASE1 - NORMAL ----------------------------
+     C                     MOVE *BLANK    @NKOJ
+     C                     MOVE *BLANK    @NUKE
+     C                     MOVE *BLANK    @SHIN
+     C                     MOVE *BLANK    @FLG
+     C                     CALL 'BBHR50'
+     C                     PARM           @TOKU   4
+     C                     PARM           @NONY   4
+     C                     PARM           @NKOJ   1
+     C                     PARM           @NUKE   4
+     C                     PARM           @MHIN  20
+     C                     PARM           @SHIN  12
+     C                     PARM           @FLG    1
+     C                     MOVE @FLG      CFLG1
+     C           CFLG1     IFEQ *BLANK
+     C                     GOTO @CSKIP
+     C                     ENDIF
+      * CASE2 - TRY @NKOJ = '0'-------------------
+     C                     MOVE '0'       @NKOJ
+     C                     MOVE *BLANK    @NUKE
+     C                     MOVE *BLANK    @SHIN
+     C                     MOVE *BLANK    @FLG
+     C                     CALL 'BBHR50'
+     C                     PARM           @TOKU   4
+     C                     PARM           @NONY   4
+     C                     PARM           @NKOJ   1
+     C                     PARM           @NUKE   4
+     C                     PARM           @MHIN  20
+     C                     PARM           @SHIN  12
+     C                     PARM           @FLG    1
+     C                     MOVE @FLG      CFLG2
+     C           CFLG2     IFEQ *BLANK
+     C                     GOTO @CSKIP
+     C                     ENDIF
+      * CASE3 - TRY MHN3 = '00'------------------
+     C                     MOVEL'00   '   @MHIN3
+     C                     MOVE *BLANK    @NKOJ
+     C                     MOVE *BLANK    @NUKE
+     C                     MOVE *BLANK    @SHIN
+     C                     MOVE *BLANK    @FLG
+     C                     CALL 'BBHR50'
+     C                     PARM           @TOKU   4
+     C                     PARM           @NONY   4
+     C                     PARM           @NKOJ   1
+     C                     PARM           @NUKE   4
+     C                     PARM           @MHIN  20
+     C                     PARM           @SHIN  12
+     C                     PARM           @FLG    1
+     C                     MOVE @FLG      CFLG3
+     C           CFLG3     IFEQ *BLANK
+     C                     GOTO @CSKIP
+     C                     ENDIF
+      * CASE4 - TRY MHN3 = '00' & @NKOJ = '0'----
+     C                     MOVEL'00   '   @MHIN3
+     C                     MOVE '0'       @NKOJ
+     C                     MOVE *BLANK    @NUKE
+     C                     MOVE *BLANK    @SHIN
+     C                     MOVE *BLANK    @FLG
+     C                     CALL 'BBHR50'
+     C                     PARM           @TOKU   4
+     C                     PARM           @NONY   4
+     C                     PARM           @NKOJ   1
+     C                     PARM           @NUKE   4
+     C                     PARM           @MHIN  20
+     C                     PARM           @SHIN  12
+     C                     PARM           @FLG    1
+     C                     MOVE @FLG      CFLG4
+     C           CFLG4     IFEQ *BLANK
+     C                     GOTO @CSKIP
+     C                     ENDIF
+      *
+     C           @CSKIP    TAG
+     C                     ENDSR
+      ******************************************************
+      *          #GET: GET INPUT FIELDS
+      ******************************************************
+     C           #GET      BEGSR
+     C                     MOVE *BLANK    #SHPTO  5
+     C                     MOVE *BLANK    #EFDAT 10
+     C                     MOVE *BLANK    #PART  15
+     C                     Z-ADD0         #UP     65
+     C                     Z-ADD0         #EXPND  65
+     C                     Z-ADD0         #PRICE  65
+     C                     MOVE *OFF      #HDFLG  1        HEADER FLAG
+      *
+     C                     Z-ADD*ZERO     IX      50
+     C                     Z-ADD*ZERO     IY      50
+      * SHIP TO----------------------------------------
+     C                     MOVELFLD1      #SHPTO
+      * VALID DATE------------------------------------
+     C                     MOVELFLD2      #EFDAT
+      * PART# ---------------------------------------
+     C                     MOVELFLD3      #PART
+     C* UNIT PRICE -------------------------------------
+     C                     Z-ADD0         IX
+     C                     Z-ADD0         IY
+     C                     MOVEL*ALL'0'   FLD
+     C                     CLEARCSV
+     C                     MOVEAFLD4      CSV
+     C                     DO   *HIVAL
+     C                     ADD  1         IX
+     C           CSV,IX    IFEQ ' '
+     C                     LEAVE
+     C                     ENDIF
+     C           CSV,IX    IFEQ '.'
+     C                     ITER
+     C                     ENDIF
+     C                     ADD  1         IY
+     C                     MOVELCSV,IX    FLD,IY
+     C                     ENDDO
+      *
+     C                     MOVEAFLD       W@FLD6
+      * CHECK NUMERIC
+     C           WKCKSU    CHECKW@FLD6                   99
+     C           *IN99     IFEQ *OFF
+     C                     Z-ADDW@NUM6    #UP
+     C                     ENDIF
+     C* EXPENDABLE -------------------------------------
+     C                     Z-ADD0         IX
+     C                     Z-ADD0         IY
+     C                     MOVEL*ALL'0'   FLD
+     C                     CLEARCSV
+     C                     MOVEAFLD5      CSV
+     C                     DO   *HIVAL
+     C                     ADD  1         IX
+     C           CSV,IX    IFEQ ' '
+     C                     LEAVE
+     C                     ENDIF
+     C           CSV,IX    IFEQ '.'
+     C                     ITER
+     C                     ENDIF
+     C                     ADD  1         IY
+     C                     MOVELCSV,IX    FLD,IY
+     C                     ENDDO
+      *
+     C                     MOVEAFLD       W@FLD6
+      * CHECK NUMERIC
+     C           WKCKSU    CHECKW@FLD6                   99
+     C           *IN99     IFEQ *OFF
+     C                     Z-ADDW@NUM6    #EXPND
+     C                     ENDIF
+     C* TOTAL PRICE-------------------------------------
+     C                     Z-ADD0         IX
+     C                     Z-ADD0         IY
+     C                     MOVEL*ALL'0'   FLD
+     C                     CLEARCSV
+     C                     MOVEAFLD6      CSV
+     C                     DO   *HIVAL
+     C                     ADD  1         IX
+     C           CSV,IX    IFEQ ' '
+     C                     LEAVE
+     C                     ENDIF
+     C           CSV,IX    IFEQ '.'
+     C                     ITER
+     C                     ENDIF
+     C                     ADD  1         IY
+     C                     MOVELCSV,IX    FLD,IY
+     C                     ENDDO
+      *
+     C                     MOVEAFLD       W@FLD6
+      * CHECK NUMERIC
+     C           WKCKSU    CHECKW@FLD6                   99
+     C           *IN99     IFEQ *OFF
+     C                     Z-ADDW@NUM6    #PRICE
+     C                     ENDIF
+      *
+      * IF 3 NUMERIC FIELD = 0, THEN IT IS HEADER --------
+     C           #UP       IFEQ 0
+     C           #EXPND    ANDEQ0
+     C           #PRICE    ANDEQ0
+     C                     MOVE *ON       #HDFLG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      ******************************************************
+      *          #CONV: CONVERT SHIP TO
+      ******************************************************
+     C           #CONV     BEGSR
+      *
+     C                     Z-ADD0         #TOKU1  40
+     C                     Z-ADD0         #TOKU2  40
+JW5  C                     Z-ADD0         #TOKU3  40
+"    C                     Z-ADD0         #TOKU4  40
+     C                     Z-ADD0         #NONY1  40
+     C                     Z-ADD0         #NONY2  40
+JW5  C                     Z-ADD0         #NONY3  40
+"    C                     Z-ADD0         #NONY4  40
+     C                     SELEC
+     C           #SHPTO    WHEQ 'TMMAL'
+     C                     Z-ADD3411      #TOKU1
+     C                     Z-ADD3764      #NONY1
+     C                     Z-ADD3411      #TOKU2
+     C                     Z-ADD3765      #NONY2
+     C           #SHPTO    WHEQ 'TMMBC'
+     C                     Z-ADD3411      #TOKU1
+     C                     Z-ADD3481      #NONY1
+     C                     Z-ADD3411      #TOKU2
+     C                     Z-ADD3482      #NONY2
+     C           #SHPTO    WHEQ 'TMMC'
+     C                     Z-ADD3411      #TOKU1
+     C                     Z-ADD3503      #NONY1
+     C                     Z-ADD3411      #TOKU2
+     C                     Z-ADD3504      #NONY2
+     C           #SHPTO    WHEQ 'TMMI'
+     C                     Z-ADD3411      #TOKU1
+     C                     Z-ADD3804      #NONY1
+     C                     Z-ADD3411      #TOKU2
+     C                     Z-ADD3805      #NONY2
+     C           #SHPTO    WHEQ 'TMMK'
+     C                     Z-ADD3411      #TOKU1
+     C                     Z-ADD3347      #NONY1
+     C                     Z-ADD3411      #TOKU2
+     C                     Z-ADD3348      #NONY2
+     C           #SHPTO    WHEQ 'TMMNK'
+     C                     Z-ADD3411      #TOKU1
+     C                     Z-ADD3220      #NONY1
+     C                     Z-ADD3411      #TOKU2
+     C                     Z-ADD3421      #NONY2
+JW5  C                     Z-ADD3411      #TOKU3           MTMUS
+ |   C                     Z-ADD3770      #NONY3
+ |   C                     Z-ADD3411      #TOKU4           MTMUS
+JW5  C                     Z-ADD3771      #NONY4
+     C           #SHPTO    WHEQ 'TMMTX'
+     C                     Z-ADD3411      #TOKU1
+     C                     Z-ADD3851      #NONY1
+     C                     Z-ADD3411      #TOKU2
+     C                     Z-ADD3852      #NONY2
+     C           #SHPTO    WHEQ 'TMMWV'
+     C                     Z-ADD3411      #TOKU1
+     C                     Z-ADD3931      #NONY1
+     C                     Z-ADD3411      #TOKU2
+     C                     Z-ADD3932      #NONY2
+     C           #SHPTO    WHEQ 'NUMMI'
+     C                     Z-ADD0541      #TOKU1
+     C                     Z-ADD0541      #NONY1
+     C                     Z-ADD0541      #TOKU2
+     C                     Z-ADD0542      #NONY2
+     C           #SHPTO    WHEQ 'TMMMS'
+     C                     Z-ADD3411      #TOKU1
+     C                     Z-ADD3428      #NONY1
+     C                     Z-ADD3411      #TOKU2
+     C                     Z-ADD3429      #NONY2
+     C           #SHPTO    WHEQ 'TABC'
+     C                     Z-ADD3423      #TOKU1
+     C                     Z-ADD3423      #NONY1
+     C           #SHPTO    WHEQ 'TMS'
+     C                     Z-ADD3411      #TOKU1
+     C                     Z-ADD0323      #NONY1
+JW1  C           #SHPTO    WHEQ 'TMS(N'
+ |   C                     Z-ADD3411      #TOKU1
+JW1  C                     Z-ADD0323      #NONY1
+JW2  C           #SHPTO    WHEQ 'TTC  '
+ |   C                     Z-ADD3411      #TOKU1
+ |   C                     Z-ADD3557      #NONY1
+ |   C                     Z-ADD3411      #TOKU2
+ |   C                     Z-ADD3560      #NONY2
+ |   C           #SHPTO    WHEQ 'TEMA '
+ |   C                     Z-ADD3411      #TOKU1
+JW2  C                     Z-ADD3411      #NONY1
+JW4  C           #SHPTO    WHEQ 'TMMG '
+ |   C           #SHPTO    OREQ 'TMMGT'
+ |   C                     Z-ADD3411      #TOKU1
+ |   C                     Z-ADD3226      #NONY1
+ |   C                     Z-ADD3411      #TOKU2
+JW4  C                     Z-ADD3227      #NONY2
+JW   C           #SHPTO    WHEQ 'MTMUS'
+ |   C                     Z-ADD3411      #TOKU1
+JW1  C                     Z-ADD3770      #NONY1
+ |   C                     Z-ADD3411      #TOKU2
+JW1  C                     Z-ADD3771      #NONY2
+JW4   * OTHER
+ |   C                     OTHER
+ |   C                     Z-ADD0         IZ      10
+ |   C                     MOVEL#SHPTO    LTR10  10 P
+ |   C           LTR10     SETLLFBCPP36
+ |   C                     DO   *HIVAL
+ |   C           LTR10     READEFBCPP36                  97
+ |   C   97                LEAVE
+ |    *
+ |   C                     ADD  1         IZ
+ |   C           IZ        IFGE 3
+ |   C                     LEAVE
+ |   C                     ENDIF
+ |   C           IZ        IFEQ 1
+ |   C                     Z-ADDF3TOKU    #TOKU1
+ |   C                     Z-ADDF3NONY    #NONY1
+ |   C                     ITER
+ |   C                     ENDIF
+ |   C           IZ        IFEQ 2
+ |   C                     Z-ADDF3TOKU    #TOKU2
+ |   C                     Z-ADDF3NONY    #NONY2
+ |   C                     LEAVE
+ |   C                     ENDIF
+ |   C                     ENDDO
+ |    *
+ |   C                     ENDSL
+ |    *
+JW4  C                     ENDSR
+      ******************************************************
+      *          #PRINT: PRINT ERROR REPORT
+      ******************************************************
+     C           #PRINT    BEGSR
+     C                     MOVE *ON       #ERFLG
+      *
+     C   OF                EXCPTHDR1
+     C   OF                SETOF                     OF
+     C                     ADD  1         SEQ
+     C                     EXCPTDTL1
+      *
+     C                     ENDSR
+      ******************************************************
+      *                  INITIAL ROUTINE
+      ******************************************************
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           #STS    1
+     C                     PARM           #MSG1  60
+     C                     PARM           #MSG2  60
+      *
+     C           K#PART    KLIST
+     C                     KFLD           K@SHN1
+     C                     KFLD           K@SHN2
+     C                     KFLD           K@SHN3
+      *
+     C                     Z-ADD*DATE     @DATE   80
+     C                     TIME           @TIME   60
+     C                     MOVE *ON       *INOF
+     C                     MOVE *OFF      #STS
+     C                     CLEAR#MSG1
+     C                     CLEAR#MSG2
+     C                     MOVE *BLANK    XMSG   33
+     C                     Z-ADD0         SEQ     50
+     C                     Z-ADD0         ER#     50
+     C                     Z-ADD0         NOM#    50
+     C                     Z-ADD0         TTL#    50
+     C                     Z-ADD0         LIN#    50
+      *
+     C                     ENDSR
+      *************************************************************
+      *                    OUTPUT                                 *
+      *************************************************************
+     OQPRINT  E  102           HDR1
+     O                                    8 'PROGRAM:'
+     O                                   15 'FBCR70'
+     O                         #USER     28
+     O                                   60 '<< ERROR REPORT >>'
+     O                                  100 'DATE'
+     O                         @DATE    111 '    .  .  '
+     O                         @TIME    120 '  :  :  '
+     O                         PAGE  Z  130
+     O                                  126 'PAGE'
+     O        E  1             HDR1
+     O                                    4 'ERR'
+     O                                   11 'LINE#'
+     O                                   17 'SHPTO'
+     O                                   22 'CUST'
+     O                                   27 'DELV'
+     O                                   38 'VALID_DATE'
+     O                                   48 'USER_PART'
+     O                                   66 'INTRAL PART'
+     O                                   78 'UNIT_PRICE'
+     O                                   87 'EXPEND'
+     O                                   96 'PRICE'
+     O                                  107 'ERROR MSG'
+     O        E  1             HDR1
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+     O                                  130 '----------'
+      *
+     O        E  1             DTL1
+     O                         SEQ   Z    5
+     O                         LIN#  Z   11
+     O                         #SHPTO    17
+     O                         @TOKU     22
+     O                         @NONY     27
+     O                         #EFDAT    38
+     O                         #PART     54
+     O                         K@SHN1    60
+     O                         K@SHN2    66
+     O                         K@SHN3    69
+     O                         #UP   3   78
+     O                         #EXPND3   87
+     O                         #PRICE3   96
+     O                         XMSG     131
+     O*                        P@STS    132
+      *
+     O        E  1             FOT1
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+     O                                  130 '----------'
+      *
+     O        E  1             FOT1
+     O                                   18 '** TOTAL RECORDS:'
+     O                         TTL#  3   23
+     O                                   31 '(ERROR:'
+     O                         SEQ   3   36
+     O                                   40 ') **'
+      *                     -----> XMSG
+** TBL1(65).........2.........3..>......4.........5.........6....>
+XXXXX: SHIPTO IS NOT REGISTERED!                                   01
+DATE IS NOT IN CALENDAR MASTER!                                    02
+EF DATE IS EARLIER THAN CURRENT!                                   03
+IAF PART DOES NOT EXIST!                                           04
+PRICE IS NOT (U/PRC + EXPEND)!                                     05
+THERE IS NO ERROR.... TOTAL RECORD xxxxx                           06
+NEW PRICE IS SMALLER THAN CURRENT!                                 07
+!! ERROR HAS BEEN FOUND !! PLEASE CHECK THE ERROR REPORT.          08
+(LANPRT03):  TOTAL RECORD: XXXXX (ERROR: XXXXX)                    09

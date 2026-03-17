@@ -1,0 +1,537 @@
+     H            Y.
+      ** FBCR29A *********************************************
+      *  UNIT PRICE M/F INQ BY CUST PART# V.2                *
+      *  J.WATANABE 2023.06.21                               *
+      ********************************************************
+     FFBCPW29ACF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     F                                        RRN2  KSFILE SFL02
+     FFAAPL05 IF  E           K        DISK
+     FFBCPL08 IF  E           K        DISK
+     FFBCWP29 UF  E           K        DISK                      A
+      ********************************************************
+     E                    MSG     1  12 60
+      *
+     I            DS
+     I                                        1   80FBTKHZ
+     I                                        1   40FBTKYY
+     I                                        5   60FBTKMM
+     I                                        7   80FBTKDD
+     I            DS
+     I                                        1   80FBTSHZ
+     I                                        1   40FBTSYY
+     I                                        5   60FBTSMM
+     I                                        7   80FBTSDD
+     I            DS
+     I                                        1  20 XMHIN
+     I                                        1   5 XMHN1
+     I                                        6  10 XMHN2
+     I                                       11  15 XMHN3
+     I                                       16  20 XMHN4
+     I            DS
+     I                                        1  20 S1MHIN
+     I                                        1   5 S1MHN1
+     I                                        6  10 S1MHN2
+     I                                       11  15 S1MHN3
+     I                                       16  20 S1MHN4
+     I            DS
+     I                                        1  12 S1SHIN
+     I                                        1   5 S1SHN1
+     I                                        6  10 S1SHN2
+     I                                       11  12 S1SHN3
+     I            DS
+     I                                        1  12 FBSHIN
+     I                                        1   5 FBSHN1
+     I                                        6  10 FBSHN2
+     I                                       11  12 FBSHN3
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *-----------------------------------------------------------*
+      *     M  A  I  N  L  I  N  E                                *
+      *-----------------------------------------------------------*
+      *
+     C                     EXSR #INIT
+      *
+     C           W@ID      DOWNE'99'
+     C           W@ID      CASEQ'01'      #DSP1
+     C           W@ID      CASEQ'02'      #CTL01
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C           *IN01     IFEQ *ON
+     C                     MOVE '1'       PCMD
+     C                     ENDIF
+      *
+     C           *IN03     IFEQ *ON
+     C                     MOVE '3'       PCMD
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *************************************************************
+      * DISPLAY 1ST SCREEN
+      *************************************************************
+     C           #DSP1     BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVE *OFF      *IN85
+     C                     MOVE *OFF      *IN41
+      * F1/F3: EXIT
+     C           *INKA     IFEQ *ON
+     C           *INKC     OREQ *ON
+     C                     MOVEL'99'      W@ID
+     C                     GOTO XDSP1
+     C                     ENDIF
+      *
+     C                     EXSR #CHK1
+      *
+     C           *IN85     IFEQ *OFF
+     C                     MOVEL'02'      W@ID
+     C                     ENDIF
+      *
+     C           XDSP1     ENDSR
+      *************************************************************
+      *  CHECK ENTRY DATA
+      *************************************************************
+     C           #CHK1     BEGSR
+      * CHECK DATE FROM
+     C           XMHN1     IFEQ *BLANK
+     C           XMHN2     ANDEQ*BLANK
+     C           XMHN3     ANDEQ*BLANK
+     C           XMHN3     ANDEQ*BLANK
+     C                     MOVELMSG,1     XMSG
+     C                     SETON                     41  85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * IF NO ERROR....
+     C           *IN85     IFEQ *OFF
+     C                     EXSR #SETW1
+      *
+     C           RCNT      IFGT 0
+     C                     MOVEL'02'      W@ID
+     C                     ELSE
+     C                     MOVELMSG,2     XMSG
+     C                     SETON                     41  85
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           XCHK1     ENDSR
+      *************************************************************
+      *  SET DATA IN WF
+      *************************************************************
+     C           #SETW1    BEGSR
+     C                     Z-ADD0         RCNT
+      * DELETE WORK FILE
+     C           *LOVAL    SETLLFBCWP29
+     C                     DO   *HIVAL
+     C                     READ FBCWP29                  99
+     C   99                LEAVE
+     C                     DELETFBCWP291
+     C                     ENDDO
+      * READ COMMON PART MASTER
+     C           K#FAAA    SETLLFAAPL05
+     C                     DO   *HIVAL
+     C           K#FAAA    READEFAAPL05                  98
+     C   98                LEAVE
+      *
+     C           B7SKBN    IFEQ ' '
+     C                     EXSR #PRC1
+     C                     ENDIF
+      *
+     C                     ENDDO
+      * NOT COMMON PART
+     C                     EXSR #PRC2
+      *
+     C                     ENDSR
+      ************************************************************
+      *  WRITE FBCWP21 BY COMMON MASTER
+      ************************************************************
+     C           #PRC1     BEGSR
+      *
+     C                     MOVELB7MHN1    FKMHN1
+     C                     MOVELB7MHN2    FKMHN2
+     C                     MOVELB7MHN3    FKMHN3
+     C                     MOVELB7MHN4    FKMHN4
+     C                     Z-ADDB7TOKU    FKTOKU
+     C                     Z-ADDB7NONY    FKNONY
+     C                     MOVELB7NKJO    FKNKOJ
+     C                     MOVELB7NUKE    FKNUKE
+     C           K#PL8A    SETLLFBCPL08
+      *
+     C                     DO   *HIVAL
+     C           K#PL8A    READEFBCPL08                  97
+     C   97                LEAVE
+      *
+     C           FBSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELB7SHN1    FBSHN1
+     C                     MOVELB7SHN2    FBSHN2
+     C                     MOVELB7SHN3    FBSHN3
+     C                     MOVE 'Y'       FBCOM
+     C                     ADD  1         RCNT
+     C                     WRITEFBCWP291
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      ************************************************************
+      *  WRITE FBCWP21 BY PRICE MASTER
+      ************************************************************
+     C           #PRC2     BEGSR
+      *
+     C                     MOVE 'Y'       FIRST2  1
+     C                     MOVELXMHN1     FKMHN1
+     C                     MOVELXMHN2     FKMHN2
+     C                     MOVELXMHN3     FKMHN3
+     C                     MOVELXMHN4     FKMHN4
+     C           K#PL8B    SETLLFBCPL08
+      *
+     C                     DO   *HIVAL
+     C           K#PL8B    READEFBCPL08                  97
+     C   97                LEAVE
+      *
+     C           FBSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     EXSR #COMM
+      *
+     C           COMFLG    IFEQ 'N'
+     C                     MOVE 'N'       FBCOM
+     C                     ADD  1         RCNT
+     C                     WRITEFBCWP291
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      ************************************************************
+      *  CHECK COMMON PART
+      ************************************************************
+     C           #COMM     BEGSR
+      *
+     C                     MOVE 'N'       COMFLG  1
+      * READ COMMON
+     C                     Z-ADDFBTOKU    K#TOKU  40
+     C                     Z-ADDFBNONY    K#NONY  40
+     C                     MOVELFBNKOJ    K#NKOJ  1
+     C                     MOVELFBNUKE    K#NUKE  4
+     C           K#FAAB    SETLLFAAPL05
+     C                     DO   *HIVAL
+     C           K#FAAB    READEFAAPL05                  99
+     C   99                LEAVE
+     C                     MOVE 'Y'       COMFLG
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C                     ENDSR
+      ************************************************************
+      *  DSPLAY 2ND SCREEN
+      ************************************************************
+     C           #CTL01    BEGSR
+      *
+     C                     EXSR #SET1
+      *
+     C                     WRITEDSP99
+     C                     MOVEL'1'       *IN70
+     C                     EXFMTCTL01
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVEL'0'       *IN85
+     C                     MOVEL'0'       *IN70
+      *
+     C                     SELEC
+      * F1: EXIT
+     C           *INKA     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+      * F3/12: BACK
+     C           *INKC     WHEQ *ON
+     C           *INKL     OREQ *ON
+     C                     MOVEL'01'      W@ID
+     C                     OTHER
+     C                     EXSR #CHK2
+     C                     ENDSL
+      *
+     C                     ENDSR
+      ************************************************************
+      *  SET DATA FOR SFL01
+      ************************************************************
+     C           #SET1     BEGSR
+      * CLEAR SFL01
+     C                     SETON                     71
+     C                     WRITECTL01
+     C                     SETOF                     71
+     C                     Z-ADD0         RRN1
+      * EDIT MHIN
+     C                     MOVELXMHIN     $MHIN
+     C                     CALL 'UUUR02'
+     C                     PARM           $MHIN  20
+     C                     PARM           $MHIN2 23
+     C                     MOVEL$MHIN2    X1MHIN
+      *
+     C                     MOVE 'Y'       FIRST
+     C                     Z-ADD0         RRN1
+     C           *LOVAL    SETLLFBCWP29
+     C                     DO   *HIVAL
+     C                     READ FBCWP29                  96
+     C   96                LEAVE
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     Z-ADDFBTOKU    SVTOKU  40       K
+     C                     Z-ADDFBNONY    SVNONY  40       K
+     C                     MOVELFBNKOJ    SVNKOJ  1        K
+     C                     MOVELFBNUKE    SVNUKE  4        K
+     C                     MOVELFBSHIN    SVSHIN 12        K
+     C                     ENDIF
+      * BREAK?
+     C           FBTOKU    IFNE SVTOKU
+     C           FBNONY    ORNE SVNONY
+     C           FBNKOJ    ORNE SVNKOJ
+     C           FBNUKE    ORNE SVNUKE
+     C           FBSHIN    ORNE SVSHIN
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * DETAIL
+     C                     Z-ADDFBNTAN    SVNTAN 105
+     C                     Z-ADDFBTKHZ    SVTKHZ  80
+     C                     Z-ADDFBTSHZ    SVTSHZ  80
+      *
+     C                     ENDDO
+      * LAST PROCESS
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     ENDIF
+      *
+     C                     Z-ADDRRN1      COUNT1  60
+     C                     Z-ADD1         RRN1
+      *
+     C                     ENDSR
+      ************************************************************
+      * BREAK
+      ************************************************************
+     C           #BRK1     BEGSR
+      *
+     C                     MOVE ' '       S1SEL
+     C                     Z-ADDSVTOKU    S1TOKU
+     C                     Z-ADDSVNONY    S1NONY
+     C                     MOVELSVNKOJ    S1NKOJ
+     C                     MOVELSVNUKE    S1NUKE
+     C                     MOVELSVSHIN    S1SHIN
+      * EDIT SHIN
+     C                     MOVELSVSHIN    $FLD1     P
+     C                     CALL 'UUUR02'
+     C                     PARM           $FLD1  12
+     C                     PARM           $FLD2  14
+     C                     MOVEL$FLD2     X1SHIN
+      *
+     C                     Z-ADDSVNTAN    S1NTAN
+     C                     Z-ADDSVTKHZ    S1TKHZ
+     C                     Z-ADDSVTSHZ    S1TSHZ
+     C           S1TSHZ    IFEQ 99999999
+     C                     MOVE *OFF      *IN45
+     C                     MOVE *OFF      S145
+     C                     ELSE
+     C                     MOVE *ON       *IN45
+     C                     MOVE *ON       S145
+     C                     ENDIF
+      *
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+      * RESET
+     C                     Z-ADDFBTOKU    SVTOKU
+     C                     Z-ADDFBNONY    SVNONY
+     C                     MOVELFBNKOJ    SVNKOJ
+     C                     MOVELFBNUKE    SVNUKE
+     C                     MOVELFBSHIN    SVSHIN
+     C                     Z-ADDFBNTAN    SVNTAN
+     C                     Z-ADDFBTKHZ    SVTKHZ
+     C                     Z-ADDFBTSHZ    SVTSHZ
+      *
+     C                     ENDSR
+      *************************************************************
+      *  CHECK SUB FILE
+      *************************************************************
+     C           #CHK2     BEGSR
+      *
+      *
+     C           1         DO   COUNT1    RRN1
+      *
+     C           RRN1      CHAINSFL01                50
+     C           *IN50     IFEQ *OFF
+     C           S1SEL     ANDNE' '
+     C                     EXSR #CTL02
+     C           *IN03     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     MOVE *BLANK    S1SEL
+     C                     UPDATSFL01
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *************************************************************
+      * DISPLAY SFL02 SCREEN
+      *************************************************************
+     C           #CTL02    BEGSR
+      *
+     C                     MOVELX1MHIN    X2MHIN
+     C                     EXSR #SET2
+     C                     Z-ADDS1TOKU    S2TOKU
+     C                     Z-ADDS1NONY    S2NONY
+     C                     MOVELS1NKOJ    S2NKOJ
+     C                     MOVELS1NUKE    S2NUKE
+     C                     MOVELX1SHIN    X2SHIN
+     C                     MOVELX1MHIN    X2MHIN
+      *
+     C           @CTL02    TAG
+     C                     WRITEDSP99
+     C                     MOVEL'1'       *IN70
+     C                     EXFMTCTL02
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVEL'0'       *IN85
+     C                     MOVEL'0'       *IN70
+      *
+     C                     SELEC
+      * F1: EXIT
+     C           *INKA     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+      * F3: BACK
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'02'      W@ID
+      * F12: BACK
+     C           *INKL     WHEQ *ON
+     C                     MOVEL'02'      W@ID
+      * ENTR
+     C                     OTHER
+     C                     GOTO @CTL02
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *************************************************************
+      * SET DATA FOR SFL02
+      *************************************************************
+     C           #SET2     BEGSR
+      *
+     C                     SETON                     71
+     C                     WRITECTL02
+     C                     SETOF                     71
+      *
+     C                     Z-ADD0         RRN2
+     C                     Z-ADDS1TOKU    KBTOKU
+     C                     Z-ADDS1NONY    KBNONY
+     C                     MOVELS1NKOJ    KBNKOJ
+     C                     MOVELS1NUKE    KBNUKE
+     C                     MOVELS1SHN1    KBSHN1
+     C                     MOVELS1SHN2    KBSHN2
+     C                     MOVELS1SHN3    KBSHN3
+     C           K#W29A    SETLLFBCWP29
+     C                     DO   *HIVAL
+     C           K#W29A    READEFBCWP29                  96
+     C   96                LEAVE
+      *
+     C                     Z-ADDFBNTAN    S2NTAN
+     C                     Z-ADDFBTKHZ    S2TKHZ
+     C                     Z-ADDFBTSHZ    S2TSHZ
+     C           S2TSHZ    IFEQ 99999999
+     C                     MOVE *ON       *IN48
+     C                     MOVE *ON       S148
+     C                     ELSE
+     C                     MOVE *OFF      *IN48
+     C                     MOVE *OFF      S148
+     C                     ENDIF
+      *
+     C                     ADD  1         RRN2
+     C                     Z-ADDRRN2      S2SEQ
+     C                     WRITESFL02
+     C                     ENDDO
+      *
+     C                     Z-ADDRRN2      COUNT2  60
+     C                     Z-ADD1         RRN2
+      *
+     C                     ENDSR
+      *************************************************************
+      * INITIAL SETTING
+      *************************************************************
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           PCMD    1
+      *
+     C           K#FAAA    KLIST
+     C                     KFLD           XMHN1
+     C                     KFLD           XMHN2
+     C                     KFLD           XMHN3
+     C                     KFLD           XMHN4
+      *
+     C           K#FAAB    KLIST
+     C                     KFLD           XMHN1
+     C                     KFLD           XMHN2
+     C                     KFLD           XMHN3
+     C                     KFLD           XMHN4
+     C                     KFLD           K#TOKU  40
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#NKOJ  1
+     C                     KFLD           K#NUKE  4
+      *
+     C           K#PL8A    KLIST
+     C                     KFLD           FKMHN1  5
+     C                     KFLD           FKMHN2  5
+     C                     KFLD           FKMHN3  5
+     C                     KFLD           FKMHN4  5
+     C                     KFLD           FKTOKU  40
+     C                     KFLD           FKNONY  40
+     C                     KFLD           FKNKOJ  1
+     C                     KFLD           FKNUKE  4
+      *
+     C           K#PL8B    KLIST
+     C                     KFLD           FKMHN1
+     C                     KFLD           FKMHN2
+     C                     KFLD           FKMHN3
+     C                     KFLD           FKMHN4
+      *
+     C           K#W29A    KLIST
+     C                     KFLD           KBTOKU  40
+     C                     KFLD           KBNONY  40
+     C                     KFLD           KBNKOJ  1
+     C                     KFLD           KBNUKE  4
+     C                     KFLD           KBSHN1  5
+     C                     KFLD           KBSHN2  5
+     C                     KFLD           KBSHN3  2
+      *
+     C           K#W29B    KLIST
+     C                     KFLD           KBTOKU
+     C                     KFLD           KBNONY
+     C                     KFLD           KBNKOJ
+     C                     KFLD           KBNUKE
+      *
+     C                     MOVE ' '       PCMD
+     C                     TIME           SDATE
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVEL'01'      W@ID    2
+     C                     Z-ADD0         RRN1    40
+     C                     Z-ADD0         RRN2    40
+     C                     Z-ADD0         RCNT    40
+     C                     MOVE 'Y'       FIRST   1
+      *
+     C                     ENDSR
+      *************************************************************
+** (ERR) (60A).....2.........3.........4.........5.........6
+ENTER CUSTOMER PART!                                         01
+NO DATA FOUND!                                               02
+                                                             03
+                                                             04
+                                                             05
+                                                             06
+                                                             07
+                                                             08
+                                                             09
+                                                             10
+                                                             11
+                                                             12

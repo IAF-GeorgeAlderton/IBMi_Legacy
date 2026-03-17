@@ -1,0 +1,281 @@
+     H            Y.                                    1
+      *  ALCR9S  ***************************************************************
+      *  CONVEYANCE OVERFLOW AREA SEARCH                                       *
+      *  LEC           2023.08.01                                              *
+      **************************************************************************
+     FALCPW9S CF  E                    WORKSTN
+     F                                        RRN2  KSFILE SFL02
+     F                                              KINFDS @INFDS
+     FALCWP9I IF  E                    DISK
+      **************************************************************************
+     E                    ERR     1   4 70
+      **************************************************************************
+     I@INFDS      DS
+     I                                     *STATUS  @STTS
+     I                                    B 370 3710@@LIN
+     I                                    B 378 3790@@REC
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60WSSTM6
+     I                                        1   40WSSTM4
+     I                                        1   20WSSHHH
+     I                                        3   40WSSNNN
+     I                                        5   60WSSSSS
+     I                                        7  140WSSDAT
+     I                                        7  100WSSYYY
+     I                                       11  120WSSMMM
+     I                                       13  140WSSDDD
+      * P/M LOC CHANGE DATE
+     I            DS
+     I                                        1   80A2TRHZ
+     I                                        1   40A2TRYY
+     I                                        5   60A2TRMM
+     I                                        7   80A2TRDD
+      * SCAN DATE
+     I            DS
+     I                                        1   80WICODT
+     I                                        5   80WICOMD
+      * SCAN TIME
+     I            DS
+     I                                        1   60WICOTM
+     I                                        1   20WICOHH
+     I                                        3   40WICOMM
+      * FORMATTED TIME
+     I            DS
+     I                                        1   5 ##TIME
+     I                                        1   20HH
+     I                                        3   3 COLON
+     I                                        4   50MM
+      * PART#
+     I            DS
+     I                                        1  15 ##PART
+     I                                        1   5 WISHN1
+     I                                        6   6 DASH1
+     I                                        7  11 WISHN2
+     I                                       12  12 DASH2
+     I                                       13  14 WISHN3
+      * F/G LOCN
+     I            DS
+     I                                        1   5 ##LOCN
+     I                                        1   2 LOC1
+     I                                        4   5 LOC2
+      **************************************************************************
+      *                    MAIN ROUTINE
+      **************************************************************************
+     C                     EXSR #INIT
+      *
+     C           @@ID      DOWNE'99'
+     C           @@ID      CASEQ'10'      #DSP01
+     C           @@ID      CASEQ'20'      #SFL02
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *************************************************************************
+      *         Initialize
+      **************************************************************************
+     C           #INIT     BEGSR
+      *
+     C                     TIME           WSDT
+      *
+     C                     MOVEL'10'      @@ID    2
+      *
+     C                     ENDSR
+      **************************************************************************
+      *     1st - Display - Get Search Criteria
+      **************************************************************************
+     C           #DSP01    BEGSR
+      *
+     C                     EXFMTDSP01
+      *
+     C                     DO
+      *
+     C                     MOVEL*OFF      *IN85
+     C                     MOVEL*BLANK    XMSG
+      * F1: End
+     C                     SELEC
+     C           *INKA     WHEQ *ON
+     C                     MOVEL'99'      @@ID
+     C                     LEAVE
+      * Enter
+     C                     OTHER
+     C                     EXSR #CHK1
+     C                     ENDSL
+      *
+     C           *IN85     IFEQ *OFF
+     C                     MOVEL'20'      @@ID
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      **************************************************************************
+      *     1st - Check Display
+      **************************************************************************
+     C           #CHK1     BEGSR
+      *
+     C                     MOVEL*BLANKS   D1LOCN
+     C                     MOVEL*BLANKS   D1SHN
+     C           D1LOC1    CAT  D1LOC2:0  D1LOCN  4
+     C           D1SHN1    CAT  D1SHN2:0  D1SHN  12
+     C           D1SHN     CAT  D1SHN3:0  D1SHN
+      *
+     C           D1LOCN    IFNE *BLANK
+     C           D1SHN     ANDNE*BLANK
+     C                     MOVE *ON       *IN85
+     C                     MOVELERR,2     XMSG
+     C                     ENDIF
+      *
+     C           D1LOCN    IFEQ *BLANK
+     C           D1SHN     ANDEQ*BLANK
+     C                     MOVE *ON       *IN85
+     C                     MOVELERR,3     XMSG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     2nd - Fill and Display Subfile 2
+      **************************************************************************
+     C           #SFL02    BEGSR
+      *
+     C                     EXSR #SET2
+      *
+     C           RRN2      IFGT *ZERO
+     C                     EXSR #FMT2
+     C                     ELSE
+     C                     MOVELERR,1     XMSG
+     C                     MOVE *ON       *IN85
+     C                     MOVEL'10'      @@ID
+     C                     ENDIF
+      *
+     C                     SELEC
+     C           *INKA     WHEQ *ON
+     C                     MOVEL'99'      @@ID
+     C           *INKL     WHEQ *ON
+     C                     CLEARDSP01
+     C                     MOVEL'10'      @@ID
+     C                     ENDSL
+      *
+     C                     ENDSR
+      **************************************************************************
+      *     2nd - Set Subfile 2
+      **************************************************************************
+     C           #SET2     BEGSR
+      *
+     C                     MOVEL*ON       *IN61
+     C                     WRITECTL02
+     C                     MOVEL*OFF      *IN61
+     C                     MOVEL*OFF      *IN62
+     C                     Z-ADD0         RRN2    40
+      *
+     C                     MOVEL*ON       *IN63
+      *
+      * read ALCWP9I
+      *
+     C           1         SETLLALCWP9I
+      *
+     C                     DO   *HIVAL
+      *
+     C                     READ ALCWP9I                  97
+     C   97                LEAVE
+      *
+     C                     CLEARSFL02
+      *
+     C           D1LOCN    IFNE *BLANK
+     C           D1LOCN    ANDNEWIPCLC
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANKS   WISHN
+     C           WISHN1    CAT  WISHN2:0  WISHN  12
+     C           WISHN     CAT  WISHN3:0  WISHN
+      *
+     C           D1SHN     IFNE *BLANK
+     C           D1SHN     ANDNEWISHN
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDWICOMD    S2DATE
+     C                     Z-ADDWICOHH    HH
+     C                     MOVE ':'       COLON
+     C                     Z-ADDWICOMM    MM
+     C                     MOVEL##TIME    S2TIME
+      * PART
+     C           WISHN2    IFNE *BLANK
+     C                     MOVE '-'       DASH1
+     C                     ELSE
+     C                     MOVE *BLANK    DASH1
+     C                     ENDIF
+      *
+     C           WISHN3    IFNE *BLANK
+     C                     MOVE '-'       DASH2
+     C                     ELSE
+     C                     MOVE *BLANK    DASH2
+     C                     ENDIF
+      *
+     C                     MOVEL##PART    S2HIN1
+      *
+      * process location...
+     C                     MOVELWIPCLC    LOC1
+     C                     MOVE WIPCLC    LOC2
+     C                     MOVEL##LOCN    S2LOCN
+      *
+     C                     MOVELWIWKNM    S2WKNM
+     C                     MOVELWIABAR    S2BARC
+     C                     MOVE WIAREA    S2AREA
+      *
+      * if area is a non-conformance area, display in red
+     C           WINCFL    IFEQ 'Y'
+     C                     MOVE *ON       *IN31
+     C                     ELSE
+     C                     MOVE *OFF      *IN31
+     C                     ENDIF
+     C                     ADD  1         RRN2
+      *
+     C                     WRITESFL02
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     2nd - Display Subfile 2
+      **************************************************************************
+     C           #FMT2     BEGSR
+      *
+     C                     Z-ADD1         W#RNP2  40
+     C                     MOVELD1LOC1    D2LOC1
+     C                     MOVELD1LOC2    D2LOC2
+     C                     MOVELD1SHN1    D2SHN1
+     C                     MOVELD1SHN2    D2SHN2
+     C                     MOVELD1SHN3    D2SHN3
+      *
+     C                     DO   *HIVAL
+      *
+     C                     WRITEDSP99
+     C                     Z-ADDW#RNP2    #RCN02
+     C                     EXFMTCTL02
+     C                     MOVE *BLANK    XMSG
+      * <F1:End OR F12:Back>
+     C   KA
+     COR KL                LEAVE
+      *
+      *
+     C           @@REC     IFNE *ZERO
+     C                     Z-ADD@@REC     W#RNP2
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      **************************************************************************
+** ERR   +.........+.........+.........+.........+.........+.........> (70)
+NO DATA FOUND                                                          03
+ENTER LOCN OR PART#, NOT BOTH                                          04
+ENTER LOCN OR PART#                                                    04
+                                                                       04

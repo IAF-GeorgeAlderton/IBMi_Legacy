@@ -1,0 +1,755 @@
+     H            Y.
+     F** DA#R5A *********************************************
+     F*  受注データの照会＆更新                           *
+     F*       MSK                  2003.10.14               *
+     F********************************************* DA#R5A **
+     FDA#PW5A CF  E                    WORKSTN
+     F                                        RRN   KSFILE SFL
+     FAB#PL18 IF  E           K        DISK
+     F**DA#PL50 IF  E           K        DISK
+     FFGBPL01 IF  E           K        DISK
+     F*FCEPL01 IF  E           K        DISK
+      *
+     E                    ER      1  12 65
+      *
+     I            DS
+     I                                        1   80BQSKHZ
+     I                                        1   40BQSKY4
+     I                                        5   60BQSKMM
+     I                                        7   80BQSKDD
+      *
+     I            DS
+     I                                        1   80A2GSHZ
+     I                                        1   40A2GSY4
+     I                                        5   60A2GSMM
+     I                                        7   80A2GSDD
+      *
+     I            DS
+     I                                        1   80B2SKHZ
+     I                                        1   40B2SKY4
+     I                                        5   60B2SKMM
+     I                                        7   80B2SKDD
+      *
+     I            DS
+     I                                        1   60TIME
+     I                                        1   20TIMEH
+     I                                        3   40TIMES
+      *
+     I            DS
+     I                                        1   80@8MEH8
+     I                                        1   40@8MEY4
+     I                                        5   60@8MEMM
+     I                                        7   80@8MEDD
+      *
+     I            DS
+     I                                        1   80@HYM1
+     I                                        3   80@SNOHZ
+     I                                        1   60@HYY1
+     I                                        5   60@HMM1
+     I                                        7   80@HDD1
+      *
+     I            DS
+     I                                        1   80@HYM2
+     I                                        3   80@ENOHZ
+     I                                        1   40@HYY2
+     I                                        5   60@HMM2
+     I                                        7   80@HDD2
+     I            DS
+     I                                        1  14 @SHIN
+     I                                        1   5 @SHN1
+     I                                        6   6 WKF1
+     I                                        7  11 @SHN2
+     I                                       12  12 WKF2
+     I                                       13  14 @SHN3
+      *
+     I            DS
+     I                                        1  20 @MHIN
+     I                                        1   5 @MHN1
+     I                                        6  10 @MHN2
+     I                                       11  15 @MHN3
+     I                                       16  20 @MHN4
+      *
+     I            DS
+     I                                        1  23 XXMHIN
+     I                                        1   5 BAMHN1
+     I                                        6   6 WKM1
+     I                                        7  11 BAMHN2
+     I                                       12  12 WKM2
+     I                                       13  17 BAMHN3
+     I                                       18  18 WKM3
+     I                                       19  23 BAMHN4
+      *
+     I            DS
+     I                                        1   80B8UKH8
+     I                                        1   40B8UKY4
+     I                                        5   60B8UKMM
+     I                                        7   80B8UKDD
+      *
+     I            DS
+     I                                        1   80BANOH8
+     I                                        1   40BANOYY
+     I                                        5   60BANOMM
+     I                                        7   80BANODD
+      *
+     I           SDS
+     I                                      254 263 @@USER
+      *----------------------------------------------------*
+      *   PARAMETER  TRANCFER                              *
+      *----------------------------------------------------*
+     C           *ENTRY    PLIST
+     C                     PARM           PCMD    1
+     C                     PARM           LSTSW   1
+     C                     MOVE *BLANK    LSTSW
+      *
+     C           DA#R5U    PLIST
+     C                     PARM           P2KOSN  1        *更新区分
+     C                     PARM           P2HIN1  5
+     C                     PARM           P2HIN2  5
+     C                     PARM           P2HIN3  2
+     C                     PARM           P2NOYY  40
+     C                     PARM           P2NOMM  20
+     C                     PARM           P2NODD  20
+     C                     PARM           P2ODRN 10
+     C                     PARM           P2LST   1        *リスト区分
+     C                     PARM           P2DAT   1        *データ区分
+     C                     PARM           P2TORI  1
+      *----------------------------------------------------*
+      *   K  E  Y   L I  S  T                              *
+      *----------------------------------------------------*
+      *検索用KEY定義
+     C           KEYB81    KLIST
+     C                     KFLD           #KHIN1  5
+     C                     KFLD           #KHIN2  5
+     C                     KFLD           #KHIN3  2
+      *
+      *セーブ用KEY定義
+     C           KEYSV1    KLIST
+     C                     KFLD           #SHIN1  5
+     C                     KFLD           #SHIN2  5
+     C                     KFLD           #SHIN3  2
+     C                     KFLD           #SNOYY  40
+     C                     KFLD           #SNOMM  20
+     C                     KFLD           #SNODD  20
+     C                     KFLD           #SODRN 10
+      *----------------------------------------------------*
+      *  メインルーチン                                  *
+      *----------------------------------------------------*
+     C                     EXSR $SB100
+     C           *IN01     DOWEQ'0'
+     C           *IN03     ANDEQ'0'
+     C                     EXSR $SB200
+     C                     END
+     C                     EXSR $SB300
+      *----------------------------------------------------*
+      *   初期処理                                       *
+      *----------------------------------------------------*
+     CSR         $SB100    BEGSR
+     C                     TIME           TIME
+     C                     Z-ADDTIME      WKSTME  60
+     C                     MOVE *BLANK    DSPSW1  1
+     C                     MOVE *BLANK    DSPSW2  1
+     C                     MOVE *BLANK    DSPSW3  1
+     C                     Z-ADD0         @HYM1
+     C                     Z-ADD0         @HYM2
+      *
+     C                     Z-ADD1         WKPAGE  30
+     C                     EXSR $SB410
+     C                     Z-ADD0         @8MEH8
+      *
+      *
+     C                     MOVE '1'       DSPSW1
+     C                     MOVE '0'       DSPSW2
+     C                     MOVE '0'       DSPSW3
+     CSR         $S100E    ENDSR
+      *----------------------------------------------------*
+      *   主処理                                         *
+      *----------------------------------------------------*
+     CSR         $SB200    BEGSR
+      *
+     C           *IN01     DOWEQ'0'
+     C           *IN03     ANDEQ'0'
+     C           DSPSW1    ANDEQ'1'
+     C                     EXSR $SB210
+     C                     END
+      * 明細
+     C           *IN01     DOWEQ'0'
+     C           *IN03     ANDEQ'0'
+     C           DSPSW2    ANDEQ'1'
+     C                     EXSR $SB220
+     C                     END
+     CSR         $S200E    ENDSR
+      *----------------------------------------------------*
+      *   処理区分                                       *
+      *----------------------------------------------------*
+     CSR         $SB210    BEGSR
+      *
+     C                     EXFMTDA#PW5A1
+     C                     SETOF                     313233
+     C                     SETOF                     343536
+     C                     SETOF                     373839
+     C                     SETOF                     404142
+     C                     SETOF                     4344
+     C                     SETOF                     99
+     C                     MOVE *BLANK    @ERR
+      * CMD-1
+     C           *IN01     IFEQ '1'
+     C                     MOVE '1'       PCMD    1
+     C                     GOTO $S210E
+     C                     END
+      * CMD-3
+     C           *IN03     IFEQ '1'
+     C                     MOVE '3'       PCMD    1
+     C                     GOTO $S210E
+     C                     END
+      *
+      *入力項目チェック
+      *
+     C           @SHN1     IFEQ *BLANK
+     C           @SHN2     ANDEQ*BLANK
+     C           @SHN3     ANDEQ*BLANK
+     C                     SETON                     9931
+     C                     MOVELER,1      @ERR
+     C                     GOTO $S210E
+     C                     END
+     C                     MOVE @SHN1     #KHIN1
+     C                     MOVE @SHN2     #KHIN2
+     C                     MOVE @SHN3     #KHIN3
+      *
+     C                     MOVE *BLANK    @TOKNM
+     C           @TOKU     IFNE 0
+     C                     MOVE @TOKU     #CODE   40
+     C                     EXSR $SB800
+     C           *IN99     IFEQ '1'
+     C                     SETON                     9932
+     C                     MOVELER,3      @ERR
+     C                     GOTO $S210E
+     C                     END
+     C                     MOVELB2SMEI    @TOKNM
+     C                     END
+      *
+     C                     MOVEL*BLANK    @NONNM
+     C           @NONY     IFNE 0
+     C                     MOVE @NONY     #CODE   40
+     C                     EXSR $SB800
+     C           *IN99     IFEQ '1'
+     C                     SETON                     9933
+     C                     MOVELER,4      @ERR
+     C                     GOTO $S210E
+     C                     END
+     C                     MOVELB2SMEI    @NONNM
+     C                     END
+      *
+     C                     SETOF                     3699
+      *
+     C           @HYM1     IFEQ 0
+     C                     ELSE
+      *
+     C                     MOVE *ALL'9'   @HYM2
+     C                     Z-ADD01        @HDD1
+      *
+     C           @HYM1     IFGT @HYM2
+     C                     SETON                     363799
+     C                     MOVELER,5      @ERR
+     C                     GOTO $S210E
+     C                     END
+      *
+     C                     SETOF                     3699
+     C           @HMM1     IFGE 13
+     C                     SETON                     3699
+     C                     MOVELER,12     @ERR
+     C                     GOTO $S210E
+     C                     END
+      *
+     C                     END
+      *-------------------------*
+      *対象データ存在チェック *
+      *-------------------------*
+      *
+     C                     Z-ADD1         WKPAGE  30
+     C                     EXSR $SB410
+      *
+     C           KEYB81    SETLLAB#PL181
+      *
+     C                     SETOF                     8166
+     C                     DO   *HIVAL
+     C                     EXSR $SB400
+     C  N81N66             END
+      *
+     C           CTRX      IFEQ 0
+     C                     SETON                     31
+     C                     SETON                     99
+     C           @TOKU     IFNE 0
+     C                     SETON                     32
+     C                     END
+     C           @NONY     IFNE 0
+     C                     SETON                     33
+     C                     END
+     C           @NKOJ     IFNE *BLANK
+     C                     SETON                     34
+     C                     END
+     C           @NUKE     IFNE *BLANK
+     C                     SETON                     35
+     C                     END
+     C           @HYM1     IFEQ 0
+     C                     ELSE
+     C                     SETON                     36
+     C                     END
+      *
+     C                     MOVELER,6      @ERR
+     C                     EXSR $SB410
+     C                     GOTO $S210E
+     C                     END
+      * NEXTポイントセット
+     C                     EXSR $SB900
+      *次画面固定項目セット
+     C                     MOVE '0'       DSPSW1
+     C                     MOVE '1'       DSPSW2
+      *
+     C                     MOVE '-'       WKF1
+     C                     MOVE '-'       WKF2
+     C           @SHN3     IFEQ *BLANK
+     C                     MOVE ' '       WKF2
+     C                     END
+      *
+     CSR         $S210E    ENDSR
+      *----------------------------------------------------*
+      *   第二画面処理(SFL.DA#PW5A9)                    *
+      *----------------------------------------------------*
+     CSR         $SB220    BEGSR
+     C           CTRX      IFEQ 0
+     C                     SETON                     72
+     C                     ELSE
+     C                     SETON                     7273
+     C                     END
+     C                     WRITEDA#PW5A9
+     C                     EXFMTSFLCTL
+     C                     SETOF                     7273
+     C                     SETOF                     4699
+     C                     MOVEL*BLANK    @ERR
+      * CMD-1
+     C           *IN01     IFEQ '1'
+     C                     MOVE '1'       PCMD
+     C                     GOTO $S220E
+     C                     END
+      * CMD-3
+     C           *IN03     IFEQ '1'
+     C                     EXSR $SB410
+     C                     SETOF                       03
+     C                     MOVE '0'       DSPSW2
+     C                     MOVE '1'       DSPSW1
+     C                     GOTO $S220E
+     C                     END
+      *--------------------*
+      *  SFL CHECHK        *
+      *--------------------*
+     C                     Z-ADD1         X       20
+     C                     DO   *HIVAL    X
+     C                     SETOF                     25
+     C           X         CHAINSFL                  25
+     C           *IN25     IFEQ '0'
+      *
+     C           @KUBN     IFNE *BLANK
+     C           @KUBN     ANDNE'M'
+     C                     SETON                     4599
+     C                     MOVELER,7      @ERR
+     C                     END
+      *
+     C  N99      @KUBN     IFNE *BLANK
+      *
+     C                     MOVE '0'       DTASW   1
+     C                     MOVE '0'       DTASW2  1
+     C                     MOVE '0'       LSTSW   1
+      *
+     C           *IN99     IFEQ '0'
+     C                     MOVE @KUBN     P2KOSN  1        *更新区分
+     C                     MOVEL@SHN1     P2HIN1  5
+     C                     MOVEL@SHN2     P2HIN2  5
+     C                     MOVEL@SHN3     P2HIN3  2
+     C                     MOVEL@8MEY4    P2NOYY  40
+     C                     MOVEL@8MEMM    P2NOMM  20
+     C                     MOVEL@8MEDD    P2NODD  20
+     C                     MOVEL@8ODRN    P2ODRN 10
+     C                     MOVE LSTSW     P2LST   1        *リスト区分
+     C                     MOVE DTASW     P2DAT   1        *データ区分
+     C                     MOVE @TORI     P2TORI  1
+     C                     CALL 'DA#R5U'  DA#R5U
+     C                     MOVE *BLANK    @KUBN
+     C                     UPDATSFL
+     C                     GOTO $S220E
+      *
+     C                     END
+      *
+     C                     END
+     C                     UPDATSFL
+      *
+     C                     SETOF                     45
+     C                     END
+     C  N25N99             ENDDO
+     C      99             GOTO $S220E
+      *-------------------*
+      * ROLLDOWN          *
+      *-------------------*
+     C           *IN52     IFEQ '1'
+     C                     ADD  1         CTRX
+      * 1ST. PAGE
+     C*          WKPAGE    IFEQ 1
+     C*                    GOTO $S220E
+     C*                    END
+      *-------------------*
+     C           *IN81     IFEQ '1'
+     C                     SETOF                     81
+     C           KEYB81    SETGTAB#PL181
+     C                     END
+      *
+     C                     ADD  6         CTRX
+      *                         L--表示行数
+     C                     SETOF                     6627
+      *
+     C                     DO   *HIVAL
+     C                     EXSR $SB401
+     C  N81N27             ENDDO
+      *
+     C                     Z-ADD0         CTRX    40
+      *
+     C           *IN81     IFEQ '1'
+     C           KEYB81    SETLLAB#PL181
+     C                     END
+      *
+     C                     EXSR $SB410
+      *
+     C                     SETOF                     6681
+     C                     DO   *HIVAL
+     C                     EXSR $SB400
+     C  N81N66             ENDDO
+      *
+     C                     EXSR $SB900
+     C                     SUB  1         WKPAGE
+     C                     GOTO $S220E
+     C                     END
+      *--------------------*
+      * ROLL-UP            *
+      *--------------------*
+     C           *IN51     IFEQ '1'
+     C           *IN81     ANDEQ'0'
+      *
+     C                     EXSR $SB410
+      *
+     C                     SETOF                     6681
+     C                     DO   *HIVAL
+     C                     EXSR $SB400
+     C  N81N66             ENDDO
+      *
+     C                     EXSR $SB900
+     C                     ADD  1         WKPAGE
+     C                     GOTO $S220E
+     C                     END
+     CSR         $S220E    ENDSR
+      *----------------------------------------------------*
+      *   終了処理                                       *
+      *----------------------------------------------------*
+     CSR         $SB300    BEGSR
+     C                     SETON                     LR
+     C                     RETRN
+     CSR         $S300E    ENDSR
+      *----------------------------------------------------*
+      *   照会データ検索                                 *
+      *----------------------------------------------------*
+     CSR         $SB400    BEGSR
+     C           KEYB81    READEAB#PL181                 81
+     C                     SETOF                     67
+     C                     MOVE '0'       GETFLG  1
+     C           *IN81     IFEQ '0'
+      *
+     C                     MOVE '1'       GETFLG
+     C           @TOKU     IFNE 0
+     C                     MOVE '0'       GETFLG
+     C           BATOKU    IFEQ @TOKU
+     C                     MOVE '1'       GETFLG
+     C                     END
+     C                     END
+      *
+     C           GETFLG    IFEQ '1'
+     C           @NONY     IFNE 0
+     C                     MOVE '0'       GETFLG
+     C           BANONY    IFEQ @NONY
+     C                     MOVE '1'       GETFLG
+     C                     END
+     C                     END
+     C                     END
+      *
+     C           GETFLG    IFEQ '1'
+     C           @NKOJ     IFNE *BLANK
+     C                     MOVE '0'       GETFLG
+     C           @NKOJ     IFEQ BANKOJ
+     C                     MOVE '1'       GETFLG
+     C                     END
+     C                     END
+     C                     END
+      *
+     C           GETFLG    IFEQ '1'
+     C           @NUKE     IFNE *BLANK
+     C                     MOVE '0'       GETFLG
+     C           @NUKE     IFEQ BANUKE
+     C                     MOVE '1'       GETFLG
+     C                     END
+     C                     END
+     C                     END
+      *
+     C           GETFLG    IFEQ '1'
+      *
+     C           @HYM1     IFEQ 0
+     C           @HYM2     ANDEQ0
+     C                     ELSE
+     C                     MOVE '0'       GETFLG
+     C           BANOH8    IFGE @HYM1
+     C           BANOH8    ANDLE@HYM2
+     C                     MOVE '1'       GETFLG
+     C                     END
+     C                     END
+      *
+     C                     END
+      *
+     C           GETFLG    IFEQ '1'
+     C                     EXSR $SB499
+     C                     ADD  1         RRN
+     C                     ADD  1         @RRN
+     C                     ADD  1         CTRX
+     C                     WRITESFL
+      *
+     C           CTRX      IFEQ 1
+     C                     END
+     C                     END
+      *
+     C                     END
+     C           CTRX      IFEQ 6
+      *                         L表示行数
+     C                     SETON                       66
+     C                     END
+      *
+     CSR         $S400E    ENDSR
+      *----------------------------------------------------*
+      *   検索ファイル逆読み                             *
+      *----------------------------------------------------*
+     CSR         $SB401    BEGSR
+     C                     SETOF                       27
+     C                     DO   *HIVAL
+     C           KEYB81    REDPEAB#PL181                 81
+     C                     MOVE '0'       GETFLG
+     C                     SETOF                     67
+     C           *IN81     IFEQ '0'
+      *
+     C                     MOVE '1'       GETFLG
+     C           @TOKU     IFNE 0
+     C                     MOVE '0'       GETFLG
+     C           BATOKU    IFEQ @TOKU
+     C                     MOVE '1'       GETFLG
+     C                     END
+     C                     END
+      *
+     C           GETFLG    IFEQ '1'
+     C           @NONY     IFNE 0
+     C                     MOVE '0'       GETFLG
+     C           BANONY    IFEQ @NONY
+     C                     MOVE '1'       GETFLG
+     C                     END
+     C                     END
+     C                     END
+      *
+     C           GETFLG    IFEQ '1'
+     C           @NKOJ     IFNE *BLANK
+     C                     MOVE '0'       GETFLG
+     C           @NKOJ     IFEQ BANKOJ
+     C                     MOVE '1'       GETFLG
+     C                     END
+     C                     END
+     C                     END
+      *
+     C           GETFLG    IFEQ '1'
+     C           @NUKE     IFNE *BLANK
+     C                     MOVE '0'       GETFLG
+     C           @NUKE     IFEQ BANUKE
+     C                     MOVE '1'       GETFLG
+     C                     END
+     C                     END
+     C                     END
+      *
+     C           GETFLG    IFEQ '1'
+      *
+     C           @HYM1     IFEQ 0
+     C           @HYM2     ANDEQ0
+     C                     ELSE
+     C                     MOVE '0'       GETFLG
+     C           BANOH8    IFGE @HYM1
+     C           BANOH8    ANDLE@HYM2
+     C                     MOVE '1'       GETFLG
+     C                     END
+     C                     END
+      *
+     C                     END
+      *
+     C           GETFLG    IFEQ '1'
+     C                     SUB  1         CTRX           27
+     C                     END
+      *
+     C                     END
+      *
+     C  N27N81             ENDDO
+     CSR         $S401E    ENDSR
+      *----------------------------------------------------*
+      *   表示項目＆サブファイルクリアー                 *
+      *----------------------------------------------------*
+     CSR         $SB410    BEGSR
+      *
+     C                     SETON                     71
+     C                     WRITESFLCTL
+     C                     SETOF                     7166
+     C                     Z-ADD0         RRN     30
+     C                     Z-ADD0         @RRN    60
+     C                     Z-ADD0         CTRX    40
+     C                     Z-ADD1         @SFRC1
+      *
+     CSR         $S410E    ENDSR
+      *----------------------------------------------------*
+      *   編集処理                                       *
+      *----------------------------------------------------*
+     CSR         $SB499    BEGSR
+      *
+     C                     MOVE *BLANK    @KUBN
+     C                     Z-ADDBATOKU    @8TOKU
+     C                     Z-ADDBANONY    @8NONY
+     C                     MOVE BANKOJ    @8NKOJ
+     C                     MOVE BANUKE    @8NUKE
+     C                     MOVE '-'       WKM1
+     C                     MOVE '-'       WKM2
+     C                     MOVE '-'       WKM3
+     C                     Z-ADDBANOH8    @8MEHZ
+     C                     Z-ADDBANOH8    @8MEH8
+     C                     Z-ADDBASRYO    @8SRYO
+     C                     MOVELBAODRN    @8ODRN
+     C                     MOVE *BLANK    @TORI
+     C           BASKJY    IFEQ 'D'
+     C                     MOVE 'n'       @TORI
+     C                     ELSE
+      *
+     C                     MOVE '0'       @@FLG   1
+     C***                  EXSR $SB801
+      *
+     C           @@FLG     IFEQ '1'
+     C                     MOVE 'm'       @TORI
+     C                     END
+      *
+     C                     END
+     C*                    MOVELBAINVN    @8NBAN
+     C*                    MOVELBAODRN    @8KANR
+      *
+     CSR         $S499E    ENDSR
+      *----------------------------------------------------*
+      *    細目マスター検索                              *
+      *----------------------------------------------------*
+     CSR         $SB800    BEGSR
+     C                     SETOF                       21
+     C           #CODE     CHAINFGBPL011             21
+     C           *IN21     IFEQ '1'
+     C           B2SKJY    ANDEQ'D'
+     C           B2SKHZ    ANDLE*DATE
+     C                     SETON                     21
+     C                     END
+      *
+     C   21                SETON                       99
+     CSR         $S800E    ENDSR
+      *----------------------------------------------------*
+      *    次レコードポインターセット                    *
+      *----------------------------------------------------*
+     CSR         $SB900    BEGSR
+      *
+     C                     SETOF                       6864
+     C                     SETOF                       2526
+     C                     DO   *HIVAL
+     C           KEYB81    READEAB#PL181                 81
+     C                     MOVE '0'       GETFLG
+      *
+     C           *IN81     IFEQ '0'
+      *
+     C                     MOVE '1'       GETFLG
+     C           @TOKU     IFNE 0
+     C                     MOVE '0'       GETFLG
+     C           BATOKU    IFEQ @TOKU
+     C                     MOVE '1'       GETFLG
+     C                     END
+     C                     END
+      *
+     C           GETFLG    IFEQ '1'
+     C           @NONY     IFNE 0
+     C                     MOVE '0'       GETFLG
+     C           BANONY    IFEQ @NONY
+     C                     MOVE '1'       GETFLG
+     C                     END
+     C                     END
+     C                     END
+      *
+     C           GETFLG    IFEQ '1'
+     C           @NKOJ     IFNE *BLANK
+     C                     MOVE '0'       GETFLG
+     C           @NKOJ     IFEQ BANKOJ
+     C                     MOVE '1'       GETFLG
+     C                     END
+     C                     END
+     C                     END
+      *
+     C           GETFLG    IFEQ '1'
+     C           @NUKE     IFNE *BLANK
+     C                     MOVE '0'       GETFLG
+     C           @NUKE     IFEQ BANUKE
+     C                     MOVE '1'       GETFLG
+     C                     END
+     C                     END
+     C                     END
+      *
+     C           GETFLG    IFEQ '1'
+      *
+     C           @HYM1     IFEQ 0
+     C           @HYM2     ANDEQ0
+     C                     ELSE
+     C                     MOVE '0'       GETFLG
+     C           BANOH8    IFGE @HYM1
+     C           BANOH8    ANDLE@HYM2
+     C                     MOVE '1'       GETFLG
+     C                     END
+     C                     END
+      *
+     C                     END
+      *
+     C           GETFLG    IFEQ '1'
+     C                     MOVE BASHN1    #SHIN1  5
+     C                     MOVE BASHN2    #SHIN2  5
+     C                     MOVE BASHN3    #SHIN3  2
+     C                     Z-ADDBANOYY    #SNOYY
+     C                     Z-ADDBANOMM    #SNOMM
+     C                     Z-ADDBANODD    #SNODD
+     C                     MOVELBAODRN    #SODRN
+     C                     SETON                       68
+     C                     END
+      *
+     C                     END
+     C  N81N68             ENDDO
+      *
+      *ＮＥＸＴレコードポインターセット
+      *
+     C           *IN68     IFEQ '1'
+     C           KEYSV1    SETLLAB#PL181
+     C                     END
+      *
+     CSR         $S900E    ENDSR
+**
+ER-1社内品番を入力して下さい。
+ER-2社内品番が正しくありません。
+ER-3得意先コードが正しくありません。
+ER-4納入先が正しくありません。
+ER-5納期指定が正しくありません。
+ER-6対象データ無し
+ER-7明細の照会はＭを入力してください。
+ER-8既に取り消されています。
+ER-9売上計上済の為取消出来ません。
+ER-10エフ取消依頼票を発行しますか？CMD-9発行CMD-12未発行
+ER-11リスト対象データ無し
+ER-12日付が正しくありません。

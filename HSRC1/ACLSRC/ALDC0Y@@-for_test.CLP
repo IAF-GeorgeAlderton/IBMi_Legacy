@@ -1,0 +1,29 @@
+             PGM
+             /** ALDC0Y **********************************/
+
+             ADDLIBLE   LIB(HWFILE1)
+             MONMSG     MSGID(CPF0000)
+             ADDLIBLE   LIB(HFILE1)
+             MONMSG     MSGID(CPF0000)
+             ADDLIBLE   LIB(HOBJ1)
+             MONMSG     MSGID(CPF0000)
+
+             OVRDBF     FILE(ALDPW2Y) TOFILE(TOBJ1/ALDPW2Y)
+             OVRDBF     FILE(ALDPP20) TOFILE(TFILE1/ALDPP20)
+             OVRDBF     FILE(ALDPL20) TOFILE(TFILE1/ALDPL20)
+             OVRDBF     FILE(ALDPP30) TOFILE(TFILE1/ALDPP30)
+             OVRDBF     FILE(ALDPL36) TOFILE(TFILE1/ALDPL36)
+             OVRDBF     FILE(ALDPP50) TOFILE(TFILE1/ALDPP50)
+             OVRDBF     FILE(GDGPP05) TOFILE(TFILE1/GDGPP05)
+             OVRDBF     FILE(AB#PL71) TOFILE(HFILE1/AB#PL71)
+             OVRDBF     FILE(AB#PL70) TOFILE(HFILE1/AB#PL70)
+             OVRDBF     FILE(AB#PP65) TOFILE(TFILE1/AB#PP65)
+             OVRDBF     FILE(AB#NP30) TOFILE(TFILE1/AB#NP30)
+             OVRDBF     FILE(AU#NP11) TOFILE(TWFILE1/AU#NP11)
+             OVRDBF     FILE(AU#PP11) TOFILE(TFILE1/AU#PP11)
+
+             CALL       PGM(TOBJ1/ALDR2Y) PARM('999999' 'TEST')
+
+          /* SIGNOFF */
+
+             ENDPGM

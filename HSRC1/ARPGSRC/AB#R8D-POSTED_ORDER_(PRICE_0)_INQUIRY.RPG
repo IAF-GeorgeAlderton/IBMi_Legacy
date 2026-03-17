@@ -1,0 +1,235 @@
+     H            Y.
+      ** AB#R8D **********************************************
+      *  POSTED ORDER (PRICE=0) INQUIRY                      *
+      *  J.WATANABE 2022.02.28                               *
+      ********************************************************
+     FAB#PW8D CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     FAB#PL0M IF  E           K        DISK
+      ********************************************************
+     E                    MSG     1   8 60
+      *
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I                                        7  100SYEAR
+     I                                       11  120SMONTH
+      *-----------------------------------------------------------*
+      *     M  A  I  N  L  I  N  E                                *
+      *-----------------------------------------------------------*
+      *
+     C                     EXSR #INIT
+      *
+     C           W@ID      DOWNE'99'
+     C           W@ID      CASEQ'01'      #DSP1
+     C           W@ID      CASEQ'02'      #DSP2
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *************************************************************
+      * DISPLAY 1ST SCREEN
+      *************************************************************
+     C           #DSP1     BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVE *OFF      *IN85
+     C                     MOVE *OFF      *IN41
+     C                     MOVE *OFF      *IN42
+     C                     MOVE *OFF      *IN43
+     C                     MOVE *OFF      *IN44
+      * F1/F3: EXIT
+     C           *INKA     IFEQ *ON
+     C           *INKC     OREQ *ON
+     C                     MOVEL'99'      W@ID
+     C                     GOTO XDSP1
+     C                     ENDIF
+      *
+     C                     EXSR #CHK1
+      *
+     C           *IN85     IFEQ *OFF
+     C                     MOVEL'02'      W@ID
+     C                     ENDIF
+      *
+     C           XDSP1     ENDSR
+      *************************************************************
+      *  CHECK ENTRY DATA
+      *************************************************************
+     C           #CHK1     BEGSR
+      * CHECK YEAR
+     C           XYEAR     IFEQ 0
+     C                     MOVELMSG,1     XMSG
+     C                     SETON                     4185
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * CHECK MONTH
+     C           XMONTH    IFEQ 0
+     C                     MOVELMSG,2     XMSG
+     C                     SETON                     4285
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVELXYEAR     LTR6    6
+     C                     MOVE XMONTH    LTR6
+     C                     MOVELLTR6      LTR8    8
+     C                     MOVE '01'      LTR8
+     C                     MOVELLTR8      $SRC      P
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN1   1
+     C           $RTN1     IFNE *BLANK
+     C                     MOVELMSG,5     XMSG
+     C                     SETON                     414285
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * CHECK CUSTOMER
+     C           XTOKU     IFEQ 0
+     C                     MOVELMSG,3     XMSG
+     C                     SETON                     4385
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * CHECK DELIVERY
+     C           XNONY     IFEQ 0
+     C                     MOVELMSG,4     XMSG
+     C                     SETON                     4485
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * IF NO ERROR
+     C           *IN85     IFEQ *OFF
+     C                     EXSR #SETD
+     C                     ENDIF
+      *
+     C           XCHK1     ENDSR
+      *************************************************************
+      *  SET DATA IN SFL01
+      *************************************************************
+     C           #SETD     BEGSR
+      *
+     C                     EXSR #CLRSF
+      *
+     C                     Z-ADDXYEAR     K#YY
+     C                     Z-ADDXMONTH    K#MM
+     C           K#PL0M    SETLLAB#PL0M
+      *
+     C                     DO   *HIVAL
+     C           K#PL0M    READEAB#PL0M                  98
+     C   98                LEAVE
+      *
+     C           B1SKJY    IFEQ 'D'
+     C           B1TANK    ORNE 0
+     C           B1TKBN    OREQ 'Z'                        ZERO PRICE ORDER
+     C                     ITER
+     C                     ENDIF
+      * YEAR
+     C           XYEAR     IFNE B1NOYY
+     C                     ITER
+     C                     ENDIF
+      * MONTH
+     C           XMONTH    IFNE B1NOMM
+     C                     ITER
+     C                     ENDIF
+      * CUSTOMER
+     C           XTOKU     IFNE 9999
+     C           XTOKU     ANDNEB1TOKU
+     C                     ITER
+     C                     ENDIF
+      * DELIVERY
+     C           XNONY     IFNE 9999
+     C           XNONY     ANDNEB1NONY
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     CLEARSFL01
+     C                     Z-ADDB1TOKU    S1TOKU
+     C                     Z-ADDB1NONY    S1NONY
+     C                     MOVELB1NKOJ    S1NKOJ
+     C                     MOVELB1NUKE    S1NUKE
+     C                     Z-ADDB1NOHZ    S1SHDT
+     C                     Z-ADDB1NOBI    S1NOBN
+     C                     MOVELB1MHIN    S1MHIN
+     C                     MOVELB1ODR1    S1ODRN
+     C                     Z-ADDB1SRYO    S1SRYO
+     C                     Z-ADDB1URHZ    S1URHZ
+     C                     Z-ADD0         S1TANK
+      *
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+      *
+     C                     ENDDO
+      *
+     C                     Z-ADDRRN1      COUNT   60
+      * 0 RECORD
+     C           RRN1      IFEQ 0
+     C                     CLEARSFL01
+     C                     MOVELMSG,7     S1MHIN
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+     C                     ENDIF
+      *
+     C                     ENDSR
+      ************************************************************
+      *  DSPLAY 2ND SCREEN
+      ************************************************************
+     C           #DSP2     BEGSR
+      *
+     C                     WRITEDSP99
+     C                     MOVEL'1'       *IN70
+     C                     EXFMTCTL01
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVEL'0'       *IN85
+     C                     MOVEL'0'       *IN70
+      *
+     C                     SELEC
+      * F3: EXIT
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+      * F12: BACK
+     C           *INKL     WHEQ *ON
+     C                     MOVEL'01'      W@ID
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *************************************************************
+      * CLEAR SUB FILE
+      *************************************************************
+     C           #CLRSF    BEGSR
+      *
+     C                     SETON                     71
+     C                     WRITECTL01
+     C                     SETOF                     71
+     C                     Z-ADD0         RRN1
+      *
+     C                     ENDSR
+      *************************************************************
+      * INITIAL SETTING
+      *************************************************************
+     C           #INIT     BEGSR
+      *
+     C           K#PL0M    KLIST
+     C                     KFLD           K#YY    40
+     C                     KFLD           K#MM    20
+      *
+     C                     TIME           SDATE
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVEL'01'      W@ID    2
+     C                     Z-ADDSYEAR     XYEAR
+     C                     Z-ADDSMONTH    XMONTH
+     C                     Z-ADD9999      XTOKU
+     C                     Z-ADD9999      XNONY
+     C                     Z-ADD0         RRN1    40
+      *
+     C                     ENDSR
+      *************************************************************
+** (ERR) (60A).....2.........3.........4.........5.........6
+ENTER YEAR !                                                  1
+ENTER MONTH !                                                 2
+ENTER CUSTOTMER CODE !                                        3
+ENTER DELEIVERY CODE !                                        4
+YEAR/MONTH DOES NOT EXIST IN CALENDAR MASTER !                5
+                                                              6
+ ** NO DATA **                                                7
+                                                              8

@@ -1,0 +1,267 @@
+     H            Y.
+     F** AM#R80  *******************************************
+     F* PLAN START END                                     *
+     F*      ITS.        2015.06.24                        *
+     F******************************************************
+     FAM#PP71 IF  E           K        DISK
+     FAM#PP72 IF  E                    DISK
+     FAGDPL12 IF  E           K        DISK
+     FAM#PP00 IF  E           K        DISK
+     FAM#WP80 O   E                    DISK                      A
+      *
+     E                    YB      1   7  3
+     E                    ST          5  4 0
+     E                    EN          5  4 0
+     E                    SUN         5  1
+     E                    MON         5  1
+     E                    TUE         5  1
+     E                    WED         5  1
+     E                    THU         5  1
+     E                    FRI         5  1
+     E                    SAT         5  1
+     E                    BST        12  4 0             BREAK TIME START
+     E                    BEN        12  4 0             BREAK TIME END
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60STIME
+     I                                        7  140SDATE
+      *
+     I            DS
+     I                                        1   80WKDATE
+     I                                        1   40WKDAYY
+     I                                        5   60WKDAMM
+     I                                        7   80WKDADD
+      *
+     I            DS
+     I                                        1   40WWST
+     I                                        1   20WWSTTH
+     I                                        3   40WWSTTM
+      *
+     I            DS
+     I                                        1   80F8KA
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           P1FIXD  80
+     C                     PARM           P1FIXT  60
+     C                     PARM           P1DATE  8
+      *-----------------------------------------------------
+      *  MAIN ROUTINE
+      *-----------------------------------------------------
+     C                     TIME           WTIME
+      *
+      * WORKING SHIFT
+     C                     CLEARST
+     C                     CLEAREN
+     C                     CLEARSUN
+     C                     CLEARMON
+     C                     CLEARTUE
+     C                     CLEARWED
+     C                     CLEARTHU
+     C                     CLEARFRI
+     C                     CLEARSAT
+     C                     Z-ADD1         X       50
+     C           X         DOWLE5
+     C                     MOVE X         SFT     1
+     C           SFT       CHAINAM#PP711             25
+     C           *IN25     IFEQ '0'
+     C                     MOVELR7STRT    ST,X
+     C                     MOVELR7END     EN,X
+     C                     MOVELR7SUN     SUN,X
+     C                     MOVELR7MON     MON,X
+     C                     MOVELR7TUE     TUE,X
+     C                     MOVELR7WED     WED,X
+     C                     MOVELR7THU     THU,X
+     C                     MOVELR7FRI     FRI,X
+     C                     MOVELR7SAT     SAT,X
+     C                     ENDIF
+     C                     ADD  1         X
+     C                     ENDDO
+      * BREAK TIME
+     C                     CLEARBST
+     C                     CLEARBEN
+     C                     Z-ADD0         X
+     C           1         SETLLAM#PP721
+     C                     READ AM#PP721                 25
+     C           *IN25     DOWEQ'0'
+     C           T7SKJY    IFEQ 'D'
+     C           T7SKHZ    ANDLE*DATE
+     C                     ELSE
+     C                     ADD  1         X
+     C                     MOVELT7STRT    BST,X
+     C                     MOVELT7END     BEN,X
+     C                     ENDIF
+     C                     READ AM#PP721                 25
+     C                     ENDDO
+      * START TIME OF 1ST BIN
+     C                     Z-ADD0         D11BIN  40
+     C                     MOVEL'1BINST'  KEY    10
+     C           KEY       CHAINAM#PP001             20
+     C           *IN20     IFEQ '0'
+     C                     Z-ADDD0VALU    D11BIN
+     C                     ENDIF
+      * START SHIFT
+     C                     Z-ADD0         D1STSF  50
+     C                     MOVEL'STRSFT'  KEY    10
+     C           KEY       CHAINAM#PP001             20
+     C           *IN20     IFEQ '0'
+     C                     Z-ADDD0VALU    D1STSF
+     C                     ENDIF
+      *ＳＨＩＰＤＡＴＥ
+     C           KEYAGD    KLIST
+     C                     KFLD           WKDAYY
+     C                     KFLD           WKDAMM
+     C                     KFLD           WKDADD
+     C                     MOVE P1DATE    WKDATE
+     C                     MOVEL*BLANK    WKYOBT  3
+     C           KEYAGD    CHAINAGDPL121             80
+     C           *IN80     IFEQ '0'
+     C                     MOVELYB,F8YOBI WKYOBT  3
+     C                     ENDIF
+      *集荷開始日＝前稼働日
+     C                     Z-ADD0         WKDAY   30
+     C                     EXSR #SB100
+      *
+     C                     Z-ADDST,1      XXST    40
+     C                     Z-ADDEN,1      XXEN    40
+      *
+     C                     Z-ADDWKSTDT    WWSTDT  80
+     C                     Z-ADDD11BIN    WWST    40
+     C                     MOVELWKYOBI    WWYOBI  3
+     C                     Z-ADD1         X
+     C           WKDAY     MULT 1440      KAI     50
+     C           X         DOWLEKAI
+     C                     EXSR #SB500
+     C                     ADD  1         X
+     C                     ADD  1         WWSTTM
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *-----------------------------------------------------
+      *前日
+      *-----------------------------------------------------
+     CSR         #SB100    BEGSR
+      *
+     C                     Z-ADD0         WKSTDT  80
+     C                     Z-ADD0         WKST    40
+     C                     MOVEL*BLANK    WKYOBI  3
+     C                     Z-ADD0         W8YOBI  10
+     C                     MOVEL'0'       GET     1
+     C           KEYAGD    SETLLAGDPL121
+     C                     READPAGDPL121                 80
+     C           *IN80     DOWEQ'0'
+     C           GET       ANDEQ'0'
+     C                     ADD  1         WKDAY
+     C                     EXSR #SB101
+     C                     READPAGDPL121                 80
+     C                     ENDDO
+      *
+     CSR         ESB100    ENDSR
+      *-----------------------------------------------------
+      *その曜日に稼動するシフトがあるか
+      *-----------------------------------------------------
+     CSR         #SB101    BEGSR
+      *
+     C                     SETOF                     29
+     C                     Z-ADD1         X
+     C                     SELEC
+     C           F8YOBI    WHEQ 7                          SUN
+     C           '*'       LOKUPSUN,X                    29
+     C           F8YOBI    WHEQ 1                          MON
+     C           '*'       LOKUPMON,X                    29
+     C           F8YOBI    WHEQ 2                          TUE
+     C           '*'       LOKUPTUE,X                    29
+     C           F8YOBI    WHEQ 3                          WED
+     C           '*'       LOKUPWED,X                    29
+     C           F8YOBI    WHEQ 4                          THU
+     C           '*'       LOKUPTHU,X                    29
+     C           F8YOBI    WHEQ 5                          FRI
+     C           '*'       LOKUPFRI,X                    29
+     C           F8YOBI    WHEQ 6                          SAT
+     C           '*'       LOKUPSAT,X                    29
+     C                     ENDSL
+      *
+     C****       F8HIRU    IFEQ ' '
+     C****       F8YORU    OREQ ' '
+     C****                 Z-ADDF8KA      WKSTDT
+     C****                 Z-ADDST,X      WKST
+     C****                 MOVELYB,F8YOBI WKYOBI
+     C****                 Z-ADDF8YOBI    W8YOBI
+     C****                 MOVEL'1'       GET
+     C****                 ENDIF
+      *
+     C           *IN29     IFEQ '1'
+     C                     Z-ADDF8KA      WKSTDT
+     C                     Z-ADDST,X      WKST
+     C                     MOVELYB,F8YOBI WKYOBI
+     C                     Z-ADDF8YOBI    W8YOBI
+     C                     MOVEL'1'       GET
+     C                     ENDIF
+      *
+     CSR         ESB101    ENDSR
+      *-----------------------------------------------------
+      *  AM#WP80
+      *-----------------------------------------------------
+     CSR         #SB500    BEGSR
+      *
+     C           WWSTTM    IFEQ 60
+     C                     Z-ADD0         WWSTTM
+     C                     ADD  1         WWSTTH
+     C                     ENDIF
+     C           WWST      IFEQ 2400
+     C                     Z-ADD0         WWST
+     C                     EXSR #SB501
+     C*****                MOVE P1DATE    WWSTDT
+     C                     ENDIF
+      *
+     C           WWST      IFEQ XXST
+     C                     ADD  1         W8YOBI
+     C           W8YOBI    IFEQ 8
+     C                     Z-ADD1         W8YOBI
+     C                     ENDIF
+     C                     MOVELYB,W8YOBI WWYOBI
+     C                     ENDIF
+      *
+     C                     CLEARAM#WP801
+     C                     Z-ADDP1FIXD    W0FIXD
+     C                     Z-ADDP1FIXT    W0FIXT
+     C                     MOVE P1DATE    W0SHID
+     C                     Z-ADDWWSTDT    W0DATE
+     C                     Z-ADDWWST      W0TIME
+     C                     MOVEL'XX'      W0USE
+     C                     MOVELWWYOBI    W0YOBI
+     C                     WRITEAM#WP801
+      *
+     CSR         ESB500    ENDSR
+      *-----------------------------------------------------
+      *
+      *-----------------------------------------------------
+     CSR         #SB501    BEGSR
+      *
+     C                     MOVE WWSTDT    WKDATE
+     C                     MOVEL*BLANK    WKYOBT  3
+     C           KEYAGD    SETGTAGDPL121
+     C                     READ AGDPL121                 80
+     C           *IN80     IFEQ '0'
+     C                     Z-ADDF8KA      WWSTDT
+     C                     ENDIF
+      *
+     CSR         ESB501    ENDSR
+**
+MON
+TUE
+WED
+THU
+FRI
+SAT
+SUN

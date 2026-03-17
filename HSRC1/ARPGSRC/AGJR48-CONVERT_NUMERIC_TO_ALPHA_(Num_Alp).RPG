@@ -1,0 +1,277 @@
+     H            Y.
+     F** AS800R **************************************
+     F* 数字を英数字に変換 ( N --> A )             *
+     F* テスト中
+     F*  MSK ...                   2008.03.05        *
+     F************************************************
+      *
+     E                    MRI        15  1
+     E                    ARI        30  1
+     E                    BRI        30  1
+      *
+      *----------------------------------------------------------------
+      * P1MOJI :数字
+      * P1KETA :桁数
+      * P1PONT :少数位置
+      * P1ZERO : Y ->先行ゼロ消去 N ->先行ゼロ消去しない
+      *        : Z ->少数点の前にゼロをセット( 0.999)
+      * P1SPCS : Y -> ,変数する   N -> ,編集しない
+      * P9STS  : 9変換出来ない    0 変換ＯＫ
+      * << P9MOJI :編集結果を右詰で返します>>
+      *----------------------------------------------------------------
+     C           *ENTRY    PLIST
+     C                     PARM           P1MOJI 15
+     C                     PARM           P1KETA  20
+     C                     PARM           P1PONT  20
+     C                     PARM           P1ZERO  1
+     C                     PARM           P1SPCS  1
+     C                     PARM           P9MOJI 30
+     C                     PARM           P9STS   1
+      *----------------------------------------------------------------
+      *  パラメータチェック
+      *----------------------------------------------------------------
+     C                     MOVE '0'       P9STS
+     C           P1ZERO    IFNE 'Y'
+     C           P1ZERO    ANDNE'N'
+     C           P1ZERO    ANDNE'Z'
+     C                     MOVE '9'       P9STS
+     C                     END
+      *
+     C           P1KETA    IFEQ 0
+     C                     MOVE '9'       P9STS
+     C                     END
+      *強制終了
+     C           P9STS     IFEQ '9'
+     C                     SETON                     LR
+     C                     RETRN
+     C                     END
+      *----------------------------------------------------------------
+     C           P1SPCS    IFNE 'Y'
+     C           P1SPCS    ANDNE'N'
+     C                     MOVE 'N'       P1SPCS
+     C                     END
+      *
+     C                     MOVE *ALL' '   MRI
+     C                     MOVE *ALL' '   ARI
+     C                     MOVE *ALL' '   BRI
+     C                     MOVEAP1MOJI    MRI
+     C                     Z-ADD0         @@STOP  20
+      *-----------------------*
+      *変換値ＡＬＬ'0'対応*
+      *-----------------------*
+     C                     Z-ADD15        @Z      20
+     C                     Z-ADD1         @X      20
+     C                     DO   15
+     C           @X        IFGT P1KETA
+     C                     MOVE ' '       MRI,@Z
+     C                     END
+     C                     SUB  1         @Z
+     C                     ADD  1         @X
+     C                     ENDDO
+      *
+     C                     MOVE P1MOJI    WKMOJI 150
+     C                     ADD  0         WKMOJI         19
+     C           *IN19     IFEQ '1'
+     C                     EXSR $SB499
+     C                     GOTO LAST
+     C                     END
+      *-------------------*
+      *先行ゼロ消去     *
+      *-------------------*
+     C                     Z-ADD1         @Z      20
+     C           15        SUB  P1PONT    @@PONT  20
+     C                     ADD  1         @@PONT
+     C           P1ZERO    IFEQ 'Y'
+     C           P1ZERO    OREQ 'Z'
+      *
+     C           1         DO   15        @Z
+     C           MRI,@Z    IFGE '1'
+     C           MRI,@Z    ANDLE'9'
+     C                     Z-ADD@Z        @@STOP
+     C                     LEAVE
+     C                     END
+     C           @Z        IFEQ @@PONT
+     C                     Z-ADD@Z        @@STOP
+     C                     LEAVE
+     C                     END
+     C                     MOVE ' '       MRI,@Z
+     C                     ENDDO
+      *
+     C                     END
+      *-------------------*
+      *ゼロ消去しない   *
+      *-------------------*
+     C                     Z-ADD1         @Z      20
+     C           P1ZERO    IFEQ 'N'
+     C           1         DO   15        @Z
+     C           MRI,@Z    IFGE '1'
+     C           MRI,@Z    ANDLE'9'
+     C                     Z-ADD@Z        @@STOP
+     C                     LEAVE
+     C                     END
+     C                     MOVE '0'       MRI,@Z
+     C                     ENDDO
+     C                     END
+      *
+     C           15        SUB  @@STOP    @@KETA  20
+     C                     ADD  1         @@KETA
+      *-------------------*
+      *少数以下の設定   *
+      *-------------------*
+      *
+     C                     Z-ADDP1PONT    @I      20
+     C                     Z-ADD15        @Z      20
+     C                     Z-ADD30        @X      20
+     C                     Z-ADD0         @Y      20
+     C                     DO   15
+     C                     MOVE MRI,@Z    ARI,@X
+     C                     SUB  1         @Z
+     C                     SUB  1         @X
+     C                     ADD  1         @Y
+      *
+     C           @Y        IFEQ @I
+     C           P1PONT    ANDNE0
+     C                     MOVE '.'       ARI,@X
+     C                     SUB  1         @X
+     C                     ADD  1         @@KETA
+     C                     END
+      *
+     C                     ENDDO
+      *
+      *-------------------*
+      *カンマ編集設定   *
+      *-------------------*
+     C           P1SPCS    IFEQ 'Y'
+     C                     Z-ADD30        @Z
+     C                     Z-ADD30        @X
+     C                     Z-ADD0         @Y
+     C                     Z-ADD0         @B      20
+      *整数のみ
+     C           P1PONT    IFEQ 0
+     C                     DO   30
+     C           @@KETA    IFEQ @B
+     C                     LEAVE
+     C                     END
+     C           @Y        IFEQ 3
+     C                     MOVE ','       BRI,@X
+     C                     SUB  1         @X
+     C                     Z-ADD0         @Y
+     C                     ADD  1         @@KETA
+     C                     END
+      *
+     C                     MOVE ARI,@Z    BRI,@X
+     C                     SUB  1         @Z
+     C                     SUB  1         @X
+     C                     ADD  1         @Y
+     C                     ADD  1         @B
+     C                     ENDDO
+     C                     ELSE
+      *少数を加味
+      *
+     C                     DO   30
+     C           @@KETA    IFEQ @B
+     C                     LEAVE
+     C                     END
+      *カンマの位置
+     C           @Y        IFEQ 3
+     C                     MOVE ','       BRI,@X
+     C                     SUB  1         @X
+     C                     Z-ADD0         @Y
+     C                     ADD  1         @@KETA
+     C                     END
+      *
+     C                     MOVE ARI,@Z    BRI,@X
+      *
+     C   90                ADD  1         @Y
+      *少数点の位置
+     C           ARI,@Z    IFEQ '.'
+     C                     SETON                     90
+     C                     END
+     C                     ADD  1         @B
+      *
+     C                     SUB  1         @Z
+     C                     SUB  1         @X
+      *
+     C                     ENDDO
+     C                     END
+     C                     ELSE
+      *無編集
+     C                     MOVE ARI       BRI
+     C                     END
+      *----------------------------------------------------------------
+      * 桁調整
+      *----------------------------------------------------------------
+     C           30        SUB  P1KETA    @Z
+     C           30        SUB  @@KETA    @X
+     C                     DO   30
+      *
+     C           BRI,@Z    IFEQ *BLANK
+     C                     MOVE '0'       BRI,@Z
+     C                     END
+      *
+     C           @Z        IFEQ @X
+     C                     LEAVE
+     C                     END
+      *
+     C                     ADD  1         @Z
+     C           @Z        IFGT 30
+     C                     LEAVE
+     C                     END
+     C                     ENDDO
+      *-------------------*
+      *先行ゼロ消去     *
+      *-------------------*
+     C           P1ZERO    IFEQ 'Y'
+     C           P1ZERO    OREQ 'Z'
+     C                     Z-ADD1         @Z
+     C           1         DO   30        @Z
+      *
+     C           BRI,@Z    IFGE '1'
+     C           BRI,@Z    ANDLE'9'
+     C                     LEAVE
+     C                     END
+     C           BRI,@Z    IFEQ '.'
+     C                     LEAVE
+     C                     END
+      *
+     C                     MOVE ' '       BRI,@Z
+     C                     ENDDO
+     C                     END
+      *----------------------------------------------------------------
+      * 少数点の前に０をつける
+      *----------------------------------------------------------------
+     C           P1ZERO    IFEQ 'Z'
+      *
+     C                     Z-ADD30        @X
+     C                     Z-ADD0         @Y
+     C                     DO   30
+     C           BRI,@X    IFEQ '.'
+     C           @X        SUB  1         @Y
+     C           BRI,@Y    IFEQ *BLANK
+     C                     MOVE '0'       BRI,@Y
+     C                     END
+     C                     LEAVE
+     C                     END
+     C                     SUB  1         @X
+     C                     ENDDO
+      *
+     C                     END
+      *----------------------------------------------------------------
+      *戻り値セット
+      *----------------------------------------------------------------
+     C           LAST      TAG
+     C                     MOVEABRI       P9MOJI
+     C                     MOVE '0'       P9STS
+      *
+     C                     SETON                       LR
+     C                     RETRN
+      *----------------------------------------------------------------
+      *入力値ＡＬＬ０の対応
+      *----------------------------------------------------------------
+     CSR         $SB499    BEGSR
+     C                     MOVE *ALL'0'   BRI
+     C           P1ZERO    IFEQ 'Z'
+     C           P1ZERO    OREQ 'Y'
+     C                     MOVE *ALL' '   BRI
+     C                     END
+     CSR         $S499E    ENDSR

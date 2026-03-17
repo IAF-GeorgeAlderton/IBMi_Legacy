@@ -1,0 +1,616 @@
+     H            Y.                                    1
+     H***INVR10*****************************************************************
+     H* INVENTORY ENTRY                                                        *
+     H*        09/30/03
+TCH72H* TCH 04/18/05
+TCH72H*   1. OK SCREEN
+TCH72H*   2. TAKE OUT DUP. ERROR  (ALREADY SCANNED)
+TCH72H*   3. TAKE OUT SWITCH
+TCH72H*   4. REMOVE CANCEL
+TCH72H*   5  ADDED LOCK FILE                                                   *
+TCH78H*   FIX ASJ ENTRY                                                        *
+TCH79H*   BY LOCATION WRITE                                                    *
+TCH80H*   ADDED LOCATION                                                       *
+TCH83H*   COMBINED LOCATION/KANBAN                                             *
+TCHK H* TCHK
+TCHK H* TCHK2 06/30/06 CHG SET ADDRESS
+TCHK H* TCHK3 09/19/06 RMV INVPP10 READ-LOCK
+TCHK H* TCHK4 09/29/06 RMV LOCK-FILE
+TCHK H* TCHK5 11/30/07 BUG-FIX
+TCHK H* TCHK6 10/24/12 ADD FIELD TO INVPP10
+TCHK H* TCHK7 04/24/13 ADD TM-CODE CHECK
+     H**************************************************************************
+TCHK FINVPW10 CF  E                    WORKSTN
+     FFCETL11 IF  E           K        DISK
+TCHK7FALBPL30 IF  E           K        DISK
+     FINVPP10 UF  E           K        DISK                      A
+TCH79FINVPL10 O   E           K        DISK                      A
+     F            INVPP101                          KRENAMEINVPP1XX
+      **************************************************************************
+TCHK7E                    ERR     1  10 15
+      **************************************************************************
+     I* KANBAN TYPE,ABSOLUTE#,ORDER#,SEHIN KUBUN,LOT#
+     I            DS
+     I*                                       1  15 D@APCS
+     I                                        1  17 D@APCS
+     I                                        1   1 WWKANS
+     I                                        2   5 WWZETI
+     I                                        6   8 WWORDR
+     I                                        8   8 WWID
+     I                                        9  11 WWPROC
+     I                                       15  15 WWCHK
+TCH78I                                       16  16 ASJXX
+     I            DS
+     I                                        1  17 D@ASJ
+     I                                        1   4 LOCID
+TCH80I                                        5   5 LOCA1
+TCH80I                                        6   7 LOCA2
+TCH80I                                        8   9 LOCA3
+TCH80I                                       10  10 LOCA4
+TCH78I            DS
+   | I                                        1  17 D@ASJX
+     I                                        1   1 BARKBN
+     I                                        2   5 IDNO7
+     I                                        6   8 POS
+     I                                       15  15 CHKD8
+   | I                                       17  17 CHKD7
+TCH78I                                       16  17 NODGT
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60ALTIME
+     I                                        7  140ALDATE
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+TCHK2I            DS
+TCHK2I                                        1   80CGADDT
+TCHK2I                                        1   40A2TRYY
+TCHK2I                                        5   60A2TRMM
+TCHK2I                                        7   80A2TRDD
+     C**************************************************************************
+     C*                    MAIN ROUTINE
+     C**************************************************************************
+     C           @@ID      DOWNE'99'
+     C           @@ID      CASEQ'00'      #SCRN0           USER ID
+     C           @@ID      CASEQ'01'      #SCRN1           APICS
+TCH72C           @@ID      CASEQ'02'      #SCRN2           LOCATION
+     C           @@ID      CASEQ'03'      #SCRN3           # OF KAN
+     C           @@ID      CASEQ'04'      #SCRN4           CANCEL APCS
+     C           @@ID      CASEQ'05'      #SCRN5           CANCEL ASJ
+     C           @@ID      CASEQ'06'      #SCRN6           # OF KAN LOC
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+     C**************************************************************************
+     C*         INITIALIZE
+     C**************************************************************************
+     C           *INZSR    BEGSR
+      *
+     C           P#BRC     PLIST
+     C                     PARM           PMAREA100
+     C                     PARM           PMBYTE  3
+     C                     PARM           PMCHK   1
+     C                     PARM           PMRTCD  1
+     C           K#INV     KLIST
+     C                     KFLD           K@DATE  80
+     C                     KFLD           K@BAR  17
+      *
+     C           K#INVV    KLIST
+     C                     KFLD           K@DATE  80
+     C                     KFLD           K@PREV 17
+      *
+     C           KEY4      KLIST
+     C                     KFLD           A2BHB1
+     C                     KFLD           A2BHB2
+     C                     KFLD           A2BHB3
+      *
+     C                     Z-ADD*DATE     K@DATE
+      *
+     C                     MOVE '00'      @@ID    2
+      *
+TCH26C                     TIME           @TIME  140
+     C*
+     C                     ENDSR
+     C*************************************************************************
+     C*          USER ID ENTRY
+     C*************************************************************************
+     C           #SCRN0    BEGSR
+      *
+TCH26C           MSG       IFEQ *BLANKS
+TCH26C                     CLEARD@USER
+TCH26C                     ENDIF
+      *
+     C                     EXFMTDSP00
+      *
+     C                     SELEC
+     C           *INKC     WHEQ *ON
+     C                     MOVE '99'      @@ID
+     C                     OTHER
+TCHK7C                     EXSR #CHK00
+TCHK7C           *IN99     IFEQ *OFF
+TCHK7C                     MOVEL'01'      @@ID
+TCHK7C                     END
+     C                     ENDSL
+      *
+     C                     ENDSR
+TCHK7C*************************************************************************
+TCHK7C* TM-CODE CHECK
+TCHK7C**************************************************************************
+TCHK7C           #CHK00    BEGSR
+TCHK7C*
+TCHK7C                     SETOF                     6199
+TCHK7C*
+TCHK7C                     DO
+TCHK7C*
+TCHK7C           D@USER    IFEQ 111111
+TCHK7C           D@USER    OREQ 222222
+TCHK7C                     LEAVE
+TCHK7C                     END
+TCHK7C*
+TCHK7C           D@USER    CHAINALBPL301             90
+TCHK7C           *IN90     IFEQ *OFF
+TCHK7C           ALSKJY    ANDEQ*BLANK
+TCHK7C                     ELSE
+TCHK7C                     SETON                     6199
+TCHK7C           MSG       IFEQ *BLANK
+TCHK7C                     MOVELERR,6     MSG
+TCHK7C                     END
+TCHK7C                     END
+TCHK7C*
+TCHK7C                     ENDDO
+TCHK7C*
+TCHK7C                     ENDSR
+     C**************************************************************************
+     C           #SCRN1    BEGSR
+      *
+     C                     EXFMTDSP01
+      *
+     C                     SELEC
+TCH72C           *INKC     WHEQ *ON
+     C                     MOVE *OFF      *IN99                        F5
+     C                     MOVE *OFF      *IN61                        F5
+     C                     MOVE *BLANK    D@ERR                        F5
+      *
+TCH72C                     MOVE '00'      @@ID
+     C           *INKD     WHEQ *ON
+     C                     MOVE *OFF      *IN99                        F5
+     C                     MOVE *OFF      *IN61                        F5
+     C                     MOVE *BLANK    D@ERR                        F5
+      *
+     C                     MOVE '02'      @@ID
+TCH72C           *INKB     WHEQ *ON
+     C                     MOVE D@APCV    K@PREV
+     C           K#INVV    CHAININVPP10              96
+     C           *IN96     IFEQ '0'
+     C                     MOVE IVBARC    D@BARV
+     C                     Z-ADDIVKANS    D@KANV
+     C                     MOVE '0'       *INKD
+     C           *INKC     DOWNE'1'
+     C           *INKD     ANDNE'1'
+     C                     EXFMTDSP07
+     C           *INKC     IFEQ '1'
+     C                     LEAVE
+     C                     ENDIF
+     C           *INKD     IFEQ '1'
+     C                     DELETINVPP10
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+     C                     ENDIF
+     C                     OTHER
+TCH83C           WWKANS    IFGE '0'
+   | C           WWKANS    ANDLE'9'
+     C                     MOVELD@APCS    D@ASJ
+     C                     EXSR #CHK2
+     C           *IN99     IFEQ *OFF
+     C                     MOVE '06'      @@ID
+   | C                     ENDIF
+TCH83C                     ELSE
+TCH78C           ASJXX     IFNE ' '
+TCH78C                     EXSR #CHK2X
+TCH78C                     ELSE
+     C                     EXSR #CHK1
+TCH78C                     ENDIF
+     C           *IN99     IFEQ *OFF
+     C                     MOVE '03'      @@ID
+     C                     ENDIF
+TCH83C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*     CHECK
+     C**************************************************************************
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE *OFF      *IN99                        F5
+     C                     MOVE *OFF      *IN61                        F5
+     C                     MOVE *BLANK    D@ERR                        F5
+      *
+     C           D@APCS    IFEQ *BLANK
+     C                     SETON                     9961
+     C                     MOVELERR,1     D@ERR
+     C                     ENDIF
+      *
+     C                     MOVELD@APCS    K@BAR     P
+      * CHECK DIGIT
+     C                     MOVELD@APCS    PMAREA    P
+     C                     MOVE '014'     PMBYTE
+     C                     MOVE *BLANK    PMCHK
+     C                     MOVE *BLANK    PMRTCD
+     C                     CALL 'ALBRCC'  P#BRC
+     C           PMRTCD    IFNE *BLANK
+     C  N99                MOVELERR,1     D@ERR
+     C                     SETON                     9961
+     C                     ELSE
+     C           PMCHK     IFNE WWCHK
+     C  N99                MOVELERR,1     D@ERR
+     C                     SETON                     9961
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           WWZETI    CHAINFCETL11              90
+     C           *IN90     IFEQ *ON
+     C  N99                MOVELERR,1     D@ERR
+     C                     SETON                     9961
+TCH80C                     ELSE
+TCHK2C           CGADDT    IFGE ALDATE
+TCHK2C                     MOVE A2KTRK    XXLOC1
+TCHK2C                     MOVE A2KTRT    XXLOC2
+TCHK2C                     MOVE A2KTRR    XXLOC3
+TCHK2C                     MOVE A2KTRD    XXLOC4
+TCHK2C                     ELSE
+TCH80C                     MOVE A2STRK    XXLOC1  1
+TCH80C                     MOVE A2STRT    XXLOC2  2
+TCH80C                     MOVE A2STRR    XXLOC3  2
+TCH80C                     MOVE A2STRD    XXLOC4  1
+TCHK2C                     END
+     C                     ENDIF
+      *
+     C                     MOVELD@APCS    D@BAR     P
+     C                     MOVE @@ID      ZZID    2
+      *
+     C                     ENDSR
+      *----------------------------------------------
+     C           #SCRN3    BEGSR
+      *----------------------------------------------
+     C                     EXFMTDSP03
+      *
+     C                     SELEC
+TCH72C           *INKC     WHEQ *ON
+TCH72C                     MOVE '01'      @@ID
+TCHK5C                     SETOF                     9961
+TCHK5C                     MOVE *BLANK    D@ERR                        F5
+     C                     OTHER
+     C                     EXSR #CHK3
+     C           *IN99     IFEQ *OFF
+     C                     EXSR #WRT
+      *
+     C                     MOVE ZZID      @@ID
+     C                     MOVE D@APCS    D@APCV 17
+     C                     MOVE *BLANK    D@APCS
+     C                     MOVE *BLANK    D@ASJ
+TCH78C                     MOVE *BLANK    D@ASJX
+     C                     Z-ADD*ZERO     D@KANS
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *----------------------------------------------
+     C           #CHK3     BEGSR
+      *----------------------------------------------
+     C                     MOVE *OFF      *IN99                        F5
+     C                     MOVE *OFF      *IN61                        F5
+     C                     MOVE *BLANK    D@ERR                        F5
+TCHK5C           D@KANS    IFEQ *ZERO
+TCHK5C                     SETON                     6199
+TCHK5C                     ENDIF
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*    2ND SCREEN    LOCATION
+     C**************************************************************************
+     C           #SCRN2    BEGSR
+      *
+     C                     EXFMTDSP02
+      *
+     C                     SELEC
+TCH72C           *INKC     WHEQ *ON
+     C                     MOVE *OFF      *IN99                        F5
+     C                     MOVE *OFF      *IN61                        F5
+     C                     MOVE *BLANK    D@ERR                        F5
+      *
+TCH72C                     MOVE '01'      @@ID
+     C           *INKD     WHEQ *ON
+     C                     MOVE *OFF      *IN99                        F5
+     C                     MOVE *OFF      *IN61                        F5
+     C                     MOVE *BLANK    D@ERR                        F5
+      *
+     C                     MOVE '01'      @@ID
+TCH72C           *INKB     WHEQ *ON
+     C                     MOVE D@ASJV    K@PREV
+     C           K#INVV    CHAININVPP10              96
+     C           *IN96     IFEQ '0'
+     C                     MOVE IVBARC    D@BARV
+     C                     Z-ADDIVKANS    D@KANV
+     C                     MOVE '0'       *INKD
+     C           *INKC     DOWNE'1'
+     C           *INKD     ANDNE'1'
+     C                     EXFMTDSP07
+     C           *INKC     IFEQ '1'
+     C                     LEAVE
+     C                     ENDIF
+     C           *INKD     IFEQ '1'
+     C                     DELETINVPP10
+TCHXXC*                    EXFMTDSP97
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+     C                     ENDIF
+     C                     OTHER
+     C                     EXSR #CHK2
+     C           *IN99     IFEQ *OFF
+     C                     MOVE '06'      @@ID
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*     CHECK LOCATION
+     C**************************************************************************
+     C           #CHK2     BEGSR
+     C*
+     C                     MOVE *OFF      *IN99                        F5
+     C                     MOVE *OFF      *IN61                        F5
+     C                     MOVE *BLANK    D@ERR                        F5
+      *
+     C           D@ASJ     IFEQ *BLANK
+     C                     SETON                     9961
+     C                     MOVELERR,4     D@ERR
+     C                     ENDIF
+      *
+     C           LOCID     CHAINFCETL11              91
+B0   C           *IN91     IFEQ *ON
+     C  N99                MOVELERR,4     D@ERR
+     C                     SETON                     9961
+X0   C                     ELSE
+TCHK2C           CGADDT    IFGE ALDATE
+TCHK2C                     MOVE A2KTRK    IVLOC1
+TCHK2C                     MOVE A2KTRT    IVLOC2
+TCHK2C                     MOVE A2KTRR    IVLOC3
+TCHK2C                     MOVE A2KTRD    IVLOC4
+TCHK2C                     ELSE
+TCH80C                     MOVE A2STRK    IVLOC1
+TCH80C                     MOVE A2STRT    IVLOC2
+TCH80C                     MOVE A2STRR    IVLOC3
+TCH80C                     MOVE A2STRD    IVLOC4
+TCHK2C                     END
+E0   C                     ENDIF
+      *
+     C                     MOVELD@ASJ     D@BAR
+     C                     MOVE @@ID      ZZID    2
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*     WRITE
+     C**************************************************************************
+     C           #WRT      BEGSR
+      *
+     C                     CLEARINVPP101
+      *
+     C                     Z-ADD*DATE     IVDATE
+     C                     TIME           IVTIME
+     C                     MOVELD@USER    IVUSER
+     C                     MOVELD@BAR     IVBARC
+     C                     MOVELA2BHB1    IVSHN1
+     C                     MOVELA2BHB2    IVSHN2
+     C                     MOVELA2BHB3    IVSHN3
+TCH80C                     MOVE XXLOC1    IVLOC1
+TCH80C                     MOVE XXLOC2    IVLOC2
+TCH80C                     MOVE XXLOC3    IVLOC3
+TCH80C                     MOVE XXLOC4    IVLOC4
+TCH79C           *INKB     IFEQ '1'
+     C           -1        MULT D@KANS    IVKANS
+     C                     ELSE
+   | C                     Z-ADDD@KANS    IVKANS
+TCH79C                     ENDIF
+TCHK6C                     MOVEL#USER     IVLGID
+     C                     WRITEINVPP101
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*     UPDATE
+     C**************************************************************************
+     C           #UPD      BEGSR
+      *
+TCH79C           *INKB     IFEQ '1'
+     C           -1        MULT D@KANS    IVKANS
+     C                     ELSE
+   | C                     Z-ADDD@KANS    IVKANS
+TCH79C                     ENDIF
+  |  C                     Z-ADD*DATE     IVDATE
+     C                     TIME           IVTIME
+     C                     MOVELD@USER    IVUSER
+     C*                    MOVELD@BAR     IVBARC
+     C                     MOVELD@ASJ     IVBARC
+     C                     MOVELA2BHB1    IVSHN1
+     C                     MOVELA2BHB2    IVSHN2
+  |  C                     MOVELA2BHB3    IVSHN3
+TCHK6C                     MOVEL#USER     IVLGID
+TCH79C                     WRITEINVPP1XX
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*    4TH SCREEN (CANCEL APCIS)
+     C**************************************************************************
+     C           #SCRN4    BEGSR
+      *
+     C                     EXFMTDSP04
+      *
+     C                     SELEC
+     C           *INKG     WHEQ *ON
+     C                     MOVE '01'      @@ID
+TCHK5C                     SETOF                     9961
+TCHK5C                     MOVE *BLANK    D@ERR                        F5
+     C                     OTHER
+     C                     EXSR #CHK4
+     C           *IN99     IFEQ *OFF
+     C                     EXSR #DLT
+      *
+     C                     MOVE *BLANK    D@APCS
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*     CHECK
+     C**************************************************************************
+     C           #CHK4     BEGSR
+     C*
+     C                     MOVE *BLANK    D@ERR                        F5
+     C                     SETOF                     996162
+      *
+     C           D@APCS    IFEQ *BLANK
+     C                     SETON                     9961
+     C                     ELSE
+     C                     MOVELD@APCS    K@BAR     P
+TCHK3C           K#INV     CHAININVPP10             N90
+     C           *IN90     IFEQ *ON
+     C  N99                MOVELERR,3     D@ERR
+     C                     SETON                     9961
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*       CANCEL
+     C**************************************************************************
+     C           #DLT      BEGSR
+     C*
+     C           K#INV     CHAININVPP10              90
+     C           *IN90     IFEQ *OFF
+TCHK3C                     DELETINVPP10
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*    CANCEL ASJ
+     C**************************************************************************
+     C           #SCRN5    BEGSR
+      *
+     C                     EXFMTDSP05
+      *
+     C                     SELEC
+     C           *INKG     WHEQ *ON
+     C                     MOVE '01'      @@ID
+TCHK5C                     SETOF                     9961
+TCHK5C                     MOVE *BLANK    D@ERR                        F5
+     C                     OTHER
+     C                     EXSR #CHK5
+     C           *IN99     IFEQ *OFF
+     C                     EXSR #DLT
+      *
+     C                     MOVE *BLANK    D@ASJ
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*     CHECK
+     C**************************************************************************
+     C           #CHK5     BEGSR
+     C*
+     C                     MOVE *BLANK    D@ERR                        F5
+     C                     SETOF                     996162
+      *
+     C           D@ASJ     IFEQ *BLANK
+     C                     SETON                     9961
+     C                     ELSE
+     C                     MOVELD@ASJ     K@BAR     P
+TCHK3C*          K#INV     CHAININVPP10              90
+TCHK3C           K#INV     CHAININVPP10             N90
+     C           *IN90     IFEQ *ON
+     C  N99                MOVELERR,3     D@ERR
+     C                     SETON                     9961
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C**************************************************************************
+      *----------------------------------------------
+     C           #SCRN6    BEGSR
+      *----------------------------------------------
+     C                     EXFMTDSP06
+      *
+     C                     SELEC
+TCH72C           *INKC     WHEQ *ON
+TCH83C                     MOVE '01'      @@ID
+TCHK5C                     SETOF                     9961
+TCHK5C                     MOVE *BLANK    D@ERR                        F5
+     C                     OTHER
+TCHK5C*                    EXSR #CHK2
+TCHK5C                     EXSR #CHK3
+     C           *IN99     IFEQ *OFF
+     C                     EXSR #UPD
+      *
+TCH83C                     MOVE '01'      @@ID
+     C                     MOVE *BLANK    D@APCS
+     C                     MOVE D@ASJ     D@ASJV 17
+     C                     MOVE *BLANK    D@ASJ
+TCH78C                     MOVE *BLANK    D@ASJX
+     C                     Z-ADD*ZERO     D@KANS
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDSR
+TCH78C**************************************************************************
+   | C*     CHECK ASJ
+     C**************************************************************************
+     C           #CHK2X    BEGSR
+     C*
+      *
+     C                     MOVE D@APCS    D@ASJX
+      *
+     C           D@ASJX    IFEQ *BLANK
+     C                     SETON                     9961
+     C                     MOVELERR,1     D@ERR
+     C                     ENDIF
+      *
+     C                     MOVELD@ASJX    K@BAR     P
+      *
+     C           IDNO7     CHAINFCETL11              90
+     C           *IN90     IFEQ *ON
+     C  N90                MOVELERR,1     D@ERR
+     C                     SETON                     9961
+TCH80C                     ELSE
+TCHK2C           CGADDT    IFGE ALDATE
+TCHK2C                     MOVE A2KTRK    XXLOC1
+TCHK2C                     MOVE A2KTRT    XXLOC2
+TCHK2C                     MOVE A2KTRR    XXLOC3
+TCHK2C                     MOVE A2KTRD    XXLOC4
+TCHK2C                     ELSE
+TCH80C                     MOVE A2STRK    XXLOC1  1
+TCH80C                     MOVE A2STRT    XXLOC2  2
+TCH80C                     MOVE A2STRR    XXLOC3  2
+TCH80C                     MOVE A2STRD    XXLOC4  1
+TCHK2C                     END
+     C                     ENDIF
+      *
+     C                     MOVELD@ASJX    D@BAR     P
+     C                     MOVE @@ID      ZZID    2
+   |  *
+TCH78C                     ENDSR
+** ERR
+KANBAN ERROR
+ALREADY SCANNED
+NOT SCANNED YET
+LOCATION ERROR
+USER IS USING
+USER ID ERROR
+
+
+
+

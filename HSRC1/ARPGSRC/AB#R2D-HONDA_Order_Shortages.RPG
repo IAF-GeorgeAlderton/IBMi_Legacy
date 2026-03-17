@@ -1,0 +1,294 @@
+     H            Y.
+     F** AB#R2D *********************************************
+     F* ORDER   - ORDER SHORTAGE SCANS                      *
+     F*    LEC.  2021.08.02                                 *
+     F*******************************************************
+     FAB#PW2D CF  E                    WORKSTN
+     FAB#PL71 UF  E           K        DISK
+     FGADPL15 IF  E           K        DISK
+     FAB#WPHSSO   E                    DISK                      A
+     E                    ER      1   6 65
+      *
+     IB2D         DS
+     I                                        1  18 BAR01
+     I                                        1   4 CHNONY
+     I                                        5   5 AORB
+     I                                        6  18 SEQ#
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60STIME
+     I                                        1   20HH
+     I                                        3   40MN
+     I                                        7  140SDATE
+     I                                        7  100YY
+     I                                       11  120MM
+     I                                       13  140DD
+      *
+     I            DS
+     I                                        1  12 @SHIN
+     I                                        1   5 EKSHN1
+     I                                        6  10 EKSHN2
+     I                                       11  12 EKSHN3
+      *
+     I            DS
+     I                                        1  20 @MHIN
+     I                                        1   5 EKMHN1
+     I                                        6  10 EKMHN2
+     I                                       11  15 EKMHN3
+     I                                       16  20 EKMHN4
+      *
+     I            DS
+     I                                        1   8 @SHID
+     I                                        1   40EKNOYY
+     I                                        5   60EKNOMM
+     I                                        7   80EKNODD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           WORKER  6
+     C                     PARM           WUSRID 10
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     EXSR #SB100
+     C           DSPSW     DOUEQ'99'
+     C                     EXSR #SB200
+     C                     ENDDO
+     C                     EXSR #SB300
+      *----------------------------------------------------*
+      * INZ                                                *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     TIME           WTIME
+     C                     MOVEL'01'      DSPSW   2
+     C                     MOVELWORKER    WKCD   10
+     C                     CLEARB2D
+      *
+     CSR         ESB100    ENDSR
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C           DSPSW     DOWEQ'01'
+     C                     EXSR #SB210
+     C                     ENDDO
+      *
+     CSR         ESB200    ENDSR
+      *----------------------------------------------------*
+      *窞�灎�槱��胕硠　　　　　　　　　　　　　　　　�
+      *----------------------------------------------------*
+     CSR         #SB210    BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL'A'       AORB
+     C                     MOVEL*BLANK    MSG
+     C                     SETOF                     3199
+      *
+     C                     TIME           WTIME
+     C           *IN03     IFEQ *ON
+     C                     CLEARB2D
+     C                     MOVEL'99'      DSPSW   2
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C           BAR01     IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,1      MSG
+     C                     EXSR #SB999
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C                     EXSR #SB710
+      *
+     C           *IN99     IFEQ *ON
+     C                     EXSR #SB999
+     C                     ELSE
+     C                     TIME           WTIME
+     C                     MOVEL*BLANK    MSG
+     C                     EXSR #SB500
+     C                     EXSR #SB515
+     C                     EXSR #SB525
+     C                     CLEARB2D
+     C                     ADD  1         D1SHRT
+     C                     ENDIF
+      *
+     CSR         ESB210    ENDSR
+      *----------------------------------------------------*
+      * Display Error Message                              *
+      *----------------------------------------------------*
+     CSR         #SB999    BEGSR
+      *
+     C                     MOVELMSG       P1ERR
+     C                     CALL 'AM#R08'
+     C                     PARM           P1ERR  25
+      *
+     CSR         ESB999    ENDSR
+      *----------------------------------------------------*
+      * End the Program                                    *
+      *----------------------------------------------------*
+     CSR         #SB300    BEGSR
+     C                     SETON                     LR
+     C                     RETRN
+     CSR         ESB300    ENDSR
+      *----------------------------------------------------*
+      * Write to SHORT SHIP WF AB#WPHSS                    *
+      *----------------------------------------------------*
+     CSR         #SB500    BEGSR
+      *
+     C                     CLEARAB#WPHS1
+     C                     MOVELWORKER    W1WKCD
+     C                     MOVELW#PGM     W1KPGM
+     C                     Z-ADDSDATE     W1SSHZ
+     C                     Z-ADDSTIME     W1SSTI
+      *
+     C                     MOVELBAR01     W1SERL
+     C                     MOVEL@SHID     W1SHID
+     C                     MOVELEKTOKU    W1TOKU
+     C                     MOVELEKNONY    W1NONY
+     C                     MOVELEKNUKE    W1NUKE
+     C                     MOVELEKODRN    W1ORD#
+     C                     MOVEL@MHIN     W1MHN
+     C                     MOVEL@SHIN     W1SHN
+     C                     MOVELEKSYOS    W1QPC
+     C                     MOVELEKZETI    W1ZETI
+     C                     MOVELEKNOBN    W1NOBN
+      * get plant name...
+     C           W1NONY    CHAINGADPL15              50
+     C           *IN50     IFEQ *OFF
+     C                     MOVELB5KMEI    W1SMEI
+     C                     ELSE
+     C                     MOVE *BLANKS   W1SMEI
+     C                     ENDIF
+      *
+     C                     WRITEAB#WPHS1
+      *
+     CSR         ESB500    ENDSR
+      *----------------------------------------------------*
+      *  Update both A and B Labels in label file          *
+      *----------------------------------------------------*
+     CSR         #SB515    BEGSR
+      *
+      * update A label...
+     C                     MOVE 'A'       AORB
+     C           BAR01     CHAINAB#PL71              90
+     C           *IN90     IFEQ *OFF
+     C                     MOVEL'D'       EKSKJY
+     C                     Z-ADDYY        EKSKYY
+     C                     Z-ADDMM        EKSKMM
+     C                     Z-ADDDD        EKSKDD
+      * STOP UPDATING EKKOYY/MM/DD
+     C** JW                Z-ADDYY        EKKOYY
+     C**                   Z-ADDMM        EKKOMM
+     C**                   Z-ADDDD        EKKODD
+     C**                   Z-ADDHH        EKKOHH
+     C**                   Z-ADDMN        EKKOMN
+     C                     MOVELWORKER    EKKOME
+     C                     MOVE 'S'       EKHENK
+     C                     UPDATAB#PP701
+     C                     ENDIF
+      *
+      * update B label...
+     C                     MOVE 'B'       AORB
+     C           BAR01     CHAINAB#PL71              90
+     C           *IN90     IFEQ *OFF
+     C                     MOVEL'D'       EKSKJY
+     C                     Z-ADDYY        EKSKYY
+     C                     Z-ADDMM        EKSKMM
+     C                     Z-ADDDD        EKSKDD
+     C** JW                Z-ADDYY        EKKOYY
+     C**                   Z-ADDMM        EKKOMM
+     C**                   Z-ADDDD        EKKODD
+     C**                   Z-ADDHH        EKKOHH
+     C**                   Z-ADDMN        EKKOMN
+     C                     MOVELWORKER    EKKOME
+     C                     MOVE 'S'       EKHENK
+     C                     UPDATAB#PP701
+     C                     ENDIF
+      *
+     CSR                   ENDSR
+      *----------------------------------------------------*
+      * Call Pgm to Update Order Files - Adjust Quantity.  *
+      *----------------------------------------------------*
+     C           #SB525    BEGSR
+      *
+     C                     MOVELEKNONY    NONY    40
+     C                     MOVELEKSYOS    QPC     50
+     C                     MOVELEKODRN    ODRN   12 P
+     C                     MOVELEKNOBN    @@BIN#  20
+      *
+     C                     CALL 'AM#C17H'
+     C                     PARM           @SHIN
+     C                     PARM           NONY
+     C                     PARM           @SHID
+     C                     PARM           ODRN
+     C                     PARM           EKNUKE
+     C                     PARM           QPC
+     C                     PARM           WKCD
+     C                     PARM           BAR01
+     C                     PARM           @@BIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  Verify in Label Data File                         *
+      *----------------------------------------------------*
+     CSR         #SB710    BEGSR
+      *
+     C           BAR01     CHAINAB#PL71             N90
+     C           *IN90     IFEQ *OFF
+      *
+     C           EKSKJY    IFEQ 'D'
+      *
+     C           EKHENK    IFEQ *BLANK
+     C                     MOVELER,3      MSG
+     C                     SETON                     99
+     C                     ENDIF
+     C           EKHENK    IFEQ 'S'
+     C                     MOVELER,2      MSG
+     C                     SETON                     99
+     C                     ENDIF
+      *
+     C                     ELSE
+      *
+     C           EKDEYY    IFGT *ZERO
+     C                     MOVELER,4      MSG
+     C                     SETON                     99
+     C                     GOTO ESB710
+     C                     ENDIF
+     C           EKSYOS    IFEQ '99999'
+     C                     MOVELER,5      MSG
+     C                     SETON                     99
+     C                     GOTO ESB710
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ELSE
+     C                     MOVELER,3      MSG
+     C                     SETON                     99
+     C                     GOTO ESB710
+     C                     ENDIF
+      *
+     C           AORB      IFNE 'A'
+     C           AORB      ANDNE'B'
+     C                     MOVELER,6      MSG
+     C                     SETON                     99
+     C                     ENDIF
+      *
+     CSR         ESB710    ENDSR
+      *----------------------------------------------------*
+**
+SCAN CONTAINER LABEL.
+ALREADY SHORTED.
+NO LABEL DATA.
+ALREADY SHIPPED.
+CAN'T SHORT MASTER LABEL.
+NOT HONDA LABEL.

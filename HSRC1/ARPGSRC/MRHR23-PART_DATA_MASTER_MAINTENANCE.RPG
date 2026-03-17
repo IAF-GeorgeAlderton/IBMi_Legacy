@@ -1,0 +1,1389 @@
+     ******************************************************************
+     **   PROGRAM         : PART INFORMATION MASTER MAINTENANCE      **
+     **                   :   (PROCESS MASTER MAINTENANCE)           **
+     **                   :  2014/01/23                              **
+     **                   :  TR-ITS                                  **
+     **--------------------------------------------------------------**
+     **   UPDATE:                                                    **
+JW1  **   J.WATANABE   2018.07.23 ADD "DS" "DSM" FOR PROCESS CHECK   **
+"    **                               "KRO" "SD"                     **
+%0002**   T.SAKAKI     2019.05.24 ADD "NP"                           **
+%0003**   T.SAKAKI     2019.10.15 ADD "TC"                           **
+     ******************************************************************
+     ** <<使用標識説明>>
+     **        01       :プログラム終了  <F01>
+     **        02       :前画面に戻る    <F02>
+     **        03       :ＫＥＹ入力に戻る<F03>
+     **        05       :更新処理        <F05>
+     **     26～83    :画面共通エラー標識（全画面共通）
+     **        88       : LOOKUP(*EQ)
+     **        93       :工程マスタ読込
+     **        94       :部品情報マスタ読込
+     **        95       :工程マスタワークファイル読込
+     **        90       :更新区分＝０（削除）＋　画面プロテクト
+     **        91       :更新区分＝１（変更）
+     **        92       :更新区分＝２（追加）
+     **        96       :非表示
+     **        98       :他ファイル読込
+     **        99       :代表エラー標識
+     ******************************************************************
+     H            Y/                                    1
+     **==============================================================**
+     **  ファイル
+     **==============================================================**
+     F*<<部品情報マスタ保守　工程マスタメンテナンス画面>>
+     FMRHPW23 CF  E                    WORKSTN
+     F                                              KINFDS WSDS
+     F*<<部品情報マスタ(L1)>>
+     FMRHPL21 IF  E           K        DISK
+     F*<<工程マスタ>>
+     FMRHPL31 IF  E           K        DISK
+     F*<<工程名称マスタ>>
+     FFCETL03 IF  E           K        DISK
+     F*<<工程名称マスタ>>
+     FAAMPL11 IF  E           K        DISK
+     F*<<ＦＡマスタ>>
+     FAJSPL01 IF  E           K        DISK
+     F*<<細目コード管理マスタ>>
+     FFGBPL01 IF  E           K        DISK
+     F*<<部品マスタワークファイル>>
+     FMRHWP21 UF  E           K        DISK
+     F*<<部品マスタワークファイル>>
+     FMRHWP23 UF  E                    DISK                      A
+     F*<<工程マスタワークファイル>>
+     FMRHWP31 UF  E           K        DISK                      A
+     FMRHPP82 IF  E           K        DISK
+%03   *
+%03   * ADHPL80 QUENCHING CONDITION M/F      *
+%03  FADHPL80 IF  E           K        DISK
+%03   * QUENCHING CONDITION PASSWORD M/F      *
+%03  FADHPP89 IF  E                    DISK
+     **==============================================================**
+     **  配列
+     **==============================================================**
+     E                    @SL     1   3  6                SELECT
+     E                    @MS     1  19 53                ERR MSG
+      *
+     E                    @KT        15  3               工程コード
+     E                    @BM        15  4 0             工程部門
+     E                    @BN        15  7               部門名称
+     E                    @NO        15  3               機械№
+     E                    @CK        15  3               工程コード
+     E                    @CB        15  4 0             工程部門
+     E                    @CN        15  3               機械№
+      *テーブル自動圧縮用
+     E                    @KTD       15  3               工程コード
+     E                    @BMD       15  4 0             工程部門
+     E                    @BND       15  7               部門名称
+     E                    @NOD       15  3               機械№
+     **==============================================================**
+     **  ＤＳ
+     **==============================================================**
+     I*<<システム情報>>
+     I           SDS
+     I                                     *PROGRAM S@PGID
+     I                                      244 253 S@WSID
+     I                                      254 263 S@USID
+     I                                      264 269 S@JBID
+     I*<<システム日時>>
+     I            DS
+     I                                        1  140S@TIME
+     I                                        1   60S@HMS
+     I                                        1   20S@TMHH
+     I                                        3   40S@TMMM
+     I                                        5   60S@TMSS
+     I                                        7  140S@YYMD
+     I                                        7  100S@DYYY
+     I                                       11  120S@DYMM
+     I                                       13  140S@DYDD
+     I*<<カーソル制御>>
+     IWSDS        DS
+     I                                    B 370 3710S@CUR
+     I                                      370 370 S@LIN
+     I                                      371 371 S@COL
+     I                                    B 378 3790S@POS
+     **--------------------------------------------------------------**
+     I* <<共通>>
+     I            DS
+     I                                        1   80W@SYMD
+     I                                        1   20W@SMM
+     I                                        3   40W@SDD
+     I                                        5   80W@SYY4
+     I            DS
+     I                                        1   8 W@SEL
+     I                                        1   1 W@SEL1
+     I                                        2   2 W@HF1
+     I                                        3   8 W@SEL2
+     I            DS
+     I                                        1  14 W@HNBN
+     I                                        1   5 W@HIN1
+     I                                        6   6 W@HF2
+     I                                        7  11 W@HIN2
+     I                                       12  12 W@HF3
+     I                                       13  14 W@HIN3
+     I            DS
+     I                                        1   80W@A6HZ
+     I                                        1   40W@A6YY
+     I                                        5   60W@A6MM
+     I                                        7   80W@A6DD
+     I** %0001 FOR CHECK SURFACE TREATMENT CODE
+     I            DS
+     I                                        1   7 W2MEKA
+     I                                        1   4 W2MEK1
+     I                                        3   3 W2@BAK
+     I                                        5   6 W2MEK2
+     I                                        7   7 W2MEK3
+     I            DS
+     I                                        1   3 W@MCN
+     I                                        1   1 W@MCN1
+     I            DS
+     I                                        1   80W@B2HZ
+     I                                        1   40W@B2YY
+     I                                        5   60W@B2MM
+     I                                        7   80W@B2DD
+     I* <<画面>>
+     I            DS
+     I                                        1  45 @KT
+     I                                        1   3 D1KT01
+     I                                        4   6 D1KT02
+     I                                        7   9 D1KT03
+     I                                       10  12 D1KT04
+     I                                       13  15 D1KT05
+     I                                       16  18 D1KT06
+     I                                       19  21 D1KT07
+     I                                       22  24 D1KT08
+     I                                       25  27 D1KT09
+     I                                       28  30 D1KT10
+     I                                       31  33 D1KT11
+     I                                       34  36 D1KT12
+     I                                       37  39 D1KT13
+     I                                       40  42 D1KT14
+     I                                       43  45 D1KT15
+     I            DS
+     I                                        1  600@BM
+     I                                        1   40D1BM01
+     I                                        5   80D1BM02
+     I                                        9  120D1BM03
+     I                                       13  160D1BM04
+     I                                       17  200D1BM05
+     I                                       21  240D1BM06
+     I                                       25  280D1BM07
+     I                                       29  320D1BM08
+     I                                       33  360D1BM09
+     I                                       37  400D1BM10
+     I                                       41  440D1BM11
+     I                                       45  480D1BM12
+     I                                       49  520D1BM13
+     I                                       53  560D1BM14
+     I                                       57  600D1BM15
+     I            DS
+     I                                        1 105 @BN
+     I                                        1   7 D1BN01
+     I                                        8  14 D1BN02
+     I                                       15  21 D1BN03
+     I                                       22  28 D1BN04
+     I                                       29  35 D1BN05
+     I                                       36  42 D1BN06
+     I                                       43  49 D1BN07
+     I                                       50  56 D1BN08
+     I                                       57  63 D1BN09
+     I                                       64  70 D1BN10
+     I                                       71  77 D1BN11
+     I                                       78  84 D1BN12
+     I                                       85  91 D1BN13
+     I                                       92  98 D1BN14
+     I                                       99 105 D1BN15
+     I            DS
+     I                                        1  45 @NO
+     I                                        1   3 D1MS01
+     I                                        4   6 D1MS02
+     I                                        7   9 D1MS03
+     I                                       10  12 D1MS04
+     I                                       13  15 D1MS05
+     I                                       16  18 D1MS06
+     I                                       19  21 D1MS07
+     I                                       22  24 D1MS08
+     I                                       25  27 D1MS09
+     I                                       28  30 D1MS10
+     I                                       31  33 D1MS11
+     I                                       34  36 D1MS12
+     I                                       37  39 D1MS13
+     I                                       40  42 D1MS14
+     I                                       43  45 D1MS15
+     I            DS
+     I                                        1  45 @CK
+     I                                        1   3 CKKO01
+     I                                        4   6 CKKO02
+     I                                        7   9 CKKO03
+     I                                       10  12 CKKO04
+     I                                       13  15 CKKO05
+     I                                       16  18 CKKO06
+     I                                       19  21 CKKO07
+     I                                       22  24 CKKO08
+     I                                       25  27 CKKO09
+     I                                       28  30 CKKO10
+     I                                       31  33 CKKO11
+     I                                       34  36 CKKO12
+     I                                       37  39 CKKO13
+     I                                       40  42 CKKO14
+     I                                       43  45 CKKO15
+     I            DS
+     I                                        1  600@CB
+     I                                        1   40CKBM01
+     I                                        5   80CKBM02
+     I                                        9  120CKBM03
+     I                                       13  160CKBM04
+     I                                       17  200CKBM05
+     I                                       21  240CKBM06
+     I                                       25  280CKBM07
+     I                                       29  320CKBM08
+     I                                       33  360CKBM09
+     I                                       37  400CKBM10
+     I                                       41  440CKBM11
+     I                                       45  480CKBM12
+     I                                       49  520CKBM13
+     I                                       53  560CKBM14
+     I                                       57  600CKBM15
+     I            DS
+     I                                        1  45 @CN
+     I                                        1   3 CKKB01
+     I                                        4   6 CKKB02
+     I                                        7   9 CKKB03
+     I                                       10  12 CKKB04
+     I                                       13  15 CKKB05
+     I                                       16  18 CKKB06
+     I                                       19  21 CKKB07
+     I                                       22  24 CKKB08
+     I                                       25  27 CKKB09
+     I                                       28  30 CKKB10
+     I                                       31  33 CKKB11
+     I                                       34  36 CKKB12
+     I                                       37  39 CKKB13
+     I                                       40  42 CKKB14
+     I                                       43  45 CKKB15
+     **==============================================================**
+     **  パラメータ
+     **==============================================================**
+     C           *ENTRY    PLIST
+     C                     PARM           P@KKBN  1        *更新区分
+     C                     PARM           P@SHBN  1        *使用方法区分
+     C                     PARM           P@SHN1  5        *社内品番１
+     C                     PARM           P@SHN2  5        *社内品番２
+     C                     PARM           P@SHN3  2        *社内品番３
+     C                     PARM           P@FC    2        *ファンクション
+     **==============================================================**
+     **  ＫＥＹ
+     **==============================================================**
+     C* <<部品情報マスタ(MRHPL21) >>
+     C           EAKEY     KLIST
+     C                     KFLD           EASHN1           *社内品番１
+     C                     KFLD           EASHN2           *社内品番２
+     C                     KFLD           EASHN3           *社内品番３
+     C                     KFLD           EASEHI           *製品区分
+     C                     KFLD           EATEHI           *手配区分
+     F*<<部品マスタワークファイル(MRHWP21) >>
+     C           W2KEY     KLIST
+     C                     KFLD           W2SHN1           *社内品番１
+     C                     KFLD           W2SHN2           *社内品番２
+     C                     KFLD           W2SHN3           *社内品番３
+     C                     KFLD           W2SEHI           *製品区分
+     C                     KFLD           W2TEHI           *手配区分
+     C* <<工程マスタ(MRHPL31) >>
+     C           EBKEY     KLIST
+     C                     KFLD           EBJHN1           *社内品番１
+     C                     KFLD           EBJHN2           *社内品番２
+     C                     KFLD           EBJHN3           *社内品番３
+     C                     KFLD           EBSEHI           *製品区分
+     C                     KFLD           EBTEHI           *手配区分
+     C* <<工程マスタ(AAMPL11) >>
+     C           AAKEY     KLIST
+     C                     KFLD           CKHIN1           *社内品番１
+     C                     KFLD           CKHIN2           *社内品番２
+     C                     KFLD           CKHIN3           *社内品番３
+     C* <<ＦＡマスタ(AJSPL11) >>
+     C           AJKEY     KLIST
+     C                     KFLD           J1SHN1           *社内品番１
+     C                     KFLD           J1SHN2           *社内品番２
+     C                     KFLD           J1SHN3           *社内品番３
+     C* <<工程名称マスタ(FCETL03) >>
+     C           A6KEY     KLIST
+     C                     KFLD           A6KOTI           *工程コード
+     C* <<細目コード管理マスタ(FGBPL01) >>
+     C           B2KEY     KLIST
+     C                     KFLD           B2CODE           *細目コード
+     **==============================================================**
+     **  メインルーチン
+     **==============================================================**
+      *
+      *---<初期処理>---*
+     C                     EXSR #INIT
+      *
+      *---<主処理>---*
+     C           W@NEXT    DOUEQ'END  '                    ¬DO_01
+      * G1
+     C           W@NEXT    CASEQ'SET10'   #SET10           ~¬CAS
+     C           W@NEXT    CASEQ'PNL10'   #PNL10            |
+     C           W@NEXT    CASEQ'CHK10'   #CHK10            |
+      *
+     C           W@NEXT    CASEQ'DBOUT'   #DBOUT            |
+     C                     END                             _｢CAS
+      *
+     C                     END                             ｢DO_01
+      *
+      *---<終了処理>---*
+     C                     SETON                     LR
+     C                     RETRN
+      *
+      **************************************************************************
+      *         Ｓ　Ｕ　Ｂ　－　Ｒ　Ｏ　Ｕ　Ｔ　Ｉ　Ｎ　Ｅ
+      **************************************************************************
+      *-------------------------------------------------------------------------
+      *          #INIT    初期処理
+      *-------------------------------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C                     MOVEL*BLANK    P@FC             *ファンクション
+      * DATA CLEAR
+      *工程マスタワークファイル(MRHWP31)
+     C                     EXSR #CLR10
+      *標識セット
+     C                     SELEC                           ¬SELEC_01
+     C           P@KKBN    WHEQ '0'                        +WHEN_01
+     C                     SETON                     90    * DELETE
+     C           P@KKBN    WHEQ '1'                        +WHEN_01
+     C                     SETON                     91    * CHANGE
+     C           P@KKBN    WHEQ '2'                        +WHEN_01
+     C                     SETON                     92    * ADD
+     C                     END                             ｢SELEC_01
+      *
+     C                     TIME           S@TIME
+     C                     Z-ADDS@DYMM    W@SMM
+     C                     Z-ADDS@DYDD    W@SDD
+     C                     Z-ADDS@DYYY    W@SYY4
+     C                     Z-ADDW@SYMD    D1SYMD           * SYSTEM DATE
+      *
+     C                     MOVEL'S'       W@SEHI  1        *製品区分
+     C                     MOVEL'S'       W@TEHI  1        *手配区分
+      *
+      *更新区分
+     C                     MOVELP@KKBN    W@SEL1
+     C                     MOVEL'-'       W@HF1
+     C                     SELEC                           ¬SELEC_01
+     C           P@KKBN    WHEQ '0'                        +WHEN_01
+     C                     MOVEL@SL,01    W@SEL2
+     C           P@KKBN    WHEQ '1'                        +WHEN_01
+     C                     MOVEL@SL,02    W@SEL2
+     C           P@KKBN    WHEQ '2'                        +WHEN_01
+     C                     MOVEL@SL,03    W@SEL2
+     C                     END                             ｢SELEC_01
+     C                     MOVELW@SEL     D1SEL            *更新区分／名称
+      *社内品番
+     C                     MOVELP@SHN1    W@HIN1
+     C                     MOVEL'-'       W@HF2
+     C                     MOVELP@SHN2    W@HIN2
+     C                     MOVEL'-'       W@HF3
+     C                     MOVELP@SHN3    W@HIN3
+     C                     MOVELW@HNBN    D1SHNB           *社内品番１～３
+      *使用方法区分による非表示（工程メンテ単独使用時）
+     C           P@SHBN    IFEQ '1'                        ¬IF_01
+     C                     SETON                     96    *非表示
+     C                     END                             ｢IF_01
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'SET10'   W@NEXT  5        G1-PNL
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #SET10   第一画面(G1) 項目セット処理
+      *-------------------------------------------------------------------------
+     C           #SET10    BEGSR
+      *
+     C                     SETOF                     262728
+     C                     SETOF                     293031
+     C                     SETOF                     323334
+     C                     SETOF                     353637
+     C                     SETOF                     383940
+     C                     SETOF                     414243
+     C                     SETOF                     444546
+     C                     SETOF                     474849
+     C                     SETOF                     505152
+     C                     SETOF                     535455
+     C                     SETOF                     565758
+     C                     SETOF                     596061
+     C                     SETOF                     616263
+     C                     SETOF                     646566
+     C                     SETOF                     676869
+     C                     SETOF                     707172
+     C                     SETOF                     737475
+     C                     SETOF                     767778
+     C                     SETOF                     798081
+     C                     SETOF                     8283
+     C                     SETOF                     99
+      *
+     C                     CLEAR@KT                        *工程コード
+     C                     CLEAR@BM                        *工程部門
+     C                     CLEAR@BN                        *工程部門
+     C                     CLEAR@NO                        *機械№
+     C                     Z-ADD*ZERO     D1OQTP           *焼入れ温度
+     C                     Z-ADD*ZERO     D1KPTM           *焼入れ時間
+     C                     Z-ADD*ZERO     D1TMTP           *焼戻し温度
+     C                     Z-ADD*ZERO     D1CO2            *ＣＯ２濃度
+     C                     Z-ADD*ZERO     D1BSK1           *バスケット１
+     C                     Z-ADD*ZERO     D1BSK2           *バスケット２
+     C                     Z-ADD*ZERO     D1BSK3           *バスケット３
+     C                     Z-ADD*ZERO     D1BSK4           *バスケット４
+     C                     Z-ADD*ZERO     D1OQLT           *ＯＱロット
+     C                     Z-ADD*ZERO     D1LATP           *ＬＡＮ／ＡＯＱ温度
+     C                     Z-ADD*ZERO     D1LATM           *ＬＡＮ／ＡＯＱ処理
+     C                     Z-ADD*ZERO     D1MKSU           *メッキ係数
+     C                     Z-ADD*ZERO     D1BLSU           *バレル数
+     C                     MOVEL*BLANK    D1EMSG           * ERR MSG
+%03  C                     Z-ADD0         D1KIKI  31       MATERIAL PROPERTIES
+%03  C                     MOVEL*BLANK    D1ZAIC  3        MATERIAL CODE
+      *
+     C                     READ MRHWP23                  97
+     C           *IN97     IFEQ '1'
+      * CHANGE/DELETE
+     C                     Z-ADD*ZERO     I       20
+     C                     Z-ADD*ZERO     W@KMAX  20       最終工程№
+     C           P@KKBN    IFNE '2'                        ¬IF_01
+      *工程マスタ(MRHPL31)
+     C                     MOVELP@SHN1    EBJHN1           *社内品番１
+     C                     MOVELP@SHN2    EBJHN2           *社内品番２
+     C                     MOVELP@SHN3    EBJHN3           *社内品番３
+     C                     MOVELW@SEHI    EBSEHI           *製品区分
+     C                     MOVELW@TEHI    EBTEHI           *手配区分
+     C           EBKEY     SETLLMRHPL311
+     C           EBKEY     READEMRHPL311                 93
+     C           *IN93     DOWEQ'0'                        ~¬DO_01
+     C           I         ANDLT15
+     C           EBGSKD    IFEQ 'D'                        ~~¬IF_02
+     C           EBGSHZ    ANDLES@YYMD
+      *
+     C                     ELSE                            --+ELSE_02
+     C                     ADD  1         I
+     C                     MOVELEBMKTE    @KT,I            *工程コード
+     C                     Z-ADDEBMBMN    @BM,I            *工程部門
+      *細目コード管理マスタ(FGBPL01)
+     C                     MOVEL@BM,I     B2CODE           *細目コード
+     C           B2KEY     CHAINFGBPL011             98
+     C           *IN98     IFEQ '0'                        ~~~¬IF_03
+     C                     MOVELB2SMEI    @BN,I            *細目名
+     C                     END                             ___｢IF_03
+      *
+     C                     MOVELEBMSNO    @NO,I            *機械№
+     C                     Z-ADDEBKSEQ    W@KMAX           最終工程№
+     C                     END                             __｢IF_02
+     C           EBKEY     READEMRHPL311                 93
+     C                     END                             _｢DO_01
+      *
+      *部品情報マスタ(MRHPL21)
+     C                     MOVELP@SHN1    EASHN1           *社内品番１
+     C                     MOVELP@SHN2    EASHN2           *社内品番２
+     C                     MOVELP@SHN3    EASHN3           *社内品番３
+     C                     MOVELW@SEHI    EASEHI           *製品区分
+     C                     MOVELW@TEHI    EATEHI           *手配区分
+     C           EAKEY     CHAINMRHPL211             94
+     C           *IN94     IFEQ '0'                        ¬IF_01
+     C           EAGSJY    IFEQ 'D'                        ~¬IF_02
+     C           EAGSHZ    ANDLES@YYMD
+     C                     ELSE                            -+ELSE_02
+     C                     Z-ADDEAOQTP    D1OQTP           *焼入れ温度
+     C                     Z-ADDEAKPTM    D1KPTM           *焼入れ時間
+     C                     Z-ADDEATMTP    D1TMTP           *焼戻し温度
+     C                     Z-ADDEACO2     D1CO2            *ＣＯ２濃度
+     C                     Z-ADDEABSK1    D1BSK1           *バスケット１
+     C                     Z-ADDEABSK2    D1BSK2           *バスケット２
+     C                     Z-ADDEABSK3    D1BSK3           *バスケット３
+     C                     Z-ADDEABSK4    D1BSK4           *バスケット４
+     C                     Z-ADDEAOQLT    D1OQLT           *ＯＱロット
+     C                     Z-ADDEALATP    D1LATP           *ＬＡＮ／ＡＯＱ温度
+     C                     Z-ADDEALATM    D1LATM           *ＬＡＮ／ＡＯＱ処理
+     C                     Z-ADDEAMKSU    D1MKSU           *メッキ係数
+     C                     Z-ADDEABLSU    D1BLSU           *バレル数
+%03  C                     Z-ADDEAKIKI    D1KIKI  31       MATERIAL PROPERTIES
+%03  C                     MOVELEAZAIC    D1ZAIC  3        MATERIAL CODE
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *
+     C                     ELSE                            +ELSE01
+      *
+      *工程マスタ(AAMPL31)
+     C                     MOVELP@SHN1    CKHIN1           *社内品番１
+     C                     MOVELP@SHN2    CKHIN2           *社内品番２
+     C                     MOVELP@SHN3    CKHIN3           *社内品番３
+     C           AAKEY     CHAINAAMPL111             93
+     C           CKSKJY    IFNE 'D'                        ~~¬IF_02
+     C           *IN93     ANDEQ'0'
+     C                     Z-ADD1         I
+     C           I         DOWLE15                         ~¬DO_01
+     C           @CK,I     ANDNE*BLANK
+     C                     MOVEL@CK,I     @KT,I            *工程コード
+     C                     Z-ADD@CB,I     @BM,I            *工程部門
+      *細目コード管理マスタ(FGBPL01)
+     C                     MOVEL@BM,I     B2CODE           *細目コード
+     C           B2KEY     CHAINFGBPL011             98
+     C           *IN98     IFEQ '0'                        ~~~¬IF_03
+     C                     MOVELB2SMEI    @BN,I            *細目名
+     C                     END                             ___｢IF_03
+      *
+     C                     MOVEL@CN,I     @NO,I            *機械№
+     C                     Z-ADDI         W@KMAX           最終工程№
+     C                     ADD  1         I
+     C                     END                             _｢DO_01
+     C                     END                             __｢IF_02
+      *
+      *ＦＡマスタ(AJSPL01)
+     C                     MOVELP@SHN1    J1SHN1           *社内品番１
+     C                     MOVELP@SHN2    J1SHN2           *社内品番２
+     C                     MOVELP@SHN3    J1SHN3           *社内品番３
+     C           AJKEY     SETGTAJSPL011             93
+     C           AJKEY     REDPEAJSPL011                 93
+     C           *IN93     DOWEQ'0'                        ¬DO_01
+      *
+     C           J1SKJY    IFNE 'D'                        ~¬IF_02
+     C                     SELEC
+     C           J1MKSK    WHEQ '1'
+     C                     Z-ADDJ1MKRI    D1MKSU           *メッキ係数理論
+     C           J1MKSK    WHEQ '2'
+     C                     Z-ADDJ1MKJI    D1MKSU           *メッキ係数実践
+     C                     ENDSL
+     C                     Z-ADDJ1BAB2    D1BLSU           *バレル数
+     C                     END                             _｢IF_02
+      *
+     C                     REDPEAJSPL011                 93
+     C                     ENDDO                           ｢DO_01
+      *
+     C                     END                             ｢IF_01
+      *
+     C                     END                             ｢IF_01
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'PNL10'   W@NEXT           G1-PNL
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #PNL10   第一画面(G1) 表示処理
+      *-------------------------------------------------------------------------
+     C           #PNL10    BEGSR
+      *
+     C                     EXFMTMRHPW231
+      *
+     C                     SETOF                     262728
+     C                     SETOF                     293031
+     C                     SETOF                     323334
+     C                     SETOF                     353637
+     C                     SETOF                     383940
+     C                     SETOF                     414243
+     C                     SETOF                     444546
+     C                     SETOF                     474849
+     C                     SETOF                     505152
+     C                     SETOF                     535455
+     C                     SETOF                     565758
+     C                     SETOF                     596061
+     C                     SETOF                     616263
+     C                     SETOF                     646566
+     C                     SETOF                     676869
+     C                     SETOF                     707172
+     C                     SETOF                     737475
+     C                     SETOF                     767778
+     C                     SETOF                     798081
+     C                     SETOF                     8283
+     C                     SETOF                     99
+     C                     MOVEL*BLANK    D1EMSG           * ERR MSG
+      * CF07
+     C           *IN07     IFEQ '1'                        ¬IF_01
+     C           *IN89     ANDEQ'1'
+     C                     EXSR #WARNI
+     C                     ENDIF                           _IF_01
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'CHK10'   W@NEXT
+      * CF02
+     C           *IN02     IFEQ '1'                        ¬IF_01
+     C                     MOVEL'02'      P@FC             *ファンクション
+     C           *IN97     IFEQ '0'
+     C                     EXSR #CLR11
+     C                     ELSE
+     C                     EXSR #UPD11
+     C                     ENDIF
+     C                     MOVEL'END  '   W@NEXT
+      *テーブル自動圧縮
+     C                     ELSE                            +ELSE_01
+     C                     EXSR #DSP10
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CHK10   第一画面(G1) チェック処理
+      *-------------------------------------------------------------------------
+     C           #CHK10    BEGSR
+      *
+     C                     Z-ADD25        J       20
+      * ADD/CHANGE
+     C           P@KKBN    IFEQ '1'                        ¬IF_01
+     C           P@KKBN    OREQ '2'
+      *
+     C                     DO   15        I                ~¬DO_01
+     C                     ADD  1         J
+      *工程コード
+      *　第１工程のとき
+     C           I         IFEQ 1                          ~~¬IF_02
+     C           @KT,I     ANDEQ*BLANK
+     C  N99                MOVEL@MS,01    D1EMSG    P      * ERR MSG
+     C  N99                MOVEL'1'       *IN,J     P      * 26～
+     C  N99                SETON                     99
+     C                     END                             __｢IF_02
+      *
+     C           @KT,I     IFEQ *BLANK                     ~~¬IF_02
+     C           @BM,I     ANDNE*ZERO
+     C  N99                MOVEL@MS,02    D1EMSG    P      * ERR MSG
+     C  N99                MOVEL'1'       *IN,J     P      * 26～
+     C  N99                SETON                     99
+     C                     END                             __｢IF_02
+      *工程名称マスタ(FCETL03)
+     C           @KT,I     IFNE *BLANK                     ~~¬IF_02
+     C                     MOVEL@KT,I     A6KOTI           *工程コード
+     C           A6KEY     CHAINFCETL031             98
+     C           *IN98     IFEQ '0'                        ~~~¬IF_03
+     C                     Z-ADDA6GSYY    W@A6YY           *削除予定年
+     C                     Z-ADDA6GSMM    W@A6MM           *削除予定月
+     C                     Z-ADDA6GSDD    W@A6DD           *削除予定日
+     C                     END                             ___｢IF_03
+     C           *IN98     IFEQ '1'                        ~~~¬IF_03
+     C           *IN98     OREQ '0'
+     C           A6GSKD    ANDEQ'D'
+     C           W@A6HZ    ANDLES@YYMD
+     C  N99                MOVEL@MS,04    D1EMSG    P      * ERR MSG
+     C  N99                MOVEL'1'       *IN,J     P      * 26～
+     C  N99                SETON                     99
+     C                     END                             ___｢IF_03
+     C                     END                             __｢IF_02
+      *最終工程以前で工程コードが未入力の場合
+     C           I         IFLE W@KMAX                     ~~¬IF_02
+     C           @KT,I     ANDEQ*BLANK
+     C  N99                MOVEL@MS,05    D1EMSG    P      * ERR MSG
+     C  N99                MOVEL'1'       *IN,J     P      * 26～
+     C  N99                SETON                     99
+     C                     END                             __｢IF_02
+      *
+     C                     ADD  1         J
+      *加工部門
+     C           @BM,I     IFEQ *ZERO                      ~~¬IF_02
+     C           @KT,I     ANDNE*BLANK
+     C  N99                MOVEL@MS,06    D1EMSG    P      * ERR MSG
+     C  N99                MOVEL'1'       *IN,J     P      * 27～
+     C  N99                SETON                     99
+     C                     END                             __｢IF_02
+      *細目コード管理マスタ(FGBPL01)
+     C           @BM,I     IFNE *ZERO                      ~~¬IF_02
+     C                     MOVEL@BM,I     B2CODE           *細目コード
+     C           B2KEY     CHAINFGBPL011             98
+     C           *IN98     IFEQ '0'                        ~~~¬IF_03
+     C                     Z-ADDB2SKYY    W@B2YY           *削除予定年
+     C                     Z-ADDB2SKMM    W@B2MM           *削除予定月
+     C                     Z-ADDB2SKDD    W@B2DD           *削除予定日
+     C                     MOVELB2SMEI    @BN,I            *細目名
+     C                     END                             ___｢IF_03
+     C           *IN98     IFEQ '1'                        ~~~¬IF_03
+     C           *IN98     OREQ '0'
+     C           B2SKJY    ANDEQ'D'
+     C           W@B2HZ    ANDLES@YYMD
+     C  N99                MOVEL@MS,07    D1EMSG    P      * ERR MSG
+     C  N99                MOVEL'1'       *IN,J     P      * 27～
+     C  N99                SETON                     99
+     C                     END                             ___｢IF_03
+     C                     END                             __｢IF_02
+      *
+     C                     END                             _｢DO_01
+      *
+      *使用方法区分による処理（部品メンテ共用）
+     C           P@SHBN    IFEQ *BLANK                     ~¬IF_02
+      *工程検索
+      * OQ
+     C                     Z-ADD1         J
+     C                     MOVEL*BLANK    W@OQ    1        * OQ FLG
+     C           'OQ '     LOKUP@KT,J                    88
+     C           *IN88     IFEQ '1'                        ~~¬IF_03
+     C                     MOVEL'1'       W@OQ             * OQ FLG
+     C                     END                             __｢IF_03
+      * AOQ
+     C                     Z-ADD1         J
+     C                     MOVEL*BLANK    W@AOQ   1        * AOQ FLG
+     C           'AOQ'     LOKUP@KT,J                    88
+     C           *IN88     IFEQ '1'                        ~~¬IF_03
+     C                     MOVEL'1'       W@AOQ            * AOQ FLG
+     C                     END                             __｢IF_03
+      * LOQ
+     C                     Z-ADD1         J
+     C                     MOVEL*BLANK    W@LOQ   1        * LOQ FLG
+     C           'LOQ'     LOKUP@KT,J                    88
+     C           *IN88     IFEQ '1'                        ~~¬IF_03
+     C                     MOVEL'1'       W@LOQ            * LOQ FLG
+     C                     END                             __｢IF_03
+      * LAN
+     C                     Z-ADD1         J
+     C                     MOVEL*BLANK    W@LAN   1        * LAN FLG
+     C           'LAN'     LOKUP@KT,J                    88
+     C           *IN88     IFEQ '1'                        ~~¬IF_03
+     C                     MOVEL'1'       W@LAN            * LAN FLG
+     C                     END                             __｢IF_03
+      * HAN
+     C                     Z-ADD1         J
+     C                     MOVEL*BLANK    W@HAN   1        * HANFLG
+     C           'HAN'     LOKUP@KT,J                    88
+     C           *IN88     IFEQ '1'                        ~~¬IF_03
+     C                     MOVEL'1'       W@HAN            * HANFLG
+     C                     END                             __｢IF_03
+      * SD
+     C                     Z-ADD1         J
+     C                     MOVEL*BLANK    W@SD    1        * SD FLG
+     C           'SD '     LOKUP@KT,J                    88
+     C           *IN88     IFEQ '1'                        ~~¬IF_03
+     C                     MOVEL'1'       W@SD             * SD FLG
+     C                     END                             __｢IF_03
+      * JC
+     C                     Z-ADD1         J
+     C                     MOVEL*BLANK    W@JC    1        * JC FLG
+     C                     MOVEL*BLANK    W@JBM   40       * JC DEPT
+     C                     MOVEL*BLANK    W@JCMN  3
+     C           'JC '     LOKUP@KT,J                    88
+     C           *IN88     IFEQ '1'                        ~~¬IF_03
+     C                     MOVEL'1'       W@JC             * JC FLG
+     C                     Z-ADD@BM,J     W@JBM
+     C                     MOVEL@NO,J     W@JCMN
+     C                     END                             __｢IF_03
+      * KRO
+     C                     Z-ADD1         J
+     C                     MOVEL*BLANK    W@KRO   1        * KROFLG
+     C           'KRO'     LOKUP@KT,J                    88
+     C           *IN88     IFEQ '1'                        ~~¬IF_03
+     C                     MOVEL'1'       W@KRO            * KROFLG
+     C                     END                             __｢IF_03
+      * COS
+     C                     Z-ADD1         J
+     C                     MOVEL*BLANK    W@COS   1        * COSFLG
+     C           'COS'     LOKUP@KT,J                    88
+     C           *IN88     IFEQ '1'                        ~~¬IF_03
+     C                     MOVEL'1'       W@COS            * COSFLG
+     C                     END                             __｢IF_03
+     C** HN
+     C                     Z-ADD1         J
+     C                     MOVEL*BLANK    W@HN    1        * HN FLG
+     C           'HN '     LOKUP@KT,J                    88
+     C           *IN88     IFEQ '1'                        ~~¬IF_03
+     C                     MOVEL'1'       W@HN    1        * HN FLG
+     C                     END                             __ IF_03
+     C** KN
+     C                     Z-ADD1         J
+     C                     MOVEL*BLANK    W@KN    1        * KN FLG
+     C           'KN '     LOKUP@KT,J                    88
+     C           *IN88     IFEQ '1'                        ~~¬IF_03
+     C                     MOVEL'1'       W@KN    1        * KN FLG
+     C                     END                             __ IF_03
+JW1  C** DS
+ |   C                     Z-ADD1         J
+ |   C                     MOVEL*BLANK    W@DS    1        * DS FLG
+ |   C           'DS '     LOKUP@KT,J                    88
+ |   C           *IN88     IFEQ '1'
+ |   C                     MOVEL'1'       W@DS
+JW1  C                     ENDIF
+JW1  C** DSM
+ |   C                     Z-ADD1         J
+ |   C                     MOVEL*BLANK    W@DSM   1        * DSM FLG
+ |   C           'DSM'     LOKUP@KT,J                    88
+ |   C           *IN88     IFEQ '1'
+ |   C                     MOVEL'1'       W@DSM
+JW1  C                     ENDIF
+JW1  C** KRO
+ |   C                     Z-ADD1         J
+ |   C                     MOVEL*BLANK    W@KRO   1        * KRO FLG
+ |   C           'KRO'     LOKUP@KT,J                    88
+ |   C           *IN88     IFEQ '1'
+ |   C                     MOVEL'1'       W@KRO
+JW1  C                     ENDIF
+JW1  C** SD
+ |   C                     Z-ADD1         J
+ |   C                     MOVEL*BLANK    W@SD    1        * SD FLG
+ |   C           'SD '     LOKUP@KT,J                    88
+ |   C           *IN88     IFEQ '1'
+ |   C                     MOVEL'1'       W@SD
+JW1  C                     ENDIF
+%0002C** NP
+ |   C                     Z-ADD1         J
+ |   C                     MOVEL*BLANK    W@NP    1        * NP FLG
+ |   C           'NP '     LOKUP@KT,J                    88
+ |   C           *IN88     IFEQ '1'
+ |   C                     MOVEL'1'       W@NP
+%0002C                     ENDIF
+%0003C** TC
+ |   C                     Z-ADD1         J
+ |   C                     MOVEL*BLANK    W@TC    1        * TC FLG
+ |   C           'TC '     LOKUP@KT,J                    88
+ |   C           *IN88     IFEQ '1'
+ |   C                     MOVEL'1'       W@TC
+%0003C                     ENDIF
+JW1  C** PC
+ |   C                     Z-ADD1         J
+ |   C                     MOVEL*BLANK    W@PC    1        * PC FLG
+ |   C           'PC '     LOKUP@KT,J                    88
+ |   C           *IN88     IFEQ '1'
+ |   C                     MOVEL'1'       W@PC
+JW1  C                     ENDIF
+     C** %0001 CHECK 'BZ'
+     C                     Z-ADD1         J
+     C                     MOVEL*BLANK    W@BZ    1        * BZ FLG
+     C           'BZ '     LOKUP@KT,J                    88
+     C           *IN88     IFEQ '1'                        ¬IF_03
+     C                     MOVEL'1'       W@BZ             * BZ FLG
+     C                     MOVEL@NO,J     W@MCN   3        * MACHINE #
+     C                     Z-ADD@BM,J     W@CBM   40       * DEPT.
+     C                     Z-ADD0         @PX     20       * PROC. #
+     C                     Z-ADD24        @P      20       * PROC. #
+     C                     Z-ADD55        @M      20       * NACHINE#
+     C           J         MULT 2         @PX              * PROC. #
+     C                     ADD  @PX       @P               * PROC. #
+     C                     ADD  J         @M               * NACHINE#
+     C                     END                             __ IF_03
+      ** %0001 NO CHECK IF HN OR KN EXIST
+     C           W@HN      IFEQ '1'                        ¬IF_04
+     C           W@KN      OREQ '1'
+JW1  C           W@DS      OREQ '1'
+ |   C           W@DSM     OREQ '1'
+ |   C           W@KRO     OREQ '1'
+JW1  C           W@SD      OREQ '1'
+%0002C           W@NP      OREQ '1'
+JW1  C           W@PC      OREQ '1'
+%0003C           W@TC      OREQ '1'
+     C                     ELSE
+      ** %0001 CHECK THERE IS PROCESS FOR ST IF CODE WAS INPUT
+      *部品マスタワークファイル(MRHWP21)
+     C                     MOVELP@SHN1    W2SHN1           *社内品番１
+     C                     MOVELP@SHN2    W2SHN2           *社内品番２
+     C                     MOVELP@SHN3    W2SHN3           *社内品番３
+     C                     MOVELW@SEHI    W2SEHI           *製品区分
+     C                     MOVELW@TEHI    W2TEHI           *手配区分
+     C           W2KEY     CHAINMRHWP211            N98
+     C           W2MEKA    IFNE '.......'                  ¬IF_05
+     C**
+     C           W@BZ      IFNE '1'                        ~¬IF_06
+     C  N99                MOVEL@MS,17    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     99
+     C                     ENDIF                           _ IF_06
+     C**
+     C                     ELSE                            _ELSE_05
+     C**
+     C           W@BZ      IFEQ '1'                        ~¬IF_06
+     C  N99                MOVEL@MS,16    D1EMSG    P      * ERR MSG
+     C  N99                MOVEL'1'       *IN,@P    P      * ERR PRC
+     C  N99                MOVEL'1'       *IN,@M    P      * ERR MCN
+     C  N99                SETON                     99
+     C                     ENDIF                           _ IF_06
+     C***
+     C                     ENDIF                           _ IF_05
+      ** %0001 CHECK SURFACE TREATMENT CODE AND MACHINE #
+     C           W@BZ      IFEQ '1'                        ~~~¬IF_04
+     C           W@CBM     ANDEQ111
+      *
+     C           W2@BAK    IFEQ '2'                        ~~~¬IF_05
+     C           W@MCN1    IFNE 'A'                        ~~~~¬IF_06
+     C           W@MCN1    ANDNE'B'                        * BAKING
+     C           W@MCN1    ANDNE'D'                        * BAKING
+     C           W@MCN1    ANDNE'E'                        * BAKING
+     C  N99                MOVEL@MS,16    D1EMSG    P      * ERR MSG
+     C  N99                MOVEL'1'       *IN,@P    P      * ERR PRC
+     C  N99                MOVEL'1'       *IN,@M    P      * ERR MCN
+     C  N99                SETON                     99
+     C                     END                             ____ IF_06
+     C                     END                             ___ IF_05
+      *
+     C           W2@BAK    IFEQ 'H'                        ~~~¬IF_05
+     C           W@MCN1    IFNE 'A'                        ~~~~¬IF_06
+     C           W@MCN1    ANDNE'B'                        * BAKING
+     C  N99                MOVEL@MS,16    D1EMSG    P      * ERR MSG
+     C  N99                MOVEL'1'       *IN,@P    P      * ERR PRC
+     C  N99                MOVEL'1'       *IN,@M    P      * ERR MCN
+     C  N99                SETON                     99
+     C                     END                             ____ IF_06
+     C                     END                             ___ IF_05
+      *
+     C***
+     C                     END                             ___ IF_04
+     C*
+     C                     ENDIF                           _ IF_04
+     C*
+      *焼入れ温度
+     C           D1OQTP    IFEQ *ZERO                      ~~¬IF_03
+     C           W@OQ      ANDEQ'1'
+     C                     Z-ADD880       D1OQTP
+     C                     END                             __｢IF_03
+     C           D1OQTP    IFNE *ZERO                      ~~¬IF_03
+     C           W@OQ      ANDNE'1'
+     C           W@LOQ     ANDNE'1'
+     C           W@LAN     ANDNE'1'
+     C           W@AOQ     ANDNE'1'
+     C           W@HAN     ANDNE'1'
+     C  N99                MOVEL@MS,15    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     7199
+     C                     END                             __｢IF_03
+      *
+      *焼入れ時間
+     C           D1KPTM    IFEQ *ZERO                      ~~¬IF_03
+     C           W@OQ      IFEQ '1'                        ~~~¬IF_04
+     C           W@LOQ     OREQ '1'
+     C  N99                MOVEL@MS,08    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     7299
+     C                     END                             ___｢IF_04
+     C                     END                             __｢IF_03
+     C           D1KPTM    IFNE *ZERO                      ~~¬IF_03
+     C           W@OQ      ANDNE'1'
+     C           W@LOQ     ANDNE'1'
+     C           W@LAN     ANDNE'1'
+     C           W@AOQ     ANDNE'1'
+     C           W@HAN     ANDNE'1'
+     C  N99                MOVEL@MS,15    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     7299
+     C                     END                             __｢IF_03
+      *焼戻し温度
+     C           D1TMTP    IFEQ *ZERO                      ~~¬IF_03
+     C           W@OQ      IFEQ '1'                        ~~~¬IF_04
+     C           W@LOQ     OREQ '1'
+     C  N99                MOVEL@MS,09    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     7399
+     C                     END                             ___｢IF_04
+     C                     END                             __｢IF_03
+     C           D1TMTP    IFNE *ZERO                      ~~¬IF_03
+     C           W@OQ      ANDNE'1'
+     C           W@LOQ     ANDNE'1'
+     C           W@LAN     ANDNE'1'
+     C           W@AOQ     ANDNE'1'
+     C           W@HAN     ANDNE'1'
+     C  N99                MOVEL@MS,15    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     7399
+     C                     END                             __｢IF_03
+      *ＣＯ２濃度
+     C           D1CO2     IFEQ *ZERO                      ~~¬IF_03
+     C           W@OQ      IFEQ '1'                        ~~~¬IF_04
+     C           W@LOQ     OREQ '1'
+     C  N99                MOVEL@MS,10    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     7499
+     C                     END                             ___｢IF_04
+     C                     ELSE
+     C           W@OQ      IFNE '1'                        ~~~¬IF_04
+     C           W@LOQ     ANDNE'1'
+     C           W@LAN     ANDNE'1'
+     C           W@AOQ     ANDNE'1'
+     C           W@HAN     ANDNE'1'
+     C  N99                MOVEL@MS,15    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     7499
+     C                     END                             ___｢IF_04
+     C                     END                             __｢IF_03
+      *ＬＡＮ／ＡＯＱ温度
+     C           D1LATP    IFEQ *ZERO                      ~~¬IF_03
+     C           W@LAN     IFEQ '1'                        ~~~¬IF_04
+     C           W@AOQ     OREQ '1'
+     C           W@HAN     OREQ '1'
+     C  N99                MOVEL@MS,11    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     8099
+     C                     END                             ___｢IF_04
+     C                     ELSE
+     C           W@LAN     IFNE '1'                        ~~~¬IF_04
+     C           W@AOQ     ANDNE'1'
+     C           W@HAN     ANDNE'1'
+     C  N99                MOVEL@MS,15    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     8099
+     C                     END                             ___｢IF_04
+     C                     END                             __｢IF_03
+      *ＬＡＮ／ＡＯＱ処理時間
+     C           D1LATM    IFEQ *ZERO                      ~~¬IF_03
+     C           W@LAN     IFEQ '1'                        ~~~¬IF_04
+     C           W@AOQ     OREQ '1'
+     C           W@HAN     OREQ '1'                        ~~~¬IF_04
+     C  N99                MOVEL@MS,12    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     8199
+     C                     END                             ___｢IF_04
+     C                     ELSE
+     C           W@LAN     IFNE '1'                        ~~~¬IF_04
+     C           W@AOQ     ANDNE'1'
+     C           W@HAN     ANDNE'1'                        ~~~¬IF_04
+     C  N99                MOVEL@MS,15    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     8199
+     C                     END                             ___｢IF_04
+     C                     END                             __｢IF_03
+      *OQ LOT バスケット
+     C           W@OQ      IFNE '1'                        ~~¬IF_03
+     C           W@LOQ     ANDNE'1'
+     C           W@LAN     ANDNE'1'
+     C           W@AOQ     ANDNE'1'
+     C           W@HAN     ANDNE'1'
+     C           D1BSK1    IFNE 0                          ~~¬IF_03
+     C  N99                MOVEL@MS,15    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     7599
+     C                     END                             __｢IF_03
+     C           D1BSK2    IFNE 0                          ~~¬IF_03
+     C  N99                MOVEL@MS,15    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     7699
+     C                     END                             __｢IF_03
+     C           D1BSK3    IFNE 0                          ~~¬IF_03
+     C  N99                MOVEL@MS,15    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     7799
+     C                     END                             __｢IF_03
+     C           D1BSK3    IFNE 0                          ~~¬IF_03
+     C  N99                MOVEL@MS,15    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     7899
+     C                     END                             __｢IF_03
+     C           D1OQLT    IFNE 0                          ~~¬IF_03
+     C  N99                MOVEL@MS,15    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     7999
+     C                     END                             __｢IF_03
+     C                     END                             __｢IF_03
+      *
+      *部品マスタワークファイル(MRHWP21)
+     C                     MOVELP@SHN1    W2SHN1           *社内品番１
+     C                     MOVELP@SHN2    W2SHN2           *社内品番２
+     C                     MOVELP@SHN3    W2SHN3           *社内品番３
+     C                     MOVELW@SEHI    W2SEHI           *製品区分
+     C                     MOVELW@TEHI    W2TEHI           *手配区分
+     C           W2KEY     CHAINMRHWP211            N98
+     C           *IN98     IFEQ '0'                        ~~¬IF_03
+      *
+     C           W@JBM     IFEQ 0111
+     C           W@JC      ANDEQ'1'
+     C                     EXSR #SB179
+     C           @82       IFEQ '0'
+     C  N99                MOVEL@MS,18    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     99
+     C                     ENDIF
+     C                     ENDIF
+      *
+      *その他のチェック
+     C           W@JC      IFEQ '1'
+     C           W@COS     OREQ '1'
+%0002C**JW1      W@NP      OREQ '1'
+     C           W2SETR    IFEQ *BLANK                     ~~~~¬IF_05
+     C  N99                MOVEL@MS,13    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     99
+     C                     END                             ____｢IF_05
+     C                     END                             ___｢IF_04
+      *
+     C           W@KRO     IFEQ *BLANK                     ~~~¬IF_04
+     C           W@JC      ANDEQ*BLANK
+     C           W@COS     ANDEQ*BLANK
+JW1  C           W@SD      ANDEQ*BLANK
+%0002C           W@NP      ANDEQ*BLANK
+%0003C           W@TC      ANDEQ*BLANK
+     C           W2SETR    IFNE *BLANK                     ~~~~¬IF_05
+     C  N99                MOVEL@MS,14    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     99
+     C                     END                             ____｢IF_05
+     C                     END                             ___｢IF_04
+      *
+%03  C                     Z-ADDW2KIKI    D1KIKI  31       MATERIAL PROPERTIES
+%03  C                     MOVELW2ZAIC    D1ZAIC  3        MATERIAL CODE
+      *
+     C                     END                             __｢IF_03
+      *
+%03  C           W@OQ      IFEQ '1'                        ~~¬IF_03
+%03  C           W2ZAIC    ANDNE'999'
+%03  C                     EXSR #ADHP8
+%03  C                     ENDIF                           __｢IF_03
+      *
+     C                     END                             _｢IF_02
+      *
+     C                     END                             ｢IF_01
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'PNL10'   W@NEXT
+      * CF05
+     C           *IN05     IFEQ '1'                        ¬IF_01
+     C           *IN99     ANDEQ'0'
+     C                     MOVEL'05'      P@FC             *ファンクション
+     C                     MOVEL'DBOUT'   W@NEXT
+     C           *IN97     IFEQ '0'
+     C                     DELETMRHWP231
+     C                     END                             ｢IF_01
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #SB179
+      *-------------------------------------------------------------------------
+     C           #SB179    BEGSR
+      *
+     C                     MOVEL'0'       @82     1
+     C           W2SECD    SETLLMRHPP821
+     C           W2SECD    READEMRHPP821                 87
+     C           *IN87     DOWEQ'0'
+     C           SBSKJY    IFEQ 'D'
+     C           SBSKHZ    ANDLE*DATE
+     C                     ELSE
+     C           W@JCMN    IFEQ SBMSNO
+     C                     MOVEL'1'       @82
+     C                     ENDIF
+     C                     ENDIF
+     C           W2SECD    READEMRHPP821                 87
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #DSP10   テーブル　自動圧縮処理
+      *-------------------------------------------------------------------------
+     C           #DSP10    BEGSR
+      *
+     C                     CLEAR@KTD                       *工程コード
+     C                     CLEAR@BMD                       *工程部門
+     C                     CLEAR@BND                       *工程部門
+     C                     CLEAR@NOD                       *機械№
+     C                     Z-ADD*ZERO     W@WKMX  20       *工程MAX
+     C                     Z-ADD*ZERO     I
+      *
+     C                     DO   15        J                ¬DO_01
+      *入力あり
+     C           @KT,J     IFNE *BLANK                     ~¬IF_01
+     C           @BM,J     ORNE *ZERO
+     C           @NO,J     ORNE *BLANK
+     C                     ADD  1         I
+     C                     MOVEL@KT,J     @KTD,I           *工程コード
+     C                     Z-ADD@BM,J     @BMD,I           *工程部門
+     C                     MOVEL@BN,J     @BND,I           *工程部門名
+     C                     MOVEL@NO,J     @NOD,I           *機械№
+     C                     END                             _｢IF_01
+     C                     END                             ｢DO_01
+      *再セット
+     C                     CLEAR@KT                        *工程コード
+     C                     CLEAR@BM                        *工程部門
+     C                     CLEAR@BN                        *工程部門名
+     C                     CLEAR@NO                        *機械№
+      *
+     C                     DO   15        J                ¬DO_01
+     C                     MOVEL@KTD,J    @KT,J            *工程コード
+     C                     Z-ADD@BMD,J    @BM,J            *工程部門
+     C                     MOVEL@BND,J    @BN,J            *工程部門名
+     C                     MOVEL@NOD,J    @NO,J            *機械№
+     C           @KT,J     IFNE *BLANK                     ~¬IF_01
+     C           @BM,J     ORNE *ZERO
+     C           @NO,J     ORNE *BLANK
+     C                     Z-ADDJ         W@WKMX           *工程MAX
+     C                     END                             _｢IF_01
+     C                     END                             ｢DO_01
+      *最大工程取り直し
+     C           W@WKMX    IFNE *ZERO                      ¬IF_01
+     C           W@KMAX    IFNE W@WKMX                     ~¬IF_02
+     C                     Z-ADDW@WKMX    W@KMAX           *工程MAX
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #DBOUT   Ｄ．Ｂ　アクセス処理
+      *-------------------------------------------------------------------------
+     C           #DBOUT    BEGSR
+      * ADD/CHANGE
+     C           P@KKBN    IFEQ '1'                        ¬IF_01
+     C           P@KKBN    OREQ '2'
+      *
+      *工程マスタワークファイル(MRHWP31)
+     C                     EXSR #WRT10                     * WRITE
+      *使用方法区分による処理（部品メンテ共用）
+     C           P@SHBN    IFEQ *BLANK                     ~¬IF_02
+      *部品マスタワークファイル(MRHWP21)
+     C                     EXSR #UPD10                     * UPDAT
+     C                     END                             _｢IF_02
+      *
+     C                     END                             ｢IF_01
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'END  '   W@NEXT
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #WRT10   工程マスタワークファイル(MRHWP31)出力処理
+      *-------------------------------------------------------------------------
+     C           #WRT10    BEGSR
+      *
+     C                     DO   15        J                ¬DO_01
+      *入力あり
+     C           @KT,J     IFNE *BLANK                     ~¬IF_01
+     C                     CLEARMRHWP311
+      *
+     C                     MOVELP@SHN1    W3JHN1           * INHOUSE PART NUMBER
+     C                     MOVELP@SHN2    W3JHN2           * INHOUSE PART NUMBER
+     C                     MOVELP@SHN3    W3JHN3           * INHOUSE PART NUMBER
+     C                     MOVELW@SEHI    W3SEHI           * PRODUCT INSTRUCTION
+     C                     MOVELW@TEHI    W3TEHI           * PRODUCTION ORDER IN
+      *
+     C                     Z-ADDJ         W3KSEQ           *工程順序
+     C                     MOVEL@KT,J     W3MKTE           *工程コード
+     C                     Z-ADD@BM,J     W3MBMN           *工程部門
+     C                     MOVEL@NO,J     W3MSNO           *機械№
+      *
+     C                     WRITEMRHWP311
+     C                     END                             _｢IF_01
+      *
+     C                     END                             ｢DO_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #UPD10   部品マスタワークファイル(MRHWP21)更新処理
+      *-------------------------------------------------------------------------
+     C           #UPD10    BEGSR
+      *部品マスタワークファイル(MRHWP21)
+     C                     MOVELP@SHN1    W2SHN1           *社内品番１
+     C                     MOVELP@SHN2    W2SHN2           *社内品番２
+     C                     MOVELP@SHN3    W2SHN3           *社内品番３
+     C                     MOVELW@SEHI    W2SEHI           *製品区分
+     C                     MOVELW@TEHI    W2TEHI           *手配区分
+     C           W2KEY     CHAINMRHWP211             98
+     C           *IN98     IFEQ '0'                        ¬IF_01
+     C                     Z-ADDD1OQTP    W2OQTP           *焼入れ温度
+     C                     Z-ADDD1KPTM    W2KPTM           *焼入れ時間
+     C                     Z-ADDD1TMTP    W2TMTP           *焼戻し温度
+     C                     Z-ADDD1CO2     W2CO2            *ＣＯ２濃度
+     C                     Z-ADDD1BSK1    W2BSK1           *バスケット１
+     C                     Z-ADDD1BSK2    W2BSK2           *バスケット２
+     C                     Z-ADDD1BSK3    W2BSK3           *バスケット３
+     C                     Z-ADDD1BSK4    W2BSK4           *バスケット４
+     C                     Z-ADDD1OQLT    W2OQLT           *ＯＱロット
+     C                     Z-ADDD1LATP    W2LATP           *ＬＡＮ／ＡＯＱ温度
+     C                     Z-ADDD1LATM    W2LATM           *ＬＡＮ／ＡＯＱ処理
+     C                     Z-ADDD1MKSU    W2MKSU           *メッキ係数
+     C                     Z-ADDD1BLSU    W2BLSU           *バレル数
+      *
+     C                     UPDATMRHWP211
+      *
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CLR10   工程マスタワークファイル(MRHWP31)クリア処理
+      *-------------------------------------------------------------------------
+     C           #CLR10    BEGSR
+      *工程マスタワークファイル(MRHWP31)
+     C           *LOVAL    SETLLMRHWP311
+     C                     READ MRHWP311                 95
+     C           *IN95     DOWEQ'0'                        ¬DO_01
+      *
+     C                     DELETMRHWP311
+      *
+     C                     READ MRHWP311                 95
+     C                     END                             ｢DO_01
+      *
+     C                     ENDSR
+      *----------------------------------------------------------------
+      *-------------------------------------------------------------------------
+      *          #UPD11   部品マスタワークファイル(MRHWP23)更新処理
+      *-------------------------------------------------------------------------
+     C           #UPD11    BEGSR
+      *
+     C                     WRITEMRHWP231
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CLR11   部品マスタワークファイル(MRHWP23)クリア処理
+      *-------------------------------------------------------------------------
+     C           #CLR11    BEGSR
+      *
+     C                     DELETMRHWP231
+      *
+     C                     WRITEMRHWP231
+      *
+     C                     ENDSR
+      *----------------------------------------------------------------
+%03   * ADHPL80 QUENCHING CONDITION M/F      *
+↓  *----------------------------------------------------------------
+     C           #ADHP8    BEGSR
+      *
+     C           KEY80     KLIST
+     C                     KFLD           D1ZAIC  3        MATERIAL CODE
+     C                     KFLD           D1KIKI  31       MATERIAL PROPERTIES
+      *
+     C           KEY80     SETLLADHPL80
+     C                     DO   *HIVAL
+     C           KEY80     READEADHPL80                  89
+     C   89                LEAVE
+     C           J8SKJY    IFEQ 'D'
+     C           J8SKHZ    ANDLE*DATE
+     C                     ITER
+     C                     ENDIF
+     C* *
+      *工程     J8ATOK         3A         COLHDG('PRESENT PROCESS CODE')
+      *           J8PCLS         3A         COLHDG('PART CLASS')
+     C           J8HOJI    IFEQ D1KPTM
+     C           J8ONDO    ANDEQD1TMTP
+     C           J8CO2P    ANDEQD1CO2
+     C                     LEAVE
+     C                     ENDIF
+     C* *
+     C                     ENDDO
+      *
+      *
+     C           *IN89     IFEQ *ON
+     C           D1ZAIC    IFNE $$ZAIC                     MATERIAL CODE
+     C           D1KIKI    ORNE $$KIKI                     MATERIAL PROPERTIES
+     C           D1KPTM    ORNE $$KPTM
+     C           D1TMTP    ORNE $$TMTP
+     C           D1CO2     ORNE $$CO2
+     C   99                SETOF                     89
+     C  N99                MOVEL@MS,19    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     727374
+     C  N99                SETON                     99
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *================================================================
+      *
+      *================================================================
+     C           #WARNI    BEGSR
+     C           1         CHAINADHPP89              60
+     C   60                MOVE *BLANK    J8PASS
+     C                     MOVE *BLANK    D9PASS
+     C*
+     C                     MOVEL*BLANK    $$ZAIC  3
+     C                     Z-ADD0         $$KIKI  31
+     C                     Z-ADD0         $$KPTM  30
+     C                     Z-ADD0         $$TMTP  30
+     C                     Z-ADD0         $$CO2   32
+      *
+     C           $WARN1    TAG
+     C                     EXFMTMRHPW239
+     C                     SETOF                     99
+     C*
+     C   KC                GOTO $WARN9
+     C           D9PASS    IFNE J8PASS
+     C                     SETON                     99
+     C                     GOTO $WARN1
+     C                     ENDIF
+     C*
+     C                     MOVELD1ZAIC    $$ZAIC
+     C                     Z-ADDD1KIKI    $$KIKI
+     C                     Z-ADDD1KPTM    $$KPTM
+     C                     Z-ADDD1TMTP    $$TMTP
+     C                     Z-ADDD1CO2     $$CO2
+     C           $WARN9    TAG
+     C                     ENDSR
+      *================================================================
+**  @SL  ( SELECT )
+DELETE
+CHANGE
+ADD
+**  @MS  ( ERR MSG )
+ER01 PROCESS IS NOT INPUT
+ER02 PROCESS IS NOT INPUT
+ER03 PROCESS CODE DOES NOT EXISTIN PROCESS DATA
+ER04 PROCESS CODE DOES NOT EXISTIN PROCESS DATA
+ER05 INPUT PROCESS CODE / FACTORY CODE
+ER06 PROCESS POST IS NOT INPUT
+ER07 INPUT CORRECT FACTORY CODE
+ER08 INPUT HEAT TREATMENT CONDITION (LOQ)
+ER09 INPUT OQ CONDITIONS
+ER10 INPUT HEAT TREATMENT CONDITION (OQ/LOQ)
+ER11 INPUT LAN/AOQ CONDITIONS
+ER12 INPUT LAN/AOQ CONDITIONS
+ER13 INPUT SECOND SURFACE TREATMENT
+ER14 INPUT KRO/JC/COS/SD/NP/TC PROCESS.
+ER15 CHECK HEAT TREATMENT PROCESS
+ER16 CHECK S.T.CODE AND PROCESS AND MACHINE #
+ER17 INPUT SURFACE TREATMENT PROCESS
+ER18 SECOND SURFACE TREATMENT CODE ERROR.
+ER19 NOT EXIST IN QUENCHING CONDITION M/F. F7:IGNORE

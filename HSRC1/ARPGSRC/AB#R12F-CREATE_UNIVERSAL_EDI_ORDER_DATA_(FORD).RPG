@@ -1,0 +1,239 @@
+     H            Y.
+      ** AB#R12F ************************************************
+      *  CREATE UNIVERSAL EDI ORDER DATA (FORD)                 *
+      *  J.WATANABE   2025.03.19                                *
+      ***********************************************************
+     FAB#EL50AIF  E           K        DISK
+     FAB#PLF1GIF  E           K        DISK
+     FAB#EP12 O   E                    DISK
+     FAB#EP13 O   E                    DISK
+      ***********************************************************
+     E                    TBL     1   5 30
+      ***********************************************************
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      254 263 #USER
+      ***********************************************************
+      * MAIN ROUTINE
+      ***********************************************************
+     C                     EXSR #INIT
+      *
+     C           *LOVAL    SETLLAB#EL50A
+     C                     DO   *HIVAL
+     C                     READ AB#EL50A                 98
+     C   98                LEAVE
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELA5SIDT    SVSIDT
+     C                     MOVELA5STID    SVSTID
+     C                     MOVELA5EQMT    SVEQMT
+     C                     MOVELA5DOCK    SVDOCK
+     C                     MOVELA5PONO    SVPONO
+     C                     MOVELA5TSID    SVTSID
+     C                     MOVELA5STFC    SVSTFC
+     C                     ENDIF
+      * BREAK?
+     C           A5SIDT    IFNE SVSIDT
+     C           A5STID    ORNE SVSTID
+     C           A5EQMT    ORNE SVEQMT
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * COUNT RECORD
+     C                     ADD  1         @REC
+      *
+     C                     ENDDO
+      * LAST BREAK?
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *=================================================
+      * HEADER BREAK
+      *=================================================
+     C           #BRK1     BEGSR
+      * WRITE
+     C                     CLEARAB#EP121
+     C                     MOVELTBL,1     E2PRTN
+     C                     MOVELSVSTID    E2PLNT
+     C                     MOVELSVSTFC    E2SHCD
+      * GET CUST#/DELV#
+     C                     MOVELSVSTID    $PLNT
+     C                     MOVELSVDOCK    $DOCK
+     C                     CALL 'UTLR34A'
+     C                     PARM           $PLNT   5
+     C                     PARM           $DOCK   4
+     C                     PARM           $NONY   4
+     C                     PARM           $RTN    1
+     C                     Z-ADD5149      E2TOKU
+     C                     MOVEL$NONY     E2NONY
+      *
+     C                     MOVELSVTSID    E2TRID
+     C                     MOVELSVPONO    E2REF#
+     C                     MOVEL'0'       E2NKOJ
+     C                     MOVELSVDOCK    E2NUKE
+     C                     Z-ADD@REC      E2RCD#
+      * GET BATCH#
+     C                     MOVELTBL,1     $PRTN
+     C                     MOVELSVEQMT    $REF#
+     C                     CALL 'UEXC58F'
+     C                     PARM           $PRTN  30
+     C                     PARM           $REF#  14
+     C                     PARM           $RCVD   8
+     C                     PARM           $RCVT   6
+     C                     PARM           $BCH#   7
+     C                     PARM           $INT#  14
+     C                     MOVEL$BCH#     E2BCH#
+     C                     MOVEL$INT#     E2INT#
+     C                     MOVEL$RCVD     E2RCHZ
+     C                     MOVEL$RCVT     E2RCTM
+     C                     MOVEL$RCVT     E2RCT4
+      *
+     C           E2NUKE    IFEQ *BLANK
+     C                     MOVEL'00'      E2NUKE
+     C                     ENDIF
+      *
+     C                     TIME           SDATE
+     C                     Z-ADDTODAY     E2CRHZ
+     C                     Z-ADDNOW       E2CRTM
+     C                     MOVEL#USER     E2CRUS
+     C                     MOVEL#PGM      E2CRPG
+      *
+     C                     WRITEAB#EP121
+      * DETAIL EP13
+     C                     EXSR #DTL
+      * RESET
+     C                     MOVELA5SIDT    SVSIDT
+     C                     MOVELA5STID    SVSTID
+     C                     MOVELA5EQMT    SVEQMT
+     C                     MOVELA5DOCK    SVDOCK
+     C                     MOVELA5PONO    SVPONO
+     C                     MOVELA5TSID    SVTSID
+     C                     MOVELA5STFC    SVSTFC
+     C                     Z-ADD0         @REC
+      *
+     C                     ENDSR
+      *=================================================
+      * CREATE DETAIL
+      *=================================================
+     C           #DTL      BEGSR
+      *
+     C                     Z-ADDSVSIDT    KKDATE
+     C                     MOVELSVSTID    KKSTID
+     C                     MOVELSVEQMT    KKEQMT
+      *
+     C           K#F1G     SETLLAB#PLF1G
+     C                     DO   *HIVAL
+     C           K#F1G     READEAB#PLF1G                 98
+     C   98                LEAVE
+      * IGNORE
+     C           F5QTY     IFEQ 0
+     C                     ITER
+     C                     ENDIF
+      * OUTPUT EP13
+     C                     EXSR #WRT2
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *=================================================
+      * WRITE DETAIL (AB#EP13)
+      *=================================================
+     C           #WRT2     BEGSR
+      * WRITE
+     C                     CLEARAB#EP131
+     C                     MOVELTBL,1     E3PRTN
+     C                     MOVE '0'       E3NKOJ
+     C                     MOVELF5DOCK    E3NUKE
+     C                     MOVEL'862'     E3TRID
+     C                     MOVELF5EQMT    E3BCH#
+     C                     MOVELF5POR#    E3REF#
+     C                     MOVELF5STID    E3PLNT
+     C                     MOVELF5STFC    E3SHCD
+      * DETAIL
+     C                     MOVELF5PART    E3MHIN
+     C                     Z-ADDF5QTY     E3SRYO
+     C                     Z-ADDF5NOHZ    E3NDAT
+     C                     Z-ADDF5NOHZ    E3NOHZ
+     C                     MOVELF5INVN    E3ODRN
+     C                     MOVELF5ODRN    E3MKDO
+     C                     MOVE ' '       E3INVN
+     C                     MOVE ' '       E3MANI
+     C                     MOVELF5TOKU    E3TOKU
+     C                     MOVELF5NONY    E3NONY
+      * GET QPC
+     C                     MOVELE3TOKU    $TOKU
+     C                     MOVELE3NONY    $NONY
+     C                     MOVELE3MHIN    $MHIN
+     C                     MOVE 'USR'     $HTYP
+     C                     MOVE *BLANK    $DATE
+     C                     CALL 'UTLR35D'
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $HTYP   3
+     C                     PARM           $DATE   8
+     C                     PARM           $SYOS   6
+     C                     PARM           $RTN    1
+     C                     MOVEL$SYOS     E3SYOS
+      *
+     C           E3SYOS    IFEQ 0
+     C                     Z-ADDE3SRYO    E3BOX
+     C                     ELSE
+     C           E3SRYO    DIV  E3SYOS    E3BOX
+     C                     MVR            REM     60
+     C           REM       IFNE 0
+     C                     ADD  1         E3BOX
+     C                     ENDIF
+     C                     ENDIF
+      * GET INFO
+     C                     MOVELF5DATE    E3RCHZ
+     C                     MOVELF5TIME    E3RCTM
+     C                     MOVELF5TIME    E3RCT4
+      *
+     C           E3NUKE    IFEQ *BLANK
+     C                     MOVEL'00'      E3NUKE
+     C                     ENDIF
+      *
+     C                     TIME           SDATE
+     C                     Z-ADDTODAY     E3CRHZ
+     C                     Z-ADDNOW       E3CRTM
+     C                     MOVEL#USER     E3CRUS
+     C                     MOVEL#PGM      E3CRPG
+      *
+     C                     WRITEAB#EP131
+      *
+     C                     ENDSR
+      *=================================================
+      * INITIAL SET
+      *=================================================
+     C           #INIT     BEGSR
+      *
+     C           K#F1G     KLIST
+     C                     KFLD           KKDATE  80       DATE
+     C                     KFLD           KKSTID  5        PLANT
+     C                     KFLD           KKEQMT 10        BATCH
+      *
+     C                     TIME           SDATE
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD0         @REC    60
+     C           *LIKE     DEFN A5SIDT    SVSIDT
+     C           *LIKE     DEFN A5STID    SVSTID
+     C           *LIKE     DEFN A5EQMT    SVEQMT
+     C           *LIKE     DEFN A5DOCK    SVDOCK
+     C           *LIKE     DEFN A5PONO    SVPONO
+     C           *LIKE     DEFN A5TSID    SVTSID
+     C           *LIKE     DEFN A5STFC    SVSTFC
+      *
+     C                     ENDSR
+** TBL (30A) ......2.........3
+FORD                             01
+                                 02
+                                 03
+                                 04
+                                 05

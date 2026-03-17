@@ -1,0 +1,484 @@
+     H            Y.
+     F** IZAR53 **************************************
+     F* WIRE SETTING INQUIRY                         *
+     F*    ITS.             2013.12.17               *
+JW1  F*    JW     2020.09.09 ADD SUPPLIER NAME       *
+JW2  F*    JW     2020.12.27 ADD POSCO  (4550)       *
+JW2  F*    JW     2020.12.27 ADD TSUSHO (4560)       *
+     F************************************************
+     FIZAPW53 CF  E                    WORKSTN
+     F                                        RRN   KSFILE SFL
+     FIZAPL01 IF  E           K        DISK
+     FABMPLZ1 IF  E           K        DISK
+      *
+     E                    ER      1   9 65
+JW1  E**JW2               HDR     1   5  9
+JW2  E                    HDR     1   7  9
+      *
+     I            DS
+     I                                        1   80ZCSKHZ
+     I                                        1   40ZCSKYY
+     I                                        5   60ZCSKMM
+     I                                        7   80ZCSKDD
+      *
+     I            DS
+     I                                        1   80ZCST
+     I                                        1   40ZCSTYY
+     I                                        5   60ZCSTMM
+     I                                        7   80ZCSTDD
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60WTITM
+     I                                        1   20TIMHH
+     I                                        3   40TIMMM
+     I                                        5   60TIMSS
+     I                                        7  140WTIHZ
+     I                                        7  100WTIYY
+     I                                       11  120WTIMM
+     I                                       13  140WTIDD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+      *----------------------------------------------------*
+      * PLIST                                              *
+      *----------------------------------------------------*
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           P1SUPP  4
+     C                     PARM           PCMD    2
+      *----------------------------------------------------*
+      *   K  E  Y   L  I  S  T                             *
+      *----------------------------------------------------*
+      *
+      *----------------------------------------------------*
+      *  メインルーチン                                  *
+      *----------------------------------------------------*
+     C                     EXSR #SB100
+     C           DSPSW     DOUEQ'99'
+     C                     EXSR #SB200
+     C                     ENDDO
+     C                     EXSR #SB300
+      *----------------------------------------------------*
+      *   初期処理                                       *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     TIME           WTIME
+     C                     MOVEL'01'      DSPSW   2
+     C                     Z-ADD1         WKPAGE  30
+     C                     EXSR #CLR
+JW1   * SET HEADER
+ |   C                     SELEC
+ |   C           P1SUPP    WHEQ '8990'
+ |   C                     MOVELHDR,1     H@NAME
+ |   C           P1SUPP    WHEQ '4511'
+ |   C                     MOVELHDR,2     H@NAME
+ |   C           P1SUPP    WHEQ '4530'
+ |   C                     MOVELHDR,3     H@NAME
+ |   C           P1SUPP    WHEQ '4540'
+ |   C                     MOVELHDR,4     H@NAME
+JW2  C           P1SUPP    WHEQ '4550'
+ |   C                     MOVELHDR,6     H@NAME
+JW2  C           P1SUPP    WHEQ '4560'
+ |   C                     MOVELHDR,7     H@NAME
+ |   C           P1SUPP    WHEQ '    '
+ |   C                     MOVELHDR,5     H@NAME
+JW1  C                     ENDSL
+      *
+     CSR         ESB100    ENDSR
+      *----------------------------------------------------*
+      *   主処理                                         *
+      *----------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C           DSPSW     DOWEQ'01'
+     C                     EXSR #SB210
+     C                     ENDDO
+     C           DSPSW     DOWEQ'02'
+     C                     EXSR #SB220
+     C                     ENDDO
+      *
+     CSR         ESB200    ENDSR
+      *----------------------------------------------------*
+      *データ検索                                        *
+      *----------------------------------------------------*
+     CSR         #SB210    BEGSR
+      *
+     C                     Z-ADD1         WKPAGE  30
+     C                     EXSR #CLR
+      *
+     C                     SETOF                     8166
+     C           *LOVAL    SETLLIZAPL011
+     C                     READ IZAPL011                 81
+      *
+     C           *IN81     DOWEQ'0'
+     C           *IN66     ANDEQ'0'
+     C                     EXSR #READ
+     C                     READ IZAPL011                 81
+     C                     ENDDO
+      * NEXT
+     C                     SETOF                     66
+     C           *IN81     DOWEQ'0'
+     C           *IN66     ANDEQ'0'
+     C                     EXSR #NEXT
+     C                     ENDDO
+      *
+     C                     MOVE '02'      DSPSW
+      *
+     CSR         ESB210    ENDSR
+      *----------------------------------------------------*
+      *   第二画面処理                                   *
+      *----------------------------------------------------*
+     CSR         #SB220    BEGSR
+      *
+     C           CTRX      IFEQ 0
+     C                     SETON                     72
+     C                     SETON                     99
+     C                     MOVELER,1      D9ERR
+     C                     ELSE
+     C                     SETON                     7273
+     C                     ENDIF
+      *
+     C                     WRITEIZAPW539
+     C                     EXFMTSFLCTL
+     C                     SETOF                     7273
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    D9ERR
+      * F3
+     C           *IN03     IFEQ '1'
+     C                     MOVE '03'      PCMD
+     C                     MOVE '99'      DSPSW
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+     C           CTRX      IFEQ 0
+     C                     GOTO ESB220
+     C                     ENDIF
+      *-----------------*
+      * ROLLDOWN/PAGEUP *
+      *-----------------*
+     C           *IN52     IFEQ '1'
+     C*                    ADD  1         CTRX
+      * 1ST. PAGE
+     C           WKPAGE    IFEQ 1
+     C                     GOTO ESB220
+     C                     ENDIF
+      *-----------------*
+     C           *IN81     IFEQ '1'
+     C                     SETOF                     81
+     C           *HIVAL    SETGTIZAPL011
+     C                     READPIZAPL011                 81
+     C                     SUB  1         CTRX
+     C                     ENDIF
+      *
+     C                     ADD  17        CTRX
+      *                         L--表示行数
+     C                     SETOF                     6627
+      *
+     C                     DO   *HIVAL
+     C                     EXSR #READP
+     C                     READPIZAPL011                 81
+     C  N81N27             ENDDO
+      * NEXT
+     C                     SETOF                     66
+     C           *IN81     DOWEQ'0'
+     C                     EXSR #NEXTP
+     C  N81N66             ENDDO
+      *
+     C                     Z-ADD0         CTRX    40
+      *
+     C           *IN81     IFEQ '1'
+     C           *LOVAL    SETLLIZAPL011
+     C                     READ IZAPL011                 81
+     C                     ENDIF
+      *
+     C                     EXSR #CLR
+     C                     SETOF                     8166
+      *
+     C           *IN81     DOWEQ'0'
+     C           *IN66     ANDEQ'0'
+     C                     EXSR #READ
+     C                     READ IZAPL011                 81
+     C                     ENDDO
+      * NEXT
+     C                     SETOF                     66
+     C           *IN81     DOWEQ'0'
+     C                     EXSR #NEXT
+     C  N81N66             ENDDO
+      *
+     C                     SUB  1         WKPAGE
+     C                     GOTO ESB220
+     C                     ENDIF
+      *--------------------*
+      * ROLL-UP            *
+      *--------------------*
+     C           *IN51     IFEQ '1'
+     C           *IN81     ANDEQ'0'
+      *
+     C                     EXSR #CLR
+      *
+     C                     SETOF                     6681
+     C           *IN81     DOWEQ'0'
+     C           *IN66     ANDEQ'0'
+     C                     EXSR #READ
+     C                     READ IZAPL011                 81
+     C                     ENDDO
+      * NEXT
+     C                     SETOF                     66
+     C           *IN81     DOWEQ'0'
+     C                     EXSR #NEXT
+     C  N81N66             ENDDO
+      *
+     C                     ADD  1         WKPAGE
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+     CSR         ESB220    ENDSR
+      *----------------------------------------------------*
+      *   終了処理                                       *
+      *----------------------------------------------------*
+     CSR         #SB300    BEGSR
+     C                     SETON                     LR
+     C                     RETRN
+     CSR         ESB300    ENDSR
+      *----------------------------------------------------*
+      *   照会データ検索                                 *
+      *----------------------------------------------------*
+     CSR         #READ     BEGSR
+      *
+     C                     MOVEL*BLANK    WKGET   1
+     C                     EXSR #SELEC
+     C           WKGET     IFEQ *BLANK
+     C                     GOTO EREAD
+     C                     ENDIF
+      *
+     C                     EXSR #EDIT
+     C                     ADD  1         RRN
+     C                     ADD  1         @RRN
+     C                     ADD  1         CTRX
+     C                     WRITESFL
+      *
+     C           CTRX      IFEQ 17
+     C                     SETON                       66
+     C                     ENDIF
+      *
+     CSR         EREAD     ENDSR
+      *----------------------------------------------------*
+      *   検索ファイル逆読み                             *
+      *----------------------------------------------------*
+     CSR         #READP    BEGSR
+      *
+     C                     MOVEL*BLANK    WKGET   1
+     C                     EXSR #SELEC
+     C           WKGET     IFEQ *BLANK
+     C                     GOTO EREADP
+     C                     ENDIF
+      *
+     C                     SUB  1         CTRX           27
+      *
+     CSR         EREADP    ENDSR
+      *----------------------------------------------------*
+      *   検索条件判定                                   *
+      *----------------------------------------------------*
+     CSR         #SELEC    BEGSR
+      *
+     C           ZCSKJY    IFEQ 'D'
+     C           ZCSKHZ    ANDLE*DATE
+     C                     GOTO ESELEC
+     C                     ENDIF
+      *
+     C           ZCST      IFLE *DATE
+     C                     GOTO ESELEC
+     C                     ENDIF
+      *
+     C           P1SUPP    IFEQ *BLANK
+     C                     ELSE
+     C                     MOVE P1SUPP    ##SUPP  40
+     C           ZCKAKE    IFNE ##SUPP
+     C                     GOTO ESELEC
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     MOVEL'1'       WKGET
+      *
+     CSR         ESELEC    ENDSR
+      *----------------------------------------------------*
+      *   表示項目＆サブファイルクリアー                 *
+      *----------------------------------------------------*
+     CSR         #CLR      BEGSR
+      *
+     C                     SETON                     71
+     C                     WRITESFLCTL
+     C                     SETOF                     7166
+     C                     Z-ADD0         RRN     30
+     C                     Z-ADD0         @RRN    40
+     C                     Z-ADD0         CTRX    40
+     C                     Z-ADD1         @SFRC1
+      *
+     CSR         ECLR      ENDSR
+      *----------------------------------------------------*
+      *   編集処理                                       *
+      *----------------------------------------------------*
+     CSR         #EDIT     BEGSR
+      *
+     C                     MOVELZCZAIS    S1ZAIS
+     C                     Z-ADDZCZAIK    S1ZAIK
+     C                     MOVELZCKAKE    S1KAKE
+     C                     Z-ADDZCMSJR    S1MSJR
+     C                     Z-ADDZCMKJR    S1MKJR
+     C                     Z-ADDZCKMMX    S1KMMX
+     C                     Z-ADD0         S1HHHH
+     C                     EXSR #SB911
+      *
+     C           KEYZ1     KLIST
+     C                     KFLD           ZCZAIS
+     C                     KFLD           ZCZAIK
+     C                     KFLD           ZCKOJE
+     C                     KFLD           ZCKAKE
+     C           KEYZ1     SETLLABMPLZ11
+     C           KEYZ1     READEABMPLZ11                 93
+     C           *IN93     DOWEQ'0'
+     C           I1SKJY    IFEQ 'D'
+     C           I1SKHZ    ANDLE*DATE
+     C                     ELSE
+     C                     Z-ADDI1MKJR    S2MKJR
+     C                     Z-ADDI1KMMX    S2KMMX
+     C                     ENDIF
+     C           KEYZ1     REDPEABMPLZ11                 93
+     C                     ENDDO
+      *
+     C                     MOVEL*DATE     P@DTYM
+     C                     CALL 'ABMR4B'
+     C                     PARM           P@DTYM  60
+     C                     PARM           ZCZAIS 15
+     C                     PARM           ZCZAIK  52
+     C                     PARM           ZCKOJE  40
+     C                     PARM           ZCKAKE  40
+     C                     PARM           P@MSJR 150
+     C                     PARM           P@MKJR 150
+      *
+     C                     Z-ADDP@MKJR    S1NN1J
+     C           P@MKJR    DIV  20        @DKJR   70H
+     C                     MOVE ZCSLTM    @LT     30
+     C                     MOVE ZCKEIS    @BARA   32
+     C                     Z-ADDZCCHOS    @CHOS   30
+     C                     MOVE ZCLOTO    @LOT    20
+     C                     Z-ADD0         WKKJR  124H
+     C                     Z-ADD0         WKLOT   30
+     C           ZCTKJR    IFNE 0
+     C           @DKJR     DIV  ZCTKJR    WKKJR  124H
+     C                     ELSE
+     C                     Z-ADD@DKJR     WKKJR
+     C                     ENDIF
+     C                     MULT @LT       WKKJR
+     C                     MULT @BARA     WKKJR
+     C                     ADD  0.9999    WKKJR
+     C           @LOT      SUB  1         WKLOT
+     C                     ADD  @CHOS     WKLOT
+     C           WKKJR     ADD  WKLOT     WKMAIS
+     C           WKMAIS    IFEQ 1
+     C                     ADD  1         WKMAIS
+     C                     ENDIF
+     C                     Z-ADDWKMAIS    S1NN1K
+      *
+     CSR         EEDIT     ENDSR
+      *----------------------------------------------------*
+      *    KABAN CALUCATION                              *
+      *----------------------------------------------------*
+     CSR         #SB911    BEGSR
+      *
+     C                     SETOF                     4546
+     C                     Z-ADD0         WKKJR
+     C                     Z-ADD0         WKLOT
+     C                     Z-ADDZCTKJR    @TKJR   50
+     C                     Z-ADDZCMSJR    @MKJR   80
+     C                     MOVE ZCSLTM    @LT     30
+     C                     MOVE ZCKEIS    @BARA   32
+     C                     Z-ADDZCCHOS    @CHOS   30
+     C                     MOVE ZCLOTO    @LOT    20
+     C                     Z-ADD0         WKMAIS  30
+      *
+     C           @MKJR     DIV  20        @DKJR   70H
+     C           @TKJR     IFNE 0
+     C           @DKJR     DIV  @TKJR     WKKJR  124H
+     C                     ELSE
+     C                     Z-ADD@DKJR     WKKJR
+     C                     ENDIF
+     C                     MULT @LT       WKKJR
+     C                     MULT @BARA     WKKJR
+     C                     ADD  0.9999    WKKJR
+     C           @LOT      SUB  1         WKLOT   30
+     C                     ADD  @CHOS     WKLOT
+     C           WKKJR     ADD  WKLOT     WKMAIS
+     C           WKMAIS    IFEQ 1
+     C                     ADD  1         WKMAIS
+     C                     ENDIF
+TCHK2C           WKMAIS    IFLE 2
+TCHK2C           @MKJR     IFGE @TKJR
+TCHK2C                     ADD  1         WKMAIS
+TCHK2C                     ENDIF
+TCHK2C                     ENDIF
+     C                     Z-ADDWKMAIS    S1HHHH
+      *
+     C           S1MSJR    IFGT S1MKJR
+     C                     MOVEL*ON       *IN45
+     C                     END
+     C           S1MSJR    IFLT S1MKJR
+     C                     MOVEL*ON       *IN46
+     C                     END
+      *
+     CSR         ESB911    ENDSR
+      *----------------------------------------------------*
+      *   次データ                                       *
+      *----------------------------------------------------*
+     CSR         #NEXT     BEGSR
+      *
+     C                     MOVEL*BLANK    WKGET   1
+     C                     EXSR #SELEC
+     C           WKGET     IFEQ '1'
+     C                     SETON                     66
+     C                     GOTO ENEXT
+     C                     ENDIF
+      *
+     C                     READ IZAPL011                 81
+      *
+     CSR         ENEXT     ENDSR
+      *----------------------------------------------------*
+      *   前データ                                       *
+      *----------------------------------------------------*
+     CSR         #NEXTP    BEGSR
+      *
+     C                     MOVEL*BLANK    WKGET   1
+     C                     EXSR #SELEC
+     C           WKGET     IFEQ '1'
+     C                     SETON                     66
+     C                     GOTO ENEXTP
+     C                     ENDIF
+      *
+     C                     READPIZAPL011                 81
+      *
+     CSR         ENEXTP    ENDSR
+     C*----------------------------------------------------------------
+** ER(65A) ........2.........3.........4.........5.........6....>
+ER-1 THERE IS NO DATA.
+ER-2
+ER-3
+ER-4
+ER-5
+ER-6
+ER-7
+ER-8
+ER-9
+** HDR(9A)
+(ASJ)        01
+(O&K)        02
+(NSCI)       03
+(CHARTER)    04
+(ALL)        05
+(POSCO)      06 JW2
+(TSUSHO)     07 JW2

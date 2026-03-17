@@ -1,0 +1,1016 @@
+     H            Y.
+      ****************************************************************
+      *  PROGRAM    : AFFR50                                         *
+      *  WRITTEN    : 2023.03.09                                     *
+      *  WRITTEN BY : JW (SRA)                                       *
+      *  FUNCTION   : UPLOAD IFS.FORECAST.CSV FROM IFS DATA          *
+     *** CAUTION !!! COMPLIE WITH "ALLOW NULL *YES"
+      ****************************************************************
+     FAFFPW50 CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     F                                        RRN2  KSFILE SFL02
+     F                                              KINFDS @INFDS
+     FFGBPL01 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+     FFCCTL15 IF  E           K        DISK
+     FAAHTL06 IF  E           K        DISK
+     FAAFTL06 IF  E           K        DISK
+     FAB#PL17 IF  E           K        DISK
+     FEDIPP42 IF  E           K        DISK
+     FAB#PP85 IF  E           K        DISK
+     FAFFWP10 IF  E           K        DISK                           UC
+     FAFFWP11 O   E           K        DISK
+      *
+     E                    UP1     1  11 20   NK1    02   0465 ABI
+     E                    ERR     1  25 60
+      *-----------------------------------------------------------------
+     I@INFDS      DS
+     I                                    B 378 3790@@REC
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *
+     I            DS
+     I                                        1   80A2GSHZ
+     I                                        1   40A2GSYY
+     I                                        5   60A2GSMM
+     I                                        7   80A2GSDD
+     I            DS
+     I                                        1   80A2SSHZ
+     I                                        1   40A2SYYY
+     I                                        5   60A2SYMM
+     I                                        7   80A2SYDD
+      *
+     I            DS
+     I                                        1  20 S1PART
+     I                                        1   5 S1MHN1
+     I                                        6  10 S1MHN2
+     I                                       11  15 S1MHN3
+     I                                       16  20 S1MHN4
+     I            DS
+     I                                        1  20 AFMHIN
+     I                                        1   5 AFMHN1
+     I                                        6  10 AFMHN2
+     I                                       11  15 AFMHN3
+     I                                       16  20 AFMHN4
+     I            DS
+     I                                        1  20 WMHIN
+     I                                        1   5 WMHN1
+     I                                        6  10 WMHN2
+     I                                       11  15 WMHN3
+     I                                       16  20 WMHN4
+     I            DS
+     I                                        1  12 @SHIN
+     I                                        1   5 WSHN1
+     I                                        6  10 WSHN2
+     I                                       11  12 WSHN3
+     I            DS
+     I                                        1   80AFSHDT
+     I                                        1   40WNOYY
+     I                                        5   60WNOMM
+     I                                        7   80WNODD
+     I            DS
+     I                                        1   80@SHDT
+     I                                        1   40@SHYY
+     I                                        5   60@SHMM
+     I                                        7   80@SHDD
+      *
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *----------------------------------------------------*
+      * MAIN ROUTINE
+      *----------------------------------------------------*
+     C                     EXSR #INIT
+      *
+     C                     DO   *HIVAL
+     C                     SELEC
+      * DSP01 -------------------------
+     C           @SCRN     WHEQ 'DSP01'
+     C                     EXSR #DSP01
+      * F1: EXIT
+     C           *INKA     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      * SFL01 -------------------------
+     C           @SCRN     WHEQ 'SFL01'
+     C                     EXSR #SFL01
+      * F5: EXIT
+     C           *INKE     IFEQ *ON
+     C           UPFLG     ANDEQ'Y'
+     C                     LEAVE
+     C                     ENDIF
+      * F5:
+     C           *INKE     IFEQ *ON
+     C           UPFLG     ANDNE'Y'
+     C                     MOVELERR,16    D9ERR
+     C                     ENDIF
+      * SFL02 -------------------------
+     C           @SCRN     WHEQ 'SFL02'
+     C                     EXSR #SFL02
+      *
+     C                     ENDSL
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      * DISPLAY DSP01                                      *
+      *----------------------------------------------------*
+     C           #DSP01    BEGSR
+     C                     EXFMTDSP01
+     C                     SETOF                     85
+     C                     MOVEL*BLANK    XMSG
+      * F1:EXIT
+     C           *INKA     IFEQ *ON
+     C                     GOTO DSP01X
+     C                     ENDIF
+      *--------------
+      * IF NO ERROR,
+      *--------------
+      *          ** CLEAR SUB FILE **
+     C                     SETON                     71
+     C                     WRITESFLCT1
+     C                     WRITESFLCT2
+     C                     SETOF                     71
+      *          ** SET ORDER DATA **
+     C                     CALL 'AFFC11'
+     C                     PARM           RFLG    1
+      * CHECK AND SET DATA
+     C           RFLG      IFNE 'N'
+     C                     EXSR #CHK1
+     C                     ENDIF
+      *
+     C           DSP01X    ENDSR
+      *----------------------------------------------------*
+      *  CHECK DATA                                        *
+      *----------------------------------------------------*
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE 'N'       ENDFLG  1
+     C                     MOVE *OFF      *IN85
+     C                     Z-ADD0         YCNT    30
+     C                     Z-ADD0         NCNT    30
+     C                     Z-ADD0         OCNT    30
+     C                     Z-ADD0         LIN#    30
+     C                     Z-ADD0         RRN1    40
+     C                     Z-ADD0         RRN2    40
+     C                     MOVE *BLANK    XSUPP
+     C                     MOVE *BLANK    XSUPN
+     C                     Z-ADD0         SVNONY  40
+     C                     OPEN AFFWP10                    OPEN
+      *
+     C                     DO   *HIVAL
+     C                     READ AFFWP10                  91
+     C   91                LEAVE
+      * CHECK END FLAG
+     C           ENDFLG    IFEQ 'Y'
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ADD  1         LIN#
+     C                     EXSR #CHK12
+      * COUNT
+     C                     SELEC
+     C           OKFLG     WHEQ 'Y'
+     C                     ADD  1         YCNT
+     C           OKFLG     WHEQ 'N'
+     C                     ADD  1         NCNT
+     C                     OTHER
+     C                     ADD  1         OCNT
+     C                     ENDSL
+     C                     ENDDO
+      *
+     C           *IN85     IFEQ *OFF
+     C           YCNT      ANDEQ0
+     C                     MOVELERR,1     XMSG
+     C                     ENDIF
+      *
+     C           *IN85     IFEQ *OFF
+     C                     MOVEL'SFL01'   @SCRN
+     C                     ELSE
+     C                     MOVEL'SFL02'   @SCRN
+     C                     ENDIF
+      *
+     C           RRN1      IFEQ 0
+     C           RRN2      ANDEQ0
+     C                     MOVEL'DSP01'   @SCRN
+     C                     MOVELERR,1     XMSG
+     C                     ENDIF
+      *
+     C                     CLOSEAFFWP10                    CLOSE
+      *
+     C           CHK1X     ENDSR
+      *----------------------------------------------------*
+      *  CHECK 2                                           *
+      *----------------------------------------------------*
+     C           #CHK12    BEGSR
+      *
+     C                     MOVE ' '       OKFLG   1
+      * CHECK HEADER, BY "D"
+     C                     MOVELFLD1      LTR1    1
+     C           LTR1      IFEQ 'D'
+     C           LTR1      OREQ 'd'
+     C           FLD1      OREQ *BLANK
+     C                     MOVE ' '       OKFLG
+     C                     GOTO CHK12X
+     C                     ENDIF
+      * CHECKCOMMENT LINE
+     C           LTR1      IFEQ '*'
+     C                     MOVE ' '       OKFLG
+     C                     GOTO CHK12X
+     C                     ENDIF
+      * CHECK HEADER, BY FIRST 4 DIGITS (NUMERIC?)
+     C                     Z-ADD0         @NONY   40
+     C                     MOVELFLD1      LTR4    4
+     C                     MOVELLTR4      $CHAR  17 P
+     C                     CALL 'UTLR60'
+     C                     PARM           $CHAR  17
+     C                     PARM           $T156  156
+     C                     PARM           $RTN    1
+     C           $RTN      IFNE *BLANK
+     C                     MOVE ' '       OKFLG
+     C                     GOTO CHK12X
+     C                     ENDIF
+      *
+      * 1.(A) CHECK DELIVVERY CODE
+     C                     MOVE ' '       XNONY   1
+     C                     Z-ADD$T156     @NONY   40
+     C           @NONY     CHAINFGBPL01              99
+     C           *IN99     IFEQ *OFF
+     C           XSUPP     IFEQ *BLANK
+     C                     MOVELB2CODE    XSUPP
+     C                     MOVELB2SMEI    XSUPN
+     C                     ENDIF
+     C                     ELSE
+     C                     MOVELFLD1      S2ERR
+     C                     MOVELERR,2     S2MSG
+     C                     EXSR #ERR1
+     C                     MOVE 'X'       XNONY
+     C                     ENDIF
+      * OMIT HONDA/TOYOTA/FORD/VW ORDER
+     C                     MOVEL@NONY     LTR4
+     C           LTR4      CHAINEDIPP42              99
+     C           *IN99     IFEQ *OFF
+     C**         E4GRP     IFEQ 'HND'
+     C           E4GRP     IFEQ 'TYT'
+     C           E4GRP     OREQ 'FRD'
+     C           E4GRP     OREQ 'VW '
+     C                     MOVELFLD1      S2ERR
+     C                     MOVELERR,20    S2MSG
+     C                     EXSR #ERR1
+     C                     MOVE 'X'       XNONY
+     C                     ENDIF
+     C                     ENDIF
+      * SAVE DELIVERY CODE
+     C           SVNONY    IFEQ 0
+     C           XNONY     ANDNE'X'
+     C                     Z-ADD@NONY     SVNONY
+     C                     ENDIF
+      * CHECK MULTIPLE DELIVERYV CODE
+     C           @NONY     IFNE SVNONY
+     C           SVNONY    ANDNE0
+     C                     MOVELFLD1      S2ERR
+     C                     MOVELERR,14    S2MSG
+     C                     EXSR #ERR1
+     C                     MOVE 'X'       XNONY
+     C                     ENDIF
+      *
+      * 2.(B) CHECK SHIP DATE
+     C                     Z-ADD0         @SHDT
+     C                     MOVELFLD2      $SRC
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+     C           $RTN      IFNE *BLANK
+     C                     MOVEL$SRC      S2ERR     P
+     C                     MOVELERR,3     S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+      *
+     C           $RTN      IFEQ *BLANK
+     C                     MOVEL$TRUE     @SHDT
+     C           @SHDT     IFLT TODAY
+     C                     MOVEL$SRC      S2ERR     P
+     C                     MOVELERR,18    S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+     C                     ENDIF
+      *
+      * 3.(C) CHECK BIN#
+     C                     Z-ADD0         @BIN    20
+     C                     MOVELFLD3      $CHAR     P
+     C                     CALL 'UTLR60'
+     C                     PARM           $CHAR  17
+     C                     PARM           $T156  156
+     C                     PARM           $RTN    1
+     C           $RTN      IFNE *BLANK
+     C                     MOVELFLD3      S2ERR
+     C                     MOVELERR,8     S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+      *
+     C           $RTN      IFEQ *BLANK
+     C           $T156     IFLT 1
+     C           $T156     ORGT 99
+     C                     MOVELFLD3      S2ERR
+     C                     MOVELERR,8     S2MSG
+     C                     EXSR #ERR1
+     C                     ELSE
+     C                     Z-ADD$T156     @BIN
+     C                     ENDIF
+     C                     ENDIF
+      * 4.(D) CHECK PART#
+     C           XNONY     IFNE 'X'
+     C                     MOVE *BLANK    @PART  20
+     C                     MOVE *BLANK    @UHIN  20
+     C                     MOVEL@NONY     $NONY
+     C                     MOVELFLD7      $NKOJ
+     C                     MOVELFLD8      $NUKE
+     C                     MOVELFLD4      $MHIN1
+     C                     CALL 'UTLR61'
+     C                     PARM           $NONY   4
+     C                     PARM           $NKOJ   1
+     C                     PARM           $NUKE   4
+     C                     PARM           $MHIN1 20
+     C                     PARM           @TOKU   40
+     C                     PARM           @MHIN2 20
+     C                     PARM           @SHIN  12
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ *BLANK
+     C                     MOVELFLD4      @UHIN            ORIGINAL USR PART
+     C                     MOVEL@MHIN2    @PART            NO HIPH USER PART
+     C                     ELSE
+     C                     MOVELFLD4      S2ERR
+      * SET MSG
+     C                     SELEC
+     C           $RTN      WHEQ '1'
+     C                     MOVELERR,17    S2MSG
+     C           $RTN      WHEQ '2'
+     C                     MOVELERR,9     S2MSG
+     C           $RTN      WHEQ '3'
+     C                     MOVELERR,15    S2MSG
+     C                     ENDSL
+      *
+     C                     EXSR #ERR1
+     C                     ENDIF
+     C                     ENDIF
+      * 5.(E) CHECK ORDER QTY
+     C                     Z-ADD0         @QTY    70
+     C                     MOVELFLD5      $CHAR  17 P
+     C                     CALL 'UTLR60'
+     C                     PARM           $CHAR  17
+     C                     PARM           $T156  156
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ *BLANK
+     C                     Z-ADD$T156     @QTY
+     C                     ELSE
+     C                     MOVELFLD5      S2ERR
+     C                     MOVELERR,10    S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+      * 6.(F) CHECK ORDER#
+     C                     MOVELFLD6      @PO    10
+     C           @PO       IFEQ *BLANK
+     C                     MOVELFLD6      S2ERR
+     C                     MOVELERR,11    S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+      * 7.(G) CHECK FACTORY
+     C                     MOVELFLD7      @NKOJ   1
+      * 8.(H) CHECK DOCK
+     C                     MOVELFLD8      @NUKE   4
+      * 9.(I) CHECK INVOICE#
+     C                     MOVELFLD9      @INVN  10
+      * 10.(J) CHECK KANBAN#
+     C**                   MOVELFLDA      @SBAN   6
+      *
+      * 11. CHECK DUPLICATE ORDERS
+     C                     MOVE *OFF      *IN81
+     C           K#17      SETLLAB#PL17
+     C                     DO   *HIVAL
+     C           K#17      READEAB#PL17                  81
+     C   81                LEAVE
+     C           *IN81     IFEQ *OFF
+     C           BASKJY    ANDEQ*BLANK
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           *IN81     IFEQ *OFF
+     C                     MOVELFLD6      S2ERR
+     C                     MOVELERR,19    S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+      *
+      * END OF CHECK --------------------------------------
+     C           OKFLG     IFNE 'N'
+     C**                   CLEARSFL01
+     C                     Z-ADDLIN#      S1LIN#
+     C                     Z-ADD@TOKU     S1TOKU
+     C                     MOVELXSUPP     S1NONY
+     C                     Z-ADD@SHDT     S1SHDT
+     C                     Z-ADD@BIN      S1BN#
+     C                     MOVEL@UHIN     S1UHIN
+     C                     MOVEL@PART     S1PART
+     C                     MOVEL@UHIN     S1PRT2
+     C                     Z-ADD@QTY      S1QTY
+     C                     MOVEL@PO       S1PO#
+     C                     MOVEL@NKOJ     S1NKOJ
+     C                     MOVEL@NUKE     S1NUKE
+     C                     MOVEL@INVN     S1INVN
+     C                     MOVEL@SHIN     S1SHIN
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+     C                     MOVE 'Y'       OKFLG
+     C                     ENDIF
+      *
+     C           RRN1      IFGT MAX1
+     C                     MOVELERR,4     D9ERR
+     C**                   SETON                     85
+     C                     MOVE 'Y'       ENDFLG
+     C                     ENDIF
+      *
+     C           RRN2      IFGT MAX2
+     C                     MOVELERR,5     S2MSG
+     C                     MOVELERR,5     D9ERR
+     C                     SETON                     85
+     C                     ADD  1         RRN2
+     C                     WRITESFL02
+     C                     MOVE 'Y'       ENDFLG
+     C                     ENDIF
+      *
+     C           CHK12X    ENDSR
+      *----------------------------------------------------*
+      *  DISPLAY ORDER (SFL01)                             *
+      *----------------------------------------------------*
+     C           #SFL01    BEGSR
+      *
+     C           ENDFLG    IFEQ 'Y'
+     C                     MOVELERR,21    D9ERR
+     C                     ELSE
+     C                     MOVELERR,6     D9ERR
+     C                     ENDIF
+      *
+     C                     WRITEDSP91
+     C                     SETON                     72
+     C                     EXFMTSFLCT1
+     C                     SETOF                     72
+     C                     MOVE *BLANK    D9ERR
+      * F3 BACK
+     C           *INKC     IFEQ *ON
+     C                     MOVEL'DSP01'   @SCRN
+     C                     ENDIF
+      * CHECK END FLAG
+     C           ENDFLG    IFEQ 'Y'
+     C                     MOVE *OFF      *INKE
+     C                     ENDIF
+      * F5: UPLOAD
+     C           *INKE     IFEQ *ON
+     C                     EXSR #UPL
+     C                     MOVEL'DSP01'   @SCRN
+     C                     ENDIF
+      *
+     C           SFL01X    ENDSR
+      *----------------------------------------------------*
+      *  DISPLAY ERROR (SFL02)                             *
+      *----------------------------------------------------*
+     C           #SFL02    BEGSR
+      *
+     C           ENDFLG    IFEQ 'Y'
+     C                     MOVELERR,5     D9ERR
+     C                     ELSE
+     C                     MOVELERR,7     D9ERR
+     C                     ENDIF
+      *
+     C                     WRITEDSP92
+     C                     SETON                     72
+     C                     EXFMTSFLCT2
+     C                     SETOF                     72
+     C                     MOVE *BLANK    D9ERR
+      * F3 BACK
+     C           *INKC     IFEQ *ON
+     C                     MOVEL'DSP01'   @SCRN
+     C                     ENDIF
+      *
+     C           SFL02X    ENDSR
+      *----------------------------------------------------*
+      *  WRITE ERROR SFL                                   *
+      *----------------------------------------------------*
+     C           #ERR1     BEGSR
+      *
+     C                     Z-ADDLIN#      S2LIN#
+     C                     MOVELFLD7      S2NKOJ
+     C                     MOVELFLD8      S2NUKE
+     C                     SETON                     85
+     C                     ADD  1         RRN2
+     C                     WRITESFL02
+     C                     MOVE 'N'       OKFLG
+      *
+     C           ERR1X     ENDSR
+      *----------------------------------------------------*
+      *  WRITE WORK FILE                                   *
+      *----------------------------------------------------*
+     C           #UPL      BEGSR
+      *
+     C                     Z-ADD0         RRN1
+      *
+     C                     DO   *HIVAL
+     C                     ADD  1         RRN1
+     C           RRN1      CHAINSFL01                99
+     C   99                LEAVE
+      * OUT
+     C                     CLEARAFFWP111
+     C                     Z-ADDS1LIN#    AFLIN#
+     C                     Z-ADDS1TOKU    AFTOKU
+     C                     Z-ADDS1NONY    AFNONY
+     C                     MOVELS1NKOJ    AFNKOJ
+     C                     MOVELS1NUKE    AFNUKE
+     C                     Z-ADDS1SHDT    AFSHDT
+     C                     MOVELS1BN#     AFSHBN
+     C                     MOVELS1PART    AFMHIN
+     C                     Z-ADDS1QTY     AFSRYO
+     C                     MOVELS1PO#     AFORDN
+     C                     MOVELS1INVN    AFINVN
+     C                     MOVELS1UHIN    AFUHIN
+     C                     MOVELS1SHIN    AFSHIN
+      * DEFAULT
+     C           AFNKOJ    IFEQ *BLANK
+     C                     MOVEL'0'       AFNKOJ
+     C                     ENDIF
+      *
+     C           AFNUKE    IFEQ *BLANK
+     C           AFNUKE    OREQ '0   '
+     C                     MOVEL'00  '    AFNUKE
+     C                     ENDIF
+      *
+     C           AFSIRK    IFEQ *BLANK
+     C                     MOVELAFNKOJ    AFSIRK
+     C                     ENDIF
+      *
+     C           AFSIRE    IFEQ *BLANK
+     C                     MOVELAFNONY    AFSIRE
+     C                     ENDIF
+      *
+     C                     Z-ADD0         AFSETQ
+      * GET Q/C
+     C                     EXSR #SYOS
+     C                     Z-ADD@SYOS     AFSYOS
+      * GET SBAN
+     C                     EXSR #SBAN
+     C                     MOVEL@SBAN     AFSBAN
+      * ADJUST
+     C                     EXSR #ADJ
+      *
+     C                     WRITEAFFWP111
+     C                     MOVE 'Y'       UPFLG
+     C                     MOVELXSUPP     USIRE
+      *
+     C                     ENDDO
+      *
+     C           UPLX      ENDSR
+      *-----------------------------------------------------
+      *  SET QTY/CONTAINER
+      *-----------------------------------------------------
+     C           #SYOS     BEGSR
+      *
+     C                     Z-ADD0         @SYOS   90
+     C                     SETOF                     6364
+     C                     MOVELAFTOKU    PTOKU
+     C                     MOVELAFNONY    PNONY
+     C                     MOVELAFMHIN    PMHIN
+      *
+     C                     MOVEL'0'       PNKOJ
+     C           AFNUKE    IFEQ *BLANK
+     C                     MOVEL'00  '    PNUKE
+     C                     ELSE
+     C                     MOVELAFNUKE    PNUKE
+     C                     ENDIF
+      *
+     C                     CALL 'BBHR50'
+     C                     PARM           PTOKU   4
+     C                     PARM           PNONY   4
+     C                     PARM           PNKOJ   1
+     C                     PARM           PNUKE   4
+     C                     PARM           PMHIN  20
+     C                     PARM           @SHIN  12
+     C                     PARM           @FLG    1
+     C                     MOVEL@SHIN     AFSHIN
+     C           KEY1      CHAINFCEPL01              99
+     C           *IN99     IFEQ *OFF
+     C           A2GSKD    ANDEQ*BLANK
+     C           A2SSHZ    IFLE TODAY
+     C                     Z-ADDA2SSYS    @SYOS
+     C                     ELSE
+     C                     Z-ADDA2KSYS    @SYOS
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           KEY1      SETLLAAHTL06
+     C           *IN77     DOUEQ*ON
+     C           KEY1      READEAAHTL06                  77
+     C           *IN77     IFEQ *OFF
+     C           L6SKJY    ANDEQ*BLANK
+     C           L6STHZ    ANDEQ99999999
+     C                     Z-ADDL6KMAX    AFSETQ
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           *IN77     IFEQ *ON
+     C           KEY1      SETLLAAFTL06
+     C           *IN77     DOUEQ*ON
+     C           KEY1      READEAAFTL06                  77
+     C           *IN77     IFEQ *OFF
+     C           A3SKJY    ANDEQ*BLANK
+     C           A3STHZ    ANDEQ99999999
+     C                     Z-ADDA3KMAX    AFSETQ
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * GET SBAN                                           *
+      *----------------------------------------------------*
+     C           #SBAN     BEGSR
+      *
+     C                     MOVE *BLANK    @SBAN   4
+      *
+     C                     Z-ADDAFTOKU    WTOKU
+     C                     Z-ADDAFNONY    WNONY
+     C                     MOVELAFNKOJ    WNKOJ
+     C                     MOVELAFNUKE    WNUKE
+     C                     MOVELAFMHIN    WMHIN
+     C                     MOVE *OFF      *IN95
+     C           K#15      SETLLFCCTL15
+     C                     DO   *HIVAL
+     C           K#15      READEFCCTL15                  95
+     C   95                LEAVE
+     C                     MOVELB4SBAN    @SBAN
+     C                     ENDDO
+      *
+     C           @SBAN     IFEQ *BLANK
+     C                     MOVE *OFF      *IN96
+     C           K#85      SETLLAB#PP85
+     C                     DO   *HIVAL
+     C           K#85X     READEAB#PP85                  96
+     C   96                LEAVE
+     C                     MOVELA5SBAN    @SBAN
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * ADJUST BY EACH DELIVERY CODE                       *
+      *----------------------------------------------------*
+     C           #ADJ      BEGSR
+      *
+     C                     SELEC
+      * TAKATA
+     C           AFNONY    WHEQ 3656
+     C           AFNONY    OREQ 3682
+     C           AFNONY    OREQ 3712
+     C           AFNONY    OREQ 3842
+     C           AFNONY    OREQ 3713
+JW   C           AFNONY    OREQ 3714
+     C                     EXSR #TKT
+      * PMO
+     C           AFNONY    WHEQ 0681
+     C                     EXSR #PMO
+      * TAKUMI
+     C           AFNONY    WHEQ 0645
+     C                     EXSR #TAK
+      * TAKUMI TEXAS
+     C           AFNONY    WHEQ 0646
+JW   C           AFNONY    OREQ 0648
+     C                     EXSR #TAKTX
+      * TAKUMI CANADA
+     C           AFNONY    WHEQ 0647
+     C                     EXSR #TAKCN
+      *
+     C           AFNONY    WHEQ 5671
+     C           AFNONY    OREQ 5672
+     C           AFNONY    OREQ 5674
+     C                     EXSR #OHA
+     C* ABI
+     C           AFNONY    WHEQ 0465
+     C                     EXSR #ABI
+     C* ASJ
+     C           AFNONY    WHEQ 8990
+     C                     EXSR #ASJ
+     C* RITATSU
+     C           AFNONY    WHEQ 1301
+     C                     EXSR #RTS
+     C* NIFAST MICHIGAN
+     C           AFNONY    WHEQ 0203
+     C                     EXSR #NIF
+     C* NIFAST CANADA
+     C           AFNONY    WHEQ 1431
+     C                     EXSR #NIC
+     C* OTICS
+     C           AFNONY    WHEQ 0740
+     C           AFNONY    OREQ 0741
+     C                     EXSR #OTI
+     C* FUTABA TEXAS
+     C           AFNONY    WHEQ 0578
+     C                     EXSR #FTBTX
+     C* FUTABA INDIANA
+     C           AFNONY    WHEQ 0567
+     C                     EXSR #FTBIN
+     C* FUTABA CANADA
+     C           AFNONY    WHEQ 0579
+     C                     EXSR #FTBCN
+     C* FUTABA CHICAGO
+     C           AFNONY    WHEQ 0556
+     C                     EXSR #FTBCH
+     C* JTEXT TEXAS
+     C           AFNONY    WHEQ 3832
+     C                     EXSR #JTKTX
+     C* JTEXT VIRGINIA
+     C           AFNONY    WHEQ 3891
+     C                     EXSR #JTKVA
+     C* TIEM
+     C           AFNONY    WHEQ 0753
+     C                     EXSR #TIEM
+     C* ACZ
+     C           AFNONY    WHEQ 0170
+     C                     EXSR #ACZ
+     C* ARJ
+     C           AFNONY    WHEQ 3201
+     C                     EXSR #ARJ
+     C* ADI
+     C           AFNONY    WHEQ 0777
+     C                     EXSR #ADI
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * TAKATA                                             *
+      *----------------------------------------------------*
+     C           #TKT      BEGSR
+      *
+     C                     MOVEL'9'       AFSIRK
+     C                     MOVEL'2628'    AFSIRE
+     C                     MOVEL'0'       AFNKOJ
+     C                     MOVEL'00'      AFNUKE
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * PMO                                                *
+      *----------------------------------------------------*
+     C           #PMO      BEGSR
+      *
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * TAKUMI                                             *
+      *----------------------------------------------------*
+     C           #TAK      BEGSR
+      *
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * TAKUMI TEXAS                                       *
+      *----------------------------------------------------*
+     C           #TAKTX    BEGSR
+      *
+      *
+     C                     ENDSR
+     C*----------------------------------------------------*
+     C* TAKUMI CANADA                                      *
+     C*----------------------------------------------------*
+     C           #TAKCN    BEGSR
+      *
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * OHASHI                                             *
+      *----------------------------------------------------*
+     C           #OHA      BEGSR
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * ABI                                                *
+      *----------------------------------------------------*
+     C           #ABI      BEGSR
+      *
+     C                     Z-ADD1         IX      20
+     C           AFMHIN    LOKUPUP1,IX                   99
+     C           *IN99     IFEQ *OFF
+     C                     MOVEL'00  '    AFNUKE
+     C                     ELSE
+     C                     MOVELNK1,IX    AFNUKE    P
+     C                     END
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * ASJ                                                *
+      *----------------------------------------------------*
+     C           #ASJ      BEGSR
+      *
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * RITATSU                                            *
+      *----------------------------------------------------*
+     C           #RTS      BEGSR
+      *
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * NIFAST MICHIGAN                                    *
+      *----------------------------------------------------*
+     C           #NIF      BEGSR
+      *
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * NIFAST CANADA                                      *
+      *----------------------------------------------------*
+     C           #NIC      BEGSR
+      *
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * OTICS                                              *
+      *----------------------------------------------------*
+     C           #OTI      BEGSR
+      *
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * FUTABA TEXAS                                       *
+      *----------------------------------------------------*
+     C           #FTBTX    BEGSR
+      *
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * FUTABA INDIANA                                     *
+      *----------------------------------------------------*
+     C           #FTBIN    BEGSR
+      *
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * FUTABA CANADA                                      *
+      *----------------------------------------------------*
+     C           #FTBCN    BEGSR
+      *
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * FUTABA CHICAGO                                     *
+      *----------------------------------------------------*
+     C           #FTBCH    BEGSR
+      *
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * JTEKT TEXAS                                        *
+      *----------------------------------------------------*
+     C           #JTKTX    BEGSR
+      *
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * JTEKT VIRGINIA                                     *
+      *----------------------------------------------------*
+     C           #JTKVA    BEGSR
+      *
+     C*
+     C                     ENDSR
+      *--------------------------------------------------
+      * TIEM
+      *----------------------------------------------------*
+     C           #TIEM     BEGSR
+      *
+      *
+     C                     ENDSR
+     C*----------------------------------------------------*
+     C* ACZ                                                *
+     C*----------------------------------------------------*
+     C           #ACZ      BEGSR
+     C*
+     C*
+     C                     ENDSR
+      *--------------------------------------------------
+     C           #ARJ      BEGSR
+      *
+     C*
+     C                     ENDSR
+      *--------------------------------------------------
+     C           #ADI      BEGSR
+      *
+     C*
+     C                     ENDSR
+      *----------------------------------------------------*
+      * INITIALIZE
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           UPFLG   1
+     C                     PARM           USIRE   4
+      *
+     C           KEY1      KLIST
+     C                     KFLD           WSHN1
+     C                     KFLD           WSHN2
+     C                     KFLD           WSHN3
+      *
+     C           K#15      KLIST
+     C                     KFLD           WNOYY
+     C                     KFLD           WNOMM
+     C                     KFLD           WTOKU   40
+     C                     KFLD           WNONY   40
+     C                     KFLD           WNKOJ   1
+     C                     KFLD           WNUKE   4
+     C                     KFLD           WMHN1
+     C                     KFLD           WMHN2
+     C                     KFLD           WMHN3
+     C                     KFLD           WMHN4
+      *
+     C           K#17      KLIST
+     C                     KFLD           @NONY
+     C                     KFLD           @SHYY
+     C                     KFLD           @SHMM
+     C                     KFLD           @SHDD
+     C                     KFLD           @PO
+     C                     KFLD           @BIN
+      *
+     C           K#85      KLIST
+     C                     KFLD           WTOKU
+     C                     KFLD           WNONY
+     C                     KFLD           WNUKE   4
+     C                     KFLD           WMHN1
+     C                     KFLD           WMHN2
+     C                     KFLD           WMHN3
+     C                     KFLD           WMHN4
+     C                     KFLD           WDATE   80
+      *
+     C           K#85X     KLIST
+     C                     KFLD           WTOKU
+     C                     KFLD           WNONY
+     C                     KFLD           WNUKE   4
+     C                     KFLD           WMHN1
+     C                     KFLD           WMHN2
+     C                     KFLD           WMHN3
+     C                     KFLD           WMHN4
+      *
+      * IF DATA WAS UPLODED, UPFLAG=Y
+     C                     MOVE *BLANK    UPFLG
+     C                     MOVE *BLANK    USIRE
+      *
+     C                     Z-ADD0         WDATE
+     C                     TIME           WSDT
+     C                     MOVEL'DSP01'   @SCRN   5
+     C                     Z-ADD200       MAX1    40
+     C                     Z-ADD300       MAX2    40
+     C                     MOVE *OFF      *IN73            MORE
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+** UP1 (USER PART 0465 ABI)
+15157880030CHG      01
+14354214020         01
+98112106013         01
+98273112003         01
+99141160612         01
+9011906084          01
+13151110540         02
+13151110610         02
+13151110840         02
+98172108007         02
+15157880030         02
+** ERR MSG (50 CHARACTERS) ---------------------->
+THERE IS NO ORDER DATA! CHECK IFS.FIRM.csv...                 01
+DELIVERY CODE NOT FOUND!                                      02
+SHIP DATE IS INVALID!                                         03
+THERE IS NO ERROR. PRESS F5 FOR NEXT STEP...                  04
+ERROR REACHED MAX 300 RECORDS! PLEASE FIX ERRORS.             05
+PRESS F5 FOR NEXT STEP, OR F3 TO GO BACK..                    06
+FIX ERROR AND TRY AGAIN..                                     07
+BIN# SHOILD BE 01 - 99!                                       08
+USER PART IS NOT IN COMMON M/F! PLEASE REGISTER.              09
+QUANTITY IS INVALID!                                          10
+ORDER# SHOULD NOT BE BLANK!                                   11
+DELIVERY DATE IS INVALID!                                     12
+Q/C IS INVALID!                                               13
+MULTIPLE DELIVERY CODES ARE NOT ACCEPTABL!                    14
+USER PART IS NOT IN SHIPPING MASTER!                          15
+THERE IS NO ORDER DATA TO BE UPLOADED!                        16
+SHIPPING MASTER IS NOT SET UP!                                17
+SHIP DATE IS EARLIER THAN TODAY!                              18
+ORDER ALREADY EXISTS! (WILL BE DUPLICATED)                    19
+DOES NOT ACCEPT TOYOTA/FORD/VW ORDER!                         20
+ORDER REACHED MAX 200 RECORDS! PROCESS STOPPED!               21
+                                                              22
+                                                              23
+                                                              24
+                                                              25

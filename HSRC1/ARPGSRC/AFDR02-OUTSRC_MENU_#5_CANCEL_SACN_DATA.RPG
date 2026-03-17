@@ -1,0 +1,216 @@
+     H            Y.                                    1
+     H** AFDR02 *******************************************************
+     H* OUT SOURCE ORDER(CURTIS)  CANCEL                              *
+     H*                                                               *
+     H* TCH DEC/14/01
+     H* TCHK1 12/10/08 ADD PTC(2424)
+     H* TCHK2 02/26/09 ADD DEPOR(2929) & EMT(2999)
+     H* TCHK3 03/11/10 ADD SWD(2828) & TALMA(3333)
+     H* TCHK4 05/13/10 ADD SEKIDO(3111),SRA(3222),VICO(3444)
+     H* TCHK5 03/10/11 ADD FCO(2112)
+     H* TCHK6 01/27/12 ADD ROCKFORD SECONDARIES(4444)
+     H* TCHK7 09/21/12 ADD FAS(5555)
+     H**************************************************************************
+     FAFDPW02 CF  E                    WORKSTN
+     F                                              KINFDS @INFDS
+     FAFDPL11 UF  E           K        DISK
+     FAFDPL15 UF  E           K        DISK
+      *--------------------------------------------------------------
+     E                    BCD        15  1
+     E                    CMD     1   1 18
+     E                    ER      1   2 15
+TCHK7 *******             TAB1    1  20  5   TAB2   15
+     E                    TAB1    1  21  5   TAB2   15
+     I**************************************************************************
+     I* BARCODE
+     I*(KANRI CODE+ZETAI NO+TEHAI NO+PAGE NO+NIJI KAKO KUBUN+TAISYO KUBN+
+     I**************************************************************************
+     I@INFDS      DS
+     I                                    B 370 3710@@LIN
+     I                                    B 378 3790@@REC
+     I* APICS KANBAN
+     I            DS
+     I                                        1  15 BCD
+     I                                        1  15 BARCD
+     I                                        1   1 BCOCD
+     I                                        2   5 BZETI
+     I                                        6   80BTEHI
+     I                                        6   8 WTEHI
+     I                                        9  10 BPAGE
+     I                                       11  11 BNIJI
+     I                                       12  12 BTICD
+     I                                       13  13 BYUKO
+     I                                       14  14 BHASY
+     I                                       15  15 BCKDT
+     I*
+     I            DS
+     I                                        1  120WTMDT
+     I                                        1   20WHHHH
+     I                                        3   40WSSSS
+     I                                        7   80WYYYY
+     I                                        9  100WMMMM
+     I                                       11  120WDDDD
+     I*
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *-----------------------------------------------
+      *  MAIN ROUTINE
+      *-----------------------------------------------
+     C           @@ID      DOWNE'99'
+     C           @@ID      CASEQ'01'      #DSP01
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *-----------------------------------------------
+     C           *INZSR    BEGSR
+      *-----------------------------------------------
+     C*
+     C           *ENTRY    PLIST
+     C                     PARM           PUSR   10
+     C                     PARM           PWKCD   6
+     C                     PARM           SUPLY   4
+     C                     PARM           SUPX    1
+     C* AFDPL11
+     C           KEY4      KLIST
+     C                     KFLD           BCOCD            CONTROL CD
+     C                     KFLD           BZETI            ABSOLUTE #
+     C                     KFLD           WTEHI            TEHAI
+     C                     KFLD           BPAGE            PAGE
+     C                     KFLD           BNIJI            2ND.TREATEMENT
+     C                     KFLD           BTICD            TARGET TYPE
+     C                     KFLD           BYUKO            SHIP EFFECTIVE
+     C                     KFLD           BHASY            CONTAINER TYPE
+     C                     KFLD           BCKDT            CHECK DIGIT
+      *
+      *
+     C                     MOVE SUPLY     @SUPP   40
+     C                     MOVELSUPX      @10    10
+     C                     MOVE '01'      @@ID    2
+     C                     SETOF                     30
+     C                     MOVE *BLANK    MSG
+     C           SUPLY     CAT  SUPX:0    SCODE   5 P
+     C           SCODE     LOKUPTAB1      TAB2           10
+     C                     MOVELTAB2      TITL
+      *
+     C                     TIME           WTMDT
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*    1ST SCREEN (SCAN APICS KANBAN)
+     C**************************************************************************
+     C           #DSP01    BEGSR
+      *
+     C                     MOVELCMD,1     D@KEY
+     C                     WRITEDSP99
+     C                     EXFMTDSP01
+      *
+     C                     SELEC
+B02  C           *INKC     WHEQ '1'
+     C                     MOVEL'99'      @@ID    2
+     C*
+     C                     OTHER
+     C                     EXSR @CHK1
+B04  C           *IN30     IFEQ '0'
+     C                     EXSR @DEL
+      *
+     C                     EXFMTDSPOK
+      *
+     C                     MOVE *BLANK    BARCD
+     C                     ELSE
+     C                     EXFMTERR99
+      *
+     C                     ENDIF
+     C                     ENDSL
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @CHK1
+     C**************************************************************************
+     C           @CHK1     BEGSR
+     C*
+     C* READ ALL DATA?
+     C           BARCD     IFEQ *BLANK
+     C                     SETON                     30
+     C                     MOVE ER,1      MSG
+     C                     ELSE
+     C*
+     C* ORDER DETAIL FILE
+     C           KEY4      CHAINAFDPL11             N93
+     C           *IN93     IFEQ *ON
+     C                     SETON                     30
+     C                     MOVE ER,2      MSG
+     C                     END
+     C                     END
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @DELETE
+     C**************************************************************************
+     C           @DEL      BEGSR
+     C*
+     C           KEY4      SETGTAFDPL11
+     C           KEY4      REDPEAFDPL11                  93
+     C           *IN93     IFEQ *OFF
+     C           ADSUPP    ANDEQSUPLY
+     C           ADSKJY    ANDEQ*BLANK
+     C           ADFILR    ANDEQ@10
+      *
+     C                     MOVE 'D'       ADSKJY
+     C                     Z-ADD*DATE     ADSKDT
+     C                     Z-ADD*DATE     ADKODT
+     C                     TIME           ADKOTM
+     C                     MOVEL#USER     ADKOME
+     C                     MOVEL#PGM      ADKOPG
+     C                     MOVELPWKCD     ADWORK
+     C                     UPDATAFDPP101
+     C                     ENDIF
+     C*
+     C           KEY4      SETGTAFDPL15
+     C           KEY4      REDPEAFDPL15                  93
+     C           *IN93     IFEQ *OFF
+     C           A5SUPP    ANDEQSUPLY
+     C           A5SKJY    ANDEQ*BLANK
+     C           A5FILR    ANDEQ@10
+      *
+     C                     MOVE 'D'       A5SKJY
+     C                     Z-ADD*DATE     A5SKDT
+     C                     Z-ADD*DATE     A5KODT
+     C                     TIME           A5KOTM
+     C                     MOVEL#USER     A5KOME
+     C                     MOVEL#PGM      A5KOPG
+     C                     MOVELPWKCD     A5WORK
+     C                     UPDATAFDPP151
+     C                     ENDIF
+     C                     ENDSR
+      *---------------------------------------------------------
+** CMD
+F3:END
+** ERROR MESSAGE
+BARCODE BLANK
+NOT SCANNED YET
+** TAB1 / TAB2
+2222 ** TO CURTIS **
+2111 ** TO FOREST **'
+2333 **  TO J&M   **
+2444 **  TO ELM   **
+2666 **  TO MMC   **
+2555 **  TO MAC   **
+2777 **  TO MPI   **
+28881** TO T&S(RC)**
+28882** TO T&S(HN)**
+2424 **  TO PTC   **
+2929 ** TO DEPOR  **
+2999 **  TO EMT   **
+2828 **  TO SWD   **
+3333 ** TO TALMA  **
+3111 ** TO SEKIDO **
+4456 * TO MITSUCHI *
+3222 ** TO SRA    **
+3444 ** TO VICO   **
+2112 **  TO FCO   **
+4444 * TO ROCKFORD *
+6666 **  TO FAS   **

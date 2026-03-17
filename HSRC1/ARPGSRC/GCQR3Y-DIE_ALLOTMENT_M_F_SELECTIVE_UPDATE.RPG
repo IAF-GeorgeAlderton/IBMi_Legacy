@@ -1,0 +1,337 @@
+     H            Y.
+     F** GCQR3Y *******************************************************
+     F* DIE ALLOTMENT M/F SELECTIVE UPDATE
+     F*       Y.MAEDA              2020.05.20               *
+     F******************************************************* GCQR3Y **
+     FGCQPW3Y CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFREC1
+      * DIE ALLOTMENT M/F SELECTIVE UPDATE FILE
+     FGCQWP3Z IF  E           K        DISK
+      *
+      *================================================================
+     E                    ER      1   4 70               d[ｰxｮﾈｰﾆﾞ
+      *================================================================
+     IINFDS       DS
+     I                                    B 370 3710$$CURS
+     I                                    B 378 3790$$RRN
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60@SYSTM
+     I                                        7  140@SYSHZ
+      *
+     I            DS
+     I                                        1   80C1SKHZ
+     I                                        1   40C1SKYY
+     I                                        5   60C1SKMM
+     I                                        7   80C1SKDD
+      *
+     I            DS
+     I                                        1   80C1HKHZ
+     I                                        1   40C1HKYY
+     I                                        5   60C1HKMM
+     I                                        7   80C1HKDD
+      *
+     I            DS
+     I                                        1   40C1HKTM
+     I                                        1   20C1HKJI
+     I                                        3   40C1HKFN
+      *
+     I            DS
+     I                                        1  14 S1SHN
+     I                                        1   5 S1SHN1
+     I                                        7  11 S1SHN2
+     I                                       13  14 S1SHN3
+     I****************************
+     I*プログラム状況データ構造*
+     I****************************
+     I           SDS
+     I                                     *PROGRAM @@PGM
+     I                                      244 253 @@WSID
+     I                                      254 263 @@USER
+     I                                      264 269 @@JBNO
+      *
+      *     << 画面
+      *
+     I*             '0123456789'          C         DIGITS
+      *===============================================================
+      *  START  PROGRAM
+      *===============================================================
+     C           *ENTRY    PLIST
+     C                     PARM           P@KBN   1
+     C                     PARM           P@SHN1  5
+     C                     PARM           P@SHN2  5
+     C                     PARM           P@SHN3  2
+     C*
+     C                     MOVE '#INIT   '@STEP   8
+     C*
+     C           @STEP     DOUEQ'#END    '
+     C           @STEP     CASEQ'#INIT   '#INIT            初期処理
+     C           @STEP     CASEQ'#DSP1   '#DSP1
+     C           @STEP     CASEQ'#CHK1   '#CHK1
+     C           @STEP     CASEQ'#DSP2   '#DSP2
+     C                     ENDCS
+     C                     ENDDO
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+      *===============================================================
+      * 初期ﾈｮmb
+      *===============================================================
+     C           #INIT     BEGSR
+     C                     MOVEA*ALL'0'   *IN
+     C                     TIME           @TIME
+     C                     MOVELP@KBN     D1KBN   1
+      *
+     C                     MOVEL*BLANK    P@KBN
+     C                     MOVEL*BLANK    P@SHN1
+     C                     MOVEL*BLANK    P@SHN2
+     C                     MOVEL*BLANK    P@SHN3
+     C                     MOVE *BLANK    D1ERR
+     C                     MOVE '#DSP1   '@STEP
+     C*
+     C           D1KBN     IFEQ '2'
+     C           D1KBN     OREQ '3'
+     C                     MOVE '#CHK1   '@STEP
+     C                     ENDIF
+     C*
+     C                     ENDSR
+      *===============================================================
+      *  画面１表示
+      *===============================================================
+     C           #DSP1     BEGSR
+     C*
+     C                     EXFMTDSP01
+     C*
+     C           *INKA     IFEQ *ON
+     C                     MOVEL*BLANK    P@KBN
+     C                     MOVE '#END    '@STEP
+     C                     ELSE
+     C                     MOVE '#CHK1   '@STEP
+     C                     ENDIF
+     C*
+     C                     ENDSR
+      *===============================================================
+      *  画面１チェック
+      *===============================================================
+     C           #CHK1     BEGSR
+     C*
+     C                     SELEC
+     C           D1KBN     WHEQ '1'
+     C                     MOVELD1KBN     P@KBN
+     C                     MOVE '#END    '@STEP
+     C                     GOTO @CHK1Z
+     C           D1KBN     WHEQ '2'
+     C           D1KBN     WHEQ '3'
+     C                     OTHER
+     C                     SETON                     3199
+     C                     MOVELER,1      D1ERR            エラー
+     C                     MOVE '#DSP1   '@STEP
+     C                     GOTO @CHK1Z
+     C                     ENDSL
+      *
+     C           *LOVAL    SETLLGCQWP3Z
+     C                     Z-ADD15        @@MAX   20       表示件数
+     C                     SETON                     91
+     C                     EXSR #SFSET
+     C                     MOVE '#DSP2   '@STEP
+      *-------------------------*
+     C           @CHK1Z    TAG
+      *-------------------------*
+     C*
+     C                     ENDSR
+      *===============================================================
+      *  照会画面作成(PAGE UP/DOWN)
+      *===============================================================
+     C           #SFSET    BEGSR
+     C*
+     C                     SETON                     73    SFLCLR
+     C                     WRITESFCTL1
+     C                     SETOF                     73
+     C                     Z-ADD0         RRN1    40
+     C                     Z-ADD0         ENDRRN  40
+     C*-------------------------
+     C*-------------------------
+S1   C                     DO   *HIVAL
+     C                     READ GCQWP3Z                  90
+     C   90                LEAVE
+     C           C1SKJY    IFEQ 'D'                        削除コード
+     C           C1SKHZ    ANDLE@SYSHZ                     削除日付
+     C                     ITER
+     C                     ENDIF
+     C*
+     C                     EXSR ##SEL
+     C           $$NG      IFEQ '*'
+     C                     ITER
+     C                     ENDIF
+     C*
+     C                     CALL 'APLR30'
+     C                     PARM           C1SHN1
+     C                     PARM           C1SHN2
+     C                     PARM           C1SHN3
+     C                     PARM           S1SHN
+     C                     MOVE C1HKNO    S1HKNO
+     C                     MOVE C1HKHZ    S1HKHZ
+     C                     MOVE C1HKTM    S1HKTM
+     C                     MOVELC1BIKO    S1BIKO
+     C                     MOVE *BLANK    S1SEL
+      *
+     C                     MOVE C1FLG2    S1FLG2
+     C                     MOVE *BLANK    S1TEXT
+     C                     SELEC
+     C           C1FLG2    WHEQ 'A'
+     C                     MOVEL'*HOLD(A)'S1TEXT
+     C           C1FLG2    WHEQ 'B'
+     C                     MOVEL'*HOLD(B)'S1TEXT
+     C           C1FLG2    WHEQ 'C'
+     C                     MOVEL'*HOLD(C)'S1TEXT
+     C           C1FLG2    WHEQ 'D'
+     C                     MOVEL'*HOLD(D)'S1TEXT
+     C                     ENDSL
+      *
+     C                     ADD  1         RRN1
+     C                     WRITESFREC1
+     C*
+     C           RRN1      IFGE @@MAX
+     C                     LEAVE
+     C                     ENDIF
+     C*---------------
+E1   C                     ENDDO
+     C*-------------------------
+     C                     Z-ADDRRN1      ENDRRN  40
+     C*--------------------
+     C                     ENDSR
+      *================================================================
+      *================================================================
+     C           ##SEL     BEGSR
+     C                     MOVE ' '       $$NG    1
+      *
+     C           C1FLG2    IFEQ '2'                        2=処理済
+     C                     MOVE '*'       $$NG
+     C                     GOTO @SEL9
+     C                     ENDIF
+     C           C1FLG1    IFNE ' '
+     C                     MOVE '*'       $$NG
+     C                     GOTO @SEL9
+     C                     ENDIF
+      *
+     C           D1KBN     IFEQ '2'                        2:保留中
+     C           C1FLG2    IFEQ 'A'                        保留(A)
+     C           C1FLG2    OREQ 'B'                        保留(B)
+     C           C1FLG2    OREQ 'C'                        保留(C)
+     C           C1FLG2    OREQ 'D'                        保留(D)
+     C                     ELSE
+     C                     MOVE '*'       $$NG
+     C                     GOTO @SEL9
+     C                     ENDIF
+     C                     ENDIF
+     C*
+     C           D1KBN     IFEQ '3'                        3:未処理
+     C           C1FLG2    IFNE ' '
+     C                     MOVE '*'       $$NG
+     C                     GOTO @SEL9
+     C                     ENDIF
+     C                     ENDIF
+     C*
+     C           @SEL9     ENDSR
+      *===============================================================
+      *  画面２　表示
+      *===============================================================
+     C           #DSP2     BEGSR
+     C*
+     C           ENDRRN    IFNE 0
+     C                     SETON                     72
+     C                     ELSE
+     C                     MOVELER,2      D2ERR            エラー
+     C                     SETON                     99
+     C                     ENDIF
+     C*
+     C                     WRITEDSP02
+     C                     SETON                     71
+     C                     EXFMTSFCTL1
+     C                     SETOF                     717299
+     C*
+     C                     MOVE *BLANK    D2ERR
+      *--------------------
+S1   C                     SELEC
+     C*  < F3 >  BACK
+-1   C           *INKC     WHEQ *ON
+     C                     MOVE '#DSP1   '@STEP
+     C*  < ROLL/UP >
+-1   C           *IN75     WHEQ *ON
+     C           *IN90     IFEQ *ON
+     C                     MOVELER,3      D2ERR            エラー
+     C                     SETON                     99
+     C                     ELSE
+     C                     EXSR #SFSET
+     C           ENDRRN    IFEQ 0
+     C                     EXSR #DOWN
+     C                     MOVELER,3      D2ERR            エラー
+     C                     SETON                     9099
+     C                     ENDIF
+     C                     MOVE '#DSP2   '@STEP
+     C                     SETOF                     91
+     C                     ENDIF
+     C*  < ROLL/DOWN >
+-1   C           *IN76     WHEQ *ON
+     C           *IN91     IFEQ *ON
+     C                     MOVELER,4      D1ERR            エラー
+     C                     SETON                     99
+     C                     ELSE
+     C                     EXSR #DOWN
+     C                     MOVE '#DSP2   '@STEP
+     C                     ENDIF
+     C*  <           >
+-1   C                     OTHER
+     C           ENDRRN    IFNE 0
+     C           @RRN      CHAINSFREC1               95
+     C           *IN95     IFEQ *OFF
+     C           S1SHN     ANDNE*BLANK
+     C                     MOVELD1KBN     P@KBN
+     C                     MOVELS1SHN1    P@SHN1
+     C                     MOVELS1SHN2    P@SHN2
+     C                     MOVELS1SHN3    P@SHN3
+     C                     MOVE '#END    '@STEP
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDSL
+      *--------------------
+      *
+     C                     ENDSR
+      *===============================================================
+      *
+      *===============================================================
+     C           #DOWN     BEGSR
+     C           ENDRRN    ADD  @@MAX     BACK    40
+     C   90                ADD  1         BACK
+     C                     Z-ADD0         KEN     40
+     C*
+     C   90      *HIVAL    SETGTGCQWP3Z
+     C   90                SETOF                     90
+      *-------------------------
+      *-------------------------
+S1   C           KEN       DOUEQBACK
+     C                     READPGCQWP3Z                  91
+     C   91                LEAVE
+     C           C1SKJY    IFEQ 'D'                        削除コード
+     C           C1SKHZ    ANDLE@SYSHZ                     削除日付
+     C                     ITER
+     C                     ENDIF
+     C*
+     C                     EXSR ##SEL
+     C           $$NG      IFEQ '*'
+     C                     ITER
+     C                     ENDIF
+     C*
+     C                     ADD  1         KEN     40
+E1   C                     ENDDO
+      *-------------------------
+      *-------------------------
+     C   91      *LOVAL    SETLLGCQWP3Z
+     C                     EXSR #SFSET
+     C                     ENDSR
+      *===============================================================
+**  ERROR
+E-01 INPUT ERROR (1, 2, 3)
+E-02 NODATA
+E-03 FAIRST DATA
+E-04 LAST DATA

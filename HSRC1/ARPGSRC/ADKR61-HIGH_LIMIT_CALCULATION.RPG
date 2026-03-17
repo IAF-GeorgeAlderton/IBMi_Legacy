@@ -1,0 +1,291 @@
+     H            Y.
+     F** ADKR61 **********************************
+     F*上限数量の計算                          *
+     F*    IWATA.        2020.03.05              *
+     F********************************************
+     FADKPL60 IF  E           K        DISK
+     FADKPP00 IF  E           K        DISK
+     FAGAPL31 IF  E           K        DISK
+     E                    MS         24  5 0
+     E                    LIM        24  5 0
+     E                    LIB        24  5 0
+     E                    CBTR       24  2 0             m]c ﾍﾞ]
+      *
+     I            DS
+     I                                        1  480CBTR
+     I                                        1   20CBTR01
+     I                                        3   40CBTR02
+     I                                        5   60CBTR03
+     I                                        7   80CBTR04
+     I                                        9  100CBTR05
+     I                                       11  120CBTR06
+     I                                       13  140CBTR07
+     I                                       15  160CBTR08
+     I                                       17  180CBTR09
+     I                                       19  200CBTR10
+     I                                       21  220CBTR11
+     I                                       23  240CBTR12
+     I                                       25  260CBTR13
+     I                                       27  280CBTR14
+     I                                       29  300CBTR15
+     I                                       31  320CBTR16
+     I                                       33  340CBTR17
+     I                                       35  360CBTR18
+     I                                       37  380CBTR19
+     I                                       39  400CBTR20
+     I                                       41  420CBTR21
+     I                                       43  440CBTR22
+     I                                       45  460CBTR23
+     I                                       47  480CBTR24
+      *
+     I            DS
+     I                                        1  100WKAP
+     I                                        1   80WKAPHZ
+     I                                        9  100WKAPBN
+      *
+     I            DS
+     I                                        1   6 WKTKR
+     I                                        1   1 WKTKR1
+     I                                        2   3 WKTKR2
+     I                                        4   5 WKTKR3
+     I                                        6   6 WKTKR4
+      *
+     I            DS
+     I                                        1  140WDATE
+     I                                        1   60STIME
+     I                                        7  140SDATE
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           P1SHN1  5
+     C                     PARM           P1SHN2  5
+     C                     PARM           P1SHN3  2
+     C                     PARM           P1CIBI  20
+     C                     PARM           P9MAIS  50
+      *
+     C                     TIME           WDATE
+     C                     Z-ADD0         P9MAIS
+     C           KEYSHN    CHAINAGAPL311             22
+     C           *IN22     IFEQ '0'
+     C           CBSKJY    ANDEQ'D'
+     C           CBSKHZ    ANDLE*DATE
+     C                     SETON                     22
+     C                     ENDIF
+      *
+     C           *IN22     IFEQ '0'
+     C                     EXSR #SB390
+     C                     EXSR #SB400
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *
+      *----------------------------------------------------*
+     CSR         #SB390    BEGSR
+      * ﾅbhﾓ便数
+     C                     MOVEL'0'       W@SITE  1
+     C                     Z-ADD1         A
+     C                     Z-ADD0         WKCIBI  20
+     C           A         DOWLE24
+     C           CBTR,A    IFNE 0
+     C                     MOVEL'1'       W@SITE
+     C                     ADD  1         WKCIBI
+     C                     ENDIF
+     C                     ADD  1         A
+     C                     ENDDO
+      *指定便がない
+     C           WKCIBI    IFEQ 0
+     C                     Z-ADDP1CIBI    WKCIBI
+     C                     ENDIF
+      *
+     CSR         ESB390    ENDSR
+      *----------------------------------------------------*
+      *
+      *----------------------------------------------------*
+     CSR         #SB400    BEGSR
+      *
+     C                     CLEARMS
+     C                     EXSR #SB405
+      *
+     C           KEYSHN    KLIST
+     C                     KFLD           P1SHN1
+     C                     KFLD           P1SHN2
+     C                     KFLD           P1SHN3
+     C                     CLEARLIM
+     C                     CLEARLIB
+      *
+     C           W@SITE    IFEQ '0'
+     C                     EXSR #SB500
+     C                     ELSE
+     C                     EXSR #SB550
+     C                     ENDIF
+      *
+     CSR         ESB400    ENDSR
+      *----------------------------------------------------*
+      *過去１日の発行ADKPP00からA-PICS処理日便
+      *----------------------------------------------------*
+     CSR         #SB405    BEGSR
+      *
+     C                     Z-ADD1         A       50
+     C           *HIVAL    SETGTADKPP00
+     C                     READPADKPP00                  41
+     C           *IN41     DOWEQ'0'
+     C           A         ANDLEWKCIBI
+     C           W@SITE    IFEQ '0'                        指定便なし
+     C                     EXSR #SB406
+     C                     ELSE
+     C                     Z-ADD1         B       20       指定便あり
+     C           ZZAPBN    LOKUPCBTR,B                   29
+     C           *IN29     IFEQ '1'
+     C                     EXSR #SB406
+     C                     ENDIF
+     C                     ENDIF
+     C                     READPADKPP00                  41
+     C                     ENDDO
+      *
+     CSR         ESB405    ENDSR
+      *----------------------------------------------------*
+      *過去の発行枚数
+      *----------------------------------------------------*
+     CSR         #SB406    BEGSR
+      *日付以降の発行枚数取得
+     C                     Z-ADDZZAPHZ    P2APHZ
+     C                     Z-ADDZZAPBN    P2APBN
+     C                     Z-ADD0         PAMAIS
+     C                     CALL 'ADKR92'
+     C                     PARM           P1SHN1  5
+     C                     PARM           P1SHN2  5
+     C                     PARM           P1SHN3  2
+     C                     PARM           P2APHZ  80
+     C                     PARM           P2APBN  20
+     C                     PARM           PAMAIS  50
+     C                     Z-ADDPAMAIS    P9ALL   50
+      *日付以降の直接入力発行枚数
+     C                     MOVEL'HN'      P1TYPE
+     C                     Z-ADD0         P8MAIS
+     C                     CALL 'ADKR94'
+     C                     PARM           P1SHN1  5
+     C                     PARM           P1SHN2  5
+     C                     PARM           P1SHN3  2
+     C                     PARM           P1TYPE  2
+     C                     PARM           P2APHZ  80
+     C                     PARM           P2APBN  20
+     C                     PARM           P8MAIS  50
+     C                     Z-ADDP8MAIS    P9HND   50
+      *日付以降の臨時分発行枚数
+     C                     MOVEL'RN'      P1TYPE
+     C                     Z-ADD0         P8MAIS
+     C                     CALL 'ADKR94'
+     C                     PARM           P1SHN1  5
+     C                     PARM           P1SHN2  5
+     C                     PARM           P1SHN3  2
+     C                     PARM           P1TYPE  2
+     C                     PARM           P2APHZ  80
+     C                     PARM           P2APBN  20
+     C                     PARM           P8MAIS  50
+     C                     Z-ADDP8MAIS    P9RNJ   50
+      *総発行枚数から直接入力・臨時分を引く
+     C                     Z-ADD0         WKMAIS  50
+     C           P9ALL     SUB  P9HND     WKMAIS
+     C                     SUB  P9RNJ     WKMAIS
+     C           WKMAIS    IFLT 0
+     C                     Z-ADD0         WKMAIS
+     C                     ENDIF
+     C                     Z-ADDWKMAIS    MS,A
+     C                     ADD  1         A
+      *
+     CSR         ESB406    ENDSR
+      *----------------------------------------------------*
+      *上限値　指定便なし
+      *----------------------------------------------------*
+     CSR         #SB500    BEGSR
+      *
+     C                     EXSR #SB590
+     C                     EXSR #SB591
+      *
+     CSR         ESB500    ENDSR
+      *----------------------------------------------------*
+      *上限値
+      *----------------------------------------------------*
+     CSR         #SB501    BEGSR
+      *
+     C                     Z-ADDD6APBN    A
+     C           A         SUB  1         C       50
+     C                     Z-ADD0         MAIS    50
+     C           C         IFGE 1
+     C           C         ANDLE24
+     C                     Z-ADDMS,C      MAIS
+     C                     ENDIF
+     C           D6LIMT    SUB  MAIS      LIM,A
+     C           D6LIMT    SUB  W@LIB     LIB,A
+     C           LIB,A     IFLE 0
+     C                     Z-ADDD6BARL    LIB,A
+     C                     ENDIF
+     C                     Z-ADDD6LIMT    W@LIB
+      *
+     CSR         ESB501    ENDSR
+      *----------------------------------------------------*
+      *上限値　指定便あり
+      *----------------------------------------------------*
+     CSR         #SB550    BEGSR
+      *
+     C                     EXSR #SB590
+      *
+     C           WKCIBI    IFEQ 1                          指定便が１つだけ
+     C                     Z-ADDW#LIB     P9MAIS
+     C                     ELSE
+     C                     EXSR #SB591
+     C                     ENDIF
+      *
+     CSR         ESB550    ENDSR
+      *----------------------------------------------------*
+      *上限値
+      *----------------------------------------------------*
+     CSR         #SB590    BEGSR
+      *
+     C                     Z-ADD0         W@LIB   50
+     C                     Z-ADD0         W#LIB   50
+     C           KEYSHN    SETLLADKPL60
+     C           KEYSHN    READEADKPL60                  22
+     C           *IN22     DOWEQ'0'
+     C           D6SKJY    IFEQ 'D'
+     C           D6SKHZ    ANDLE*DATE
+     C                     ELSE
+     C           D6APBN    IFEQ 1
+     C                     Z-ADDD6LIMT    W@LIB   50
+     C                     Z-ADDD6LIMT    W#LIB   50
+     C                     ELSE
+     C                     EXSR #SB501
+     C                     ENDIF
+     C                     ENDIF
+     C           KEYSHN    READEADKPL60                  22
+     C                     ENDDO
+      *
+     CSR         ESB590    ENDSR
+      *----------------------------------------------------*
+      *上限値
+      *----------------------------------------------------*
+     CSR         #SB591    BEGSR
+      *
+     C                     Z-ADD99999     W@LIM   50
+     C                     Z-ADD2         A       50
+     C           A         DOWLEWKCIBI
+     C           LIM,A     IFLT W@LIM
+     C                     Z-ADDLIM,A     W@LIM
+     C                     Z-ADDLIB,A     W@LIB
+     C                     ENDIF
+     C                     ADD  1         A
+     C                     ENDDO
+      *
+     C                     Z-ADDW@LIM     P9MAIS
+     C           P9MAIS    IFLT 0
+     C                     Z-ADD0         P9MAIS
+     C                     ENDIF
+      *
+     CSR         ESB591    ENDSR

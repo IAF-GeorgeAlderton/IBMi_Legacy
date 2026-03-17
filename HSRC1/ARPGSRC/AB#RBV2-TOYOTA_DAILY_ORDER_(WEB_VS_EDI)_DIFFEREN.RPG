@@ -1,0 +1,384 @@
+     H            Y.
+      ** AB#RBV2 *********************************************
+      *  TOYOTA DAILY ORDER (WEB VS EDI) DIFFERENCE          *
+      *  J.WATANABE  2020.07.14                              *
+      *----------------------------------------------        *
+      * WEB ORDER: FROM AL#PL09  (AL#PP01)                   *
+      * EDI ORDER: FROM AB#PL1T  (AB#PP10)                   *
+      ********************************************************
+      * F1 - EXIT
+      ********************************************************
+     FAB#PWBV2CF  E                    WORKSTN
+     F                                        RRN   KSFILE SFL01
+     FAB#PL1T IF  E           K        DISK
+     FAL#PL09 IF  E           K        DISK
+     FAB#WPBV2UF  E           K        DISK                      A
+      ********************************************************
+     E                    MSG     1   1 78
+      * PART
+     I            DS
+     I                                        1  20 #MHIN
+     I                                        1   5 #MHN1
+     I                                        6  10 #MHN2
+     I                                       11  15 #MHN3
+     I                                       16  20 #MHN4
+      * PART
+     I            DS
+     I                                        1  17 XMHIN
+     I                                        1   5 XMHN1
+     I                                        6   6 XPH1
+     I                                        7  11 XMHN2
+     I                                       12  12 XPH2
+     I                                       13  17 XMHN3
+      * SYSTEM DATE
+     I            DS
+     I                                        1  140@SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *-----------------------------------------------------------*
+      *      MAIN ROUTINE                                         *
+      *-----------------------------------------------------------*
+     C                     EXSR #INIT
+      * CREATE WF AB#WPBV2
+     C                     EXSR #SET11
+     C                     EXSR #SET12
+      *
+     C           RCNT      IFEQ 0
+     C                     MOVE '*'       $RTN
+     C                     ELSE
+     C                     EXSR #CLRSF
+     C                     EXSR #SFL1
+     C                     EXSR #DSP1
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *************************************************************
+      * UPDATE AB#WPBV2 BY PP10
+      *************************************************************
+     C           #SET11    BEGSR
+      *
+     C                     Z-ADD0         RCNT    40
+     C                     MOVE 'Y'       FIRST   1
+      *
+     C           K#PL1T    SETLLAB#PL1T
+     C                     DO   *HIVAL
+     C                     READ AB#PL1T                  98
+     C   98                LEAVE
+      * IGNORE
+     C           BASKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * IGNORE
+     C           BANOBN    IFNE #NOBN
+     C                     ITER
+     C                     ENDIF
+      * IGNORE
+     C           BANONY    IFNE #NONY
+     C                     ITER
+     C                     ENDIF
+      * END
+     C                     MOVELBANOHZ    XXNOHZ  8
+     C           XXNOHZ    IFNE $NOHZ1
+     C           XXNOHZ    ANDNE$NOHZ2
+     C           XXNOHZ    ANDNE$NOHZ3
+     C                     LEAVE
+     C                     ENDIF
+      * FIRST ?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     Z-ADDBANONY    SVNONY
+     C                     Z-ADDBANOHZ    SVNOHZ
+     C                     Z-ADDBANOBN    SVNOBN
+     C                     MOVELBAMHIN    SVMHIN
+     C                     Z-ADD0         @SRYO  100
+     C                     ENDIF
+      * BREAK ?
+     C           BANONY    IFNE SVNONY
+     C           BANOHZ    ORNE SVNOHZ
+     C           BANOBN    ORNE SVNOBN
+     C           BAMHIN    ORNE SVMHIN
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * DETAIL
+     C                     ADD  BASRYO    @SRYO
+     C**JW                 Z-ADDBASYOS    SVSYOS  60
+     C                     Z-ADDBAUSYS    SVSYOS  60
+     C                     MOVELBAEDIK    SVEDIK  1
+      *
+     C                     ENDDO
+      * LAST BREAK
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *************************************************************
+      * UPDATE AB#WPBV2 BY AL#PL09
+      *************************************************************
+     C           #SET12    BEGSR
+      *
+     C                     MOVE 'Y'       FIRST   1
+      *
+     C           K#PL09    SETLLAL#PL09
+     C                     DO   *HIVAL
+     C                     READ AL#PL09                  98
+     C   98                LEAVE
+      * IGNORE
+     C           CASKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * END
+     C           CASHID    IFNE $NOHZ1
+     C           CASHID    ANDNE$NOHZ2
+     C           CASHID    ANDNE$NOHZ3
+     C                     LEAVE
+     C                     ENDIF
+      * IGNORE NONY
+     C           CANONY    IFNE #NONY
+     C                     ITER
+     C                     ENDIF
+      * GET BIN#
+     C                     MOVELCASHID    $SDATE
+     C                     MOVELCASURT    $ROUTE
+     C                     CALL 'UTLR401'
+     C                     PARM           $SDATE  8
+     C                     PARM           $ROUTE 10
+     C                     PARM           $BIN    2
+     C                     PARM           $RTNX   1
+     C                     MOVEL$BIN      #BIN    20
+     C           #BIN      IFEQ 0
+     C                     Z-ADD99        #BIN
+     C                     ENDIF
+      * IGNORE BIN#
+     C           $BIN      IFNE $NOBN
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDCANONY    K#NONY
+     C                     MOVELCASHID    K#SHDT
+     C                     Z-ADD#BIN      K#NOBN
+     C                     MOVELCAMHN     K#PART
+     C           K#WPBV    CHAINAB#WPBV2             99
+     C           *IN99     IFEQ *OFF
+     C                     ADD  1         A2WEB1
+     C           A2WEB1    SUB  A2EDI1    A2DIF1
+     C                     MOVELCASURT    A2ROUT
+     C                     UPDATAB#WBV2
+     C                     ELSE
+     C                     Z-ADDCANONY    A2NONY
+     C                     MOVELCASHID    A2SHDT
+     C                     Z-ADD#BIN      A2NOBN
+     C                     MOVELCASURT    A2ROUT
+     C                     MOVELCAMHN     A2PART
+     C                     Z-ADD1         A2WEB1
+     C                     Z-ADD0         A2EDI1
+     C           A2WEB1    SUB  A2EDI1    A2DIF1
+     C                     WRITEAB#WBV2
+     C                     ADD  1         RCNT
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *************************************************************
+      * BREAK
+      *************************************************************
+     C           #BRK1     BEGSR
+      * GET BOX
+     C           SVSYOS    IFEQ 0
+     C                     Z-ADD1         @BOX    50
+     C                     ELSE
+     C           @SRYO     DIV  SVSYOS    @BOX
+     C                     MVR            REM     60
+     C           REM       IFNE 0
+     C                     ADD  1         @BOX
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     Z-ADDSVNONY    A2NONY
+     C                     Z-ADDSVNOHZ    A2SHDT
+     C                     Z-ADDSVNOBN    A2NOBN
+     C                     MOVELSVEDIK    A2TYP
+     C                     MOVE *BLANK    A2ROUT
+     C                     MOVELSVMHIN    A2PART
+     C                     Z-ADD0         A2WEB1
+     C                     Z-ADD@BOX      A2EDI1
+     C           A2WEB1    SUB  A2EDI1    A2DIF1
+     C                     ADD  1         RCNT
+     C                     WRITEAB#WBV2
+      * RESET
+     C                     Z-ADDBANONY    SVNONY
+     C                     Z-ADDBANOHZ    SVNOHZ
+     C                     Z-ADDBANOBN    SVNOBN
+     C                     MOVELBAMHIN    SVMHIN
+     C                     Z-ADD0         @SRYO
+      *
+     C                     ENDSR
+      *************************************************************
+      * SET SFL01
+      *************************************************************
+     C           #SFL1     BEGSR
+      * READ
+     C                     Z-ADD0         RRN
+     C                     MOVE *OFF      *IN51
+     C                     MOVE *OFF      *IN41
+     C                     MOVE *OFF      *IN42
+      *
+     C           *LOVAL    SETLLAB#WBV2
+     C                     DO   *HIVAL
+     C                     READ AB#WBV2                  51
+     C   51                LEAVE
+      *                                             Z
+     C                     MOVELA2NONY    $DLV
+     C                     CALL 'UTLR62B'
+     C                     PARM           $DLV    4
+     C                     PARM           $GRP    3
+     C                     PARM           $NAME1 15
+     C                     PARM           $NAME2 50
+     C                     PARM           $RTNX   1
+      *
+     C                     MOVEL$NAME1    S1BNM
+     C                     MOVELA2NONY    LTR7    7 P
+     C                     MOVE A2NOBN    LTR7
+     C                     MOVE LTR7      S1BNM
+      *
+     C                     Z-ADDA2SHDT    S1SHDT
+      * PART
+     C                     MOVELA2PART    #MHIN
+     C                     MOVEL#MHN1     XMHN1
+     C                     MOVEL#MHN2     XMHN2
+     C                     MOVEL#MHN3     XMHN3
+     C           #MHN2     IFEQ *BLANK
+     C                     MOVE *BLANK    XPH1
+     C                     ELSE
+     C                     MOVE '-'       XPH1
+     C                     ENDIF
+     C           #MHN3     IFEQ *BLANK
+     C                     MOVE *BLANK    XPH2
+     C                     ELSE
+     C                     MOVE '-'       XPH2
+     C                     ENDIF
+     C                     MOVELXMHIN     S1PART
+     C                     MOVELA2TYP     S1TYP
+      *
+     C                     MOVELA2ROUT    S1ROUT
+     C                     Z-ADDA2WEB1    S1WEB1
+     C                     Z-ADDA2EDI1    S1EDI1
+     C                     Z-ADDA2DIF1    S1DIF1
+      * INDICATOR
+     C           S1WEB1    IFEQ S1EDI1
+     C                     MOVE *OFF      *IN41
+     C                     ELSE
+     C                     MOVE *ON       *IN41
+     C                     ENDIF
+      *
+     C                     ADD  1         RRN
+     C                     WRITESFL01
+      * HEADER
+     C                     ADD  A2WEB1    D#WEB1
+     C                     ADD  A2EDI1    D#EDI1
+     C                     ADD  A2DIF1    D#DIF1
+      *
+     C                     ENDDO
+      *
+     C                     Z-ADDRRN       COUNT   60
+     C                     Z-ADD1         RRN
+      * INDICATOR
+     C           D#WEB1    IFEQ D#EDI1
+     C                     MOVE *OFF      *IN42
+     C                     ELSE
+     C                     MOVE *ON       *IN42
+     C                     ENDIF
+      *
+     C                     ENDSR
+      ************************************************************
+      * DSPLAY
+      ************************************************************
+     C           #DSP1     BEGSR
+      *
+     C                     DO   *HIVAL
+      *
+     C                     MOVELMSG,1     D@CMD
+     C                     WRITEDSP99
+     C                     MOVE *ON       *IN56
+     C                     EXFMTCTL01
+     C                     MOVE *OFF      *IN85
+     C                     MOVE *OFF      *IN56
+      *
+     C           *INKA     IFEQ *ON
+     C           *INKL     OREQ *ON
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *************************************************************
+      * CLEAR SUBFILE
+      *************************************************************
+     C           #CLRSF    BEGSR
+      * CLEAR SFL01
+     C                     SETON                     57
+     C                     WRITECTL01
+     C                     SETOF                     57
+     C                     Z-ADD0         RRN
+      * CLEAR CTL01
+     C                     Z-ADD0         D#WEB1
+     C                     Z-ADD0         D#EDI1
+     C                     Z-ADD0         D#DIF1
+      *
+     C                     ENDSR
+      *************************************************************
+      * INITIALIZE
+      *************************************************************
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $NONY   4
+     C                     PARM           $NOBN   2
+     C                     PARM           $NOHZ1  8
+     C                     PARM           $NOHZ2  8
+     C                     PARM           $NOHZ3  8
+     C                     PARM           $RTN    1
+      * AB#PL1T
+     C           K#PL1T    KLIST
+     C                     KFLD           K#NOHZ  80
+     C                     KFLD           K#NOBN  20
+     C                     KFLD           K#NONY  40
+      * AL#PL09
+     C           K#PL09    KLIST
+     C                     KFLD           K#SHID  8
+     C                     KFLD           K#TOKU  40
+     C                     KFLD           K#NONY  40
+      * AB#WPBV2
+     C           K#WPBV    KLIST
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#SHDT  80
+     C                     KFLD           K#NOBN  20
+     C                     KFLD           K#PART 20
+      * SET KEY
+     C                     MOVEL$NONY     K#NONY
+     C                     MOVEL$NOBN     K#NOBN
+     C                     MOVEL$NOHZ1    K#NOHZ
+     C                     MOVEL$NOHZ1    K#SHID  8
+     C                     MOVEL$NOBN     #NOBN   20
+     C                     MOVEL$NONY     #NONY   40
+     C                     Z-ADD3411      K#TOKU  40
+      *
+     C                     MOVE *BLANK    $RTN
+     C                     TIME           @SDATE
+     C                     Z-ADD0         RRN     40
+      *
+     C                     Z-ADD0         SVNONY  40
+     C                     Z-ADD0         SVNOHZ  80
+     C                     Z-ADD0         SVNOBN  20
+     C                     MOVE *BLANK    SVMHIN 20
+     C                     MOVE *BLANK    SVEDIK  1
+      *
+     C                     ENDSR
+** MSG
+F1/F12: GO BACK

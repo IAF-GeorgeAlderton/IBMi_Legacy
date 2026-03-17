@@ -1,0 +1,926 @@
+     H            Y.
+     F** FBCR60 ********************************************
+     A*  SALES UNIT PRICE MASTER INQUIRY                   *
+     F*                                                    *
+     F* TCHK1 03/12/09 CREATE                              *
+     F* TCHK2 04/22/09 CHG CUSTOMER INQ(SELECT=5)          *
+     F* TCHK3 01/20/11 ADD TMMMS(3428&3429)                *
+JW1  F* JW    08/09/18 ADD UPDATE INFORMATION              *
+JW2  F* JW    10/02/19 ADD 2RD SCREEN FOR DELETED PRICE    *
+JW3  F* JW    02/07/23 FIX A BUG                           *
+JW   F* JW    2024.04.08 ADD 3226, 3227                    *
+     F******************************************************
+     FFBCPW60 CF  E                    WORKSTN
+     F                                        RRN2  KSFILE SFL020
+     F                                        RRN3  KSFILE SFL030
+     F                                        RRN4  KSFILE SFL040
+     F                                              KINFDS @INFDS
+     FFBCPL03 IF  E           K        DISK
+     FFBCPL04 IF  E           K        DISK
+     FGADPL11 IF  E           K        DISK
+JW2  FFBCPL01AIF  E           K        DISK
+      * ----------------------------------------------------
+     E                    PNM     1   5 60
+     E                    ERR     1   6 60
+     E                    TTL     1   2 60
+JW2  E                    CMD     1   2 70
+      * ----------------------------------------------------
+     I@INFDS      DS
+     I                                     *STATUS  @STTS
+     I                                    B 370 3710@@LIN
+     I                                    B 378 3790@@REC
+JW1  I            DS
+ |   I                                        1   80FBKODT
+ |   I                                        1   40FBKOYY
+ |   I                                        5   60FBKOMM
+ |   I                                        7   80FBKODD
+ |   I            DS
+ |   I                                        1   40FBKOTM
+ |   I                                        1   20FBKOHH
+JW1  I                                        3   40FBKOSS
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      * SYSTEM TIME(6) + DATE(6)
+     I            DS
+     I                                        1  140WWTIME
+     I                                        1   60WTIME
+     I                                        1   40WTIM4
+     I                                        1   20WTIMHH
+     I                                        3   40WTIMMM
+     I                                        7  120WSDATE
+     I                                        9  120@@YM4
+     I                                        7  120@@YM6
+     I                                        7  140@@YMD
+     I                                        7  100@@YY
+     I                                       11  120@@MM
+     I                                       13  140@@DD
+      *
+     I            DS
+     I                                        1  14 W@SHIN
+     I                                        1   5 W@SHN1
+     I                                        6   6 W@SHNA
+     I                                        7  11 W@SHN2
+     I                                       12  12 W@SHNB
+     I                                       13  14 W@SHN3
+      *
+     I            DS
+     I                                        1  23 W@MHIN
+     I                                        1   5 W@MHN1
+     I                                        6   6 W@MHNA
+     I                                        7  11 W@MHN2
+     I                                       12  12 W@MHNB
+     I                                       13  17 W@MHN3
+     I                                       18  18 W@MHNC
+     I                                       19  23 W@MHN4
+      *----------------------------------------------------*
+      * MAIN
+      *----------------------------------------------------*
+     C                     DO   *HIVAL
+     C*
+     C           *IN99     IFEQ *OFF
+     C**TEMP               Z-ADD*ZERO     D1SEL
+     C**                   MOVEL*BLANK    D1SHN1
+     C**                   MOVEL*BLANK    D1SHN2
+     C**                   MOVEL*BLANK    D1SHN3
+     C**                   Z-ADD*ZERO     D1TOKU
+     C**                   Z-ADD*ZERO     D1NONY
+     C                     END
+     C*
+     C                     EXFMTFMT010
+     C   KA                LEAVE
+     C                     MOVEL*BLANK    D1MSG
+     C*
+     C                     EXSR @S1CHK
+     C   99                ITER
+      *
+     C                     EXSR @S2SET
+     C   99                ITER
+     C*
+     C                     EXSR @S2PRC
+     C   KA                LEAVE
+      *
+     C                     ENDDO
+     C*
+     C                     MOVEL*ON       *INLR
+     C                     RETRN
+      *----------------------------------------------------*
+      * INITIAL PROCESS                                    *
+      *----------------------------------------------------*
+     C           *INZSR    BEGSR
+     C                     TIME           WWTIME
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * 1ST SCREEN CHECK                                   *
+      *----------------------------------------------------*
+     C           @S1CHK    BEGSR
+     C*
+     C                     SETOF                     313233
+     C                     SETOF                     99
+     C*
+     C           D1SEL     IFEQ 0
+     C                     SETON                     3199
+     C           D1MSG     IFEQ *BLANK
+     C                     MOVELERR,5     D1MSG
+     C                     END
+     C                     END
+     C*
+     C           D1SEL     IFGT 5
+     C                     SETON                     3199
+     C           D1MSG     IFEQ *BLANK
+     C                     MOVELERR,1     D1MSG
+     C                     END
+     C                     END
+      *
+     C           D1SEL     IFGE 1
+     C           D1SEL     ANDLE4
+     C           D1SHN1    IFEQ *BLANK
+     C           D1SHN2    ANDEQ*BLANK
+     C           D1SHN3    ANDEQ*BLANK
+     C                     SETON                     3299
+     C           D1MSG     IFEQ *BLANK
+     C                     MOVELERR,2     D1MSG
+     C                     END
+     C                     END
+     C                     END
+      *
+JW3  C           D1SEL     IFEQ 5
+ .   C           D1SHN1    IFNE *BLANK
+     C           D1SHN2    ORNE *BLANK
+     C           D1SHN3    ORNE *BLANK
+     C                     SETON                     3299
+     C           D1MSG     IFEQ *BLANK
+     C                     MOVELERR,6     D1MSG
+ .   C                     END
+ .   C                     END
+JW3  C                     END
+      *
+     C           D1SEL     IFEQ 5
+     C           D1TOKU    IFEQ *ZERO
+     C           D1NONY    ANDEQ*ZERO
+     C                     SETON                     3399
+     C           D1MSG     IFEQ *BLANK
+     C                     MOVELERR,4     D1MSG
+     C                     END
+     C                     END
+     C                     END
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * 2ND SCREEN SET                                     *
+      *----------------------------------------------------*
+     C           @S2SET    BEGSR
+     C*
+     C                     MOVEL*ON       *IN41
+     C                     WRITECTL020
+     C                     MOVEL*OFF      *IN41
+     C                     Z-ADD*ZERO     RRN2    40
+     C*
+     C                     SELEC
+     C           D1SEL     WHEQ 1
+     C                     EXSR @S2S10
+     C           D1SEL     WHEQ 2
+     C                     EXSR @S2S20
+     C           D1SEL     WHEQ 3
+     C                     EXSR @S2S30
+     C           D1SEL     WHEQ 4
+     C                     EXSR @S2S40
+     C           D1SEL     WHEQ 5
+     C                     EXSR @S2S50
+     C                     ENDSL
+     C*
+     C                     ENDSR
+      *----------------------------------------------------*
+      * SET TOYOTA MASS PROD                               *
+      *----------------------------------------------------*
+     C           @S2S10    BEGSR
+     C*
+     C           K#S10A    KLIST
+     C                     KFLD           D1SHN1
+     C                     KFLD           D1SHN2
+     C                     KFLD           D1SHN3
+     C                     KFLD           K@TOKU  40
+     C                     KFLD           K@NONY  40
+     C*
+     C                     Z-ADD0541      K@TOKU
+     C                     Z-ADD0541      K@NONY
+     C                     EXSR @S2S11
+     C*
+     C                     Z-ADD3411      K@TOKU
+     C*
+     C                     Z-ADD3764      K@NONY
+     C                     EXSR @S2S11
+     C*
+     C                     Z-ADD3481      K@NONY
+     C                     EXSR @S2S11
+     C*
+     C                     Z-ADD3503      K@NONY
+     C                     EXSR @S2S11
+     C*
+     C                     Z-ADD3804      K@NONY
+     C                     EXSR @S2S11
+     C*
+     C                     Z-ADD3347      K@NONY
+     C                     EXSR @S2S11
+     C*
+     C                     Z-ADD3220      K@NONY
+     C                     EXSR @S2S11
+     C*
+     C                     Z-ADD3851      K@NONY
+     C                     EXSR @S2S11
+     C*
+     C                     Z-ADD3931      K@NONY
+     C                     EXSR @S2S11
+     C*
+TCHK3C                     Z-ADD3428      K@NONY
+TCHK3C                     EXSR @S2S11
+     C*
+JW   C                     Z-ADD3226      K@NONY
+     C                     EXSR @S2S11
+     C*
+JW   C                     Z-ADD3770      K@NONY
+     C                     EXSR @S2S11
+     C*
+     C           RRN2      IFEQ *ZERO
+     C                     SETON                     313299
+     C           D1MSG     IFEQ *BLANK
+     C                     MOVELERR,3     D1MSG
+     C                     END
+     C                     END
+     C*
+     C                     ENDSR
+      *----------------------------------------------------*
+      * SET TOYOTA SUB                                     *
+      *----------------------------------------------------*
+     C           @S2S11    BEGSR
+     C*
+     C           K#S10A    SETLLFBCPL04
+     C*
+     C                     DO   *HIVAL
+     C*
+     C           K#S10A    READEFBCPL04                  91
+     C   91                LEAVE
+     C           FBSKJY    IFNE *BLANK
+     C                     ITER
+     C                     END
+     C*
+     C           @@YMD     IFGE FBTKHZ
+     C           @@YMD     ANDLEFBTSHZ
+     C                     ELSE
+     C                     ITER
+     C                     END
+     C*
+     C                     EXSR @S2S@1
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+      *----------------------------------------------------*
+      * SET SFL020                                         *
+      *----------------------------------------------------*
+     C           @S2S@1    BEGSR
+     C*
+     C                     CLEARSFL020
+     C*
+     C                     MOVELFBTOKU    S2TOKU
+     C                     MOVELFBNONY    S2NONY
+     C                     MOVELFBNKOJ    S2NKOJ
+     C                     MOVELFBNUKE    S2NUKE
+     C*
+     C           K#GAD1    KLIST
+     C                     KFLD           FBTOKU
+     C                     KFLD           FBNONY
+     C           K#GAD1    CHAINGADPL11              92
+     C  N92                MOVELB5KMEI    S2NONM
+     C  N92                MOVELB5KMEI    H2NONM
+     C*
+TCHK2C*          D1SEL     IFEQ 5
+TCHK2C*                    MOVEL*BLANK    W@SHIN
+TCHK2C*                    MOVELFBSHN1    W@SHN1
+TCHK2C*          FBSHN2    IFNE *BLANK
+TCHK2C*                    MOVEL'-'       W@SHNA
+TCHK2C*                    END
+TCHK2C*                    MOVELFBSHN2    W@SHN2
+TCHK2C*          FBSHN3    IFNE *BLANK
+TCHK2C*                    MOVEL'-'       W@SHNB
+TCHK2C*                    END
+TCHK2C*                    MOVELFBSHN3    W@SHN3
+TCHK2C*                    MOVELW@SHIN    S2MHIN    P
+TCHK2C*                    ELSE
+     C                     MOVEL*BLANK    W@MHIN
+     C                     MOVELFBMHN1    W@MHN1
+     C           FBMHN2    IFNE *BLANK
+     C                     MOVEL'-'       W@MHNA
+     C                     END
+     C                     MOVELFBMHN2    W@MHN2
+     C           FBMHN3    IFNE *BLANK
+     C                     MOVEL'-'       W@MHNB
+     C                     END
+     C                     MOVELFBMHN3    W@MHN3
+     C           FBMHN4    IFNE *BLANK
+     C                     MOVEL'-'       W@MHNC
+     C                     END
+     C                     MOVELFBMHN4    W@MHN4
+     C                     MOVELW@MHIN    S2MHIN
+TCHK2C*                    END
+     C*
+     C                     Z-ADDFBNTAN    S2TANK
+     C                     Z-ADDFBTKHZ    S2SYMD
+     C*
+     C                     Z-ADDFBTOKU    H2TOKU
+     C                     Z-ADDFBNONY    H2NONY
+     C                     MOVELFBNKOJ    H2NKOJ
+     C                     MOVELFBNUKE    H2NUKE
+     C                     MOVELFBMHN1    H2MHN1
+     C                     MOVELFBMHN2    H2MHN2
+     C                     MOVELFBMHN3    H2MHN3
+     C                     MOVELFBMHN4    H2MHN4
+     C                     Z-ADDFBTKYY    H2TKYY
+     C                     Z-ADDFBTKMM    H2TKMM
+     C                     Z-ADDFBTKDD    H2TKDD
+     C*
+     C                     ADD  1         RRN2
+     C                     WRITESFL020
+     C*
+     C                     ENDSR
+      *----------------------------------------------------*
+      * SET TOYOTA SERVICE/SPECIAL                         *
+      *----------------------------------------------------*
+     C           @S2S20    BEGSR
+     C*
+     C                     Z-ADD0541      K@TOKU
+     C*
+     C                     Z-ADD0323      K@NONY
+     C                     EXSR @S2S11
+     C*
+     C                     Z-ADD0542      K@NONY
+     C                     EXSR @S2S11
+     C*
+     C                     Z-ADD3411      K@TOKU
+     C*
+     C                     Z-ADD0323      K@NONY
+     C                     EXSR @S2S11
+     C*
+     C                     Z-ADD3765      K@NONY
+     C                     EXSR @S2S11
+     C*
+     C                     Z-ADD3482      K@NONY
+     C                     EXSR @S2S11
+     C*
+     C                     Z-ADD3504      K@NONY
+     C                     EXSR @S2S11
+     C*
+     C                     Z-ADD3805      K@NONY
+     C                     EXSR @S2S11
+     C*
+     C                     Z-ADD3348      K@NONY
+     C                     EXSR @S2S11
+     C*
+     C                     Z-ADD3421      K@NONY
+     C                     EXSR @S2S11
+     C*
+     C                     Z-ADD3852      K@NONY
+     C                     EXSR @S2S11
+     C*
+     C                     Z-ADD3932      K@NONY
+     C                     EXSR @S2S11
+     C*
+     C                     Z-ADD3411      K@NONY
+     C                     EXSR @S2S11
+     C*
+TCHK3C                     Z-ADD3429      K@NONY
+TCHK3C                     EXSR @S2S11
+      *
+JW   C                     Z-ADD3227      K@NONY
+     C                     EXSR @S2S11
+      *
+JW   C                     Z-ADD3771      K@NONY
+     C                     EXSR @S2S11
+      *
+     C           RRN2      IFEQ *ZERO
+     C                     SETON                     313299
+     C           D1MSG     IFEQ *BLANK
+     C                     MOVELERR,3     D1MSG
+     C                     END
+     C                     END
+     C*
+     C                     ENDSR
+      *----------------------------------------------------*
+      * SET OTHER CUSTOMER                                 *
+      *----------------------------------------------------*
+     C           @S2S30    BEGSR
+     C*
+     C           K#S30A    KLIST
+     C                     KFLD           D1SHN1
+     C                     KFLD           D1SHN2
+     C                     KFLD           D1SHN3
+     C*
+     C           K#S30A    SETLLFBCPL04
+     C*
+     C                     DO   *HIVAL
+     C*
+     C           K#S30A    READEFBCPL04                  91
+     C   91                LEAVE
+     C           FBSKJY    IFNE *BLANK
+     C                     ITER
+     C                     END
+     C*
+     C           FBTOKU    IFEQ 0541
+     C           FBNONY    OREQ 3764
+     C           FBNONY    OREQ 3765
+     C           FBNONY    OREQ 3481
+     C           FBNONY    OREQ 3482
+     C           FBNONY    OREQ 3503
+     C           FBNONY    OREQ 3504
+     C           FBNONY    OREQ 3804
+     C           FBNONY    OREQ 3805
+     C           FBNONY    OREQ 3347
+     C           FBNONY    OREQ 3348
+     C           FBNONY    OREQ 3220
+     C           FBNONY    OREQ 3421
+     C           FBNONY    OREQ 3851
+     C           FBNONY    OREQ 3852
+     C           FBNONY    OREQ 3931
+     C           FBNONY    OREQ 3932
+     C           FBNONY    OREQ 0323
+     C           FBNONY    OREQ 3411
+TCHK3C           FBNONY    OREQ 3428
+TCHK3C           FBNONY    OREQ 3429
+JW   C           FBNONY    OREQ 3226
+.    C           FBNONY    OREQ 3227
+.    C           FBNONY    OREQ 3770
+.    C           FBNONY    OREQ 3771
+     C                     ITER
+     C                     END
+     C*
+     C           D1TOKU    IFNE *ZERO
+     C           D1TOKU    IFNE FBTOKU
+     C                     ITER
+     C                     END
+     C                     END
+     C*
+     C           @@YMD     IFGE FBTKHZ
+     C           @@YMD     ANDLEFBTSHZ
+     C                     ELSE
+     C                     ITER
+     C                     END
+     C*
+     C                     EXSR @S2S@1
+     C*
+     C                     ENDDO
+     C*
+     C           RRN2      IFEQ *ZERO
+     C                     SETON                     313299
+     C           D1MSG     IFEQ *BLANK
+     C                     MOVELERR,3     D1MSG
+     C                     END
+     C                     END
+     C*
+     C                     ENDSR
+      *----------------------------------------------------*
+      * SET ALL CUSTOMER                                   *
+      *----------------------------------------------------*
+     C           @S2S40    BEGSR
+     C*
+     C           K#S40A    KLIST
+     C                     KFLD           D1SHN1
+     C                     KFLD           D1SHN2
+     C                     KFLD           D1SHN3
+     C*
+     C           K#S40A    SETLLFBCPL04
+     C*
+     C                     DO   *HIVAL
+     C*
+     C           K#S30A    READEFBCPL04                  91
+     C   91                LEAVE
+     C           FBSKJY    IFNE *BLANK
+     C                     ITER
+     C                     END
+     C*
+     C           @@YMD     IFGE FBTKHZ
+     C           @@YMD     ANDLEFBTSHZ
+     C                     ELSE
+     C                     ITER
+     C                     END
+     C*
+     C                     EXSR @S2S@1
+     C*
+     C                     ENDDO
+     C*
+     C           RRN2      IFEQ *ZERO
+     C                     SETON                     313299
+     C           D1MSG     IFEQ *BLANK
+     C                     MOVELERR,3     D1MSG
+     C                     END
+     C                     END
+     C*
+     C                     ENDSR
+      *----------------------------------------------------*
+      * SET CUSTOMER/DELIVERY SELECT                       *
+      *----------------------------------------------------*
+     C           @S2S50    BEGSR
+     C*
+     C           K#S50A    KLIST
+     C                     KFLD           D1TOKU
+     C                     KFLD           D1NONY
+     C*
+     C           D1NONY    IFEQ *ZERO
+TCHK2C*          D1TOKU    SETLLFBCPL0A
+TCHK2C           D1TOKU    SETLLFBCPL03
+     C                     ELSE
+TCHK2C*          K#S50A    SETLLFBCPL0A
+TCHK2C           K#S50A    SETLLFBCPL03
+     C                     END
+     C*
+     C                     DO   *HIVAL
+     C*
+     C           D1NONY    IFEQ *ZERO
+TCHK2C*          D1TOKU    READEFBCPL0A                  91
+TCHK2C           D1TOKU    READEFBCPL03                  91
+     C                     ELSE
+TCHK2C*          K#S50A    READEFBCPL0A                  91
+TCHK2C           K#S50A    READEFBCPL03                  91
+     C                     END
+     C   91                LEAVE
+     C*
+     C           FBSKJY    IFNE *BLANK
+     C                     ITER
+     C                     END
+     C*
+     C           @@YMD     IFGE FBTKHZ
+     C           @@YMD     ANDLEFBTSHZ
+     C                     ELSE
+     C                     ITER
+     C                     END
+     C*
+     C                     EXSR @S2S@1
+     C*
+     C                     ENDDO
+     C*
+     C           RRN2      IFEQ *ZERO
+     C                     SETON                     313299
+     C           D1MSG     IFEQ *BLANK
+     C                     MOVELERR,3     D1MSG
+     C                     END
+     C                     END
+     C*
+     C                     ENDSR
+      *----------------------------------------------------*
+      * 2ND SCREEN                                         *
+      *----------------------------------------------------*
+     C           @S2PRC    BEGSR
+     C*
+     C                     Z-ADD1         W@RRN2  40
+     C                     Z-ADDD1SEL     Y       10
+     C                     MOVELPNM,Y     D2PRNM
+     C           D1TOKU    IFNE *ZERO
+     C                     MOVELD1TOKU    D2TOK@
+     C                     ELSE
+     C                     MOVEL*BLANK    D2TOK@
+     C                     END
+     C           D1NONY    IFNE *ZERO
+     C                     MOVELD1NONY    D2NON@
+     C                     ELSE
+     C                     MOVEL*BLANK    D2NON@
+     C                     END
+     C                     MOVEL*BLANK    W@SHIN
+     C                     MOVELD1SHN1    W@SHN1
+     C           D1SHN2    IFNE *BLANK
+     C                     MOVEL'-'       W@SHNA
+     C                     END
+     C                     MOVELD1SHN2    W@SHN2
+     C           D1SHN3    IFNE *BLANK
+     C                     MOVEL'-'       W@SHNB
+     C                     END
+     C                     MOVELD1SHN3    W@SHN3
+     C                     MOVELW@SHIN    D2SHN@
+TCHK2C*          D1SEL     IFEQ 5
+TCHK2C*                    MOVELTTL,2     D2PKND
+TCHK2C*                    ELSE
+     C                     MOVELTTL,1     D2PKND
+TCHK2C*                    END
+     C*
+     C                     DO   *HIVAL
+     C*
+     C                     MOVELCMD,1     D99CMD
+     C                     WRITEFMT099
+     C                     Z-ADDW@RRN2    #RCN02
+     C                     EXFMTCTL020
+     C                     MOVEL*BLANK    D99MSG
+     C   KA
+     COR KL                LEAVE
+     C*
+     C           @@REC     IFNE *ZERO
+     C                     Z-ADD@@REC     W@RRN2
+     C                     END
+     C*
+     C                     Z-ADD*ZERO     RRN2
+     C*
+     C                     DO   *HIVAL
+     C*
+     C                     ADD  1         RRN2
+     C           RRN2      CHAINSFL020               97
+     C   97                LEAVE
+     C*
+     C           S2SLCT    IFNE *BLANK
+     C                     MOVEL*BLANK    S2SLCT
+     C                     MOVEL*ON       *IN46
+     C                     UPDATSFL020
+     C                     MOVEL*OFF      *IN46
+     C                     EXSR @S3SET
+     C                     EXSR @S3PRC
+     C   KA                LEAVE
+     C                     END
+     C*
+     C                     ENDDO
+     C   KA                LEAVE
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+      *----------------------------------------------------*
+      * 3RD SCREEN SET                                     *
+      *----------------------------------------------------*
+     C           @S3SET    BEGSR
+     C*
+     C                     MOVEL*ON       *IN51
+     C                     WRITECTL030
+     C                     MOVEL*OFF      *IN51
+     C                     Z-ADD*ZERO     RRN3    40
+     C*
+TCHK2C                     MOVEL*BLANK    W3SHN1  5
+TCHK2C                     MOVEL*BLANK    W3SHN2  5
+TCHK2C                     MOVEL*BLANK    W3SHN3  2
+TCHK2C*
+     C           K#PL03    KLIST
+     C                     KFLD           H2TOKU
+     C                     KFLD           H2NONY
+     C                     KFLD           H2NKOJ
+     C                     KFLD           H2NUKE
+     C                     KFLD           H2MHN1
+     C                     KFLD           H2MHN2
+     C                     KFLD           H2MHN3
+     C                     KFLD           H2MHN4
+     C           K#PL03    SETLLFBCPL03
+     C*
+     C                     DO   *HIVAL
+     C*
+     C           K#PL03    READEFBCPL03                  96
+     C   96                LEAVE
+     C           FBSKJY    IFNE *BLANK
+     C                     ITER
+     C                     END
+     C                     MOVELFBSHN1    W3SHN1
+     C                     MOVELFBSHN2    W3SHN2
+     C                     MOVELFBSHN3    W3SHN3
+     C*
+     C                     CLEARSFL030
+     C*
+     C                     Z-ADDFBNTAN    S3TANK
+     C                     Z-ADDFBTKHZ    S3EFDT
+     C                     Z-ADDFBTSHZ    S3EXDT
+     C*
+     C                     Z-ADDFBKODT    S3UDAT
+     C                     Z-ADDFBKOTM    S3UTIM
+     C                     MOVELFBKOME    S3UID
+      *
+     C           FBTSHZ    IFEQ 99999999
+     C                     MOVE *ON       *IN85
+     C                     MOVE *ON       @85
+     C                     ELSE
+     C                     MOVE *OFF      *IN85
+     C                     MOVE *OFF      @85
+     C                     ENDIF
+      *
+     C                     ADD  1         RRN3
+     C                     Z-ADDRRN3      S3SEQ#
+     C*
+     C                     WRITESFL030
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+      *----------------------------------------------------*
+      * 3RD SCREEN                                         *
+      *----------------------------------------------------*
+     C           @S3PRC    BEGSR
+     C*
+     C                     Z-ADD1         W@RRN3  40
+     C*
+     C                     MOVELD2PRNM    D3PRNM
+     C                     MOVELH2TOKU    D3TOK@
+     C                     MOVELH2NONY    D3NON@
+     C                     MOVELH2NKOJ    D3NKOJ
+     C                     MOVELH2NUKE    D3NUKE
+     C                     MOVELH2NONM    D3NONM
+     C                     MOVEL*BLANK    W@MHIN
+     C                     MOVELH2MHN1    W@MHN1
+     C           H2MHN2    IFNE *BLANK
+     C                     MOVEL'-'       W@MHNA
+     C                     END
+     C                     MOVELH2MHN2    W@MHN2
+     C           H2MHN3    IFNE *BLANK
+     C                     MOVEL'-'       W@MHNB
+     C                     END
+     C                     MOVELH2MHN3    W@MHN3
+     C           H2MHN4    IFNE *BLANK
+     C                     MOVEL'-'       W@MHNC
+     C                     END
+     C                     MOVELH2MHN4    W@MHN4
+     C                     MOVELW@MHIN    D3MHIN
+     C           D1SEL     IFEQ 5
+TCHK2C*                    MOVELS2MHIN    D3SHIN
+TCHK2C                     MOVEL*BLANK    W@SHIN
+TCHK2C                     MOVELW3SHN1    W@SHN1
+TCHK2C                     MOVELW3SHN2    W@SHN2
+TCHK2C                     MOVELW3SHN3    W@SHN3
+TCHK2C           W3SHN2    IFNE *BLANK
+TCHK2C                     MOVEL'-'       W@SHNA
+TCHK2C                     END
+TCHK2C           W3SHN3    IFNE *BLANK
+TCHK2C                     MOVEL'-'       W@SHNB
+TCHK2C                     END
+TCHK2C                     MOVELW@SHIN    D3SHIN
+     C                     ELSE
+     C                     MOVELD2SHN@    D3SHIN
+     C                     END
+     C*
+     C                     DO   *HIVAL
+     C*
+     C                     MOVELCMD,2     D99CMD
+     C                     WRITEFMT099
+     C                     Z-ADDW@RRN3    #RCN03
+     C                     EXFMTCTL030
+     C                     MOVEL*BLANK    D99MSG
+     C   KA
+     COR KL                LEAVE
+      *
+      * <F10: SHOW DELETED>
+     C           *INKJ     IFEQ *ON
+     C                     EXSR @S4SET
+     C                     EXSR @S4PRC
+     C   KA                LEAVE
+     C                     ENDIF
+      *
+     C           @@REC     IFNE *ZERO
+     C                     Z-ADD@@REC     W@RRN3
+     C                     END
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+      *----------------------------------------------------*
+JW2   * 4TH SCREEN SET  (SHOW DELETED PRICE)               *
+      *----------------------------------------------------*
+     C           @S4SET    BEGSR
+     C*
+     C                     MOVEL*ON       *IN51
+     C                     WRITECTL040
+     C                     MOVEL*OFF      *IN51
+     C                     Z-ADD*ZERO     RRN4    40
+     C*
+TCHK2C                     MOVEL*BLANK    W4SHN1  5
+TCHK2C                     MOVEL*BLANK    W4SHN2  5
+TCHK2C                     MOVEL*BLANK    W4SHN3  2
+TCHK2C*
+     C**         K#PL03    KLIST
+     C**                   KFLD           H2TOKU
+     C**                   KFLD           H2NONY
+     C**                   KFLD           H2NKOJ
+     C**                   KFLD           H2NUKE
+     C**                   KFLD           H2MHN1
+     C**                   KFLD           H2MHN2
+     C**                   KFLD           H2MHN3
+     C**                   KFLD           H2MHN4
+     C           K#PL03    SETLLFBCPL01A
+     C*
+     C                     DO   *HIVAL
+     C*
+     C           K#PL03    READEFBCPL01A                 96
+     C   96                LEAVE
+     C**         FBSKJY    IFNE *BLANK
+     C**                   ITER
+     C**                   END
+     C                     MOVELFBSHN1    W4SHN1
+     C                     MOVELFBSHN2    W4SHN2
+     C                     MOVELFBSHN3    W4SHN3
+     C*
+     C                     CLEARSFL040
+     C*
+     C                     MOVELFBSKJY    S4SKJY
+     C                     Z-ADDFBNTAN    S4TANK
+     C                     Z-ADDFBTKHZ    S4EFDT
+     C                     Z-ADDFBTSHZ    S4EXDT
+     C*
+JW1  C                     Z-ADDFBKODT    S4UDAT
+ |   C                     Z-ADDFBKOTM    S4UTIM
+JW1  C                     MOVELFBKOME    S4UID
+      *
+     C           FBSKJY    IFEQ ' '
+     C           FBTSHZ    ANDEQ99999999
+     C                     MOVE *ON       *IN85
+     C                     MOVE *ON       @85
+     C                     ELSE
+     C                     MOVE *OFF      *IN85
+     C                     MOVE *OFF      @85
+     C                     ENDIF
+      *
+     C           FBSKJY    IFEQ 'D'
+     C                     MOVE *ON       *IN86
+     C                     MOVE *ON       @86
+     C                     ELSE
+     C                     MOVE *OFF      *IN86
+     C                     MOVE *OFF      @86
+     C                     ENDIF
+      *
+     C                     ADD  1         RRN4
+     C                     Z-ADDRRN4      S4SEQ#
+     C*
+     C                     WRITESFL040
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+      *----------------------------------------------------*
+JW2   * 4TH SCREEN  (SHOW DEELETED PRICE)                  *
+      *----------------------------------------------------*
+     C           @S4PRC    BEGSR
+     C*
+     C                     Z-ADD1         W@RRN4  40
+     C*
+     C                     MOVELD2PRNM    D4PRNM
+     C                     MOVELH2TOKU    D4TOK@
+     C                     MOVELH2NONY    D4NON@
+     C                     MOVELH2NKOJ    D4NKOJ
+     C                     MOVELH2NUKE    D4NUKE
+     C                     MOVELH2NONM    D4NONM
+     C                     MOVEL*BLANK    W@MHIN
+     C                     MOVELH2MHN1    W@MHN1
+     C           H2MHN2    IFNE *BLANK
+     C                     MOVEL'-'       W@MHNA
+     C                     END
+     C                     MOVELH2MHN2    W@MHN2
+     C           H2MHN3    IFNE *BLANK
+     C                     MOVEL'-'       W@MHNB
+     C                     END
+     C                     MOVELH2MHN3    W@MHN3
+     C           H2MHN4    IFNE *BLANK
+     C                     MOVEL'-'       W@MHNC
+     C                     END
+     C                     MOVELH2MHN4    W@MHN4
+     C                     MOVELW@MHIN    D4MHIN
+     C           D1SEL     IFEQ 5
+     C*                    MOVELS2MHIN    D4SHIN
+     C                     MOVEL*BLANK    W@SHIN
+     C                     MOVELW3SHN1    W@SHN1
+     C                     MOVELW3SHN2    W@SHN2
+     C                     MOVELW3SHN3    W@SHN3
+     C           W3SHN2    IFNE *BLANK
+     C                     MOVEL'-'       W@SHNA
+     C                     END
+     C           W3SHN3    IFNE *BLANK
+     C                     MOVEL'-'       W@SHNB
+     C                     END
+     C                     MOVELW@SHIN    D4SHIN
+     C                     ELSE
+     C                     MOVELD2SHN@    D4SHIN
+     C                     END
+     C*
+     C                     DO   *HIVAL
+     C*
+     C                     MOVELCMD,1     D99CMD
+     C                     WRITEFMT099
+     C                     Z-ADDW@RRN4    #RCN04
+     C                     EXFMTCTL040
+     C                     MOVEL*BLANK    D99MSG
+     C   KA
+     COR KL                LEAVE
+     C*
+     C           @@REC     IFNE *ZERO
+     C                     Z-ADD@@REC     W@RRN4
+     C                     END
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+** PROCESS NANE(60A) ........3.........4.........5.........6
+1.TOYOTA MASS PRODUCTION
+2.TOYOTA SERVICE/SPECIAL
+3.EXCEPT TOYOTA CUSTOMER
+4.ALL CUSTOMER
+5.ALL PART# OF THE SELECTED CUSTOMER
+** ERR MSG(60A) ...2.........3.........4.........5.........6
+WRONG PROCESS TYPE
+ENTER INTERNAL PART#
+NOT FOUND TARGET DATA
+ENTER CUSTOMER CODE
+ENTER PROCESS TYPE
+INTERNAL PART# SHOULD BE BLANK
+** PART (60A)  ....2.........3.........4.........5.........6
+USER PART#
+INTERNAL PART#
+** CMD (70A).......2.........3.........4.........5.........6.........7
+F1:END     F12:BACK        PAGE UP/DOWN
+F1:END     F12:BACK        PAGE UP/DOWN     P10:SHOW DELETED PRICE

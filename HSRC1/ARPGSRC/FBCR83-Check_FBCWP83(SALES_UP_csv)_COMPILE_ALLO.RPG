@@ -1,0 +1,660 @@
+     H            Y.
+     F** FBCR83 ******************************************************
+     F*  PROGRAM    : CHECK FBCWP83(SALES-UP.CSV)                    *
+     F*  WRITTEN    : 03/30/2016                                     *
+     F*  WRITTEN BY : JW (SRA)                                       *
+     F*  FUNCTION   : READ FBCWP83(CSV) AND VALIDATE FIELDS          *
+     F*             : IF ERROR, CREATE ERROR REPORT                  *
+     *  ATTENTION  : COMPILE WITH OPTION - ALLOW NULL VALUES *YES
+     F*             : -------------------------------                *
+JW1  F*  JW         2019.11.08 ACCEPT PAST DATE FOR EFFECTIVE DATE   *
+JW2  F*  JW         2023.06.19 FIX MHIN BUG                          *
+JW3  F*  JW         2023.12.01 FIX CUST/DELV 4 DIGIT NUMBER ISSUE    *
+     F****************************************************************
+     FFBCWP83 IF  E                    DISK
+     FFAAPL05 IF  E           K        DISK
+     FFBCPL03 IF  E           K        DISK
+     FFGBPL01 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+     FFBCWP84 O   E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+      *---------------------------------------------------------------
+     E                    CSV        80  1
+     E                    FLD        20  1
+     E**                  MV1        20  1
+     E**                  MV2        20  1
+     E                    MSG     1  13 80
+      *---------------------------------------------------------------
+      *
+     I              '0123456789 '         C         WKCKSU
+      *
+     I            DS
+     I                                        1  12 K@SHN
+     I                                        1   5 K@SHN1
+     I                                        6  10 K@SHN2
+     I                                       11  12 K@SHN3
+     I            DS
+     I                                        1  20 @MHIN
+     I                                        1   5 @MHIN1
+     I                                        6  10 @MHIN2
+     I                                       11  15 @MHIN3
+     I                                       16  20 @MHIN4
+     I                                       11  12 @MHIN5
+     I            DS
+     I                                        1   6 W@FLD6
+     I                                        1   65W@NUM6
+     ID10@DT      DS
+     I                                        1   4 D10@YY
+     I                                        6   7 D10@MM
+     I                                        9  10 D10@DD
+     ID8@DT       DS
+     I                                        1   4 D8@YY
+     I                                        5   6 D8@MM
+     I                                        7   8 D8@DD
+     I            DS
+     I                                        1   80@EFDT
+     I                                        1   40@TKYY
+     I                                        5   60@TKMM
+     I                                        7   80@TKDD
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      ******************************************************
+      *                    MAIN PROCESS
+      ******************************************************
+      * Initial Process
+     C                     EXSR @INIT
+      * Validate U/P Data
+     C                     EXSR @CHK1
+      * Print Footer
+     C           NM@CNT    ADD  ER@CNT    TTL#
+      *
+     C           SEQ       IFEQ 0
+      * If No Error
+     C                     MOVE *OFF      #STS
+     C                     MOVE MSG,6     FLD37  37
+     C                     MOVELWR@CNT    FLD37
+     C                     MOVE MSG,6     FLD42  52
+     C                     MOVELDAT#      FLD42
+     C                     MOVELMSG,6     #MSG1
+     C                     MOVE FLD42     #MSG1
+     C                     MOVE FLD37     #MSG1
+     C                     ELSE
+      * If Error
+     C                     MOVE *ON       #STS
+     C                     EXCPTFOT1
+     C                     MOVE MSG,7     FLD36  36
+     C                     MOVELOK@CNT    FLD36
+     C                     MOVE MSG,7     FLD46  46
+     C                     MOVELWR@CNT    FLD46
+     C                     MOVE MSG,7     FLD61  61
+     C                     MOVELER@CNT    FLD61
+     C                     MOVELMSG,7     #MSG2
+     C                     MOVE FLD61     #MSG2
+     C                     MOVE FLD46     #MSG2
+     C                     MOVE FLD36     #MSG2
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      ******************************************************
+      *          Validate U/P Data
+      ******************************************************
+     C           @CHK1     BEGSR
+     C                     MOVE *OFF      *IN80
+      *
+     C           *IN80     DOUEQ*ON
+     C                     READ FBCWP83                  80
+     C           *IN80     IFEQ *OFF
+     C                     ADD  1         LIN#
+     C                     EXSR @GET
+      * If Header, Skip
+     C           #HDFLG    IFEQ *ON
+     C                     GOTO @SKIP
+     C                     ENDIF
+      *
+     C                     ADD  1         DAT#
+     C                     MOVE *OFF      #ERFLG  1
+      * A:Check CUSTOMER#---------------------------
+     C           #TOKU     CHAINFGBPL01              98
+      *     Print Err Report: ERROR - CUSTOMER CODE IS NOT IN MASTER FILE!
+     C           *IN98     IFEQ *ON
+     C                     ADD  1         ER@CNT
+     C                     MOVE *ON       #ERFLG
+     C                     MOVELMSG,8     XMSG   35
+     C                     MOVEL#NONY     @NONY
+     C                     MOVEL#FACT     @FACT
+     C                     MOVEL#DOCK     @DOCK
+     C                     EXSR @PRINT
+     C                     ENDIF
+      * B:Check DELIVERY#---------------------------
+     C           #NONY     CHAINFGBPL01              98
+      *     Print Err Report: ERROR - DELIVERY CODE IS NOT IN MASTER FILE!
+     C           *IN98     IFEQ *ON
+     C                     ADD  1         ER@CNT
+     C                     MOVE *ON       #ERFLG
+     C                     MOVELMSG,9     XMSG
+     C                     MOVEL#NONY     @NONY
+     C                     MOVEL#FACT     @FACT
+     C                     MOVEL#DOCK     @DOCK
+     C                     EXSR @PRINT
+     C                     ENDIF
+      * C:Check Factory Code------------------------
+      * D:Check Dock CODE---------------------------
+      * E:Check Part 1-----------------------------------
+      *      (*) CHAIN FAAPP02(B7) COMMON PART M/F
+     C                     MOVE *OFF      EXIST1  1
+     C                     MOVE *BLANK    K@SHN
+     C                     MOVEL#PART2    @MHIN
+     C                     MOVE *OFF      *IN98
+     C           K#PART    SETLLFAAPL05
+     C           *IN98     DOWEQ*OFF
+     C           K#PART    READEFAAPL05                  98
+     C           *IN98     IFEQ *OFF
+     C                     MOVE *ON       EXIST1
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      * Check Part 2-----------------------------------
+      *      (*) CHAIN FCEPP01(A2) PRODUCTION M
+     C                     MOVE *OFF      EXIST2  1
+     C                     MOVEL#PART2    @MHIN
+     C                     MOVE *OFF      *IN98
+     C           K#CEPL    CHAINFCEPL01              98
+     C           *IN98     IFEQ *OFF
+     C                     MOVE *ON       EXIST2
+     C                     ENDIF
+      * --- Print Err Report CUSTOMER PART DOES NOT EXIST! -----
+     C                     SELEC
+     C           EXIST1    WHEQ *OFF
+     C           EXIST2    ANDEQ*OFF
+     C                     ADD  1         ER@CNT
+     C                     MOVE *ON       #ERFLG
+     C                     MOVELMSG,4     XMSG
+     C                     MOVEL#NONY     @NONY
+     C                     MOVEL#FACT     @FACT
+     C                     MOVEL#DOCK     @DOCK
+     C                     EXSR @PRINT
+      *
+     C           EXIST1    WHEQ *ON
+     C                     MOVELB7NONY    @NONY
+     C                     MOVELB7NKJO    @FACT
+     C                     MOVELB7NUKE    @DOCK
+     C                     MOVELB7SHN1    K@SHN1
+     C                     MOVELB7SHN2    K@SHN2
+     C                     MOVELB7SHN3    K@SHN3
+      *
+     C           EXIST2    WHEQ *ON
+     C                     MOVELA2BHB1    K@SHN1
+     C                     MOVELA2BHB2    K@SHN2
+     C                     MOVELA2BHB3    K@SHN3
+     C                     ENDSL
+      *
+      * F: Check UNIT PRICE -----------------------------------
+     C           #UP       IFEQ 0
+      *     Print Err Report:
+     C                     ADD  1         ER@CNT
+     C                     MOVE *ON       #ERFLG
+     C                     MOVELMSG,5     XMSG
+     C                     MOVEL#NONY     @NONY
+     C                     MOVEL#FACT     @FACT
+     C                     MOVEL#DOCK     @DOCK
+     C                     EXSR @PRINT
+     C                     ENDIF
+      * H: Check EFFECTIVE DATE  ------------------------------
+     C                     MOVEL#EFDTX    @VLDAT
+     C                     CALL 'UTLR01'
+     C                     PARM           @VLDAT 10
+     C                     PARM           #TRUE   8
+     C                     PARM           #RTN    1
+     C           #RTN      IFEQ *BLANK
+     C                     MOVEL#TRUE     #EFDT   80
+     C                     ELSE
+      *     Print Err Report: ERROR - EFFECTIVE DATE IS NOT IN CALENDAR..
+     C                     ADD  1         ER@CNT
+     C                     MOVE *ON       #ERFLG
+     C                     MOVELMSG,2     XMSG
+     C                     MOVEL#NONY     @NONY
+     C                     MOVEL#FACT     @FACT
+     C                     MOVEL#DOCK     @DOCK
+     C                     EXSR @PRINT
+     C                     ENDIF
+      *
+      * H: Check EFFECTIVE DATE 2------------------------------
+     C           #RTN      IFEQ *BLANK
+     C           #ERFLG    ANDEQ*OFF
+     C                     MOVEL#PART2    @MHIN
+     C                     MOVEL#TOKU     @CUST
+     C                     MOVEL#NONY     @DELV
+     C                     MOVEL#FACT     @FACT
+     C                     MOVEL#DOCK     @DOCK
+     C                     MOVEL@MHIN1    @MHN1
+     C                     MOVEL@MHIN2    @MHN2
+     C                     MOVEL@MHIN3    @MHN3
+     C                     MOVEL@MHIN4    @MHN4
+     C                     CALL 'FBCR73'
+     C                     PARM           @CUST   4
+     C                     PARM           @DELV   4
+     C                     PARM           @FACT   1
+     C                     PARM           @DOCK   4
+     C                     PARM           @MHN1   5
+     C                     PARM           @MHN2   5
+     C                     PARM           @MHN3   5
+     C                     PARM           @MHN4   5
+     C                     PARM           #EFDAT  8
+     C                     PARM           #RTN2   1
+JW1   **
+ |   C**         #RTN2     IFEQ *BLANK
+ |   C**         #TRUE     ANDLE#EFDAT
+ |    **Print Error Report
+ |   C**                   ADD  1         ER@CNT
+ |   C**                   MOVE *ON       #ERFLG
+ |   C**                   MOVELMSG,11    XMSG
+ |   C**                   MOVEL#NONY     @NONY
+ |   C**                   MOVEL#FACT     @FACT
+ |   C**                   MOVEL#DOCK     @DOCK
+ |   C**                   EXSR @PRINT
+JW1  C**                   ENDIF
+      **
+     C                     ENDIF
+      * I:Check EXPIRATION DATE --------------------
+     C           #EXDTX    IFEQ '99999999'
+     C                     MOVEL#EXDTX    #EXDT   80
+     C                     ELSE
+     C                     MOVEL#EXDTX    @VLDAT
+     C                     CALL 'UTLR01'
+     C                     PARM           @VLDAT 10
+     C                     PARM           #TRUE   8
+     C                     PARM           #RTN    1
+     C           #RTN      IFEQ *BLANK
+     C                     MOVEL#TRUE     #EXDT
+     C                     ELSE
+      *     Print Err Report: ERROR - EXPIRATION DATE IS NOT IN CALENDAR..
+     C                     ADD  1         ER@CNT
+     C                     MOVE *ON       #ERFLG
+     C                     MOVELMSG,10    XMSG
+     C                     MOVEL#NONY     @NONY
+     C                     MOVEL#FACT     @FACT
+     C                     MOVEL#DOCK     @DOCK
+     C                     EXSR @PRINT
+     C                     ENDIF
+     C                     ENDIF
+      * *:Check EFFECTIVE DATE < EXPIRATION DATE ------------
+     C           #EFDT     IFGT #EXDT
+     C                     ADD  1         ER@CNT
+     C                     MOVE *ON       #ERFLG
+     C                     MOVELMSG,13    XMSG
+     C                     MOVEL#NONY     @NONY
+     C                     MOVEL#FACT     @FACT
+     C                     MOVEL#DOCK     @DOCK
+     C                     EXSR @PRINT
+     C                     ENDIF
+      * -------------------------------------------------
+      * CHECK W/PRICE MASTER, IF DUPLICATE DATA
+     C           #ERFLG    IFEQ *OFF
+     C                     MOVEL#NONY     @NONY
+     C                     MOVEL#FACT     @FACT
+     C                     MOVEL#DOCK     @DOCK
+     C                     MOVEL#EFDT     @EFDT
+     C           KEY03B    CHAINFBCPL03              96
+     C           *IN96     IFEQ *OFF
+     C           #UP       ANDEQFBNTAN
+     C           #EFDT     ANDEQFBTKHZ
+JW   C           #EXDT     ANDEQFBTSHZ
+     C                     ADD  1         ER@CNT
+     C                     MOVE *ON       #ERFLG
+     C                     MOVELMSG,12    XMSG
+     C                     EXSR @PRINT
+     C                     ENDIF
+      * ADD: WARNING
+     C           *IN96     IFEQ *ON
+     C                     ADD  1         WR@CNT
+     C                     MOVELMSG,3     XMSG
+     C                     EXSR @PRINT
+     C                     ENDIF
+     C                     ENDIF
+      *
+      * IF ERROR, SKIP --------------------------------
+     C           #ERFLG    IFEQ *ON
+     C                     GOTO @SKIP
+     C                     ENDIF
+      *
+      * IF NO ERROR, WRITE FBCWP84 (WORK)--------------
+     C                     ADD  1         OK@CNT
+     C                     EXSR #WRT
+      * ------------------------------------------
+     C           @SKIP     TAG
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      ******************************************************
+      *          WRITE FBCWP84
+      ******************************************************
+     C           #WRT      BEGSR
+      *
+     C                     CLEARFBCWP841
+     C                     Z-ADDLIN#      F4LINE
+     C                     Z-ADD#TOKU     F4TOKU
+     C                     Z-ADD#NONY     F4NONY
+     C                     MOVEL#FACT     F4FACT
+     C                     MOVEL#DOCK     F4DOCK
+     C                     Z-ADD#EFDT     F4EFDT
+     C                     Z-ADD#EXDT     F4EXDT
+     C                     MOVEL#PART2    @MHIN
+     C                     MOVEL@MHIN1    F4MHN1
+     C                     MOVEL@MHIN2    F4MHN2
+     C                     MOVEL@MHIN3    F4MHN3
+     C                     MOVEL@MHIN4    F4MHN4
+     C                     MOVELK@SHN1    F4SHN1
+     C                     MOVELK@SHN2    F4SHN2
+     C                     MOVELK@SHN3    F4SHN3
+     C                     Z-ADD#UP       F4UP1
+     C                     Z-ADD@DATE     F4CDAT
+     C                     Z-ADD@TIME     F4CTIM
+     C                     MOVEL#USER     F4USER
+     C                     MOVEL#PGM      F4PGM
+      *
+     C                     WRITEFBCWP841
+      *
+     C                     ENDSR
+      ******************************************************
+      *          @GET: GET INPUT FIELDS
+      ******************************************************
+     C           @GET      BEGSR
+     C                     MOVE *BLANK    #TOKUX  4
+     C                     Z-ADD0         #TOKU   40
+     C                     MOVE *BLANK    #NONYX  4
+     C                     Z-ADD0         #NONY   40
+     C                     MOVE *BLANK    #FACT   1
+     C                     MOVE *BLANK    #DOCK   4
+     C                     MOVE *BLANK    #PART  20
+     C                     MOVE *BLANK    #UPX    6
+     C                     Z-ADD0         #UP     65
+     C                     MOVE *BLANK    #EFDTX 10
+     C                     MOVE *BLANK    #EXDTX 10
+     C                     MOVE *OFF      #HDFLG  1        HEADER FLAG
+      *
+     C                     Z-ADD*ZERO     IX      50
+     C                     Z-ADD*ZERO     IY      50
+      * A:GET CUSTOMER#--------------------------------
+     C                     MOVELFLD#A     #TOKUX
+     C                     Z-ADD0         #TOKU
+     C           WKCKSU    CHECK#TOKUX                   99
+     C           *IN99     IFEQ *OFF
+JW3  C                     MOVEL#TOKUX    $IN       P
+ .   C                     CALL 'UTLR60'
+ .   C                     PARM           $IN    17
+ .   C                     PARM           $TRUE  156
+ .   C                     PARM           $RTN    1
+JW3  C                     Z-ADD$TRUE     NUM4
+JW3  C                     MOVELNUM4      #TOKU
+     C                     ENDIF
+      *   IF CUST# FIELD IS NOT NUMERIC, THEN IT IS HEADER
+     C           *IN99     IFEQ *ON
+     C                     MOVE *ON       #HDFLG
+     C                     GOTO EGET
+     C                     ENDIF
+      * B:GET DELIVERY#--------------------------------
+      * CONVERT LTR TO NUM
+     C                     MOVELFLD#B     $IN
+     C                     CALL 'UTLR60'
+     C                     PARM           $IN    17
+     C                     PARM           $TRUE  156
+     C                     PARM           $RTN    1
+     C                     Z-ADD$TRUE     NUM4    40
+      *
+     C                     MOVELNUM4      #NONYX
+     C                     Z-ADD0         #NONY
+     C           WKCKSU    CHECK#NONYX                   99
+     C           *IN99     IFEQ *OFF
+     C                     MOVEL#NONYX    #NONY
+     C                     ENDIF
+      * C:GET FACTORY ---------------------------------
+     C                     MOVELFLD#C     #FACT
+      * D:GET DOCK    ---------------------------------
+     C                     MOVELFLD#D     #DOCK
+      * E:GET PART#   ---------------------------------
+     C                     MOVELFLD#E     #PART
+     C                     MOVELFLD#E     #PART2 20
+      *       (1) Remove '-' from #PART and save to #PART2
+     C**JW2                Z-ADD1         IX
+     C**                   Z-ADD0         IY
+     C**                   MOVEAFLD#E     MV1
+     C**                   MOVEAFLD#E     MV2
+     C**         '-'       LOKUPMV1,IX                   99
+     C**         *IN99     IFEQ *ON
+     C**         IX        SUB  1         IY
+     C**         1         DO   20
+     C**                   ADD  1         IX
+     C**                   ADD  1         IY
+     C**         MV1,IX    IFEQ *BLANK
+     C**                   MOVE MV1,IX    MV2,IY
+     C**                   LEAVE
+     C**                   ELSE
+     C**                   MOVE MV1,IX    MV2,IY
+     C**                   ENDIF
+     C**                   ENDDO
+     C**                   ENDIF
+JW2  C                     MOVELFLD#E     $FLD1     P
+ .   C                     CALL 'UUUR05'
+ .   C                     PARM           $FLD1  25
+ .   C                     PARM           $FLD2  25
+JW2  C                     MOVEL$FLD2     #PART2
+      * F:GET UNIT PRICE ------------------------------
+     C                     Z-ADD0         IX
+     C                     Z-ADD0         IY
+     C                     MOVEL*ALL'0'   FLD
+     C                     CLEARCSV
+     C                     MOVELFLD#F     #UPX
+     C                     MOVEAFLD#F     CSV
+     C                     DO   *HIVAL
+     C                     ADD  1         IX
+     C           CSV,IX    IFEQ ' '
+     C                     LEAVE
+     C                     ENDIF
+     C           CSV,IX    IFEQ '.'
+     C                     ITER
+     C                     ENDIF
+     C           CSV,IX    IFEQ '$'
+     C                     ITER
+     C                     ENDIF
+     C                     ADD  1         IY
+     C                     MOVELCSV,IX    FLD,IY
+     C                     ENDDO
+      *
+     C                     MOVEAFLD       W@FLD6
+      * CHECK NUMERIC
+     C           WKCKSU    CHECKW@FLD6                   99
+     C           *IN99     IFEQ *OFF
+     C                     Z-ADDW@NUM6    #UP
+     C                     ENDIF
+      * H:GET EFFECTIVE DATE---------------------------
+     C                     MOVELFLD#G     #EFDTX
+      * I:GET EXPIRATION DATE--------------------------
+     C                     MOVELFLD#H     LTR4    4
+     C           LTR4      IFEQ '9999'
+     C           LTR4      OREQ '9/99'
+     C           LTR4      OREQ '99/9'
+     C                     MOVEL'99999999'#EXDTX
+     C                     ELSE
+     C                     MOVELFLD#H     #EXDTX
+     C                     ENDIF
+      *
+     C           EGET      TAG
+     C                     ENDSR
+      ******************************************************
+      *          @PRINT: PRINT ERROR REPORT
+      ******************************************************
+     C           @PRINT    BEGSR
+      *
+     C   OF                EXCPTHDR1
+     C   OF                SETOF                     OF
+     C                     ADD  1         SEQ
+      *
+     C                     EXCPTDTL1
+      *
+     C                     ENDSR
+      ******************************************************
+      *                  INITIAL ROUTINE
+      ******************************************************
+     C           @INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           #STS    1
+     C                     PARM           #MSG1  80
+     C                     PARM           #MSG2  80
+      *
+     C           K#PART    KLIST
+     C                     KFLD           @MHIN1
+     C                     KFLD           @MHIN2
+     C                     KFLD           @MHIN3
+     C                     KFLD           @MHIN4
+     C                     KFLD           #TOKU
+     C                     KFLD           #NONY
+     C                     KFLD           #FACT
+     C                     KFLD           #DOCK
+      *
+     C           K#CEPL    KLIST
+     C                     KFLD           @MHIN1
+     C                     KFLD           @MHIN2
+     C                     KFLD           @MHIN5
+      *
+     C           KEY03     KLIST
+     C                     KFLD           #TOKU
+     C                     KFLD           @NONY
+     C                     KFLD           @FACT
+     C                     KFLD           @DOCK
+     C                     KFLD           @MHIN1
+     C                     KFLD           @MHIN2
+     C                     KFLD           @MHIN3
+     C                     KFLD           @MHIN4
+     C                     KFLD           @TKYY
+     C                     KFLD           @TKMM
+     C                     KFLD           @TKDD
+      *
+     C           KEY03B    KLIST
+     C                     KFLD           #TOKU
+     C                     KFLD           @NONY
+     C                     KFLD           @FACT
+     C                     KFLD           @DOCK
+     C                     KFLD           @MHIN1
+     C                     KFLD           @MHIN2
+     C                     KFLD           @MHIN3
+     C                     KFLD           @MHIN4
+      *
+     C           K#PL08    KLIST
+     C                     KFLD           @MHIN1
+     C                     KFLD           @MHIN2
+     C                     KFLD           @MHIN3
+     C                     KFLD           @MHIN4
+     C                     KFLD           K@TOKU  40
+      *
+     C                     Z-ADD*DATE     @DATE   80
+     C                     TIME           @TIME   60
+     C                     MOVE *ON       *INOF
+     C                     MOVE *OFF      #STS
+     C                     CLEAR#MSG1
+     C                     CLEAR#MSG2
+     C                     MOVE *BLANK    XMSG
+     C                     Z-ADD0         SEQ     50
+     C                     Z-ADD0         ER@CNT  50
+     C                     Z-ADD0         WR@CNT  50
+     C                     Z-ADD0         OK@CNT  50
+     C                     Z-ADD0         NM@CNT  50
+     C                     Z-ADD0         WR@CNT  50
+     C                     Z-ADD0         DAT#    50
+     C                     Z-ADD0         TTL#    50
+     C                     Z-ADD0         LIN#    50
+     C                     MOVE *BLANK    FLD3   20
+     C                     MOVE *BLANK    FLD4   20
+     C                     MOVE *BLANK    @NONY   40
+     C                     MOVE *BLANK    @FACT   1
+     C                     MOVE *BLANK    @DOCK   4
+     C                     MOVELMSG,1     @TITL  43
+      *
+     C                     ENDSR
+      *************************************************************
+      *                    OUTPUT                                 *
+      *************************************************************
+     OQPRINT  E  102           HDR1
+     O                                    8 'PROGRAM:'
+     O                         #PGM      17
+     O                         #USER     30
+     O                         @TITL     80
+     O                                  100 'DATE'
+     O                         @DATE    111 '    .  .  '
+     O                         @TIME    120 '  :  :  '
+     O                         PAGE  Z  130
+     O                                  126 'PAGE'
+     O        E  1             HDR1
+     O                                    4 'ERR'
+     O                                   11 'LINE#'
+     O                                   16 'CUST'
+     O                                   21 'DELV'
+     O                                   23 'F'
+     O                                   29 'DOCK'
+     O                                   39 'CUST_PART'
+     O                                   62 'INTRAL PART'
+     O                                   73 'U/PRICE'
+     O                                   82 'EFFECTVE'
+     O                                   93 'EXP_DATE'
+     O                                  105 'ERROR MSG'
+     O        E  1             HDR1
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+     O                                  130 '----------'
+      *
+     O        E  1             DTL1
+     O                         SEQ   Z    5
+     O                         LIN#  Z   11
+     O                         #TOKU   +  1
+     O                         @NONY   +  1
+     O                         @FACT   +  1
+     O                         @DOCK   +  1
+     O                         #PART   +  2
+     O                         K@SHN1  +  1
+     O                         K@SHN2  +  1
+     O                         K@SHN3  +  1
+     O                         #UP   3 +  1
+     O                         #EFDTX  +  1
+     O                         #EXDTX  +  1
+     O                         XMSG     132
+      *
+     O        E  1             FOT1
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+     O                                  130 '----------'
+      *
+     O        E  1             FOT1
+     O                                   18 '** TOTAL RECORDS:'
+     O                         DAT#  3   23
+     O                                   31 ', ERROR:'
+     O                         ER@CNT3   36
+     O                                   46 ', WARNED: '
+     O                         WR@CNT3   51
+     O                                   56 ', OK:'
+     O                         OK@CNT3   61
+** (MSG) 1.........2.........3....+
+ ** SALES UNIT PRICE UPLOAD ERROR REPORT **
+ERR- EFFECTIVE DATE IS INVALID!
+WRN- NEW CUS/DLV/F/DOCK CREATE!
+ERR- COMMON PART OR IAF PART ERROR!
+ERR- PRICE SHOULD NOT BE 0!
+Error Does Not Exist. Total:xxxxx (Warning:xxxxx). Enter G:Update or C:Cancel.
+Error Found! Error:xxxxx, Warning:xxxxx, OK:xxxxx. Enter G:Update or C:Cancel.
+ERR- CUSTOMER# NOT FOUND!
+ERR- DELIVERY# NOT FOUND!
+ERR- EXPIRATION DATE IS INVALID!
+ERR- EFFECTIVE DATE <= CURRENT!
+ERR- DUPLICATE DATA FOUND!
+ERR- EFFECTIVE DATE > EXP DATE!

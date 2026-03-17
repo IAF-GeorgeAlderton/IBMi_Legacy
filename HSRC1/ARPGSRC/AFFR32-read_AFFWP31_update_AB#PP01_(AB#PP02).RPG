@@ -1,0 +1,273 @@
+     H            Y.
+      ** AFFR32 ******************************************************
+      *  READ AFFWP31, UPDATE AB#PP01 (AB#PP02)                      *
+      *  JW          2022.02.18                                      *
+      ****************************************************************
+     FAFFWP31 IF  E           K        DISK
+     FAB#PL0A UF  E           K        DISK
+     FAFFWP32 O   E           K        DISK
+     FAB#PP02 O   E                    DISK
+      *
+     E                    ERR     1  20 50
+      *-----------------------------------------------------------------
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1   80A2NOHZ
+     I                                        1   40A2NOYY
+     I                                        5   60A2NOMM
+     I                                        7   80A2NODD
+     I            DS
+     I                                        1   80B1KSDT
+     I                                        1   40B1KSYY
+     I                                        5   60B1KSMM
+     I                                        7   80B1KSDD
+     I            DS
+     I                                        1   40B1KSTM
+     I                                        1   20B1KSJI
+     I                                        3   40B1KSPN
+     I            DS
+     I                                        1  12 B1SHIN
+     I                                        1   5 B1SHN1
+     I                                        6  10 B1SHN2
+     I                                       11  12 B1SHN3
+     I            DS
+     I                                        1  20 A2MHIN
+     I                                        1   5 A2MHN1
+     I                                        6  10 A2MHN2
+     I                                       11  15 A2MHN3
+     I                                       16  20 A2MHN4
+      *
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *----------------------------------------------------*
+      * MAIN ROUTINE
+      *----------------------------------------------------*
+     C                     EXSR #INIT
+      *
+     C                     DO   *HIVAL
+     C                     READ AFFWP31                  98
+     C   98                LEAVE
+      *
+     C                     EXSR #CHK1
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  UPDATE                                            *
+      *----------------------------------------------------*
+     C           #CHK1     BEGSR
+      *
+     C                     EXSR #PRE
+      *
+      * CHECK COMMENT LINE
+     C           FL#FLG    IFEQ '*'
+     C                     MOVE '*'       A2EFLG
+     C                     MOVELERR,1     A2MSG
+     C                     WRITEAFFWP321
+     C                     GOTO CHK1X
+     C                     ENDIF
+      * READ PP01 ---
+     C                     MOVE 'N'       ODFLG   1
+     C                     Z-ADD3411      K#TOKU
+     C                     Z-ADD3503      K#NONY
+     C                     MOVELA2MHN1    K#MHN1
+     C                     MOVELA2MHN2    K#MHN2
+     C                     MOVELA2MHN3    K#MHN3
+     C                     MOVELA2MHN4    K#MHN4
+     C                     Z-ADDA2NOYY    K#NOYY
+     C                     Z-ADDA2NOMM    K#NOMM
+     C                     Z-ADDA2NODD    K#NODD
+     C           K#L0A     SETLLAB#PL0A
+     C                     DO   *HIVAL
+     C           K#L0A     READEAB#PL0A             N    97
+     C   97                LEAVE
+      *
+     C           B1SKJY    IFEQ 'D'
+     C           B1ODR1    ORNE A2ODRN
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVE 'Y'       ODFLG
+     C                     Z-ADDB1NOBI    A2NOBN
+     C                     Z-ADDB1SYUY    A2SYOS
+     C                     LEAVE
+     C                     ENDDO
+      * ORDER NOT FOUND
+     C           ODFLG     IFEQ 'N'
+     C                     MOVE '*'       A2EFLG
+     C                     MOVELERR,2     A2MSG
+     C                     WRITEAFFWP321
+     C                     GOTO CHK1X
+     C                     ENDIF
+      * PRICE NOT FOUND
+     C                     Z-ADDB1TANK    NUM6@4  64
+     C           FL#B      IFNE NUM6@4
+     C                     MOVE '*'       A2EFLG
+     C                     MOVELERR,3     A2MSG
+     C                     MOVE B1TANK    A2MSG
+     C                     WRITEAFFWP321
+     C                     GOTO CHK1X
+     C                     ENDIF
+      * IF NO ERROR...
+     C                     EXSR #UPDT
+     C                     MOVE ' '       A2EFLG
+     C                     MOVELERR,4     A2MSG
+     C                     WRITEAFFWP321
+      *
+     C           CHK1X     ENDSR
+      **************************
+      * PRE SET DEFAULT VALUE
+      **************************
+     C           #PRE      BEGSR
+      *
+     C**                   CLEARAFFWP321
+      *
+     C                     Z-ADD3411      A2TOKU
+     C                     Z-ADD3503      A2NONY
+     C                     MOVELFL#7      LTR3    3
+     C                     MOVELLTR3      A2NKOJ
+     C                     MOVE LTR3      LTR2    2
+     C                     MOVELLTR2      A2NUKE    P
+      * SHIP DATE
+     C                     MOVELFL#5      $SRC
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+     C                     MOVEL$TRUE     A2NOHZ
+      * MHIN
+     C                     MOVELFL#9      $FLD1
+     C                     CALL 'UUUR05'
+     C                     PARM           $FLD1  25
+     C                     PARM           $FLD2  25
+     C                     MOVEL$FLD2     A2MHIN
+      * QTY
+     C                     MOVELFL#C      $IN
+     C                     CALL 'UTLR60'
+     C                     PARM           $IN    17
+     C                     PARM           $TRUE2 156
+     C                     PARM           $RTN    1
+     C                     Z-ADD$TRUE2    A2SRYO
+      * PO#
+     C                     MOVELFL#7      LTR13  13
+     C                     MOVE LTR13     A2ODRN
+     C                     MOVELFL#6      A2INVN
+      * TMMC U/P
+     C                     Z-ADDFL#A      A2TANK
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  UPDATE PP01                                       *
+      *----------------------------------------------------*
+     C           #UPDT     BEGSR
+      *
+     C                     Z-ADD3411      K#TOKU
+     C                     Z-ADD3503      K#NONY
+     C                     MOVELA2MHN1    K#MHN1
+     C                     MOVELA2MHN2    K#MHN2
+     C                     MOVELA2MHN3    K#MHN3
+     C                     MOVELA2MHN4    K#MHN4
+     C                     Z-ADDA2NOYY    K#NOYY
+     C                     Z-ADDA2NOMM    K#NOMM
+     C                     Z-ADDA2NODD    K#NODD
+     C           K#L0A     SETLLAB#PL0A
+     C                     DO   *HIVAL
+     C           K#L0A     READEAB#PL0A                  96
+     C   96                LEAVE
+      *
+     C           B1SKJY    IFEQ 'D'
+     C           B1ODR1    ORNE A2ODRN
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     EXSR #BFR
+     C                     Z-ADDB1TANK    SVTANK 105
+     C                     Z-ADDA2TANK    B1TANK
+     C                     Z-ADDTODAY     B1KSDT
+     C                     MOVELNOW       NUM40   40
+     C                     Z-ADDNUM40     B1KSTM
+     C                     MOVEL#USER     B1KSNA
+     C                     MOVE 'FR32'    B1KSNA
+     C                     UPDATAB#PL0A1
+     C                     EXSR #AFT
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+JW1   ***************************
+ .    * SAVE (BEFORE UPDATE)
+ .    ***************************
+ *   C           #BFR      BEGSR
+      *
+     C                     TIME           SDATE
+     C                     MOVEL'BEFORE'  B2ATTR
+     C                     Z-ADDB1TANK    B2TNK1
+     C                     Z-ADD0         B2TNK2
+     C                     Z-ADDTODAY     B2CRHZ
+     C                     Z-ADDNOW       B2CRTM
+     C                     MOVEL#USER     B2CRUS
+     C                     MOVEL#PGM      B2CRPG
+     C                     WRITEAB#PP021
+      *
+     C                     ENDSR
+      ***************************
+      * SAVE (AFTER UPDATE)
+      ***************************
+     C           #AFT      BEGSR
+      *
+     C                     TIME           SDATE
+     C                     MOVEL'AFTER '  B2ATTR
+     C                     Z-ADDSVTANK    B2TNK1
+     C                     Z-ADDB1TANK    B2TNK2
+     C                     Z-ADDTODAY     B2CRHZ
+     C                     Z-ADDNOW       B2CRTM
+     C                     MOVEL#USER     B2CRUS
+ *   C                     MOVEL#PGM      B2CRPG
+ .   C                     WRITEAB#PP021
+ .    *
+JW1  C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           K#L0A     KLIST
+     C                     KFLD           K#TOKU  40
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#MHN1  5
+     C                     KFLD           K#MHN2  5
+     C                     KFLD           K#MHN3  5
+     C                     KFLD           K#MHN4  5
+     C                     KFLD           K#NOYY  40
+     C                     KFLD           K#NOMM  20
+     C                     KFLD           K#NODD  20
+      *
+     C                     ENDSR
+** ERR MSG(50A)....2.........3.........4.........5
+ER: THE LINE WAS IGNORED                           01
+ER: ORDER NOT FOUND                                02
+ER: UNIT PRICE DOES NOT MATCH --->                 03
+UPDATED!                                           04
+                                                   05
+                                                   06
+                                                   07
+                                                   08
+                                                   09
+                                                   10
+                                                   11
+                                                   12
+                                                   13
+                                                   14
+                                                   15
+                                                   16
+                                                   17
+                                                   18
+                                                   19
+                                                   20

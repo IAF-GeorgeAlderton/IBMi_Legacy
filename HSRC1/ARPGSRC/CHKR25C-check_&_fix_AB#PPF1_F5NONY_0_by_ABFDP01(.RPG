@@ -1,0 +1,184 @@
+     H            Y.
+     F** CHKR25C *******************************************************
+     F*  CHECK & FIX AB#PPF1/F5NONY=0 BY ABFDP01(ROUTE M/F)            *
+     F*  ADD JOB TO CHKC01  (JOB SCHEDULE: EVERY 1 HOUR)               *
+     F*  WRITTEN: JW (SRA) 2025.06.26                                  *
+     F*-------------------------------                                 *
+     F*  FIND NONY=0 IN AB#PPF1 AND UPDATE NONY IF ABFDP01 IS READY    *
+     F*----------------------------------------------------------------*
+     FAB#PLF1GUF  E           K        DISK
+     FABFDP01 IF  E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+      * -------------------------------------
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1  15 F5MHIN
+     I                                        1   5 F5MHN1
+     I                                        6  10 F5MHN2
+     I                                       11  15 F5MHN3
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *--------------------------------------------------------
+     C                     EXSR #INIT
+      *
+     C           @DATE     SETLLAB#PLF1G
+     C                     DO   *HIVAL
+     C                     READ AB#PLF1G                 99
+     C   99                LEAVE
+      *
+     C           F5NONY    IFEQ 0
+     C                     EXSR #GET                       GET NONY
+     C                     EXSR #PRINT
+      * UPDATE
+     C           $UPD      IFEQ 'Y'
+     C                     Z-ADDXXNONY    F5NONY
+     C                     UPDATAB#PPF11
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  GET DELIV#                                        *
+      *----------------------------------------------------*
+     C           #GET      BEGSR
+      *
+     C                     Z-ADD0         XXNONY  40
+     C                     MOVELF5STID    K1PLAN
+     C                     MOVELF5NUKE    K1DOCK
+      *
+     C           K#01      SETLLABFDP01
+     C                     DO   *HIVAL
+     C           K1PLAN    READEABFDP01                  98
+     C   98                LEAVE
+      *
+     C           QASKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           F5NUKE    IFNE *BLANK
+     C           F5NUKE    ANDNEQADOCK
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDQANONY    XXNONY
+     C                     LEAVE
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      *
+     C           LIN#      IFGE 60
+      *
+     C           $PRT      IFEQ 'Y'
+     C                     EXCPT@HDR
+     C                     ENDIF
+      *
+     C                     Z-ADD5         LIN#
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+      *
+     C           $PRT      IFEQ 'Y'
+     C                     EXCPT@DTL
+     C                     ENDIF
+      *
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $DATE   8        RECEIVE DATE
+     C                     PARM           $UPD    1        UPD FLAG
+     C                     PARM           $PRT    1        PRINT FLAG
+      *
+     C           K#01      KLIST
+     C                     KFLD           K1PLAN  5
+     C                     KFLD           K1DOCK  4
+      *
+     C           $UPD      IFNE 'Y'
+     C                     MOVE 'N'       $UPD
+     C                     ENDIF
+      *
+     C           $PRT      IFNE 'Y'
+     C                     MOVE 'N'       $PRT
+     C                     ENDIF
+      *
+     C                     TIME           SDATE
+      * GET YESTERDAY
+     C           $DATE     IFEQ *BLANK
+     C                     MOVELTODAY     $DT8
+     C                     MOVE '-'       $SIGN
+     C                     MOVE '0001'    $DAYS
+     C                     MOVE 'N'       $IAF
+     C                     CALL 'UTLR10'
+     C                     PARM           $DT8    8
+     C                     PARM           $SIGN   1
+     C                     PARM           $DAYS   4
+     C                     PARM           $IAF    1
+     C                     PARM           $TGT8   8
+     C                     PARM           $RTN    1
+     C                     MOVEL$TGT8     @DATE   80
+     C                     ELSE
+     C                     MOVEL$DATE     @DATE
+     C                     ENDIF
+      *
+     C                     Z-ADD80        LIN#    40
+     C                     Z-ADD0         SEQ#    40
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM       9
+     O                                   25 'CHECK DATE FROM:'
+     O                         @DATE     36 '    /  /  '
+     O                                   60 '** FORD ORDER NONY=0'
+     O                                   80 ' REPORT **          '
+     O                                   89 'DATE'
+     O                         TODAY     92 '    .  .  '
+     O                         NOW      102 '  :  :  '
+     O                                  105 'P.'
+     O                         PAGE  Z  109
+     O        E   02           @HDR
+     O                                   16 'UPDATE:'
+     O                         $UPD      18
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   12 'DELV#'
+     O                                   22 '????'
+     O                                   29 'PLANT'
+     O                                   34 'DOCK'
+     O                                   42 'FC_CODE'
+     O                                   49 'PART#'
+     O                                   70 'SHIP_DATE'
+     O                                   83 'QTY'
+     O                                   94 'RCV_DATE'
+     O                                  106 'RCV_TIME'
+     O        E 1              @DTL
+     O                         SEQ#  Z +001
+     O                         F5NONY  +002
+     O                                 +002 '-->'
+     O                         XXNONY  +002
+     O                         F5STID  +002
+     O                         F5NUKE  +002
+     O                         F5STFC  +002
+     O                         F5MHIN  +002
+     O                         F5NOHZ  +002 '    /  /  '
+     O                         F5QTY J +002
+     O                         F5DATE  +002 '    /  /  '
+     O                         F5TIME  +002 '0 :  :  '

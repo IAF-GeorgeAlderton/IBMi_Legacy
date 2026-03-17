@@ -1,0 +1,135 @@
+     H            Y.
+     F***CHKR61D****************************************************************
+     F*  PROGRAM    : SAVE FORD EDI862 LOG (ABFAP03)                           *
+     F*  WRITTEN    : 2020.12.17                                               *
+     F*  WRITTEN BY : JW (SRA)                                                 *
+     F*------------------------------------------------------------------------*
+     F*                                                                        *
+     F**************************************************************************
+     FABF2L0A IF  E           K        DISK
+     FABFAP03 UF  E           K        DISK                      A
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      * DELETE RECORD WITH SAME DATE
+     C                     EXSR #DLT
+      *
+     C           @TDAT6    SETLLABF2L0A
+     C                     DO   *HIVAL
+     C           @TDAT6    READEABF2L0A                  97
+     C   97                LEAVE
+      * IGNORE
+JW   C           AFTPCD    IFEQ 'FORDX'
+"    C                     ITER
+"    C                     ENDIF
+      * BREAK ?
+     C           AFDATE    IFNE SVDATE
+     C           AFPOR#    ORNE SVPOR#
+     C           AFSTID    ORNE SVSTID
+     C           AFDOCK    ORNE SVDOCK
+     C           AFICCD    ORNE SVICCD
+     C           AFIPAR    ORNE SVIPAR
+     C                     EXSR #OUT
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  DELETE RECORD WITH SAME DATA                      *
+      *----------------------------------------------------*
+     C           #DLT      BEGSR
+      *
+     C                     MOVE $TDATE    @DT6    60
+     C           @DT6      SETLLABFAP03
+     C                     DO   *HIVAL
+     C           @DT6      READEABFAP03                  98
+     C   98                LEAVE
+      *
+     C                     DELETABFAP03R
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  OUT                                               *
+      *----------------------------------------------------*
+     C           #OUT      BEGSR
+      *
+      * GET DELIVERY#
+     C                     MOVELAFSTID    $PLNT
+     C                     MOVELAFDOCK    $DOCK
+     C                     CALL 'UTLR34A'
+     C                     PARM           $PLNT   5
+     C                     PARM           $DOCK   4
+     C                     PARM           $NONY   4
+     C                     PARM           $RTN    1
+      * GET QPC
+     C                     MOVELAFIPAR    $SHIN
+     C                     CALL 'UTLR78'
+     C                     PARM           $SHIN  12
+     C                     PARM           $ZETI   4
+     C                     PARM           $FPRC   3
+     C                     PARM           $FMCN   3
+     C                     PARM           $FSIZE  3
+     C                     PARM           $LLOC   6
+     C                     PARM           $QPC    60
+     C                     PARM           $MSET   90
+     C                     PARM           $DSVB   61
+     C                     PARM           $DSVQ   80
+     C                     PARM           $RTN    1
+      *
+     C                     Z-ADDTODAY     A3CRHZ
+     C                     Z-ADDNOW       A3CRTM
+     C                     MOVEL#USER     A3CRUS
+     C                     MOVEL#WSID     A3CRWS
+     C                     MOVEL#PGM      A3CRPG
+     C                     MOVEL$NONY     A3NONY
+     C                     Z-ADD$QPC      A3QPC
+      *
+     C                     WRITEABFAP03R
+     C                     ADD  1         RCNT
+      *
+      * RESET
+     C                     MOVELAFDATE    SVDATE
+     C                     MOVELAFPOR#    SVPOR#
+     C                     MOVELAFSTID    SVSTID
+     C                     MOVELAFDOCK    SVDOCK
+     C                     MOVELAFICCD    SVICCD
+     C                     MOVELAFIPAR    SVIPAR
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $TDATE  8        TARGET (RCV DATE)
+      *
+     C                     TIME           SDATE
+      * DEFAULT: TODAY
+     C           $TDATE    IFEQ *BLANK
+     C                     MOVELTODAY     $TDATE
+     C                     ENDIF
+      *
+     C                     MOVEL$TDATE    @TDATE  80
+     C                     MOVE $TDATE    @TDAT6  60
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD0         RCNT    90
+      *
+     C           *LIKE     DEFN AFDATE    SVDATE
+     C           *LIKE     DEFN AFPOR#    SVPOR#
+     C           *LIKE     DEFN AFSTID    SVSTID
+     C           *LIKE     DEFN AFDOCK    SVDOCK
+     C           *LIKE     DEFN AFICCD    SVICCD
+     C           *LIKE     DEFN AFIPAR    SVIPAR
+      *
+     C                     ENDSR

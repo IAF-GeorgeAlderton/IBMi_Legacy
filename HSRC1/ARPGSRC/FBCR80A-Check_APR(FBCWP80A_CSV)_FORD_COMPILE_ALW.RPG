@@ -1,0 +1,876 @@
+     H            Y.
+     F****************************************************************
+     F*  PROGRAM    : FBCR80A                                        *
+     F*  WRITTEN    : 2023.06.22                                     *
+     F*  WRITTEN BY : JW (SRA)                                       *
+     F*  FUNCTION   : READ FBCWP80A(CSV) AND VALIDATE FIELDS         *
+     F*             : IF ERROR, CREATE ERROR REPORT                  *
+     F*--------------------------------------------------------------*
+     F*  PARAMETER: #STS    1 --> 1: ERROR, BLANK=NO ERROR
+     F*             #MSG1  80 --> MSG1
+     F*             #MSG2  80 --> MSG2
+     F*--------------------------------------------------------------*
+     *  ATTENTION  : COMPILE WITH OPTION - ALLOW NULL VALUES *YES
+     F****************************************************************
+     FFBCWP80AIF  E                    DISK
+     FFAAPL05 IF  E           K        DISK
+     FFBCPL32 IF  E           K        DISK
+     FFBCPL07 IF  E           K        DISK
+     FFBCPL08 IF  E           K        DISK
+     FFBCWP81AO   E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+      *---------------------------------------------------------------
+     E                    CSV        80  1
+     E                    FLD        20  1
+     E                    MV1        30  1
+     E                    MSG     1  10 80
+      *---------------------------------------------------------------
+      *
+     I              '0123456789'          C         WKCKSU
+      *
+     I            DS
+     I                                        1  12 K@SHN
+     I                                        1   5 K@SHN1
+     I                                        6  10 K@SHN2
+     I                                       11  12 K@SHN3
+     I            DS
+     I                                        1  20 @MHIN
+     I                                        1   5 @MHIN1
+     I                                        6  10 @MHIN2
+     I                                       11  15 @MHIN3
+     I                                       16  20 @MHIN4
+     I            DS
+     I                                        1   6 W@FLD6
+     I                                        1   65W@NUM6
+     ID10@DT      DS
+     I                                        1   4 D10@YY
+     I                                        6   7 D10@MM
+     I                                        9  10 D10@DD
+     ID8@DT       DS
+     I                                        1   4 D8@YY
+     I                                        5   6 D8@MM
+     I                                        7   8 D8@DD
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      ******************************************************
+      *                    MAIN PROCESS
+      ******************************************************
+      * Initial Process
+     C                     EXSR @INIT
+      * Validate APR Data
+     C                     EXSR @CHK1
+      * Validate Price Table
+     C                     EXSR @CHK2
+      * Print Footer
+     C           NM@CNT    ADD  ER@CNT    TTL#
+      *
+      * If No Error,
+     C           SEQ       IFEQ 0
+     C                     MOVE *OFF      #STS
+     C                     MOVE MSG,6     FLD37  37
+     C                     MOVELWR@CNT    FLD37
+     C                     MOVE MSG,6     FLD52  52
+     C                     MOVELDAT#      FLD52
+     C                     MOVELMSG,6     #MSG1
+     C                     MOVE FLD52     #MSG1
+     C                     MOVE FLD37     #MSG1
+     C                     ELSE
+      * If Error,
+     C                     MOVE *ON       #STS
+     C           DAT#      SUB  IG@CNT    OK#     50
+     C                     EXCPTFOT1
+     C                     MOVE MSG,7     FLD36  36
+     C                     MOVELOK#       FLD36
+     C                     MOVE MSG,7     FLD46  46
+     C                     MOVELWR@CNT    FLD46
+     C                     MOVE MSG,7     FLD61  61
+     C                     MOVELER@CNT    FLD61
+     C                     MOVELMSG,7     #MSG2
+     C                     MOVE FLD61     #MSG2
+     C                     MOVE FLD46     #MSG2
+     C                     MOVE FLD36     #MSG2
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      ******************************************************
+      *          Validate APR Data
+      ******************************************************
+     C           @CHK1     BEGSR
+     C                     MOVE *OFF      *IN80
+      *
+     C                     DO   *HIVAL
+     C                     READ FBCWP80A                 80
+     C   80                LEAVE
+      *
+     C                     ADD  1         LIN#
+     C                     EXSR @GET
+      * If Header, Skip
+     C           #HDFLG    IFEQ *ON
+     C                     GOTO @SKIP
+     C                     ENDIF
+      *
+     C                     ADD  1         DAT#
+     C                     MOVE *OFF      #IGFLG  1
+      * Check EFFCT Date -------------------------
+     C                     MOVEL#EFDAT    $SRC
+     C                     CALL 'UTLR01A'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE1  8
+     C                     PARM           $TRUE2 10
+     C                     PARM           $RTN1   1
+     C           $RTN1     IFEQ *BLANK
+     C                     MOVEL$TRUE1    @EFDAT
+     C                     MOVEL$TRUE2    #EFDAT
+     C                     ELSE
+     C                     ADD  1         ER@CNT
+     C                     ADD  1         IG@CNT
+     C                     MOVE *ON       #IGFLG
+     C                     MOVELMSG,2     XMSG
+     C                     EXSR @PRINT
+     C                     ENDIF
+      * Check EXP Date -------------------------
+     C           #EXDAT    IFEQ *BLANK
+     C                     MOVEL'9999/99/'#EXDAT
+     C                     MOVE '99'      #EXDAT
+     C                     Z-ADD99999999  @EXDAT
+     C                     ENDIF
+      *
+     C           @EXDAT    IFNE 99999999
+     C                     MOVEL#EXDAT    $SRC
+     C                     CALL 'UTLR01A'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE1  8
+     C                     PARM           $TRUE2 10
+     C                     PARM           $RTN2   1
+     C           $RTN2     IFEQ *BLANK
+     C                     MOVEL$TRUE1    @EXDAT
+     C                     MOVEL$TRUE2    #EXDAT
+     C                     ELSE
+     C                     ADD  1         ER@CNT
+     C                     ADD  1         IG@CNT
+     C                     MOVE *ON       #IGFLG
+     C                     MOVELMSG,8     XMSG
+     C                     EXSR @PRINT
+     C                     ENDIF
+     C                     ENDIF
+      * Check EFT >= EXP Date -------------------------
+     C           @EFDAT    IFGE @EXDAT
+     C                     ADD  1         ER@CNT
+     C                     ADD  1         IG@CNT
+     C                     MOVE *ON       #IGFLG
+     C                     MOVELMSG,9     XMSG
+     C                     EXSR @PRINT
+     C                     ENDIF
+      * Check Part1------------------------------------
+      *      (*) CHAIN FAAPP02(B7)
+     C                     MOVE *OFF      EXIST1  1
+     C                     MOVE *BLANK    K@SHN
+     C                     MOVELXPART2    @MHIN
+     C                     MOVE *OFF      *IN98
+     C           KXPART    SETLLFAAPL05
+     C           *IN98     DOWEQ*OFF
+     C           KXPART    READEFAAPL05                  98
+     C           *IN98     IFEQ *OFF
+     C           B7TOKU    ANDEQ5149
+     C                     MOVE *ON       EXIST1
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      * Check Part2------------------------------------
+      *      (*) CHAIN FBCPL08(FB)
+     C                     MOVE *OFF      EXIST2  1
+     C                     MOVELXPART2    @MHIN
+     C                     Z-ADD5149      K#TOKE
+     C                     MOVE *OFF      *IN98
+     C           K#PL08    CHAINFBCPL08              98
+     C           *IN98     IFEQ *OFF
+     C                     MOVE *ON       EXIST2
+     C                     ENDIF
+      * Print Error Report
+     C           EXIST1    IFEQ *OFF
+     C           EXIST2    ANDEQ*OFF
+     C                     MOVE *BLANK    XTOKE
+     C                     MOVE *BLANK    XNONY
+     C                     ADD  1         WR@CNT
+     C                     ADD  1         IG@CNT
+     C                     MOVE *ON       #IGFLG
+     C                     MOVELMSG,4     XMSG
+     C                     EXSR @PRINT
+     C                     ELSE
+     C           EXIST1    IFEQ *ON
+     C                     MOVELB7TOKU    XTOKE
+     C                     MOVELB7NONY    XNONY
+     C                     MOVELB7SHN1    K@SHN1
+     C                     MOVELB7SHN2    K@SHN2
+     C                     MOVELB7SHN3    K@SHN3
+     C                     ELSE
+     C           EXIST2    IFEQ *ON
+     C                     MOVELFBTOKU    XTOKE
+     C                     MOVELFBNONY    XNONY
+     C                     MOVELFBSHN1    K@SHN1
+     C                     MOVELFBSHN2    K@SHN2
+     C                     MOVELFBSHN3    K@SHN3
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+      *
+      * Check PLANT (NOT CHECK IF PART NOT FOUND)-----
+     C           EXIST1    IFEQ *ON
+     C           EXIST2    OREQ *ON
+      * Check PLANT 1 --------------------------
+     C           PLT1      IFNE *BLANK
+     C                     MOVE *BLANK    XTOKE
+     C                     MOVE *BLANK    XNONY
+     C                     MOVE *BLANK    KEY10  10
+     C                     MOVELPLT1      KEY10
+     C           KEY10     CHAINFBCPL32              99
+      *
+     C           *IN99     IFEQ *ON
+     C                     MOVE *ON       #IGFLG
+     C                     ADD  1         ER@CNT
+     C                     ADD  1         IG@CNT
+     C                     MOVELMSG,1     XMSG
+     C                     MOVE XMSG      FLD29  29
+     C                     MOVELPLT1      FLD29
+     C                     MOVE FLD29     XMSG
+     C                     EXSR @PRINT
+      * CHECK W/PRICE MASTER, IF EXIST CUST/DELIV
+     C                     ELSE
+     C           KEY07     CHAINFBCPL07              96
+     C           *IN96     IFEQ *ON
+     C           FSNONY    ANDNE9999
+     C                     ADD  1         WR@CNT
+     C           FSTOKU    IFEQ 0
+     C                     MOVEL'5149'    XTOKE
+     C                     ELSE
+     C                     MOVELFSTOKU    XTOKE
+     C                     ENDIF
+      *
+     C                     MOVELFSNONY    XNONY
+     C                     MOVELMSG,3     XMSG
+     C                     MOVEL'WARN1'   XMSG
+     C                     MOVE XMSG      FLD29
+     C                     MOVELPLT1      FLD29
+     C                     MOVE FLD29     XMSG
+     C                     EXSR @PRINT
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDIF
+      * Check PLANT 2--------------------------
+     C           PLT2      IFNE *BLANK
+     C                     MOVE *BLANK    XTOKE
+     C                     MOVE *BLANK    XNONY
+     C                     MOVE *BLANK    KEY10
+     C                     MOVELPLT2      KEY10
+     C           KEY10     CHAINFBCPL32              99
+     C           *IN99     IFEQ *ON
+     C                     MOVE *ON       #IGFLG
+     C                     ADD  1         ER@CNT
+     C                     ADD  1         IG@CNT
+     C           FSTOKU    IFEQ 0
+     C                     MOVEL'5149'    XTOKE
+     C                     ELSE
+     C                     MOVELFSTOKU    XTOKE
+     C                     ENDIF
+      *
+     C                     MOVELFSNONY    XNONY
+     C                     MOVELMSG,1     XMSG
+     C                     MOVE XMSG      FLD29
+     C                     MOVELPLT2      FLD29
+     C                     MOVE FLD29     XMSG
+     C                     EXSR @PRINT
+      * CHECK W/PRICE MASTER, IF EXIST CUST/DELIV
+     C                     ELSE
+     C           KEY07     CHAINFBCPL07              96
+     C           *IN96     IFEQ *ON
+     C           FSNONY    ANDNE9999
+     C                     ADD  1         WR@CNT
+     C                     MOVELFSTOKU    XTOKE
+     C                     MOVELFSNONY    XNONY
+     C                     MOVELMSG,3     XMSG
+     C                     MOVEL'WARN2'   XMSG
+     C                     MOVE XMSG      FLD29
+     C                     MOVELPLT2      FLD29
+     C                     MOVE FLD29     XMSG
+     C                     EXSR @PRINT
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDIF
+      * Check PLANT 3 -------------------------
+     C           PLT3      IFNE *BLANK
+     C                     MOVE *BLANK    XTOKE
+     C                     MOVE *BLANK    XNONY
+     C                     MOVE *BLANK    KEY10
+     C                     MOVELPLT3      KEY10
+     C           KEY10     CHAINFBCPL32              99
+     C           *IN99     IFEQ *ON
+     C                     MOVE *ON       #IGFLG
+     C                     ADD  1         ER@CNT
+     C                     ADD  1         IG@CNT
+     C                     MOVELMSG,1     XMSG
+     C                     MOVE XMSG      FLD29
+     C                     MOVELPLT3      FLD29
+     C                     MOVE FLD29     XMSG
+     C                     EXSR @PRINT
+      * CHECK W/PRICE MASTER, IF EXIST CUST/DELIV
+     C                     ELSE
+     C           KEY07     CHAINFBCPL07              96
+     C           *IN96     IFEQ *ON
+     C           FSNONY    ANDNE9999
+     C                     ADD  1         WR@CNT
+     C                     MOVELMSG,3     XMSG
+     C                     MOVEL'WARN3'   XMSG
+     C                     MOVE XMSG      FLD29
+     C                     MOVELPLT3      FLD29
+     C                     MOVE FLD29     XMSG
+     C                     EXSR @PRINT
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDIF
+      * Check PLANT 4--------------------------
+     C           PLT4      IFNE *BLANK
+     C                     MOVE *BLANK    XTOKE
+     C                     MOVE *BLANK    XNONY
+     C                     MOVE *BLANK    KEY10
+     C                     MOVELPLT4      KEY10
+     C           KEY10     CHAINFBCPL32              99
+     C           *IN99     IFEQ *ON
+     C                     MOVE *ON       #IGFLG
+     C                     ADD  1         ER@CNT
+     C                     ADD  1         IG@CNT
+     C           FSTOKU    IFEQ 0
+     C                     MOVEL'5149'    XTOKE
+     C                     ELSE
+     C                     MOVELFSTOKU    XTOKE
+     C                     ENDIF
+      *
+     C                     MOVELFSNONY    XNONY
+     C                     MOVELMSG,1     XMSG
+     C                     MOVE XMSG      FLD29
+     C                     MOVELPLT4      FLD29
+     C                     MOVE FLD29     XMSG
+     C                     EXSR @PRINT
+      * CHECK W/PRICE MASTER, IF EXIST CUST/DELIV
+     C                     ELSE
+     C           KEY07     CHAINFBCPL07              96
+     C           *IN96     IFEQ *ON
+     C           FSNONY    ANDNE9999
+     C                     ADD  1         WR@CNT
+     C                     MOVELFSTOKU    XTOKE
+     C                     MOVELFSNONY    XNONY
+     C                     MOVELMSG,3     XMSG
+     C                     MOVEL'WARN4'   XMSG
+     C                     MOVE XMSG      FLD29
+     C                     MOVELPLT4      FLD29
+     C                     MOVE FLD29     XMSG
+     C                     EXSR @PRINT
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDIF
+      * Check PLANT 5--------------------------
+     C           PLT5      IFNE *BLANK
+     C                     MOVE *BLANK    XTOKE
+     C                     MOVE *BLANK    XNONY
+     C                     MOVE *BLANK    KEY10
+     C                     MOVELPLT5      KEY10
+     C           KEY10     CHAINFBCPL32              99
+     C           *IN99     IFEQ *ON
+     C                     MOVE *ON       #IGFLG
+     C                     ADD  1         ER@CNT
+     C                     ADD  1         IG@CNT
+      **                   MOVELFSTOKU    XTOKE
+     C           FSTOKU    IFEQ 0
+     C                     MOVEL'5149'    XTOKE
+     C                     ELSE
+     C                     MOVELFSTOKU    XTOKE
+     C                     ENDIF
+      *
+     C                     MOVELFSNONY    XNONY
+     C                     MOVELMSG,1     XMSG
+     C                     MOVE XMSG      FLD29
+     C                     MOVELPLT5      FLD29
+     C                     MOVE FLD29     XMSG
+     C                     EXSR @PRINT
+      * CHECK W/PRICE MASTER, IF EXIST CUST/DELIV
+     C                     ELSE
+     C           KEY07     CHAINFBCPL07              96
+     C           *IN96     IFEQ *ON
+     C           FSNONY    ANDNE9999
+     C                     ADD  1         WR@CNT
+     C                     MOVELFSTOKU    XTOKE
+     C                     MOVELFSNONY    XNONY
+     C                     MOVELMSG,3     XMSG
+     C                     MOVEL'WARN5'   XMSG
+     C                     MOVE XMSG      FLD29
+     C                     MOVELPLT5      FLD29
+     C                     MOVE FLD29     XMSG
+     C                     EXSR @PRINT
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDIF
+      * Check PLANT 6--------------------------
+     C           PLT6      IFNE *BLANK
+     C                     MOVE *BLANK    XTOKE
+     C                     MOVE *BLANK    XNONY
+     C                     MOVE *BLANK    KEY10
+     C                     MOVELPLT6      KEY10
+     C           KEY10     CHAINFBCPL32              99
+     C           *IN99     IFEQ *ON
+     C                     MOVE *ON       #IGFLG
+     C                     ADD  1         ER@CNT
+     C                     ADD  1         IG@CNT
+     C           FSTOKU    IFEQ 0
+     C                     MOVEL'5149'    XTOKE
+     C                     ELSE
+     C                     MOVELFSTOKU    XTOKE
+     C                     ENDIF
+      *
+     C                     MOVELFSNONY    XNONY
+     C                     MOVELMSG,1     XMSG
+     C                     MOVE XMSG      FLD29
+     C                     MOVELPLT6      FLD29
+     C                     MOVE FLD29     XMSG
+     C                     EXSR @PRINT
+      * CHECK W/PRICE MASTER, IF EXIST CUST/DELIV
+     C                     ELSE
+     C           KEY07     CHAINFBCPL07              96
+     C           *IN96     IFEQ *ON
+     C           FSNONY    ANDNE9999
+     C                     ADD  1         WR@CNT
+     C                     MOVELFSTOKU    XTOKE
+     C                     MOVELFSNONY    XNONY
+     C                     MOVELMSG,3     XMSG
+     C                     MOVEL'WARN6'   XMSG
+     C                     MOVE XMSG      FLD29
+     C                     MOVELPLT6      FLD29
+     C                     MOVE FLD29     XMSG
+     C                     EXSR @PRINT
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+      * IF ERROR, SKIP --------------------------------
+     C           #IGFLG    IFEQ *ON
+     C                     GOTO @SKIP
+     C                     ENDIF
+      *
+      * IF NO ERROR, WRITE FBCWP81A(WORK)--------------
+     C           PLT1      IFNE *BLANK
+     C                     MOVELPLT1      KEY10
+     C                     EXSR #WRT
+     C                     ENDIF
+     C           PLT2      IFNE *BLANK
+     C                     MOVELPLT2      KEY10
+     C                     EXSR #WRT
+     C                     ENDIF
+     C           PLT3      IFNE *BLANK
+     C                     MOVELPLT3      KEY10
+     C                     EXSR #WRT
+     C                     ENDIF
+     C           PLT4      IFNE *BLANK
+     C                     MOVELPLT4      KEY10
+     C                     EXSR #WRT
+     C                     ENDIF
+     C           PLT5      IFNE *BLANK
+     C                     MOVELPLT5      KEY10
+     C                     EXSR #WRT
+     C                     ENDIF
+     C           PLT6      IFNE *BLANK
+     C                     MOVELPLT6      KEY10
+     C                     EXSR #WRT
+     C                     ENDIF
+      * ------------------------------------------
+     C           @SKIP     TAG
+     C                     ENDDO
+      *
+     C                     ENDSR
+      ******************************************************
+      *          Validate Price Table
+      ******************************************************
+     C           @CHK2     BEGSR
+      *
+      *
+     C                     ENDSR
+      ******************************************************
+      *          WRITE FBCWP81A
+      ******************************************************
+     C           #WRT      BEGSR
+      *
+     C           KEY10     SETLLFBCPL32
+     C                     MOVE *OFF      *IN97
+     C           *IN97     DOWEQ*OFF
+     C           KEY10     READEFBCPL32                  97
+     C           *IN97     IFEQ *OFF
+     C           FSTOKU    ANDEQ5149
+     C           FSNONY    ANDNE9999
+     C                     Z-ADDLIN#      F8LINE
+     C                     Z-ADDFSTOKU    F8TOKU
+     C                     Z-ADDFSNONY    F8NONY
+     C                     MOVELKEY10     F8PLNT
+     C                     MOVEL@EFDAT    F8EFDT
+     C                     MOVEL@EXDAT    F8EXDT
+     C                     MOVELXPART2    @MHIN
+     C                     MOVEL@MHIN1    F8MHN1
+     C                     MOVEL@MHIN2    F8MHN2
+     C                     MOVEL@MHIN3    F8MHN3
+     C                     MOVEL@MHIN4    F8MHN4
+     C                     MOVELK@SHN1    F8SHN1
+     C                     MOVELK@SHN2    F8SHN2
+     C                     MOVELK@SHN3    F8SHN3
+     C                     Z-ADD@UP       F8UP
+     C                     Z-ADD@DATE     F8CDAT
+     C                     Z-ADD@TIME     F8CTIM
+     C                     MOVEL#USER     F8USER
+     C                     MOVEL#PGM      F8PGM
+      * SET DEFAULT FLAG
+     C           F8MHN1    IFEQ SVMHN1
+     C           F8MHN2    ANDEQSVMHN2
+     C           F8MHN3    ANDEQSVMHN3
+     C           F8MHN4    ANDEQSVMHN4
+     C                     MOVE *BLANK    F8DFLT
+     C                     ELSE
+     C                     MOVE '*'       F8DFLT
+     C                     ENDIF
+      *
+     C                     WRITEFBCW81A1
+      *
+     C                     MOVELF8MHN1    SVMHN1
+     C                     MOVELF8MHN2    SVMHN2
+     C                     MOVELF8MHN3    SVMHN3
+     C                     MOVELF8MHN4    SVMHN4
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      ******************************************************
+      *          @GET: GET INPUT FIELDS
+      ******************************************************
+     C           @GET      BEGSR
+     C                     Z-ADD0         @EFDAT  80
+     C                     Z-ADD0         @EXDAT  80
+     C                     MOVE *BLANK    XPART  15
+     C                     MOVE *BLANK    XPLANT 15
+     C                     Z-ADD0         @UP     65
+     C                     MOVE *OFF      #HDFLG  1        HEADER FLAG
+      *
+     C                     Z-ADD0         IX      50
+     C                     Z-ADD0         IY      50
+      * FILL UP BLANK
+     C           FLD3      IFEQ *BLANK
+     C                     MOVELFLD3SV    FLD3
+     C                     ENDIF
+     C           FLD4      IFEQ *BLANK
+     C                     MOVELFLD4SV    FLD4
+     C                     ENDIF
+      * VALID DATE ------------------------------------
+     C                     MOVELFLD1      #EFDAT 10
+     C                     MOVELFLD1A     #EXDAT 10
+      * PART# ---------------------------------------
+     C                     MOVELFLD2      XPART
+     C                     MOVELFLD2      XPART2 20
+      *       (1) Remove '-' from XPART and save to XPART2
+     C                     MOVELXPART     @FLD1     P
+     C                     CALL 'UUUR05'
+     C                     PARM           @FLD1  25
+     C                     PARM           @FLD2  25
+     C                     MOVEL@FLD2     XPART2
+      * PLANT ---------------------------------------
+     C                     MOVELFLD3      XPLANT
+     C                     MOVEA*BLANK    MV1
+     C                     MOVEAFLD3      MV1
+     C                     MOVE *BLANK    PLT1    2
+     C                     MOVE *BLANK    PLT2    2
+     C                     MOVE *BLANK    PLT3    2
+     C                     MOVE *BLANK    PLT4    2
+     C                     MOVE *BLANK    PLT5    2
+     C                     MOVE *BLANK    PLT6    2
+     C                     Z-ADD0         P1CNT   20
+     C                     Z-ADD0         P2CNT   20
+     C                     Z-ADD0         P3CNT   20
+     C                     Z-ADD0         P4CNT   20
+     C                     Z-ADD0         P5CNT   20
+     C                     Z-ADD0         P6CNT   20
+     C           FLD3      IFNE *BLANK
+     C           1         DO   30        IX
+     C           MV1,IX    IFNE ' '
+     C           MV1,IX    ANDNE','
+     C                     SELEC
+     C           P1CNT     WHEQ 0
+     C                     MOVELMV1,IX    PLT1
+     C                     ADD  1         P1CNT
+     C           P1CNT     WHEQ 1
+     C                     MOVE MV1,IX    PLT1
+     C                     ADD  1         P1CNT
+     C           P2CNT     WHEQ 0
+     C                     MOVELMV1,IX    PLT2
+     C                     ADD  1         P2CNT
+     C           P2CNT     WHEQ 1
+     C                     MOVE MV1,IX    PLT2
+     C                     ADD  1         P2CNT
+     C           P3CNT     WHEQ 0
+     C                     MOVELMV1,IX    PLT3
+     C                     ADD  1         P3CNT
+     C           P3CNT     WHEQ 1
+     C                     MOVE MV1,IX    PLT3
+     C                     ADD  1         P3CNT
+     C           P4CNT     WHEQ 0
+     C                     MOVELMV1,IX    PLT4
+     C                     ADD  1         P4CNT
+     C           P4CNT     WHEQ 1
+     C                     MOVE MV1,IX    PLT4
+     C                     ADD  1         P4CNT
+     C           P5CNT     WHEQ 0
+     C                     MOVELMV1,IX    PLT5
+     C                     ADD  1         P5CNT
+     C           P5CNT     WHEQ 1
+     C                     MOVE MV1,IX    PLT5
+     C                     ADD  1         P5CNT
+     C           P6CNT     WHEQ 0
+     C                     MOVELMV1,IX    PLT6
+     C                     ADD  1         P6CNT
+     C           P6CNT     WHEQ 1
+     C                     MOVE MV1,IX    PLT6
+     C                     ADD  1         P6CNT
+     C                     OTHER
+     C                     Z-ADD31        IX
+     C                     ENDSL
+     C                     ENDIF
+     C                     ENDDO
+      * ADJUST PLANT CODE ('1' --> '01')
+     C           PLT1      IFNE *BLANK
+     C           P1CNT     ANDEQ1
+     C                     MOVE PLT1      LTR3    3
+     C                     MOVEL'0'       LTR3
+     C                     MOVELLTR3      PLT1
+     C                     ENDIF
+     C           PLT2      IFNE *BLANK
+     C           P2CNT     ANDEQ1
+     C                     MOVE PLT2      LTR3
+     C                     MOVEL'0'       LTR3
+     C                     MOVELLTR3      PLT2
+     C                     ENDIF
+     C           PLT3      IFNE *BLANK
+     C           P3CNT     ANDEQ1
+     C                     MOVE PLT3      LTR3
+     C                     MOVEL'0'       LTR3
+     C                     MOVELLTR3      PLT3
+     C                     ENDIF
+     C           PLT4      IFNE *BLANK
+     C           P4CNT     ANDEQ1
+     C                     MOVE PLT4      LTR3
+     C                     MOVEL'0'       LTR3
+     C                     MOVELLTR3      PLT4
+     C                     ENDIF
+     C           PLT5      IFNE *BLANK
+     C           P5CNT     ANDEQ1
+     C                     MOVE PLT5      LTR3
+     C                     MOVEL'0'       LTR3
+     C                     MOVELLTR3      PLT5
+     C                     ENDIF
+     C           PLT6      IFNE *BLANK
+     C           P6CNT     ANDEQ1
+     C                     MOVE PLT6      LTR3
+     C                     MOVEL'0'       LTR3
+     C                     MOVELLTR3      PLT6
+     C                     ENDIF
+     C                     ENDIF
+     C* UNIT PRICE -------------------------------------
+     C                     Z-ADD0         IX
+     C                     Z-ADD0         IY
+     C                     MOVEL*ALL'0'   FLD
+     C                     CLEARCSV
+     C                     MOVEAFLD4      CSV
+     C                     DO   *HIVAL
+     C                     ADD  1         IX
+     C           CSV,IX    IFEQ ' '
+     C                     LEAVE
+     C                     ENDIF
+     C           CSV,IX    IFEQ '.'
+     C                     ITER
+     C                     ENDIF
+     C                     ADD  1         IY
+     C                     MOVELCSV,IX    FLD,IY
+     C                     ENDDO
+      *
+     C                     MOVEAFLD       W@FLD6
+      * CHECK NUMERIC
+     C           WKCKSU    CHECKW@FLD6                   99
+     C           *IN99     IFEQ *OFF
+     C                     Z-ADDW@NUM6    @UP
+     C                     ENDIF
+      *
+      * IF PRICE FIELD = 0, THEN IT IS HEADER --------
+     C           @UP       IFEQ 0
+     C                     MOVE *ON       #HDFLG
+     C                     ENDIF
+      * SAVE FIELD
+     C                     MOVELFLD3      FLD3SV
+     C                     MOVELFLD4      FLD4SV
+      *
+     C                     ENDSR
+      ******************************************************
+      *          @PRINT: PRINT ERROR REPORT
+      ******************************************************
+     C           @PRINT    BEGSR
+      *
+     C   OF                EXCPTHDR1
+     C   OF                SETOF                     OF
+     C                     ADD  1         SEQ
+      *
+     C                     EXCPTDTL1
+      *
+     C                     ENDSR
+      ******************************************************
+      *                  INITIAL ROUTINE
+      ******************************************************
+     C           @INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           #STS    1
+     C                     PARM           #MSG1  80
+     C                     PARM           #MSG2  80
+      *
+     C           KXPART    KLIST
+     C                     KFLD           @MHIN1
+     C                     KFLD           @MHIN2
+     C                     KFLD           @MHIN3
+     C                     KFLD           @MHIN4
+      *
+     C           KEY07     KLIST
+     C                     KFLD           FSTOKU
+     C                     KFLD           FSNONY
+     C                     KFLD           @MHIN1
+     C                     KFLD           @MHIN2
+     C                     KFLD           @MHIN3
+     C                     KFLD           @MHIN4
+      *
+     C           K#PL08    KLIST
+     C                     KFLD           @MHIN1
+     C                     KFLD           @MHIN2
+     C                     KFLD           @MHIN3
+     C                     KFLD           @MHIN4
+     C                     KFLD           K#TOKE  40
+      *
+     C                     Z-ADD*DATE     @DATE   80
+     C                     TIME           @TIME   60
+     C                     MOVE *ON       *INOF
+     C                     MOVE *OFF      #STS
+     C                     CLEAR#MSG1
+     C                     CLEAR#MSG2
+     C                     MOVE *BLANK    XMSG   37
+     C                     Z-ADD0         SEQ     50
+     C                     Z-ADD0         ER@CNT  50
+     C                     Z-ADD0         WR@CNT  50
+     C                     Z-ADD0         NM@CNT  50
+     C                     Z-ADD0         IG@CNT  50
+     C                     Z-ADD0         DAT#    50
+     C                     Z-ADD0         TTL#    50
+     C                     Z-ADD0         LIN#    50
+     C                     MOVE *BLANK    FLD3   30
+     C                     MOVE *BLANK    FLD4   20
+     C                     MOVE *BLANK    FLD3SV 20
+     C                     MOVE *BLANK    FLD4SV 20
+     C                     MOVE *BLANK    XTOKE   4
+     C                     MOVE *BLANK    XNONY   4
+     C                     MOVE *BLANK    SVMHN1  5
+     C                     MOVE *BLANK    SVMHN2  5
+     C                     MOVE *BLANK    SVMHN3  5
+     C                     MOVE *BLANK    SVMHN4  5
+      *
+     C                     ENDSR
+      *************************************************************
+      *                    OUTPUT                                 *
+      *************************************************************
+     OQPRINT  E  102           HDR1
+     O                                    8 'PROGRAM:'
+     O                         #PGM      19
+     O                         #USER     32
+     O                                   60 '<< FORD APR UPLOAD E'
+     O                                   80 'RROR REPORT >>      '
+     O                                  100 'DATE'
+     O                         @DATE    111 '    .  .  '
+     O                         @TIME    120 '  :  :  '
+     O                         PAGE  Z  130
+     O                                  126 'PAGE'
+     O        E  1             HDR1
+     O                                    5 'SEQ#'
+     O                                   11 'LINE#'
+     O                                   16 'CUST'
+     O                                   21 'DELV'
+     O                                   30 'EFT_DATE'
+     O                                   40 'EXP_DATE'
+     O                                   52 'CUST_PART'
+     O                                   70 'IAF_PART'
+     O                                   82 'UNIT_PRICE'
+     O                                   92 'PLANT'
+     O                                  104 'ERROR_MSG'
+     O        E  1             HDR1
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+     O                                  130 '----------'
+      *
+     O        E  1             DTL1
+     O                         SEQ   Z    5
+     O                         LIN#  Z   11
+     O                         XTOKE     16
+     O                         XNONY     21
+     O                         #EFDAT    32
+     O                         #EXDAT    42
+     O                         XPART     58
+     O                         K@SHN1    64
+     O                         K@SHN2    70
+     O                         K@SHN3    73
+     O                         @UP   3   82
+     O                         PLT1      89
+     O                         PLT2      92
+     O                         PLT3      95
+     O                         PLT4      98
+     O                         PLT5     101
+     O                         PLT6     104
+     O                         XMSG     132
+      *
+     O        E  1             FOT1
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+     O                                  130 '----------'
+      *
+     O        E  1             FOT1
+     O                                   18 '** TOTAL RECORDS:'
+     O                         DAT#  3   23
+     O                                   31 ', ERROR:'
+     O                         ER@CNT3   36
+     O                                   46 ', IGNORED:'
+     O                         IG@CNT3   51
+     O                                   56 ', OK:'
+     O                         OK#       61
+** MSG(80A)........2.........3.........4.........5.........6.........7.........8
+ERROR: XX PLANT CODE NOT FOUND!
+ERROR: EFFECTIVE DATE IS NOT VALID!
+ WARN: XX CUST/DELIV WILL BE CREATEE IN PARICE M/F.
+ WARN: CUSTOMER PART DOES NOT EXIST!
+XXX   - PRICE IS NOT (U/PRC + EXPEND)!  (NOT CHECK)
+There is no error...     OK:xxxxx (Warning:xxxxx). Enter G:Update or C:Cancel.
+Error Found! Error:xxxxx, Warning:xxxxx, OK:xxxxx. Enter C:Cancel.
+ERROR: EXP_DATE IS NOT VALID!
+ERROR: EFT_DATE IS GREATER THAN EXP_DATE!
+

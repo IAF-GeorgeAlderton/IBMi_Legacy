@@ -1,0 +1,674 @@
+     H            Y.
+     F** AC#R2B *********************************************************
+     F*  (HONDA) EDI ORDER AUTO PROCESSING (BATCH)                      *
+     F*  J.W     2018.11.16                                             *
+JW1  F*  J.W     2019.03.13 ADJ QTY                                     *
+JW3  F*  J.W     2019.10.21 SET PLANT+SHIPCODE TO PGID                  *
+JW4  F*  J.W     2021.11.12 CHG USER QPC                                *
+JW5  F*  J.W     2023.08.08 ADD STATE/COUNTRY IN AB#PL25                *
+JW6  F*  J.W     2025.10.15 ADD UEXR31F TO GET CORRECT BIN#             *
+     F*******************************************************************
+     FAB#PL2S IF  E           K        DISK
+     F            AB#PP2A1                          KRENAMEAB#PP2AX
+     FAB#PL2T UF  E           K        DISK
+     FAB#PL1J IF  E           K        DISK
+     FAGDPL11 IF  E           K        DISK
+     FAB#PPCT UF  E           K        DISK                      A
+     FAB#WP2B IF  E           K        DISK                      A
+     FAB#WP55 O   E           K        DISK
+     FAB#WP46 IF  E           K        DISK                      A
+     FAB#PL2C UF  E           K        DISK                      A
+     FAB#PL25 UF  E           K        DISK                      A
+     F** FCCTL15 IF  E           K        DISK
+     F** AB#PP85 IF  E           K        DISK
+      *===========================================================
+      * RENAME FIELD
+     IAB#PP2AX    01
+     I              ACNONY                          XCNONY
+     IAB#WP461    01
+     I              WNYMD                           XWNYMD
+     I              WCRDT                           XWCRDT
+      *
+     I            DS
+     I                                        1  20 ACMHN
+     I                                        1   5 ACMHN1
+     I                                        6  10 ACMHN2
+     I                                       11  15 ACMHN3
+     I                                       16  20 ACMHN4
+     I            DS
+     I                                        1  20 WMHIN
+     I                                        1   5 WMHN1
+     I                                        6  10 WMHN2
+     I                                       11  15 WMHN3
+     I                                       16  20 WMHN4
+     I            DS
+     I                                        1   80WNYMD
+     I                                        1   40WNOYY
+     I                                        1   20WNOY1
+     I                                        3   40WNOY2
+     I                                        5   60WNOMM
+     I                                        7   80WNODD
+     I            DS
+     I                                        1   80@SHPDT
+     I                                        1   40@SHPYY
+     I                                        5   60@SHPMM
+     I                                        7   80@SHPDD
+     I            DS
+     I                                        1  12 @SHIN
+     I                                        1   5 WSHN1
+     I                                        6  10 WSHN2
+     I                                       11  12 WSHN3
+     I            DS
+     I                                        1   80BBSKHZ
+     I                                        1   40BBSKYY
+     I                                        5   60BBSKMM
+     I                                        7   80BBSKDD
+     I            DS
+     I                                        1   80BBKOHZ
+     I                                        1   40BBKOYY
+     I                                        5   60BBKOMM
+     I                                        7   80BBKODD
+     I            DS
+     I                                        1   60BBKOTM
+     I                                        1   20BBKOHH
+     I                                        3   40BBKOSS
+     I            DS
+     I                                        1  20 BBMHIN
+     I                                        1   5 BBMHN1
+     I                                        6  10 BBMHN2
+     I                                       11  15 BBMHN3
+     I                                       16  20 BBMHN4
+     I            DS
+     I                                        1   80BBNOHZ
+     I                                        1   40BBNOYY
+     I                                        5   60BBNOMM
+     I                                        7   80BBNODD
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     I                                      254 262 #USER9
+      *****************************************************
+      *          MAIN ROUTINE                             *
+      *****************************************************
+     C                     MOVE *OFF      *IN44            TEMP
+      *
+     C                     EXSR #INIT
+      *
+      * 1ST LOOP ----------------------
+      * GET DELEIVERY CODE
+     C                     DO   *HIVAL
+     C                     READ AB#PL2S                  91
+     C   91                LEAVE
+      * NEW NONY?
+     C           XCNONY    IFEQ SVNONY
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDXCNONY    SVNONY
+      * GET SHIP DATE
+     C                     EXSR #SHPDT
+      *
+     C           SHPFLG    IFEQ *ON
+      *
+      * 2ND LOOP ----------------------
+     C           K#2R      SETLLAB#PL2T
+     C                     DO   *HIVAL
+     C           K#2R      READEAB#PL2T                  92
+     C   92                LEAVE
+      * CHECK DATA
+     C                     EXSR #CHK1
+      *  WRITE ORDER
+     C           *IN85     IFEQ *OFF
+     C                     EXSR #WP55
+     C                     EXSR #PP2C
+     C                     EXSR #PP25
+      * UPID
+     C           ACQNTY    IFEQ 0
+     C                     MOVE 'D'       ACUPID
+     C                     ELSE
+     C                     MOVE '1'       ACUPID
+     C                     ENDIF
+      * INDICATOR
+     C                     MOVE 'J'       ACCOLR
+      *
+     C                     Z-ADDACPLSH    ACASDT
+     C                     Z-ADDWNOBN     ACBIN
+      *
+     C                     UPDATAB#PP2A1
+     C                     ENDIF
+      *
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *****************************************************
+      *  CHECK CONDITION                                  *
+      *****************************************************
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE *OFF      *IN85
+      * SELECT ACUPID = BLANK
+     C           ACUPID    IFNE *BLANK
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * SELECT QTY <> 0
+     C           ACQNTY    IFEQ 0
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * CHECK DUPLICATE ORDER 1 XXX
+     C                     MOVELACNONY    KCNONY
+     C                     MOVELACNKOJ    KCNKOJ
+     C                     MOVELACNUKE    KCNUKE
+     C                     MOVELACPLSH    KCPLSH
+     C                     MOVELACBIN     KCBIN
+     C                     MOVELACODRN    KORD10
+     C                     MOVELACODRN    KCODRN 20
+     C                     MOVELACMHN     KCMHN
+     C           K#1J      CHAINAB#PL1J              99
+     C           *IN99     IFEQ *OFF
+     C           BASKJY    ANDEQ*BLANK
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * CHECK DUPLICATE ORDER 2
+     C                     MOVELACNONY    KCNONY
+     C                     MOVELACNKOJ    KCNKOJ
+     C                     MOVELACNUKE    KCNUKE
+     C                     MOVELACPLSH    KCPLSH
+     C                     MOVELACBIN     KCBIN
+     C                     MOVELACODRN    KORD10
+     C                     MOVELACODRN    KCODRN 20
+     C                     MOVELACMHN     KCMHN
+     C           K#1J      CHAINAB#PL1J              99
+     C           *IN99     IFEQ *OFF
+     C           BASKJY    ANDEQ*BLANK
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XCHK1     ENDSR
+      *****************************************************
+      *  GET SHIP DATE                                    *
+      *****************************************************
+     C           #SHPDT    BEGSR
+      *
+     C                     Z-ADD0         @SHPDT
+     C                     Z-ADD0         @DAYS   40
+     C                     MOVE *OFF      SHPFLG  1
+      * CHECK SHIPPING
+     C                     DO   *HIVAL
+      *
+     C                     ADD  1         @DAYS
+     C                     MOVEL@DAYS     $DAYS
+      * GET SHIP DATE
+     C                     MOVELTODAY     $DT8
+     C                     MOVE '+'       $SIGN
+     C                     MOVE 'N'       $IAF
+     C                     CALL 'UTLR10'
+     C                     PARM           $DT8    8
+     C                     PARM           $SIGN   1
+     C                     PARM           $DAYS   4
+     C                     PARM           $IAF    1
+     C                     PARM           $TGT8   8
+     C                     PARM           $RTN1   1
+     C                     MOVEL$TGT8     @SHPDT
+      * CHECK SHIPPING EXIST IN ORDER
+     C           K#2R      SETLLAB#PL2T
+     C                     DO   *HIVAL
+     C           K#2R      READEAB#PL2T                  93
+     C   93                LEAVE
+      * CHECK DATA
+     C                     EXSR #CHK1
+     C           *IN85     IFEQ *OFF
+     C                     MOVE *ON       SHPFLG           SHIP EXIST
+     C                     GOTO XSHPDT
+     C                     ENDIF
+     C                     ENDDO
+      * EXIT IF WORK DAY
+     C                     Z-ADD@SHPYY    KYY
+     C                     Z-ADD@SHPMM    KMM
+     C                     Z-ADD@SHPDD    KDD
+     C           K#11      CHAINAGDPL11              99
+     C           *IN99     IFEQ *OFF
+     C                     GOTO XSHPDT
+     C                     ENDIF
+      * EXIT IF TODAY=SUN - THU
+     C                     Z-ADD@SHPYY    KYY
+     C                     Z-ADD@SHPMM    KMM
+     C                     Z-ADD@SHPDD    KDD
+     C           K#11      CHAINAGDPL11              99
+     C           *IN99     IFEQ *OFF
+     C                     GOTO XSHPDT
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C           XSHPDT    ENDSR
+      *****************************************************
+      *  WRITE AB#PP2C                                    *
+      *****************************************************
+     C           #PP2C     BEGSR
+     C                     Z-ADDACBIN     WBIN    20
+     C                     MOVELACSUPP    XSIRE   6 P
+     C                     MOVE ACSUPP    XSIRK   2
+     C           KEY2      CHAINAB#PL2C1             25
+      *
+     C                     MOVE *BLANK    BBSKJY
+     C                     Z-ADD0         BBSKHZ
+     C                     Z-ADDTODAY     BBKOHZ
+     C                     TIME           BBKOTM
+     C                     MOVEL#USER     BBKOME
+      *
+     C                     MOVEL'1'       BBTYPE
+     C                     MOVELXSIRE     BBSIRE
+     C                     MOVELXSIRK     BBSIRK
+     C                     MOVEL'00  '    BBSIRD
+     C                     MOVELWTOKU     BBTOKU
+     C                     MOVELWNONY     BBNONY
+     C                     MOVELWNKOJ     BBNKOJ
+     C                     MOVELWNUKE     BBNUKE
+     C                     MOVELWNYMD     BBNOHZ
+     C                     MOVELWMHIN     BBMHIN
+     C                     MOVELWODRN     BBODRN
+     C                     MOVE *BLANK    BBSERI
+     C                     MOVELWSBAN     BBKBAN
+     C                     MOVELACMNAM    BBNAME
+     C                     MOVELWSBAN     BBKBAN
+     C                     MOVELACREVN    BBPLEV
+     C                     MOVELWMHIN     BBUHIN
+     C                     Z-ADDWBIN      BBBIN
+      *
+      *=====================================
+     C   25                WRITEAB#PL2C1
+     C  N25                UPDATAB#PL2C1
+      *=====================================
+      *
+     C                     ENDSR
+      *****************************************************
+      *  WRITE AB#PP25                                    *
+      *****************************************************
+     C           #PP25     BEGSR
+      *
+     C                     MOVELACSHCD    K@DT1  20
+     C                     MOVELACPLNT    K@DT3  20
+     C           K#25      CHAINAB#PL251             36
+     C                     MOVELWNONY     BENONY
+     C                     MOVELACSHNM    BENAM1
+     C                     MOVELACSHCD    BEIDT1
+     C                     MOVELACSAD1    BEADD1
+     C                     MOVELACSAD2    BEADD2
+     C                     MOVELACCITY    BECITY
+     C                     MOVELACZIPC    BEPOST
+     C                     MOVELACSCAC    BEIDT2
+     C                     MOVELACPLNM    BENAM2
+     C                     MOVELACPLNT    BEIDT3
+     C                     MOVELACSUPP    BENAM3
+     C                     MOVELACSUNM    BEIDT4
+JW5  C                     MOVELACSTAT    BESTAT
+.    C                     MOVELACCNTY    BECNTY
+      *
+JW5  C           *IN36     IFEQ *OFF
+.    C                     Z-ADDTODAY     BEKOHZ
+.    C                     Z-ADDNOW       BEKOTM
+.    C                     MOVEL#USER     BEKOUS
+.    C                     UPDATAB#PL251
+.    C                     ELSE
+.    C                     Z-ADDTODAY     BECRHZ
+.    C                     Z-ADDNOW       BECRTM
+.    C                     MOVEL#USER     BECRUS
+      *
+      *=====================================
+.    C                     WRITEAB#PL251
+      *=====================================
+      *
+JW5  C                     ENDIF
+      *
+     C                     ENDSR
+      *****************************************************
+      *  WRITE AB#WP55/WP46/WP2B                          *
+      *****************************************************
+     C           #WP55     BEGSR
+      *
+     C                     CLEARX
+     C                     MOVELACSUPP    WSIRE
+     C                     MOVELACSUPP    WSIRK
+     C                     Z-ADDACTOKU    WTOKU
+     C                     Z-ADDACNONY    WNONY
+     C                     MOVE '0'       WNKOJ
+     C                     MOVE '00  '    WNUKE
+      *
+     C                     Z-ADDACPLSH    WNYMD
+      *
+     C           ACODRN    IFNE *BLANK
+     C                     MOVELACODRN    WODRN
+     C                     ELSE
+     C                     MOVELACSHNO    WODRN     P
+     C                     ENDIF
+      *
+     C                     Z-ADDACQNTY    WSURY
+     C**HOLD               Z-ADDACCQTY    WUSYS
+JW4  C                     Z-ADDACCQTY    WUSYS
+      *
+     C           ACSHTM    IFNE *ZERO
+     C                     Z-ADDACSHTM    S@SHTM  40
+     C                     ELSE
+     C                     Z-ADDACDLTM    S@SHTM
+     C                     ENDIF
+     C                     Z-ADDS@SHTM    WNOTM
+      * RETRIEVE IAF PART
+     C                     MOVELACNONY    $NONY
+     C                     MOVELACMHIN    $MHIN1
+     C                     CALL 'UTLR61'
+     C                     PARM           $NONY   4
+     C                     PARM           WNKOJ
+     C                     PARM           WNUKE
+     C                     PARM           $MHIN1 20
+     C                     PARM           @TOKU   40
+     C                     PARM           @MHIN2 20
+     C                     PARM           @SHIN  12
+     C                     PARM           @RTN2   1
+     C                     MOVEL@MHIN2    WMHIN
+     C                     MOVEL@SHIN     WSHIN
+      *
+     C                     MOVEL'0000'    WCARD
+     C                     Z-ADDACBIN     WNOBN
+      * GET INVOICE#
+     C           FIRST     IFEQ 'Y'
+     C           ACNONY    ORNE SCNONY
+     C           ACNKOJ    ORNE SCNKOJ
+     C           ACNUKE    ORNE SCNUKE
+     C           ACPLSH    ORNE SCPLSH
+     C           ACBIN     ORNE SCBIN
+     C           ACSHCD    ORNE SCSHCD
+     C                     EXSR #HINV
+     C                     MOVELW@8       SINVN
+     C                     MOVE 'N'       FIRST
+      * SAVE INVOICE KEYS
+     C                     MOVELACNONY    SCNONY
+     C                     MOVELACNKOJ    SCNKOJ
+     C                     MOVELACNUKE    SCNUKE
+     C                     MOVELACPLSH    SCPLSH
+     C                     MOVELACBIN     SCBIN
+     C                     MOVELACODRN    SCODRN
+     C                     MOVELACSHCD    SCSHCD
+     C                     ENDIF
+      *
+     C                     MOVELSINVN     WINVN
+      * GET Q/C
+     C                     EXSR #QPC
+     C                     Z-ADD@SYOS     WSYOS
+JW4  C           WUSYS     IFEQ 0
+ .   C           WUSYS     OREQ 1
+ .   C           @SYOS     IFNE 0
+ .   C                     Z-ADD@SYOS     WUSYS
+ .   C                     ENDIF
+JW4  C                     ENDIF
+JW1   *ADJUST QTY
+ |   C                     Z-ADDACQNTY    WOGQT
+ |   C                     MOVE *BLANK    WADFL
+ |   C           WSYOS     IFNE 0
+ |   C           ACQNTY    DIV  WSYOS     @SHO    70
+ |   C                     MVR            @REM    93
+ |   C           @REM      IFNE 0
+ |   C                     MOVEL'**'      WADFL
+ |   C                     ADD  1         @SHO
+ |   C           @SHO      MULT WSYOS     WSURY
+ |   C                     Z-ADDACQNTY    WOGQT
+ |   C                     ENDIF
+JW1  C                     ENDIF
+      * ADJUST BIN#
+     C                     EXSR #BIN
+      *
+     C                     MOVELACMHIN    WUHIN
+      *
+JW3  C                     MOVELACPLNT    WPGID
+"    C                     MOVELACSHCD    LTR8    8
+"    C                     MOVE LTR8      WPGID
+      *
+     C                     MOVELTODAY     W@DAT1
+     C                     Z-ADDTODAY     WCRDT
+     C                     Z-ADDNOW       WCRTM
+     C                     MOVEL#USER     WCRUS
+     C                     MOVEL#PGM      WCRPG
+     C                     MOVE 'H'       W@H2
+      *
+      * ====================================
+     C                     WRITEAB#WP551
+      * ====================================
+      *
+     C                     ADD  1         RCNT
+      * WRITE AB#WP46
+     C                     MOVELWSHIN     @SHIN
+     C                     MOVELWINVN     WASNO
+     C                     MOVELWCRUS     WUSER
+     C                     MOVELWNYMD     XWNYMD
+     C                     MOVELWCRDT     XWCRDT
+      *
+      *=====================================
+     C                     WRITEAB#WP461
+      *=====================================
+      *
+      * WRITE AB#WP2B (HONDA ORDER PROCESSING DATA)
+     C                     Z-ADDWNONY     KBNONY
+     C                     Z-ADDWNYMD     KBSHDT
+     C                     Z-ADDWNOBN     KBBIN
+     C                     MOVELWINVN     KBINVN
+     C           K#2B      CHAINAB#WP2B              98
+     C           *IN98     IFEQ *ON
+     C                     CLEARAB#WP2B1
+     C                     Z-ADDWNONY     WBNONY
+     C                     Z-ADDWNYMD     WBSHDT
+     C                     Z-ADDWNOBN     WBBIN
+     C                     MOVELWINVN     WBINVN
+      *
+      *======================================
+     C                     WRITEAB#WP2B1
+      *======================================
+      *
+     C                     ENDIF
+      *
+     C                     ENDSR
+      ****************************************************
+      * ADJUST BIN#                                      *
+      ****************************************************
+     C           #BIN      BEGSR
+      *
+     C                     Z-ADDWNONY     KBNONY
+     C                     Z-ADDWNYMD     KBSHDT
+     C                     Z-ADDWNOBN     KBBIN
+     C                     MOVE *BLANK    KBINVN
+     C           K#2B      SETLLAB#WP2B
+      * AVOID DUPLICATE BIN#
+     C                     DO   *HIVAL
+     C           K#2BX     CHAINAB#WP2B              97
+     C           *IN97     IFEQ *ON
+     C                     LEAVE
+     C                     ELSE
+     C           WBINVN    IFEQ WINVN
+     C                     LEAVE
+     C                     ELSE
+     C                     ADD  1         KBBIN
+     C                     ADD  1         WNOBN
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      * CHECK AB#PP2A
+JW6  C                     MOVELACNONY    $NONY
+ !   C                     MOVELACPLSH    $DATE
+     C                     MOVELWNOBN     $BINI
+     C                     MOVELACPLNT    $PLNT
+     C                     MOVELACSHCD    $SHCD
+     C                     CALL 'UEXR31F'
+     C                     PARM           $NONY   4
+     C                     PARM           $DATE   8
+     C                     PARM           $BINI   2
+     C                     PARM           $PLNT   3
+     C                     PARM           $SHCD  10
+ !   C                     PARM           $BINO   2
+JW6  C                     MOVEL$BINO     WNOBN
+      *
+     C                     ENDSR
+      ****************************************************
+      * GET ASN# --> W@8                                 *
+      ****************************************************
+     C           #HINV     BEGSR
+      *
+     C**                   CLEARX
+     C                     MOVEL'HONDA'   K@KWD1    P
+     C                     MOVEL'ASN# '   K@KWD2    P
+     C           K#CNT     CHAINAB#PPCT              91
+     C           *IN91     IFEQ *OFF
+     C                     ADD  1         CTNBR1
+     C           CTNBR1    IFGT 99999999
+     C                     Z-ADD1         CTNBR1
+     C                     ENDIF
+     C                     UPDATAB#PPCT1
+     C                     ELSE
+     C                     CLEARAB#PPCT1
+     C                     MOVELK@KWD1    CTKEY1
+     C                     MOVELK@KWD2    CTKEY2
+     C                     ADD  1         CTNBR1
+     C                     WRITEAB#PPCT1
+     C                     ENDIF
+      *
+     C                     MOVE CTNBR1    @@8     8
+     C           '0'       CHECK@@8       X       20     10
+     C           *IN10     IFEQ *ON
+     C           8         SUB  X         XX      20
+     C                     ADD  1         XX
+     C           XX        SUBST@@8:X     W@8     8
+     C                     ELSE
+     C                     MOVE @@8       W@8
+     C                     ENDIF
+      *
+     C                     ENDSR
+      ****************************************************
+      * GET Q/C  --> @SYOS                               *
+      ****************************************************
+     C           #QPC      BEGSR
+      *
+     C                     Z-ADD0         @SYOS   60
+      *
+     C                     MOVELACTOKU    $TOKU
+     C                     MOVELACNONY    $NONY
+     C                     MOVELWSHIN     $MHIN
+     C                     MOVEL'IAF'     $HTYP
+     C                     MOVELTODAY     $DATE
+     C                     CALL 'UTLR35'
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $HTYP   3
+     C                     PARM           $DATE   8
+     C                     PARM           $SYOS   6
+     C                     PARM           $RTN3   1
+     C                     MOVEL$SYOS     @SYOS
+      *
+     C                     ENDSR
+      *****************************************************
+      *  INITIALIZATION                                   *
+      *****************************************************
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $DATE   8
+     C                     PARM           $RTN0   1
+      *
+     C           K#CNT     KLIST
+     C                     KFLD           K@KWD1  8
+     C                     KFLD           K@KWD2  8
+      *
+     C           K#1J      KLIST
+     C                     KFLD           KCNONY  40
+     C                     KFLD           KCNKOJ  1
+     C                     KFLD           KCNUKE  4
+     C                     KFLD           KCPLSH  80
+     C                     KFLD           KCBIN   20
+     C                     KFLD           KORD10 10
+     C                     KFLD           KCMHN  20
+      *
+     C           K#2R      KLIST
+     C                     KFLD           @SHPDT
+     C                     KFLD           XCNONY
+      *
+     C           K#11      KLIST
+     C                     KFLD           KYY     40
+     C                     KFLD           KMM     20
+     C                     KFLD           KDD     20
+      *
+     C           K#2B      KLIST
+     C                     KFLD           KBNONY  40
+     C                     KFLD           KBSHDT  80
+     C                     KFLD           KBBIN   20
+     C                     KFLD           KBINVN 16
+      *
+     C           K#2BX     KLIST
+     C                     KFLD           KBNONY  40
+     C                     KFLD           KBSHDT  80
+     C                     KFLD           KBBIN   20
+      *
+     C           KEY2      KLIST
+     C                     KFLD           WNOYY
+     C                     KFLD           WNOMM
+     C                     KFLD           WNODD
+     C                     KFLD           WBIN
+     C                     KFLD           WTOKU   40
+     C                     KFLD           WNONY   40
+     C                     KFLD           WNKOJ   1
+     C                     KFLD           WNUKE   4
+     C                     KFLD           XSIRE
+     C                     KFLD           XSIRK
+     C                     KFLD           WMHN1
+     C                     KFLD           WMHN2
+     C                     KFLD           WMHN3
+     C                     KFLD           WMHN4
+     C                     KFLD           WODRN
+      *
+     C           K#25      KLIST
+     C                     KFLD           WNONY
+     C                     KFLD           K@DT1
+     C                     KFLD           K@DT3
+      *
+     C                     MOVE *BLANK    $RTN0
+     C                     TIME           SDATE
+      *
+     C           $DATE     IFNE *BLANK
+     C                     MOVEL$DATE     TODAY
+     C                     ENDIF
+      *
+     C                     Z-ADD0         RCNT    40
+     C                     Z-ADD0         WDATE   80
+     C                     Z-ADD0         SVNONY  40
+     C                     MOVE *BLANK    SINVN  16
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD0         SCNONY  40
+     C                     MOVE *BLANK    SCNKOJ  1
+     C                     MOVE *BLANK    SCNUKE  4
+     C                     Z-ADD0         SCPLSH  80
+     C                     Z-ADD0         SCBIN   20
+     C                     MOVE *BLANK    SCODRN 20
+     C                     MOVE *BLANK    SCSHCD 10
+      * CHECK USER ID
+     C                     MOVEL#USER     #USER2  2
+     C                     SELEC
+     C           #USER2    WHEQ 'I0'
+     C                     MOVEL'PC '     VIEW    3
+     C           #USER2    WHEQ 'I3'
+     C                     MOVEL'SLS'     VIEW
+     C                     OTHER
+     C                     MOVE *BLANK    VIEW
+     C                     ENDSL
+      * DUMMY READ
+     C                     READ AB#WP46                  99
+      *
+     C                     ENDSR

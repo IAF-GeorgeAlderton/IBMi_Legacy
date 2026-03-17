@@ -1,0 +1,98 @@
+             PGM
+
+/* UPDATE:K.OKACHI    2002.06.06    %0001 */
+             DCL        VAR(&USER) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&TYPE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PDEVT) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&PIGCD) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&WLIB) TYPE(*CHAR) LEN(8)
+
+             DCL        VAR(&WS)     TYPE(*CHAR) LEN(2)
+             DCL        VAR(&FILE01) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&FILE02) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&REC) TYPE(*DEC) LEN(10 0) VALUE(0)
+             DCL        VAR(&MAIS) TYPE(*DEC) LEN(3 0) VALUE(0)
+             DCL        VAR(&PMAIS) TYPE(*CHAR) LEN(3) VALUE('   ')
+             DCL        VAR(&PKYM)   TYPE(*CHAR) LEN(6)
+             DCL        VAR(&ABBDS3) TYPE(*CHAR) LEN(7)
+
+             RTVJOBA    JOB(&WSID) USER(&USER)
+             RTVDTAARA  DTAARA(ABBDS3) RTNVAR(&ABBDS3)
+             CHGVAR     VAR(&PKYM) VALUE(%SST(&ABBDS3 1 6))
+
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+             CALL       PGM(AGAR01) PARM(&WSID &PDEVT &PIGCD)
+             CALL       PGM(ALBC00) PARM(&USER &WLIB)
+
+             CHGVAR     VAR(&WS) VALUE(%SST(&WSID 1 2))
+             CHGVAR     VAR(&FILE01)  VALUE('ABBWP80' *CAT &WS)
+/* %0001 */
+             CRTDUPOBJ  OBJ(ABBWP71) FROMLIB(&WLIB) OBJTYPE(*FILE) +
+                          TOLIB(QTEMP)
+             MONMSG     MSGID(CPF0000)
+             CRTDUPOBJ  OBJ(ABBWL71) FROMLIB(&WLIB) OBJTYPE(*FILE) +
+                          TOLIB(QTEMP)
+             MONMSG     MSGID(CPF0000)
+             CLRPFM QTEMP/ABBWP71
+             CRTDUPOBJ  OBJ(ABBWP72) FROMLIB(&WLIB) OBJTYPE(*FILE) +
+                          TOLIB(QTEMP)
+             MONMSG     MSGID(CPF0000)
+             CLRPFM QTEMP/ABBWP72
+
+      /*     OVRPRTF    FILE(QPRINT) PAGESIZE(*N 198) CPI(15) +
+                          COPIES(12)  */
+/* UPDATE:K.OKACHI    2002.06.06    %0001 */
+             DLTF       FILE(&WLIB/&FILE01)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/&FILE01) RCDLEN(512) +
+                          OPTION(*NOLIST) LVLCHK(*NO) AUT(*ALL)
+             OVRDBF     FILE(OUTPUT1) TOFILE(&WLIB/&FILE01)
+/* %0001 */
+
+             OVRDBF     FILE(ABBWP71) TOFILE(QTEMP/ABBWP71)
+             OVRDBF     FILE(ABBWL71) TOFILE(QTEMP/ABBWL71)
+             OVRDBF     FILE(ABBWP72) TOFILE(QTEMP/ABBWP72)
+             CALL       PGM(ABBR78) PARM(&PMAIS)
+             DLTOVR *ALL
+/* UPDATE:K.OKACHI    2002.06.10    %0001 */
+             IF (&PMAIS *NE '   ') DO
+             RTVMBRD    FILE(&WLIB/&FILE01) NBRCURRCD(&REC)
+             IF (&REC *NE 0) DO
+                 FMTDTA     INFILE((&WLIB/&FILE01)) +
+                              OUTFILE(&WLIB/&FILE01) +
+                          SRCFILE(HSRC1/FMTSRC) SRCMBR(ABBS80) +
+                          OPTION(*NOPRT)
+                 CHGVAR     VAR(&FILE02)  VALUE('ABBWP81' *CAT &WS)
+                 DLTF       FILE(&WLIB/&FILE02)
+                 MONMSG     MSGID(CPF3261 CPF2105)
+                 CRTPF      FILE(&WLIB/&FILE02) RCDLEN(512) +
+                          OPTION(*NOLIST) LVLCHK(*NO) AUT(*ALL)
+                 OVRDBF INPUT1 &WLIB/&FILE01
+                 OVRDBF OUTPUT1 &WLIB/&FILE02
+                 CALL ABBR80
+                 DLTOVR *ALL
+                 CHGVAR     VAR(&REC)  VALUE(0)
+                 RTVMBRD    FILE(&WLIB/&FILE02) NBRCURRCD(&REC)
+                 IF (&REC *NE 0) DO
+                     FMTDTA     INFILE((&WLIB/&FILE02)) +
+                              OUTFILE(&WLIB/&FILE02) +
+                          SRCFILE(HSRC1/FMTSRC) SRCMBR(ABBS81) +
+                          OPTION(*NOPRT)
+                     OVRDBF INPUT1 &WLIB/&FILE02
+                     OVRDBF INPUT2 &WLIB/&FILE01
+             CHGVAR     VAR(&MAIS) VALUE(&PMAIS)
+             OVRPRTF    FILE(QPRINT) DEVTYPE(&PDEVT) PAGESIZE(66 +
+                          198) LPI(6) CPI(15) OVRFLW(62) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(K6H1) +
+                          COPIES(&MAIS) IGCDTA(&PIGCD)
+                     CALL ABBR81 PARM(&PKYM)
+                     DLTOVR *ALL
+                 ENDDO
+             ENDDO
+             ENDDO
+/* %0001 */
+
+             ENDPGM

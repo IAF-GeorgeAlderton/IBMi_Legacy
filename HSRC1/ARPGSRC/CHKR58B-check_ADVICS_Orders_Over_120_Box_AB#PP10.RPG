@@ -1,0 +1,184 @@
+     H            Y.
+     F***CHKR58B ***************************************************************
+     F*  PROGRAM    : CHECK ADVICS ORDERS OVER 120 BOX                         *
+     F*             : IF ORDERS OVER 120 BOX, MASTER LABEL SHOULD PRINT BY EACH*
+     F*             : PALLET.                                                  *
+     F*             : READ AB#PL12 (SHIP DATE)                                 *
+     F*             : ADD TO VJBC71 (SCHEDULED JOB AT 5:45AM)                  *
+     F*  WRITTEN    : 2019.07.05                                               *
+     F*  WRITTEN BY : JW (SRA)                                                 *
+     F**************************************************************************
+     FAB#PL12 IF  E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+     E                    MSG     1   5 60
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I                                        7  100SYY
+     I                                       11  120SMM
+     I                                       13  140SDD
+     I            DS
+     I                                        1   80BANOHZ
+     I                                        1   40BANOYY
+     I                                        5   60BANOMM
+     I                                        7   80BANODD
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+     C           K#PL12    SETLLAB#PL12
+     C                     DO   *HIVAL
+     C                     READ AB#PL12                  98
+     C   98                LEAVE
+      *
+      * SELECT ADVICS
+     C           BATOKU    IFNE 0465
+     C           BATOKU    ANDNE0466
+     C                     ITER
+     C                     ENDIF
+      *
+     C           BASKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * FIRST ?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     Z-ADDBANOHZ    SVNOHZ  80
+     C                     Z-ADDBATOKU    SVTOKU  40
+     C                     Z-ADDBANONY    SVNONY  40
+     C                     MOVELBANKOJ    SVNKOJ  1
+     C                     MOVELBANUKE    SVNUKE  4
+     C                     Z-ADDBANOBN    SVNOBN  20
+     C                     ENDIF
+      * BREAK ?
+     C           BANOHZ    IFNE SVNOHZ
+     C           BATOKU    ORNE SVTOKU
+     C           BANONY    ORNE SVNONY
+     C           BANKOJ    ORNE SVNKOJ
+     C           BANUKE    ORNE SVNUKE
+     C           BANOBN    ORNE SVNOBN
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * PROCESS
+     C           BASYOS    IFEQ 0
+     C                     Z-ADD1         WBOX    40
+     C                     ELSE
+     C           BASRYO    DIV  BASYOS    WBOX
+     C                     ENDIF
+     C                     ADD  WBOX      TBOX    40
+      *
+     C                     ENDDO
+      * LAST BRREAK
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     ENDIF
+      *
+     C           SEQ#      IFNE 0
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      * PRINT FOOT
+     C                     EXCPT@FOT1
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  BREAK                                             *
+      *----------------------------------------------------*
+     C           #BRK1     BEGSR
+      * CHECK TOTAL BOX OVER 120
+     C           TBOX      IFGT 120
+     C                     EXSR #PRINT
+     C                     ENDIF
+      * RESET
+     C                     Z-ADDBANOHZ    SVNOHZ
+     C                     Z-ADDBATOKU    SVTOKU
+     C                     Z-ADDBANONY    SVNONY
+     C                     MOVELBANKOJ    SVNKOJ
+     C                     MOVELBANUKE    SVNUKE
+     C                     Z-ADDBANOBN    SVNOBN
+     C                     Z-ADD0         TBOX
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $RTN    1
+      *
+     C           K#PL12    KLIST
+     C                     KFLD           K#NOYY  40
+     C                     KFLD           K#NOMM  20
+     C                     KFLD           K#NODD  20
+      *
+     C                     MOVE *BLANK    $RTN
+     C                     TIME           SDATE
+     C                     Z-ADDSYY       K#NOYY
+     C                     Z-ADDSMM       K#NOMM
+     C                     Z-ADDSDD       K#NODD
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+     C                     MOVE 'Y'       FIRST   1
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   40 '** CHECK ADVICS ORDE'
+     O                                   60 'R OVER 120 BOX **   '
+     O                                   80 '                    '
+     O                                   89 'DATE'
+     O                         TODAY     92 '    .  .  '
+     O                         NOW      102 '  :  :  '
+     O                                  106 'P.'
+     O                         PAGE  Z  110
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   12 'CUST'
+     O                                   17 'DELV'
+     O                                   34 'SHIP_DATE'
+     O                                   47 'TTL_BOX'
+     O        E 1              @DTL
+     O                         SEQ#  1 +000
+     O                         SVTOKU  +003
+     O                         SVNONY  +001
+     O                         SVNKOJ  +001
+     O                         SVNUKE  +001
+     O                         SVNOHZ  +001 '    /  /  '
+     O                         SVNOBN  +001
+     O                         TBOX  1 +003
+      *
+     O        E 2              @FOT1
+     O                         MSG,1   +002
+     O        E 1              @FOT1
+     O                         MSG,2   +002
+     O        E 1              @FOT1
+     O                         MSG,3   +002
+     O        E 1              @FOT1
+     O                         MSG,4   +002
+** MSG(60A) .......2.........3.........4.........5.........6
+  ********************************************************** 01
+  * IF ORDERS OVER 120 BOX, MASTER LABEL SHOULD PRINT FOR  * 02
+  * EACH PALLET.                                           * 03
+  ********************************************************** 04
+                                                             05

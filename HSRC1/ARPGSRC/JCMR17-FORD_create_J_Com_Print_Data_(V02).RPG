@@ -1,0 +1,212 @@
+     H            Y.
+      ** JCMR17 ********************************************************
+      *  CREATE FORD J-COM DATA (ASN)                                  *
+      *  JW     2016/04/12                                             *
+JW1   *  JW     2021/11/01 ADD OPTION (CANCEL)                         *
+      ******************************************************************
+     FJCMPW17 CF  E                    WORKSTN
+     FJCMPL11 IF  E           K        DISK
+     FJCMWP11 IF  E           K        DISK
+      *---------------------------------------------------
+     E                    MSG     1  10 70
+     I* SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************
+      *  MAIN
+      *************************************************************
+      * INITIALIZE
+     C                     EXSR #INIT
+      * DISPLAY
+     C           W@ID      DOWEQ'01'
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANKS   XMSG1
+     C                     MOVEL*BLANKS   XMSG2
+     C                     MOVE *OFF      *IN85
+     C                     MOVE *OFF      *IN41
+JW1  C                     MOVE *OFF      *IN42
+      * F1/3 END
+     C           *INKA     IFEQ *ON
+     C           *INKC     OREQ *ON
+     C           *INKL     OREQ *ON
+     C                     MOVE '99'      W@ID
+     C                     LEAVE
+     C                     ENDIF
+      *
+      * F10 INQ
+     C           *INKJ     IFEQ *ON
+JW1  C                     EXSR #CHK0
+      *
+JW1  C           *IN85     IFEQ *OFF
+JW1  C                     MOVELD@PPS     $FLG1
+     C                     CALL 'JCMR18'
+     C                     PARM           $FROM   8
+     C                     PARM           $TO     8
+     C                     PARM           $ASN    8
+JW1  C                     PARM           $FLG1   1
+     C                     PARM           $RTN    1
+     C           $ASN      IFNE *BLANK
+     C                     MOVE $ASN      LTR6
+     C                     MOVE LTR6      D@ASN
+     C                     ENDIF
+     C                     ITER
+     C                     ENDIF
+JW1  C                     ENDIF
+      *
+     C                     EXSR #CHK1
+      * NO ERROR & F5
+     C           *IN85     IFEQ *OFF
+     C           *INKE     ANDEQ*ON
+     C                     EXSR #JCOM
+     C                     MOVELMSG,4     XMSG1
+     C                     MOVELMSG,5     XMSG2
+     C                     ADD  1         NO#
+     C                     ENDIF
+      * NO ERROR & NOT F5
+     C           *IN85     IFEQ *OFF
+     C           *INKE     ANDEQ*OFF
+     C                     MOVELMSG,3     XMSG1
+     C                     ENDIF
+      *
+     C                     ENDDO
+      * FOOT
+     C           NO#       IFEQ 0
+     C                     MOVE '000'     $NO
+     C                     MOVE '*'       $RTN
+     C                     ELSE
+     C                     MOVELNO#       $NO
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *-----------------------------------------------------------
+      *          CHECK DATA
+      *-----------------------------------------------------------
+     C           #CHK0     BEGSR
+      *
+     C                     MOVE *OFF      *IN85
+JW1   * CHECK FUNCTION
+     C           D@PPS     IFEQ ' '
+     C                     MOVE *ON       *IN42
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,7     XMSG1
+     C                     GOTO E#CHK0
+     C                     ENDIF
+JW1   * CHECK FUNCTION
+     C           D@PPS     IFNE 'A'
+     C           D@PPS     ANDNE'C'
+     C                     MOVE *ON       *IN42
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,8     XMSG1
+     C                     GOTO E#CHK0
+     C                     ENDIF
+      *
+     C           E#CHK0    ENDSR
+      *-----------------------------------------------------------
+      *          CHECK DATA
+      *-----------------------------------------------------------
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE *OFF      *IN85
+JW1   * CHECK FUNCTION
+     C           D@PPS     IFEQ ' '
+     C                     MOVE *ON       *IN42
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,7     XMSG1
+     C                     GOTO E#CHK1
+     C                     ENDIF
+JW1   * CHECK FUNCTION
+     C           D@PPS     IFNE 'A'
+     C           D@PPS     ANDNE'C'
+     C                     MOVE *ON       *IN42
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,8     XMSG1
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      * CHECK ASN#
+     C           D@ASN     IFEQ 0
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,1     XMSG1
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      *
+      * CHECK ASN EXIST IN MASTER
+     C                     MOVE D@ASN     LTR6    6
+     C                     MOVE *ALL'0'   K@ASN   8
+     C                     MOVE LTR6      K@ASN
+     C           K@ASN     CHAINJCMPL11              99
+     C           *IN99     IFEQ *ON
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,2     XMSG1
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      *
+      * CHECK ASN DUPLICATED
+     C                     MOVELJ1ASN#    K@ASN#  8
+     C           K@ASN#    CHAINJCMWP11              98
+     C           *IN98     IFEQ *OFF
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,6     XMSG1
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      *
+     C           E#CHK1    ENDSR
+      *-----------------------------------------------------------
+      *          CREATE J-COM DATA
+      *-----------------------------------------------------------
+     C           #JCOM     BEGSR
+      *
+     C                     MOVELD@ASN     $ASN
+JW1  C                     MOVELD@PPS     $FLG1
+     C                     CALL 'JCMR19'
+     C                     PARM           $ASN    8
+JW1  C                     PARM           $FLG1   1
+     C                     PARM           $RTN    1
+      *
+     C                     ENDSR
+      *-----------------------------------------------------------
+      *          INITIALIZE
+      *-----------------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $ASN    8
+     C                     PARM           $NO     3
+     C                     PARM           $RTN    1
+      *
+     C                     Z-ADD0         RRN     50
+     C                     MOVE '01'      W@ID    2
+JW1  C                     TIME           WSDT
+JW1  C                     MOVE 'A'       D@PPS
+      *
+     C           $ASN      IFEQ *BLANK
+     C                     Z-ADD0         ASN#    80
+     C                     ELSE
+     C                     MOVEL$ASN      ASN#
+     C                     ENDIF
+      *
+     C                     Z-ADD0         NO#     30
+      **READ DUMMY
+     C**         K@ASN#    CHAINJCMWP11              98
+      *
+     C                     ENDSR
+** MSG(70A) .......2.........3.........4.........5.........6.........7
+ERROR! ENTER ASN#!                                                      01
+ERROR! ASN# DOES NOT FOUND IN MASTER!                                   02
+PRESS F5 TO CREATE ASN DATA...                                          03
+DATA WAS CREATED. PRESS F1 TO EXIT FROM PROGAM THEN PRINT J_COM SHEET.  04
+OR CONTINUE ENTERING ASN#.                                              05
+ERROR! YOU CANNOT ENTER SAME ASN#!                                      06
+ERROR! ENTER FUNCTION!                                                  07
+ERROR! FUNCTION SHOULD BE A OR C!                                       08
+                                                                        09
+                                                                        10

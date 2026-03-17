@@ -1,0 +1,348 @@
+     H            Y.
+     F** ALFR60 *********************************************
+     F* CONTAINER TRANSFER - 2PT SCAN                       *
+     F*   LEC .................     2019.12.04              *
+     F*   LEC  - LOCK UNMATCH ERROR 2022.05.16              *
+     F*******************************************************
+     FALFPW60 CF  E                    WORKSTN
+     FFCEPL07 IF  E           K        DISK
+     FALFPP60 O   E                    DISK
+      *
+     E                    ER      1   8 60
+     E                    KBN        32250
+      *
+      *  APICS barcode  (screen1)
+     I            DS
+     I                                        1 250 D1BAR
+     I                                        1   1 KKIND
+     I                                        1   3 D1TYPE
+     I                                        2   5 D1ZETI
+     I                                        6   8 D1LOT#
+     I                                        9  10 D1PAGE
+     I                                       15  15 D1DIGT
+     I                                        1  25 D1BAR1
+     I                                       26  50 D1BAR2
+     I                                       51  75 D1BAR3
+     I                                       76 100 D1BAR4
+     I                                      101 125 D1BAR5
+     I                                      126 150 D1BAR6
+     I                                      151 175 D1BAR7
+     I                                      176 200 D1BAR8
+     I                                      201 225 D1BAR9
+     I                                      226 250 D1BA10
+      *
+      *  part number edit
+     I            DS
+     I                                        1  20 D2PART
+     I                                        1   5 A2BHB1
+     I                                        6   6 DASH1
+     I                                        7  11 A2BHB2
+     I                                       12  12 DASH2
+     I                                       13  14 A2BHB3
+      *
+      *  passthru barcode  (screen2)
+     I            DS
+     I                                        1  20 D2PTBC
+     I                                        1   1 D2TYPE
+     I                                        2   5 D2ZETI
+     I                                        6  11 D2ORD#
+     I                                       13  16 D2LOTN
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60HHMMSS
+     I                                        7  140WDATE
+     I                                        7  100WYY
+     I                                       11  120WMM
+     I                                       13  140WDD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           POPR    6
+     C                     PARM           PITANT 20
+      *
+     **==============================================================**
+     **  KEY
+     **==============================================================**
+     C           K#KEY1    KLIST
+     C                     KFLD           WIREBC 20
+      *----------------------------------------------------*
+      * MAINLINE                                           *
+      *----------------------------------------------------*
+     C                     MOVELW#PGM     D1#PGM
+     C                     MOVEL'01'      DSPSW   2
+      *
+     C           DSPSW     DOUEQ'99'
+      *
+     C                     SELEC
+     C           DSPSW     WHEQ '01'
+     C                     EXSR #SB100
+     C           DSPSW     WHEQ '02'
+     C                     EXSR #SB200
+     C                     ENDSL
+      *
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *
+      *----------------------------------------------------*
+      * FIRST SCREEN - Display Screen for APICS Kanban     *
+      *----------------------------------------------------*
+     C           #SB100    BEGSR
+      *
+     C                     MOVE *BLANKS   D1BAR
+     C                     MOVEL*BLANKS   D2PART
+     C                     MOVEL*BLANKS   D2LOT#
+     C                     MOVEL*BLANKS   D2PAGE
+      *
+     C                     EXFMTALFPW601
+      *
+     C                     SETOF                     9931
+      *
+     C           *IN01     IFEQ *ON
+     C                     MOVEL'99'      DSPSW
+     C                     MOVE *BLANKS   D1BAR
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+      * if nothing was scanned...error
+     C           D1BAR1    IFEQ *BLANK
+     C                     SETON                     99
+     C                     MOVELER,1      D9ERR
+     C                     EXSR #SB290
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+      * if QR barcode, call pgm to convert...
+     C           D1TYPE    IFEQ 'C01'
+     C                     MOVELD1BAR     P1QR1 256
+     C                     MOVE *BLANKS   P1QR2 256
+     C                     CALL 'UEXR13'
+     C                     PARM           P1QR1
+     C                     PARM           P1QR2
+     C                     PARM           P9BAR  20
+     C                     MOVELP9BAR     D1BAR     P
+     C                     ENDIF
+      *
+      * if not APICS kanban...error
+     C           KKIND     IFNE 'A'
+     C           KKIND     ANDNE'R'
+     C                     SETON                     99
+     C                     MOVELER,4      D9ERR
+     C                     EXSR #SB290
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+      * if part id is NOT in part master...error
+     C           D1ZETI    CHAINFCEPL07              41
+     C           *IN41     IFEQ *ON
+     C                     SETON                     99
+     C                     MOVELER,2      D9ERR
+     C                     EXSR #SB290
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+      * if kanban has already been scanned...error
+     C           D1BAR     LOKUPKBN                      41
+     C           *IN41     IFEQ *ON
+     C                     MOVELER,7      D9ERR
+     C                     SETON                     99
+     C                     EXSR #SB290
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+      *
+      *
+     C                     MOVELD1LOT#    D2LOT#
+     C                     MOVELD1PAGE    D2PAGE
+      *
+     C                     MOVE '-'       DASH1
+     C           A2BHB3    IFNE *BLANKS
+     C                     MOVE '-'       DASH2
+     C                     ENDIF
+      *
+     C                     MOVEL'02'      DSPSW
+      *
+     C           ESB100    TAG
+      *
+     C           *IN99     IFEQ *ON
+     C                     EXSR LOGERR
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *------------------------------------------------------------*
+      * SCREEN TWO    - Display Screen to Input Passthru KANBAN    *
+      *------------------------------------------------------------*
+     C           #SB200    BEGSR
+      *
+     C                     MOVE *BLANKS   D2PTBC
+     C                     MOVE *BLANK    LOCKFL  1
+      *
+     C                     EXFMTALFPW602
+     C                     SETOF                     9931
+      *
+     C           *IN01     IFEQ *ON
+     C                     MOVEL'01'      DSPSW
+     C                     MOVEL*BLANKS   D2PTBC
+     C                     MOVEL*BLANKS   D1BAR
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+      * if passthru kanban barcode is blank...error
+     C           D2PTBC    IFEQ *BLANK
+     C                     SETON                     99
+     C                     MOVELER,3      D9ERR
+     C                     EXSR #SB290
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+      * if NOT passthru kanban...error
+     C           D2TYPE    IFNE 'I'
+     C                     SETON                     99
+     C                     MOVELER,4      D9ERR
+     C                     EXSR #SB290
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+      * if part id doesn't match...error
+     C           D1ZETI    IFNE D2ZETI
+     C                     SETON                     99
+     C                     MOVELER,5      D9ERR
+     C                     MOVE 'Y'       LOCKFL
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+      * passed all checks, and it's ok so write to results file.
+     C                     MOVE 'OK'      F6OKNG
+     C                     EXSR #SB500
+      * save kanban barcode with the last 32 successful scans.
+     C                     EXSR SAVKBN
+     C                     ADD  1         D1TOTL
+      *
+      * display ok screen...
+      ******************** EXFMTALFPW095
+      *
+     C                     MOVEL'01'      DSPSW
+      *
+     C           ESB200    TAG
+      *
+      * if error...
+     C           *IN99     IFEQ *ON
+     C                     EXSR LOGERR
+      *
+     C           LOCKFL    IFEQ 'Y'
+     C                     EXSR #SB295
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *
+      *-----------------------------------------------------------------------*
+      * ALFPP60 - Write Record to Container Transfer Scan Results             *
+      *-----------------------------------------------------------------------*
+     C           #SB500    BEGSR
+      *
+      * write to ALFPP60
+     C                     TIME           WTIME
+     C                     Z-ADDWDATE     F6KODT
+     C                     Z-ADDHHMMSS    F6KOTM
+     C                     MOVELW#WSID    F6WSID
+     C                     MOVELW#USER    F6USER
+     C                     MOVELW#JBNO    F6JOBN
+     C                     MOVELW#PGM     F6KOPG
+     C                     MOVELPOPR      F6WKCD
+     C                     Z-ADDWDATE     F6CODT
+     C                     Z-ADDHHMMSS    F6COTM
+      *
+      * APICS kanban
+     C                     MOVELD1BAR1    F6ABAR
+     C                     MOVELD1ZETI    F6ZETI
+     C                     MOVELD1LOT#    F6LOT#
+     C                     MOVELD1PAGE    F6PAGE
+      *
+     C                     MOVELD2PART    F6PART
+      *
+      * passthru kanban
+     C                     MOVELD2PTBC    F6PBAR
+     C                     MOVELD2ORD#    F6ORD#
+     C                     MOVELD2LOTN    F6LOTN
+      *
+     C                     WRITEALFPP601
+     C                     CLEARALFPP601
+     C                     CLEARD2PTBC
+      *
+      *
+     C                     ENDSR
+      *
+      *----------------------------------------------------*
+      * ERROR SCREEN - Display Error on Screen             *
+      *----------------------------------------------------*
+     C           #SB290    BEGSR
+      *
+     C                     WRITEALFPW098
+     C                     EXFMTALFPW099
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * Call Program to Lock Screen.                       *
+      *----------------------------------------------------*
+     C           #SB295    BEGSR
+      *
+     C* ERR CHECK  PASSWORD LOCK
+     C                     Z-ADD2         P1PGM
+     C                     MOVELD9ERR     P1ERR
+     C                     MOVELW#PGM     P1PID
+     C                     MOVELPOPR      P1KOME    P
+     C                     Z-ADD*ZERO     P1DTTM
+     C                     CALL 'AM#R09'
+     C                     PARM           P1PGM   20
+     C                     PARM           P1ERR  25
+     C                     PARM           P1PID  10
+     C                     PARM           P1KOME 10
+     C                     PARM           P1DTTM 140
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * ALFPP60 - Log Error...                             *
+      *----------------------------------------------------*
+     C           LOGERR    BEGSR
+      *
+      * error
+     C                     MOVE 'NG'      F6OKNG
+     C                     MOVELD9ERR     F6ERR
+      *
+     C                     EXSR #SB500
+      *
+     C                     ENDSR
+      *
+      *----------------------------------------------------*
+      * Save Kanban barcode with the last 32 scanned.      *
+      *----------------------------------------------------*
+     C           SAVKBN    BEGSR
+      *
+     C           IX        IFEQ 32
+     C                     Z-ADD1         IX      20
+     C                     ELSE
+     C                     ADD  1         IX
+     C                     ENDIF
+      *
+     C                     MOVELD1BAR     KBN,IX
+      *
+     C                     ENDSR
+      *
+      *----------------------------------------------------*
+**
+ INPUT APICS KANBAN
+ INVALID PART NUMBER
+ INPUT PASSTHRU KANBAN
+ WRONG KANBAN
+ UNMATCH PART NUMBER
+ CHECK DIGIT
+ ALREADY SCANNED

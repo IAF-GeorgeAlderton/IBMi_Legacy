@@ -1,0 +1,112 @@
+             PGM
+             /** FCDC87 ******************************/
+             /*品番別日報データから必要情報の抽出  */
+             /*       M-OKUDA      02.12.04          */
+             /****************************** FCDC87 **/
+             DCL        VAR(&US) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&TYPE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&MBAN) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&KOTAE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&DUS) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&FILE1) TYPE(*CHAR) LEN(5)
+             RTVJOBA    JOB(&WSID) USER(&US)
+             CHGVAR     VAR(&FILE1) VALUE(%SUBSTRING(&US 1 5))
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+
+             CHKOBJ     OBJ(FCDACT87) OBJTYPE(*DTAARA)
+             MONMSG     MSGID(CPF9801) EXEC(GOTO CMDLBL(STEP04))
+             RTVDTAARA  DTAARA(FILELIB/FCDACT87 (1 10)) RTNVAR(&DUS)
+             IF         (&US *EQ &DUS) DO
+             DLTDTAARA  DTAARA(FILELIB/FCDACT87)
+             MONMSG     MSGID(CPF2105 CPF9999)
+             GOTO STEP04
+             ENDDO
+ STEP05:     SNDPGMMSG  MSG('( G ) このメニューが別の作業者 ' *CAT +
+                          &DUS *CAT '  +
+                          がＦＣＤＣ８７を処理中なのでしばらく程待+
+                          って下さい。') TOMSGQ(&WSID) +
+                          MSGTYPE(*INQ) KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTAE)
+             IF         (&KOTAE *EQ 'G') GOTO END
+             IF         (&US *EQ 'D6002     ') DO
+             IF         (&KOTAE *EQ 'D') GOTO STEP99
+             ENDDO
+             GOTO       STEP05
+
+ STEP04:     CRTDTAARA  DTAARA(FILELIB/FCDACT87) TYPE(*CHAR) LEN(10) +
+                          VALUE(&US) +
+                          TEXT('品番別日報データからＰＣ転送データ+
+                          作成処理')
+             /* 品番別日報データ選択後のデータ作成*/
+             CLRPFM     FILE(FCDPP87)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CHGJOB     SWS(00000000)
+
+             CALL       PGM(FCDR87)
+             IF         (%SWITCH(1XXXXXXX)) GOTO STEP99
+             IF         (%SWITCH(X1XXXXXX)) GOTO STEP00
+             GOTO STEP01
+ STEP00:     SNDPGMMSG  MSG('( G ) +
+                          指定された条件に合致したデータは１件も有+
+                          りませんでした。Ｇを選択すると終了します+
+                          。') TOMSGQ(&WSID) MSGTYPE(*INQ) +
+                          KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTAE)
+             IF         (&KOTAE = 'G') GOTO STEP99
+             GOTO       STEP00
+
+             /* ＤＤＳのフィールド選択ＳＯＵＲＣＥの作成 */
+ STEP01:     OVRDBF     FILE(INPUT) TOFILE(FILELIB/PCSOURCE) +
+                          MBR(FCDPP88) POSITION(*START)
+             CLRPFM     FILE(FILELIB/FCDPP88) MBR(FCDPP88)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             OVRDBF     FILE(OUTPUT) TOFILE(FILELIB/FCDPP88) +
+                          MBR(FCDPP88) POSITION(*START)
+             CALL       PGM(FCDR88)
+             IF         (%SWITCH(X1XXXXXX)) GOTO STEP99
+             DLTOVR     FILE(INPUT)
+             DLTOVR     FILE(OUTPUT)
+             /* 選択フィールドのみでＰＦの作成 */
+             DLTF       FILE(&FILE1)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(WORKLIB/&FILE1) +
+                          SRCFILE(FILELIB/FCDPP88) SRCMBR(FCDPP88) +
+                          TEXT('パソコン取込みデータ') +
+                          OPTION(*NOSOURCE *NOLIST) SIZE(30000 +
+                          10000) LVLCHK(*NO)
+             /* 選択フィールドのみの複写 */
+             CPYF       FROMFILE(FILELIB/FCDPP87) +
+                          TOFILE(WORKLIB/&FILE1) MBROPT(*ADD) +
+                          CRTFILE(*NO) FMTOPT(*DROP *MAP)
+
+ STEP02:     SNDPGMMSG  MSG('ＰＣのＥｘｃｅｌ用、品番別日報データ' +
+                          *CAT &US *CAT +
+                          'がＷＯＲＫＬＩＢに作成されました。ＰＣ+
+                          へ自動転送しますか？、自分で転送操作をし+
+                          ますか？。自動の選択＜ＰＣに転送要求の設定+
+                          　ＰＣ転送．ＴＴＯ　+
+                          が登録されている場合のみ可能＞はＡ、手動+
+                          の選択はＨで応答しなさい') +
+                          TOMSGQ(&WSID) MSGTYPE(*INQ) KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTAE)
+             IF         (&KOTAE = 'H') GOTO STEP03
+             IF         (&KOTAE = 'A') GOTO STEP06
+             GOTO       STEP02
+ STEP03:     DSPDBM     FILE(WORKLIB/&FILE1)
+ STEP99:     DLTDTAARA  DTAARA(FILELIB/FCDACT87)
+             MONMSG     MSGID(CPF2105 CPF9999)
+             GOTO       END
+ STEP06:     STRPCO     PCTA(*NO)
+             MONMSG     MSGID(CPF0000)
+             STRPCCMD   PCCMD('"C:$PROGRAM FILES$PERSONAL +
+                          COMMUNICATIONS$PCSFT5.EXE" +
+                          C:$AS400$TTO$ＰＣ転送.TTO') PAUSE(*NO)
+             DLTDTAARA  DTAARA(FILELIB/FCDACT87)
+             MONMSG     MSGID(CPF2105 CPF9999)
+ END:        ENDPGM

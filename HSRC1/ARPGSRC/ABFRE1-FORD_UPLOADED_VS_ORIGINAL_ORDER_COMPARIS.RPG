@@ -1,0 +1,369 @@
+     H            Y.
+     F** ABFRE1  ************************************************
+     F*  FORD UPLOADED VS ORIGINAL ORDER COMPARISON REPORT      *
+     F*  JW   2022.07.06                                        *
+     F* -------------------------------------
+JW1  F*  JW   2022.12.22 FIX BUG (CROSS YEAR ISSUE)
+JW2  F*  JW   2023.02.22 GET LATEST TIME
+JW3  F*  JW   2025.01.14 ADD BIN# IN ABFWPE1
+     F***********************************************************
+     FABF3L02 IF  E           K        DISK
+     FAB#PLF1DIF  E           K        DISK
+JW2  FAB#PL2W IF  E           K        DISK
+     FABFWPE1 UF  E           K        DISK                      A
+JW   F**ABFAP04 IF  E           K        DISK
+      ****************************************************
+     E                    STS     1   5 22
+      ****************************************************
+     I            DS
+     I                                        1  20 SVMHIN
+     I                                        1   5 SVMHN1
+     I                                        6  10 SVMHN2
+     I                                       11  15 SVMHN3
+     I                                       16  20 SVMHN4
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      ****************************************************
+      * MAIN ROUTINE
+      ****************************************************
+     C                     EXSR #INIT
+      * READ ABF3P01 ------------------
+     C                     EXSR #3P01
+      *
+      * READ AB#PPF1  -----------------
+     C                     EXSR #PPF1
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  READ ABF3P01                                      *
+      *----------------------------------------------------*
+     C           #3P01     BEGSR
+      *
+     C           @NOHZ     SETLLABF3L02
+     C                     DO   *HIVAL
+     C           @NOHZ     READEABF3L02                  98
+     C   98                LEAVE
+      * IGNORE
+     C           AFDLDT    IFNE @NOHZ
+     C                     ITER
+     C                     ENDIF
+JW2   * IGNORE
+     C           @LAST     IFNE 0
+     C           @LAST     ANDNEF3PRTM
+     C                     ITER
+     C                     ENDIF
+      * OUTPUT
+     C                     EXSR #OUT1
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  OUTPUT ABFWPE1                                    *
+      *----------------------------------------------------*
+     C           #OUT1     BEGSR
+      *
+     C                     CLEARABFWPE11
+     C                     Z-ADDF3PRHZ    E1PRHZ
+     C                     Z-ADDF3PRTM    E1PRTM
+     C                     MOVELAFSTID    E1STID
+     C                     MOVELAFDOCK    E1DOCK
+     C                     MOVELAFPOR#    E1POR#
+     C                     MOVELXNONY     E1NONY
+     C                     MOVELWMHIN     E1MHIN
+     C                     MOVELXSURY     E1QTY
+     C                     Z-ADDWNYMD     E1NOHZ
+     C                     MOVELAFICCD    E1ICCD
+     C                     MOVELSTS,4     E1STS
+     C                     Z-ADD@PDAT     F1PDAT
+JW3  C                     MOVELXBIN      E1XBIN
+      *
+     C                     WRITEABFWPE11
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  READ AB#PPF1                                      *
+      *----------------------------------------------------*
+     C           #PPF1     BEGSR
+      *
+     C           @NOHZ     SETLLAB#PLF1D
+     C                     DO   *HIVAL
+     C           @NOHZ     READEAB#PLF1D                 97
+     C   97                LEAVE
+      * IGNORE
+     C           F5SIDT    IFGT @PDAT
+     C**         F5QTY     OREQ 0
+     C                     ITER
+     C                     ENDIF
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELF5STID    SVSTID
+     C                     MOVELF5PART    SVPART
+     C                     ENDIF
+      * BREAK?
+     C           F5STID    IFNE SVSTID                     PLANT
+     C           F5PART    ORNE SVPART                     PART#
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * PROCESS
+     C                     Z-ADDF5DATE    SVDATE
+     C                     Z-ADDF5TIME    SVTIME
+     C                     MOVELF5NUKE    SVNUKE
+     C                     MOVELF5STFC    SVSTFC
+     C                     MOVELF5SIDT    SVSIDT
+     C                     Z-ADDF5QTY     SVQTY
+     C                     MOVELF5NONY    SVNONY
+     C                     MOVELF5MHN1    SVMHN1
+     C                     MOVELF5MHN2    SVMHN2
+     C                     MOVELF5MHN3    SVMHN3
+     C                     Z-ADDF5QTY     SVQTY
+     C                     Z-ADDF5QTY2    SVQTY2           **
+     C                     MOVELF5POR#    SVPOR#
+     C                     MOVELF5IPAR    SVIPAR
+     C                     Z-ADDF5NOHZ    SVNOHZ
+      *
+     C                     ENDDO
+      * LAST BREAK?
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C***********************************************************
+     C* BREAK
+     C***********************************************************
+     C           #BRK1     BEGSR
+      *
+     C           SVQTY     IFGT 10
+     C                     EXSR #CHK1
+      * FULL BOX QTY
+     C           @QPC      IFGE 10
+     C           @SB1      DIV  @QPC      @SHO    80
+     C                     MVR            @REM   104
+     C           @REM      IFGT 1
+     C                     ADD  1         @SHO
+     C                     ENDIF
+     C           @SHO      MULT @QPC      @SB2    70
+     C                     ELSE
+     C                     Z-ADD@SB1      @SB2
+     C                     ENDIF
+      *
+     C           @SB1      IFGE 10
+     C           @QPC      ANDGE10
+     C                     EXSR #UPD1
+     C**                   MOVE *ON       PFLG
+     C                     ENDIF
+      *
+     C                     ENDIF
+      * RESET
+     C                     MOVELF5STID    SVSTID           PLANT
+     C                     MOVELF5PART    SVPART           PART#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  CHECK YTD QTY                                     *
+      *----------------------------------------------------*
+     C           #CHK1     BEGSR
+      *
+     C**                   MOVELYDATE     $END
+JW1  C                     MOVEL@PDAT     $END
+      * GET IAF YTD QTY
+     C                     MOVELSVNONY    $NONY   4
+     C                     MOVELSVMHIN    $MHIN  20
+     C                     CALL 'UEXR41B'
+     C                     PARM           $END    8
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $YTDQ   9
+     C                     MOVEL$YTDQ     NUM9    90
+     C                     Z-ADDNUM9      @YTDQ   80
+     C           SVQTY2    SUB  @YTDQ     @SB1    70
+JW    * ADJUST @SB1
+ .   C**                   MOVEL$END      K4ADYY
+ .   C**                   MOVELSVSTID    K4PLNT
+ .   C**                   MOVEL$MHIN     K4MHIN
+ .   C**         K#04      CHAINABFAP04              95
+ .   C**         *IN95     IFEQ *OFF
+ .   C**                   ADD  C4ADQT    @SB1
+JW   C**                   ENDIF
+      * GET QPC
+     C                     MOVE '5149'    $TOKU   4
+     C                     MOVELSVNONY    $NONY
+     C                     MOVELSVMHIN    $MHIN
+     C                     MOVE 'USR'     $HTYP
+     C                     MOVELTODAY     $DATE
+     C                     CALL 'UTLR35'
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $HTYP   3
+     C                     PARM           $DATE   8
+     C                     PARM           $SYOS   6
+     C                     PARM           $RTN2   1
+     C                     MOVEL$SYOS     @QPC    60
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  UPDATE ABFWPE1                                    *
+      *----------------------------------------------------*
+     C           #UPD1     BEGSR
+      * YESTERDAY
+     C                     MOVELSVNOHZ    $DT8
+     C                     MOVE '-'       $SIGN
+     C                     MOVEL'0001'    $DAYS
+     C                     MOVE 'N'       $IAF
+     C                     CALL 'UTLR10'
+     C                     PARM           $DT8    8
+     C                     PARM           $SIGN   1
+     C                     PARM           $DAYS   4
+     C                     PARM           $IAF    1
+     C                     PARM           $TGT8   8
+     C                     PARM           $RTN1   1
+     C                     MOVEL$TGT8     YDATE   80
+      * ADJ QTY BY IAF YTD QTY
+     C**                   MOVELYDATE     $END
+JW1  C                     MOVEL@PDAT     $END
+     C                     MOVELSVNONY    $NONY
+     C                     MOVELSVIPAR    $MHIN
+     C                     CALL 'UEXR41B'
+     C                     PARM           $END    8
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $YTDQ   9
+     C                     MOVEL$YTDQ     NUM9    90
+     C                     Z-ADDNUM9      @YTDQ   80
+     C           SVQTY2    SUB  @YTDQ     @SB1    70       SHOULD BE
+JW    * ADJUST @SB1
+ .   C**                   MOVEL$END      K4ADYY
+ .   C**                   MOVELSVSTID    K4PLNT
+ .   C**                   MOVEL$MHIN     K4MHIN
+ .   C**         K#04      CHAINABFAP04              95
+ .   C**         *IN95     IFEQ *OFF
+ .   C**                   ADD  C4ADQT    @SB1
+JW   C**                   ENDIF
+      *
+     C           @SB1      IFLE 0
+     C                     GOTO XUPD1
+     C                     ENDIF
+      *
+     C                     MOVELSVSTID    K1STID
+     C                     MOVELSVNUKE    K1DOCK
+     C           SVNUKE    IFEQ *BLANK
+     C                     MOVEL'00  '    K1DOCK
+     C                     ENDIF
+     C                     Z-ADDSVNOHZ    K1NOHZ
+     C                     MOVELSVIPAR    K1MHIN
+     C           K#WPE1    CHAINABFWPE1              99
+      *
+     C           *IN99     IFEQ *ON
+     C                     CLEARABFWPE11
+     C                     Z-ADDSVDATE    F1PRHZ
+     C                     Z-ADDSVTIME    F1PRTM
+     C                     MOVELSVSTID    F1STID
+     C                     MOVELSVNUKE    F1DOCK
+     C                     MOVELSVPOR#    F1POR#
+     C                     MOVELSVNONY    F1NONY
+     C                     MOVELSVIPAR    F1MHIN
+     C                     MOVEL@SB1      F1QTY            SHOULD BE
+     C                     Z-ADDSVNOHZ    F1NOHZ
+     C                     MOVELSVSTFC    F1ICCD
+     C                     MOVELSTS,1     E1STS
+     C                     Z-ADD@PDAT     F1PDAT
+     C                     WRITEABFWPE11
+     C                     GOTO XUPD1
+     C                     ENDIF
+      * UPDATE
+     C                     Z-ADDSVDATE    F1PRHZ
+     C                     Z-ADDSVTIME    F1PRTM
+     C                     MOVELSVSTID    F1STID
+     C                     MOVELSVNUKE    F1DOCK
+     C                     MOVELSVPOR#    F1POR#
+     C                     MOVELSVNONY    F1NONY
+     C                     MOVELSVIPAR    F1MHIN
+     C                     MOVEL@SB1      F1QTY            SHOULD BE
+     C                     Z-ADDSVNOHZ    F1NOHZ
+     C                     MOVELSVSTFC    F1ICCD
+      * STATUS
+     C                     SELEC
+     C           E1QTY     WHEQ F1QTY
+     C                     MOVELSTS,2     E1STS
+     C           E1QTY     WHNE F1QTY
+     C                     MOVELSTS,3     E1STS
+     C                     ENDSL
+      *
+     C                     UPDATABFWPE11
+      *
+     C           XUPD1     ENDSR
+      *--------------------------------------------------
+      * INITIALIZE
+      *--------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $NOHZ   8        SHIP DATE
+     C                     PARM           $PDAT   8        PROCESS DATE
+      *
+     C           K#WPE1    KLIST
+     C                     KFLD           K1STID  5
+     C                     KFLD           K1DOCK  4
+     C                     KFLD           K1NOHZ  80
+     C                     KFLD           K1MHIN 20
+      *
+     C           K#04      KLIST
+     C                     KFLD           K4ADYY  40
+     C                     KFLD           K4PLNT  5
+     C                     KFLD           K4MHIN 15
+      *
+JW2  C           K#2W      KLIST
+     C                     KFLD           K2NOHZ  80
+     C                     KFLD           K2CTHZ  80
+      *
+     C                     TIME           SDATE
+     C                     MOVEL$NOHZ     @NOHZ   80
+     C                     MOVEL$PDAT     @PDAT   80
+     C                     MOVE 'Y'       FIRST   1
+      *
+     C           $PDAT     IFEQ *BLANK
+     C           $PDAT     OREQ *ZEROS
+     C                     Z-ADDTODAY     @PDAT
+     C                     ENDIF
+      *
+JW2   * GET LATEST TIME (AVOID DUPLICATE DATA)
+     C                     Z-ADD0         @LAST   60
+     C                     MOVEL$NOHZ     K2NOHZ
+     C                     MOVEL$PDAT     K2CTHZ
+     C           K#2W      SETLLAB#PL2W
+     C                     DO   *HIVAL
+     C           K#2W      READEAB#PL2W                  99
+     C   99                LEAVE
+     C                     Z-ADDP2CRTM    @LAST
+JW2  C                     ENDDO
+      *
+     C           *LIKE     DEFN F5DATE    SVDATE
+     C           *LIKE     DEFN F5TIME    SVTIME
+     C           *LIKE     DEFN F5STID    SVSTID
+     C           *LIKE     DEFN F5NUKE    SVNUKE
+     C           *LIKE     DEFN F5PART    SVPART
+     C           *LIKE     DEFN F5SIDT    SVSIDT
+     C           *LIKE     DEFN F5NONY    SVNONY
+     C           *LIKE     DEFN F5STFC    SVSTFC
+     C           *LIKE     DEFN F5QTY2    SVQTY2
+     C           *LIKE     DEFN F5POR#    SVPOR#
+     C           *LIKE     DEFN F5IPAR    SVIPAR
+     C           *LIKE     DEFN F5NOHZ    SVNOHZ
+     C           *LIKE     DEFN F5QTY     SVQTY
+      *
+     C                     ENDSR
+** STS (22A) ......2..
+MISSING                 01
+OK                      02
+QTY SHOULD CHG TO --->  03
+OK(FOR FUTURE)          04
+                        05

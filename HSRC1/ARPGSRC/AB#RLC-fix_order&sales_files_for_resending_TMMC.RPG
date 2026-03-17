@@ -1,0 +1,237 @@
+     H            Y/
+     FAB#PWLC CF  E                    WORKSTN
+     FAB#PL10AUF  E           K        DISK
+     FAB#PL0E UF  E           K        DISK
+     FAB#PL75DIF  E           K        DISK
+      *
+     E                    CMD     1   2 78
+     E                    ERR     1   5 78
+      *
+     I            DS
+     I                                        1   80W@DATE
+     I                                        1   40K@YY
+     I                                        5   60K@MM
+     I                                        7   80K@DD
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *
+     C           PL10A     KLIST
+     C                     KFLD           D@ODRN
+     C                     KFLD           D@MHN
+     C                     KFLD           D@NONY
+      *
+     C           PL0E      KLIST
+     C                     KFLD           BANONY
+     C                     KFLD           BANOYY
+     C                     KFLD           BANOMM
+     C                     KFLD           BANODD
+     C                     KFLD           BAMHN1
+     C                     KFLD           BAMHN2
+     C                     KFLD           BAMHN3
+     C                     KFLD           BAMHN4
+      *
+     C           PL75D     KLIST
+     C                     KFLD           BANONY
+     C                     KFLD           BANUKE
+     C                     KFLD           BAODRN
+     C                     KFLD           BANOYY
+     C                     KFLD           BANOMM
+     C                     KFLD           BANODD
+      *
+     C                     MOVE '01'      @@ID    2
+     C                     Z-ADD3503      D@NONY
+      *
+     C           @@ID      DOUEQ'99'
+     C           @@ID      CASEQ'01'      #SCRN1
+     C           @@ID      CASEQ'02'      #SCRN2
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *--------------------------------------------------
+     C           #SCRN1    BEGSR
+      *
+     C                     MOVE CMD,1     #CMD
+     C                     WRITEDSP99
+     C                     EXFMTDSP01
+      *
+     C           *INKC     IFEQ *ON
+     C                     MOVE '99'      @@ID
+     C                     ELSE
+     C                     EXSR #CHK1
+     C           *IN99     IFEQ *OFF
+     C                     MOVE '02'      @@ID
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *--------------------------------------------------
+     C           #CHK1     BEGSR
+      *
+     C                     SETOF                     99
+     C                     MOVE *BLANK    #MSG
+      *
+      * check order file to verify it exists...
+     C           PL10A     SETLLAB#PL10A
+     C           PL10A     READEAB#PL10A            N    50
+      *
+     C           *IN50     DOWEQ*OFF
+     C           BASKJY    IFEQ *BLANK
+     C           BANUKE    ANDEQD@NUKE
+     C                     MOVE BASKJY    D@SKJY
+     C                     Z-ADDBASRYO    D@SRYO
+     C                     Z-ADDBATANK    D@TANK
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           PL10A     READEAB#PL10A            N    50
+     C                     ENDDO
+      *
+     C           *IN50     IFEQ *ON
+     C                     SETON                     99
+     C                     MOVELERR,1     #MSG
+     C                     ENDIF
+      *
+     C           *IN99     IFEQ *OFF
+      *
+      * check sales file to verify it exists...
+     C           PL0E      SETLLAB#PL0E
+     C           PL0E      READEAB#PL0E             N    50
+      *
+     C           *IN50     DOWEQ*OFF
+     C           B1SKJY    IFEQ *BLANK
+     C           B1ODR1    ANDEQD@ODRN
+     C           B1NUKE    ANDEQD@NUKE
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           PL0E      READEAB#PL0E             N    50
+     C                     ENDDO
+      *
+     C           *IN50     IFEQ *ON
+     C                     SETON                     99
+     C                     MOVELERR,2     #MSG
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *--------------------------------------------------
+     C           #SCRN2    BEGSR
+      *
+     C                     MOVE CMD,2     #CMD
+     C                     WRITEDSP99
+     C                     EXFMTDSP02
+      *
+     C                     SELEC
+     C           *INKC     WHEQ *ON
+     C                     MOVE '99'      @@ID
+     C           *INKL     WHEQ *ON
+     C                     MOVE '01'      @@ID
+     C                     OTHER
+     C                     EXSR #CHK2
+     C           *IN99     IFEQ *OFF
+     C                     EXSR #UPD
+     C                     EXSR #SCRN3
+     C                     MOVE '01'      @@ID
+     C                     ENDIF
+      *
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *---------------------------------------------------
+     C           #CHK2     BEGSR
+      *
+     C                     SETOF                     99
+     C                     MOVE *BLANK    #MSG
+      *
+     C                     DO
+      *
+     C           D@SKJY    IFNE *BLANK
+     C           D@SKJY    ANDNE'D'
+     C                     SETON                     99
+     C                     MOVELERR,3     #MSG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           D@SRYO    IFEQ *ZERO
+     C                     SETON                     99
+     C                     MOVELERR,4     #MSG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           D@TANK    IFEQ *ZERO
+     C                     SETON                     99
+     C                     MOVELERR,5     #MSG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *--------------------------------------------------
+     C           #UPD      BEGSR
+      *
+      * update order file...
+     C           PL10A     SETLLAB#PL10A
+     C           PL10A     READEAB#PL10A                 50
+      *
+     C           *IN50     DOWEQ*OFF
+      *
+     C           BASKJY    IFEQ *BLANK
+     C           BANUKE    ANDEQD@NUKE
+     C                     MOVE D@SKJY    BASKJY
+     C                     Z-ADDD@SRYO    BASRYO
+     C                     Z-ADDD@TANK    BATANK
+     C                     UPDATAB#PL1A1
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           PL10A     READEAB#PL10A                 50
+     C                     ENDDO
+      *
+      *
+      * update sales file...
+     C           PL0E      SETLLAB#PL0E
+     C           PL0E      READEAB#PL0E                  50
+      *
+     C           *IN50     DOWEQ*OFF
+      *
+     C           B1SKJY    IFEQ *BLANK
+     C           B1ODR1    ANDEQD@ODRN
+     C           B1NUKE    ANDEQD@NUKE
+     C                     MOVE D@SKJY    B1SKJY
+     C                     Z-ADDD@SRYO    B1SRYO
+     C                     Z-ADDD@TANK    B1TANK
+     C                     UPDATAB#PP011
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           PL0E      READEAB#PL0E                  50
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *--------------------------------------------------
+     C           #SCRN3    BEGSR
+      *
+     C           PL75D     CHAINAB#PL75D             51
+     C           *IN51     IFEQ *OFF
+     C                     Z-ADDBANOHZ    D@NOHZ
+     C                     MOVELPUSERL    D@SERL
+     C                     EXFMTDSP03
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *--------------------------------------------------
+** CMD
+   F3:END
+   F3:END     F12:GO BACK
+** ERR
+  NO DATA FOUND IN AB#PP10 ORDER FILE
+  NO DATA FOUND IN AB#PP01 SALES FILE
+  INVALID DELETE CODE, ENTER D OR LEAVE BLANK
+  INVALID QUANTITY, CANNOT BE ZERO
+  INVALID PRICE, CANNOT BE ZERO

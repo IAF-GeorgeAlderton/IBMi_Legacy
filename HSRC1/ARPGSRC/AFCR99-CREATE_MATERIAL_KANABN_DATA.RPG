@@ -1,0 +1,435 @@
+     H            Y.
+     F** AFCR99 *************************************************************
+     F*  CREATE MATERIAL KANABN DATA                                        *
+     F*                                                                     *
+     F*  TCH(N.HYOTO) 2001.04.16                                            *
+     F*                                                                     *
+     F*  ADD TOTLA KANBAN  2001.08.14                                       *
+     F*                                                                     *
+     F* 03/09/2004                                                          *
+     F*  ASJ KANBAN -> TOTAL # = INPUT NUMBER                               *
+     F*                                                                     *
+     F* TCHK1 01/01/08 CHG 0002 TO 8990                                     *
+     F*                                                                     *
+     F*  *IN87=1(COMPLETE CREATE DATA)                                      *
+     F*  *IN89=0(NO MARKED OPTION FOR CHECK)                                *
+     F*  *IN90=1(NOT READ IZAPL01,CREATE KANBAN DATA)                       *
+     F*  *IN91=1(NOT READ MBEPL02)                                          *
+     F*  *IN92=1(NOT READ IZAPL10)                                          *
+     F*  *IN93=1(NOT READ IZAPL01)                                          *
+     F*  *IN94=1(NOT READ SUB FILE)                                         *
+     F*  *IN95=1(NOT READ FGBPL01)                                          *
+     F****************************************** AFCR99 *********************
+     FAFCPW99 CF  E                    WORKSTN
+     F                                        RRN   KSFILE SFL01
+     FFGBPL01 IF  E           K        DISK
+     FIZAPL01 IF  E           K        DISK
+     FIZAPL10 IF  E           K        DISK
+     FMBEPL02 IF  E           K        DISK
+     FAFAWP99 O   E           K        DISK
+     E*****************************************************************
+     E                    ER      1   4 60
+     E                    NM      1   1 15               KANBAN NAME
+     E                    AR1         6  1               KANBAN NAME
+     I*****************************************************************
+     I* SYSTEM DATE(8DIGITS)
+     I            DS
+     I                                        1   80WSDATE
+     I                                        1   40WSYYYY
+     I                                        5   60WSMMMM
+     I                                        7   80WSDDDD
+     I* DELETED DATE(IZAPL10)
+     I            DS
+     I                                        1   80ZBSKHZ
+     I                                        1   40ZBSKYY
+     I                                        5   60ZBSKMM
+     I                                        7   80ZBSKDD
+     I            DS
+     I                                        1   5 W@5
+     I                                        1   3 W@51
+     I                                        4   5 W@52
+     C***********************************************************************
+     C* PARM                                                                *
+     C***********************************************************************
+     C           *ENTRY    PLIST
+     C                     PARM           US     10
+     C***********************************************************************
+     C* KEY1                                                                *
+     C***********************************************************************
+     C* IZAPL01(CREATE SFL)
+     C           KEY1      KLIST
+     C                     KFLD           PZAIS  15
+     C                     KFLD           PZAIK   52
+      *
+     C* IZAPL01(CREATE KANBAN DATA)
+     C           KEY2      KLIST
+     C                     KFLD           KZAIS  15
+     C                     KFLD           KZAIK   52
+     C                     KFLD           KKOJE   40
+     C                     KFLD           KKAKE   40
+     C*                    KFLD           KUKYY   40
+     C*                    KFLD           KUKMM   20
+     C*                    KFLD           KUKDD   20
+     C*                    KFLD           KUBIN   20
+     C* IZAPL10
+     C           KEYZB1    KLIST
+     C                     KFLD           #BZAIS 15
+     C                     KFLD           #BZAIK  52
+     C                     KFLD           #BKOJE  40
+     C                     KFLD           #BKAKE  40
+     C* MBEPL02
+     C           KEYF21    KLIST
+     C                     KFLD           #KSHN1  5
+     C                     KFLD           #KSHN2  5
+     C                     KFLD           #KSHN3  2
+     C***********************************************************
+     C*
+     C                     EXSR @INZ
+     C                     EXSR @MAIN
+     C                     EXSR @END
+     C***********************************************************
+     C* @INZ:INITIALIZE WORK AREA
+     C***********************************************************
+     C           @INZ      BEGSR
+     C*
+     C                     Z-ADD*DATE     WSDATE  80
+     C                     MOVE '1'       WKDSP   1
+     C                     MOVE *ALL'0'   WKBLAK 10
+     C                     Z-ADD*ZERO     W1RRN   40
+     C                     Z-ADD*ZERO     W#KAN   30
+     C                     Z-ADD*ZERO     I       30
+     C*
+     C                     MOVE *BLANK    PZAIS
+     C                     MOVE *ZERO     PZAIK
+     C*
+     C                     SETON                     72
+     C                     WRITECTL01
+     C                     SETOF                     72
+     C*
+     C                     ENDSR
+     C***********************************************************
+     C* @MAIN:CONTROL DISPLAY
+     C***********************************************************
+     C           @MAIN     BEGSR
+     C*
+B01  C           *INKC     DOWEQ'0'
+     C*
+     C           WKDSP     IFEQ '1'
+     C                     EXFMTAFCPW992
+     C*
+     C                     ELSE
+     C                     WRITEAFCPW991
+     C                     SETON                     70
+     C                     EXFMTCTL01
+     C                     SETOF                     70
+     C                     END
+     C* CLEAR MSG
+     C                     MOVEAWKBLAK    *IN,30
+     C                     SETOF                     87
+     C*
+B02  C           *INKC     IFEQ '1'
+     C*
+     C                     ELSE
+B03  C           *INKE     IFEQ '1'
+     C*
+     C                     EXSR @CHK2
+     C* CHECK OK?
+     C           *IN30     IFEQ '0'
+     C                     EXSR @WRT
+     C                     EXSR @CLRS
+     C                     END
+     C*
+     C                     ELSE
+B04  C           *INKL     IFEQ '1'
+     C                     EXSR @CLRS
+     C*
+     C                     ELSE
+     C           WKDSP     IFEQ '1'
+     C                     EXSR @SFL
+     C*
+     C                     ELSE
+     C                     EXSR @CHK2
+     C                     END
+     C*
+     C                     END
+     C                     END
+     C                     END
+     C*
+     C                     END
+     C*
+     C                     ENDSR
+     C***********************************************************
+     C* @CHK2:CHECK SFL
+     C***********************************************************
+     C           @CHK2     BEGSR
+     C*
+     C                     SETOF                     8961
+     C                     Z-ADD1         RRN
+     C                     DO   W1RRN
+     C           RRN       CHAINSFL01                94
+     C*
+     C* CHECK THE NUMBER OF KANBAN
+     C           *IN94     IFEQ '0'
+     C                     SETOF                     61
+     C           @#KAN     IFNE *ZERO
+     C                     SETON                     89
+     C                     END
+     C*
+     C           @#KAN     IFNE *ZERO
+     C           @BEGN     ANDEQ*ZERO
+     C                     SETON                     30
+     C                     MOVELER,3      MSG
+     C                     END
+     C*
+     C           @BEGN     IFNE *ZERO
+     C           @#KAN     ANDEQ*ZERO
+     C                     SETON                     30
+     C                     MOVELER,3      MSG
+     C                     END
+      *
+     C           @BEGN     IFGT @KMMX
+     C                     MOVELER,4      MSG
+     C                     MOVE *ON       *IN61
+     C                     SETON                     30
+     C                     ENDIF
+     C                     UPDATSFL01
+     C*
+     C                     END
+     C*
+     C                     ADD  1         RRN
+     C                     END
+     C*
+     C           *IN89     IFEQ '0'
+     C                     SETON                     30
+     C                     MOVELER,1      MSG
+     C                     END
+     C*
+     C                     Z-ADD1         RRN
+     C*
+     C                     ENDSR
+     C***********************************************************
+     C* @WRT :WRITE MATERIAL KANBAN DATA
+     C***********************************************************
+     C           @WRT      BEGSR
+     C*
+     C                     SETOF                     89
+     C                     Z-ADD1         RRN
+B01  C                     DO   W1RRN
+     C           RRN       CHAINSFL01                94
+     C*
+B02  C           *IN94     IFEQ '0'
+     C           @#KAN     ANDNE*ZERO
+     C*
+     C                     MOVE @ZAIS     KZAIS            WIRE
+     C                     Z-ADD@ZAIK     KZAIK            DIAMETER
+     C                     Z-ADD111       KKOJE            PLANT CD
+     C                     Z-ADD@KAKE     KKAKE            SUPPLIER CD
+     C*                    Z-ADD9999      KUKYY            EFFECTIVE YY
+     C*                    Z-ADD99        KUKMM            EFFECTIVE MM
+     C*                    Z-ADD99        KUKDD            EFFECTIVE DD
+     C*                    Z-ADD99        KUBIN            EFFECTIVE BIN
+     C           KEY2      SETGTIZAPL011
+     C           #IZA      TAG
+     C           KEY2      REDPEIZAPL011                 90
+B03  C           *IN90     IFEQ '0'
+     C*
+     C           ZCSTYY    IFNE 9999
+     C                     GOTO #IZA
+     C                     END
+     C*
+     C                     MOVE NM,1      ZRTYPE           KANBAN NAME
+     C*
+     C* RETRIEVAL LOCATION CODE
+     C           @KAKE     CHAINFGBPL01              95
+     C           *IN95     IFEQ '0'
+     C                     MOVELB2SMEI    ZRMAEK
+     C                     ELSE
+     C                     MOVE *BLANK    ZRMAEK           RETRIEVAL LOCATION
+     C                     END
+     C*
+     C                     MOVE ZCZAIS    ZRZAIS           MATERIAL
+     C*                    Z-ADDZCBZIK    ZRBZIK           ROD DIAMETER
+     C*******              Z-ADDZCZAIK    ZRZAIK           WIRE DIAMETR
+     C                     MOVE ZCZAIK    W@5
+     C           W@51      CAT  '.'       W@4     4
+     C           W@4       CAT  W@52      W@6     6
+     C                     MOVEAW@6       AR1
+     C           1         DO   2         B       20
+     C           AR1,B     IFEQ '0'
+     C           AR1,B     OREQ *BLANK
+     C                     MOVE *BLANK    AR1,B
+     C                     ELSE
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+     C                     MOVEAAR1       ZRZAIK
+      *
+     C*                    Z-ADDZCTKJR    ZRTKJR           ROD GROSS WEIGHT
+     C                     MOVEL'COIL'    ZRNISG           ROD FORM TYPE
+     C                     MOVE ZCTKJR    ZRTKJ2           WIRE GROSS WEIGHT
+     C                     MOVE 'CARRIER' ZRNIS2           WIRE FORM TYPE
+     C                     MOVEL'IAF  '   ZRKOJO           RECEIVING FACTORY
+     C                     MOVEL'02'      ZRNUKE           RECEIVING GATE #
+     C                     Z-ADDZCMSSU    ZRMSSU           DELIVERY CYCLE
+     C                     Z-ADDZCSLTM    ZRSLTM           PRODUCTION LEAD TIME
+     C                     MOVE ZCKIBN    ZRKIBN           DRAWING MACHINE
+     C                     MOVE ZCSNJ1    ZRSNJ1           DRAWING CONDITION 1
+     C                     MOVE ZCSNJ2    ZRSNJ2           DRAWING CONDITION 2
+     C                     MOVELZCZIRO    ZRZIRO           MATERIAL COLOR
+     C*****                MOVE           ZRDIEL           DIE LOCATION CODE
+     C                     Z-ADDWSDATE    ZRDATE           ISSUE DATE
+     C                     MOVE ZCKOSN    ZRKOSN           UPDATE QUALIFIER
+     C                     MOVE ZCKOJK    ZRKOJK           FACTORY CODE
+     C                     MOVE 'W'       ZRMATE           MATERIAL QUALIFIER
+     C                     MOVE ZCKNO3    ZRZETI           MATERIAL ABS. NO.
+     C                     MOVE ZCKNOE    ZRKNOE           MATERIAL BRANCH NO.
+     C                     MOVE ZCADR1    ZRADR1           FORWARDING LOCATION1
+     C                     MOVE ZCADR2    ZRADR2           FORWARDING LOCATION2
+     C                     MOVE ZCADR3    ZRADR3           FORWARDING LOCATION3
+     C                     MOVE ZCADR4    ZRADR4           FORWARDING LOCATION4
+TCHK1C*          ZCKAKE    IFNE 0002
+TCHK1C           ZCKAKE    IFNE 8990
+     C                     Z-ADDZCKMMX    ZRTOTL
+     C                     ELSE
+     C                     Z-ADD@#KAN     ZRTOTL
+     C                     ENDIF
+     C*
+     C                     END
+     C*
+     C                     Z-ADD*ZERO     I
+B04  C                     DO   @#KAN     I
+     C           @BEGN     ADD  I         W#KAN
+     C                     SUB  1         W#KAN
+     C                     Z-ADDW#KAN     ZRNOKA           KANBAN NO.
+     C                     WRITEAFAWP991
+     C                     END
+E02  C                     END
+     C*
+     C                     ADD  1         RRN
+E01  C                     END
+     C*
+     C                     ENDSR
+     C***********************************************************
+     C* @SFL:CREATE SUB FILE
+     C***********************************************************
+     C           @SFL      BEGSR
+     C*
+     C                     Z-ADD*ZERO     RRN
+     C                     MOVE *OFF      *IN61
+     C*
+     C           KEY1      SETLLIZAPL011
+     C                     READ IZAPL011                 93
+B01  C           *IN93     DOWEQ'0'
+     C*
+     C* DELETED  ?
+     C           ZCSKJY    IFNE ' '
+     C                     GOTO #READ
+     C                     END
+     C*
+     C* LATEST RECORD ?
+     C           ZCSTYY    IFNE 9999
+     C                     GOTO #READ
+     C                     END
+     C*
+     C* SET DATA TO SUB FILE
+     C                     ADD  1         RRN
+     C           RRN       CHAINSFL01                94
+     C                     Z-ADD*ZERO     @#KAN
+     C*
+     C                     MOVE ZCZAIS    @ZAIS
+     C                     MOVE ZCZAIK    @ZAIK
+     C                     Z-ADDZCKAKE    @KAKE
+     C                     Z-ADDZCKOJE    @KOJE
+     C                     Z-ADDZCTKJR    @TKJR
+     C                     Z-ADDZCMSJR    @MSJR
+     C                     Z-ADDZCKMMX    @KMMX
+     C*
+     C* SUMMARY LAST MONTH ACTUAL SHIPPMENT
+     C                     MOVE @ZAIS     #BZAIS
+     C                     MOVE @ZAIK     #BZAIK
+     C                     Z-ADD@KAKE     #BKAKE
+     C                     Z-ADD@KOJE     #BKOJE
+     C                     Z-ADD0         WKGOKE  90
+     C*
+     C           KEYZB1    SETLLIZAPL101
+     C           KEYZB1    READEIZAPL101                 92
+B02  C           *IN92     DOWEQ'0'
+      *
+B03  C           ZBSKJY    IFEQ 'D'
+     C           ZBSKHZ    ANDLEWSDATE
+     C                     GOTO #READ1
+E03  C                     END
+      *
+B03  C           ZBSKJY    IFEQ 'D'
+     C           ZBSKHZ    ANDLEWSDATE
+     C                     GOTO #READ1
+E03  C                     END
+      *
+     C                     MOVE ZBSHN1    #KSHN1
+     C                     MOVE ZBSHN2    #KSHN2
+     C                     MOVE ZBSHN3    #KSHN3
+     C******************   Z-ADDZBSOZI    WKSOZI
+      *
+     C           KEYF21    SETLLMBEPL021
+     C           KEYF21    READEMBEPL021                 91
+B03  C           *IN91     DOWEQ'0'
+B04  C           F2SKJY    IFEQ ' '
+     C                     ADD  F2GOKE    WKGOKE
+E04  C                     END
+      *
+     C           KEYF21    READEMBEPL021                 91
+E03  C                     END
+      *
+     C           #READ1    TAG
+     C           KEYZB1    READEIZAPL101                 92
+E02  C                     END
+      *
+     C                     Z-ADDWKGOKE    @LACT
+      *
+     C   94                WRITESFL01
+     C  N94                UPDATSFL01
+     C*
+     C           #READ     TAG
+     C                     READ IZAPL011                 93
+E01  C                     END
+     C*
+B01  C           RRN       IFEQ *ZERO
+     C                     SETON                     30
+     C                     MOVELER,2      MSG
+     C*
+     C                     ELSE
+     C                     MOVE '2'       WKDSP
+     C                     Z-ADDRRN       W1RRN
+     C                     Z-ADD1         RRN
+     C                     END
+     C*
+     C                     ENDSR
+     C***********************************************************
+     C* @CLRS:CLEAR SUB FILE
+     C***********************************************************
+     C           @CLRS     BEGSR
+     C*
+     C                     SETON                     72
+     C                     WRITECTL01
+     C                     SETOF                     72
+     C*
+     C                     MOVE '1'       WKDSP
+     C*
+     C                     ENDSR
+     C***********************************************************
+     C* @END:
+     C***********************************************************
+     C           @END      BEGSR
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+     C*
+     C                     ENDSR
+     C***********************************************************
+** ER
+E-01 PLEASE ENTER THE NUMBER OF KANBAN AT LEAST 1 WIRE
+E-02 THERE IS NO DATA
+E-03 PLEASE ENTER BOTH THE NUMBER OF KANBAN AND START NUMBER
+E-04 NUMBER SHOULD NOT BE OVER MAX.
+** NAME
+  WIRE KANBAN

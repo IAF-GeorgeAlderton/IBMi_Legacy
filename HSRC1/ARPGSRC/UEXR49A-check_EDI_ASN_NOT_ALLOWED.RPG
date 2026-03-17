@@ -1,0 +1,292 @@
+     H            Y.
+     F** UEXR49A  **************************************************************
+     F*  PROGRAM    : CHECK EDI ASN ALLOW OR NOT                               *
+     F*  WRITTEN    : 2022.09.12                                               *
+     F*  WRITTEN BY : JW (SRA)                                                 *
+      **************************************************************************
+      *  CALLING SEQ.
+      *                    CALL 'UEXR49A'
+      *                    PARM           $PL#    9
+      *                    PARM           $STT    1
+      *   IN  $PL#    9A  PACKING LIST#
+      *   OUT $STT    1A  STATUS
+      *                   ' ' ALLOW ASN
+      *                   '1' ERROR BY PL#
+      *                   '2' ERROR BY DELIV#
+      *                   '3' ERROR BY ORDER#
+      *                   '*' NOT ASN CUSTOMER
+     F**************************************************************************
+     F**EDIPP10 IF  E           K        DISK
+JW   FAB#HP22 IF  E           K        DISK
+     FAB#PL76 IF  E           K        DISK
+     FAB#PL1A IF  E           K        DISK
+     FAB#EL4S4IF  E           K        DISK
+      *
+     I            DS
+     I                                        1   80PUNOHZ
+     I                                        1   40PUNOYY
+     I                                        5   60PUNOMM
+     I                                        7   80PUNODD
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+      * MAIN ROUTINE
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+      * CHECK PP75 --> 1: INVALID PL#
+     C           $PL#      CHAINAB#PL76              99
+     C           *IN99     IFEQ *ON
+     C           *IN99     OREQ *OFF
+     C           PUSKJY    ANDEQ'D'
+     C                     MOVE '1'       $STS
+     C                     GOTO PEND
+     C                     ENDIF
+      *
+      * CHECK NONY  --> 2: INVALID NONY
+     C           PUNONY    CHAINAB#HP22              99    CHK EDI CUSTOMER
+     C           *IN99     IFEQ *ON
+     C           *IN99     OREQ *OFF
+     C           S2SKJY    ANDEQ'D'
+     C                     MOVE '2'       $STS
+     C                     GOTO PEND
+     C                     ENDIF
+      *
+      * CHECK 3201 --> 2: INVALID NONY (NOT READY)
+     C           PUNONY    IFEQ 3201                       TOYO/BOSHOKU, TN
+     C                     MOVE '2'       $STS
+     C                     GOTO PEND
+     C                     ENDIF
+      *
+      * CHECK EDI ORDER OR NOT --> 2: INVALID NONY
+     C           PUNONY    IFEQ 0777                       AISIN DRIVETRAIN
+     C**TEMP     PUNONY    OREQ 0966                       AISIN USA
+     C           PUNONY    OREQ 0479                       AISIN TN
+     C********** PUNONY    OREQ 0987                       AISIN AMI INDIANA
+     C           PUNONY    OREQ 0567                       FUTABA INDIANA
+     C           PUNONY    OREQ 0579                       FUTABA ONTARIO
+     C           PUNONY    OREQ 0578                       FUTABA TEXAS
+     C********** PUNONY    OREQ 2320                       BOCAR
+     C                     EXSR #EDI2
+     C           *IN85     IFEQ *ON
+     C                     MOVE '2'       $STS
+     C                     GOTO PEND
+     C                     ENDIF
+     C                     ENDIF
+      *
+      * CHECK HONDA ORDER --> 3: INVALID ORDER#
+     C           PUCUST    IFEQ 0294
+     C           PUCUST    OREQ 0295
+     C           PUCUST    OREQ 0296
+     C           PUCUST    OREQ 0390
+     C           PUCUST    OREQ 0391
+     C           PUCUST    OREQ 0400
+     C           PUCUST    OREQ 1602
+     C           PUCUST    OREQ 3135
+     C           PUCUST    OREQ 0987                       AMI
+     C                     EXSR #HONDA
+     C           *IN85     IFEQ *ON
+     C                     MOVE '3'       $STS
+     C                     GOTO PEND
+     C                     ENDIF
+     C                     ENDIF
+      *
+      * DO NOT SEND ASN --> *: INVALID CUSTOMER
+     C           PUNONY    IFEQ 3503                       TMMC -> NO ASN
+     C           PUNONY    OREQ 3557                       TTC  -> NO ASN
+     C           PUNONY    OREQ 3560                       TTC  -> NO ASN
+     C           PUNONY    OREQ 3571                       TTAI -> NO ASN
+     C                     MOVE '*'       $STS
+     C                     GOTO PEND
+     C                     ENDIF
+      *
+     C           PEND      TAG
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *=========================================
+      * CHECK EDI ORDER
+      *=========================================
+     C           #EDI      BEGSR
+      * CHECK PP10 --> 2
+     C                     Z-ADDPUNOHZ    KANOHZ
+     C                     Z-ADDPUBINN    KANOBN
+     C                     Z-ADDPUNONY    KANONY
+     C                     MOVELPUNKOJ    KANKOJ
+     C                     MOVELPUNUKE    KANUKE
+     C                     Z-ADD0         EDICNT  30
+     C           K#PL1A    SETLLAB#PL1A
+     C                     DO   *HIVAL
+     C           K#PL1A    READEAB#PL1A                  98
+     C   98                LEAVE
+      *
+     C           PUODRN    IFNE *BLANK
+     C           PUODRN    ANDNEBAODRN
+     C           BASKJY    OREQ 'D'
+     C           BAEDIK    ORNE 'E'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ADD  1         EDICNT
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C           EDICNT    IFEQ 0
+     C                     MOVE *ON       *IN85
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *=========================================
+      * CHECK EDI EP40
+      *=========================================
+     C           #EDI2     BEGSR
+      * CHECK PP10 --> 2
+     C                     Z-ADDPUNOHZ    KANOHZ
+     C                     Z-ADDPUBINN    KANOBN
+     C                     Z-ADDPUNONY    KANONY
+     C                     MOVELPUNKOJ    KANKOJ
+     C                     MOVELPUNUKE    KANUKE
+     C                     Z-ADD0         NOTEDI  30
+     C           K#PL1A    SETLLAB#PL1A
+     C                     DO   *HIVAL
+     C           K#PL1A    READEAB#PL1A                  98  CHK PP10
+     C   98                LEAVE
+      *
+     C           PUODRN    IFNE *BLANK
+     C           PUODRN    ANDNEBAODRN
+     C           BASKJY    OREQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * EXCEPTION 1
+     C**         BANONY    IFEQ 0777
+     C**         BAINVN    ANDEQ'UEXR49A'
+     C**                   GOTO #SKP1
+     C**                   ENDIF
+      * EXCEPTION 2
+     C           BANONY    IFEQ 0579                       FIO OFTEN CHANGE PO#
+     C           BAEDIK    ANDEQ'E'                        SO CANNOT CHECK EP40
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C**         BAEDIK    IFEQ 'E'
+     C**                   ITER
+     C**                   ENDIF
+      * CHECK EP40
+     C           #SKP1     TAG
+     C                     EXSR #EP40
+      *
+     C           NOTEDI    IFGE 1                          NO EDI DATA EXIST
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C           NOTEDI    IFGE 1
+     C                     MOVE *ON       *IN85
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *=========================================
+      * CHECK ORDER#
+      *=========================================
+     C           #HONDA    BEGSR
+      * CHECK PP10 --> 3
+     C                     MOVE *OFF      *IN85
+     C                     Z-ADDPUNOHZ    KANOHZ
+     C                     Z-ADDPUBINN    KANOBN
+     C                     Z-ADDPUNONY    KANONY
+     C                     MOVELPUNKOJ    KANKOJ
+     C                     MOVELPUNUKE    KANUKE
+     C           K#PL1A    SETLLAB#PL1A
+     C                     DO   *HIVAL
+     C           K#PL1A    READEAB#PL1A                  98
+     C   98                LEAVE
+      *
+     C           PUODRN    IFNE *BLANK
+     C           PUODRN    ANDNEBAODRN
+     C           BASKJY    OREQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           BAODRN    IFEQ 'REPLACE'
+     C                     MOVE *ON       *IN85
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *=========================================
+      * CHECK EDI
+      *=========================================
+     C           #EP40     BEGSR
+      * CHECK BY BAINVN
+     C                     MOVELBANONY    KENONY
+     C                     MOVELBAINVN    KEMKDO
+     C                     MOVE *OFF      *IN97
+     C           K#EP40    SETLLAB#EL4S4
+     C                     DO   *HIVAL
+     C           K#EP40    READEAB#EL4S4                 97
+     C                     LEAVE
+     C                     ENDDO
+      * CHECK BY BAFLD2
+     C           *IN97     IFEQ *ON
+     C           BAFLD2    ANDNE*BLANK                      RAN#
+     C                     MOVELBANONY    KENONY
+     C                     MOVELBAFLD2    KEMKDO
+     C                     MOVE *OFF      *IN97
+     C           K#EP40    SETLLAB#EL4S4
+     C                     DO   *HIVAL
+     C           K#EP40    READEAB#EL4S4                 97
+     C                     LEAVE
+     C                     ENDDO
+     C                     ENDIF
+      * AISIN
+     C           *IN97     IFEQ *ON
+     C           BAINVN    ANDNE*BLANK                      RAN# = "A" + BAINVN
+     C                     MOVELBANONY    KENONY
+     C                     MOVE BAINVN    LTR17  17
+     C                     MOVEL'A'       LTR17
+     C                     MOVELLTR17     KEMKDO    P
+     C                     MOVE *OFF      *IN97
+     C           K#EP40    SETLLAB#EL4S4
+     C                     DO   *HIVAL
+     C           K#EP40    READEAB#EL4S4                 97
+     C                     LEAVE
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C           *IN97     IFEQ *ON
+     C                     ADD  1         NOTEDI
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *=========================================
+      * INITIAL SET
+      *=========================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $PL#    9        IN : PACKING#
+     C                     PARM           $STS    1        OUT: STATUS
+      *
+     C           K#PL1A    KLIST
+     C                     KFLD           KANOHZ  80
+     C                     KFLD           KANOBN  20
+     C                     KFLD           KANONY  40
+     C                     KFLD           KANKOJ  1
+     C                     KFLD           KANUKE  4
+      *
+     C           K#EP40    KLIST
+     C                     KFLD           KENONY  4
+     C                     KFLD           KEMKDO 20
+      *
+     C                     MOVE ' '       $STS
+     C                     TIME           SDATE
+     C                     MOVE *OFF      *IN85            CHK ERR FLG
+      *
+     C                     ENDSR

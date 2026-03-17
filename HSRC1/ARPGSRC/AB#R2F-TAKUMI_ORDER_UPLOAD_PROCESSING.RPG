@@ -1,0 +1,2154 @@
+     H            Y.
+     F** AB#R2F ***************************************************
+     F* TAKUMI ORDER UPLOAD PROCESSING
+     F*
+     F* TCHK1 10/29/09 RE-MAKE
+     F* TCHK2 12/16/09 BUG FIX
+     F* TCHK3 05/20/10 ADD TIEM
+     F* TCHK4 05/28/10 ADD TAKUMI CANADA
+     F* TCHK5 08/19/10 ADD ABI SEPARATE
+     F* TCHK6 10/28/11 CHG PMO DELI-DATE SHIP-DATE SAME
+     F* TCHK7 10/26/12 ADD ACZ
+     F* TCHK8 10/26/12 RMV AB#PP4A
+     F* TCHK9 08/14/13 CHG TAKUMI SAME DAY SHIP
+     F* TCHKA 11/12/13 ADD ARJ
+     F* TCHKB 07/25/14 ADD ADI
+     F* TCHKC 11/18/14 CHG ARJ DATE
+JW1  F* JW    12/15/16 SET BIN#=01 FOR 0753(TIEM)
+JW2  F* JW    02/16/17 ADD 5672 AS OF OHASHI
+JW3  F* JW    02/28/17 CHG DUE DATE CALCULATION FOR ARJ
+JW4  F* JW    04/19/17 CHG BIN#=01 FOR OHASHI
+JW5  F* JW    02/01/18 CHG LEAD TIME (2 DAY --> 1 DAY) FOR 0556
+JW5  F*                CHG BIN# FOR 0556/0579
+JW6  F* JW    05/25/18 CHG SHIP DATE FOR FUTABA CANADA (0579)
+JW6  F*                CHG DLIV DATE FOR ADI           (0777)
+JW7  F* JW    01/10/19 ADD 0648 TAKUMI TX NORTH
+JW8  F* JW    09/08/20 ADD FUTABA MANIFEST# (0578,0567,0579,0556)
+JW9  F* JW    11/30/21 CHG FUTABA TX(0578) L/T 2 DAYS --> 1 DAY
+JWA  F* JW    04/18/23 CHG PMO(0681) BIN#
+     F*************************************************************
+     FAB#PW2F CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     F                                              KINFDS @INFDS
+     FAB#WPMO IF  E                    DISK
+     FAB#WTAK IF  E                    DISK
+     FAB#WTAX IF  E                    DISK
+TCHK4FAB#WTAC IF  E                    DISK
+TCHKAFAB#WARJ IF  E                    DISK
+TCHKBFAB#WAI4 IF  E                    DISK
+     FAB#WOHA IF  E           K        DISK
+     FAB#WABI IF  E           K        DISK
+     FAB#WASJ IF  E           K        DISK
+     FAB#WRTS IF  E           K        DISK
+     FAB#WNIF IF  E           K        DISK
+     FAB#WNIC IF  E           K        DISK
+     FAB#WOTI IF  E           K        DISK
+     FAB#WFTX IF  E           K        DISK
+     FAB#WJTX IF  E           K        DISK
+     FAB#WFIN IF  E           K        DISK
+     FAB#WJVA IF  E           K        DISK
+     FAB#WFCN IF  E           K        DISK
+     FAB#WOTH IF  E           K        DISK
+     FAB#WFCH IF  E           K        DISK
+TCHK2FAB#WTIE IF  E           K        DISK
+TCHK7FAB#WACZ UF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+     FFCCTL12 IF  E           K        DISK
+     FAGDPL12 IF  E           K        DISK
+     FAB#PL1B IF  E           K        DISK
+     FAB#PL17 IF  E           K        DISK
+     FAAHTL06 IF  E           K        DISK
+     FAAFTL06 IF  E           K        DISK
+     FAB#PP85 UF  E           K        DISK                      A
+     FGADPL11 IF  E           K        DISK
+     FAB#WP451O   F     256            DISK
+     FAB#WP2A O   F     100            DISK
+     FQPRINT  O   F     132     OF     PRINTER
+      *--------------------------------------------------------
+     E                    CMD     1   1 78
+     E                    ER      1  15 60
+      *--------------------------------------------------------
+     I@INFDS      DS
+     I                                    B 378 3790@@REC
+JW6  I* SYSTEM TIME
+ |   I            DS
+ |   I                                        1  140WSDT
+ |   I                                        1   60NOW
+JW6  I                                        7  140TODAY
+     I            DS
+     I                                        1  20 WMHIN
+     I                                        1   5 WMHN1
+     I                                        6  10 WMHN2
+     I                                       11  15 WMHN3
+     I                                       16  20 WMHN4
+     I            DS
+     I                                        1   80WNYMD
+     I                                        1   40WNOYY
+     I                                        5   60WNOMM
+     I                                        7   80WNODD
+     I            DS
+     I                                        1  12 @SHIN
+     I                                        1   5 WSHN1
+     I                                        6  10 WSHN2
+SHDT I                                       11  12 WSHN3
+      *
+     I            DS
+     I                                        1   80A2GSHZ
+     I                                        1   40A2GSYY
+     I                                        5   60A2GSMM
+     I                                        7   80A2GSDD
+     I            DS
+     I                                        1   80A2SSHZ
+     I                                        1   40A2SYYY
+     I                                        5   60A2SYMM
+     I                                        7   80A2SYDD
+     I            DS
+     I                                        1   80K@YMD
+     I                                        1   40K@YY
+     I                                        5   60K@MM
+     I                                        7   80K@DD
+     I            DS
+     I                                        1   80F8YMD
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+     I            DS
+     I                                        1  10 H@SBAN
+     I                                        5  10 H@S
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *-----------------------------------------------------
+      *  MAIN ROUTINE
+      *-----------------------------------------------------
+     C           @@ID      DOUEQ'99'
+     C           @@ID      CASEQ'01'      #SCRN1
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *------------------------------------------------------------
+      * INITIALIZE
+      *------------------------------------------------------------
+     C           *INZSR    BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           PSIRE   4
+      *
+     C           KEY1      KLIST
+     C                     KFLD           WSHN1
+     C                     KFLD           WSHN2
+     C                     KFLD           WSHN3
+      *
+     C           KEY6      KLIST
+     C                     KFLD           K@MM    20
+     C                     KFLD           WSHN1
+     C                     KFLD           WSHN2
+     C                     KFLD           WSHN3
+     C                     KFLD           WTOKU   40
+     C                     KFLD           WNONY   40
+      *
+     C           K#AGD     KLIST
+     C                     KFLD           K@YY
+     C                     KFLD           K@MM
+     C                     KFLD           K@DD
+      *
+     C           K#85      KLIST
+     C                     KFLD           WTOKU
+     C                     KFLD           WNONY
+     C                     KFLD           WNUKE
+     C                     KFLD           WMHN1
+     C                     KFLD           WMHN2
+     C                     KFLD           WMHN3
+      *
+     C           K#17      KLIST
+     C                     KFLD           WNONY
+     C                     KFLD           WNOYY
+     C                     KFLD           WNOMM
+     C                     KFLD           WNODD
+     C                     KFLD           S@ORDN
+JW   C                     KFLD           S@BIN#
+      *
+     C           K#4A      KLIST
+     C                     KFLD           K@ID    1
+     C                     KFLD           K@TOKU  40
+     C                     KFLD           K@NONY
+      *
+     C           K#4AX     KLIST
+     C                     KFLD           K@ID    1
+     C                     KFLD           K@TOKU  40
+     C                     KFLD           K@NONY
+     C                     KFLD           H@ASHT
+     C                     KFLD           S@MHN1
+     C                     KFLD           S@MHN2
+     C                     KFLD           S@MHN3
+      *
+     C                     MOVE *ALL'-'   @@LIN 125
+      *
+     C           *LIKE     DEFN B4MAMM    K@MAMM
+     C           *LIKE     DEFN B4NONY    K@NONY
+     C           *LIKE     DEFN B4NUKE    K@NUKE
+     C           *LIKE     DEFN B4NKOJ    K@NKOJ
+      *
+      * RETRIEVE SYSTEM TIME
+JW6  C                     TIME           WSDT
+      *
+     C                     Z-ADDTODAY     K@YMD
+     C                     ADD  2         K@MM
+     C           K@MM      IFGT 12
+     C                     SUB  12        K@MM
+     C                     ADD  1         K@YY
+     C                     ENDIF
+     C                     Z-ADDK@YMD     W@END   80
+      *
+     C                     MOVE *ON       *IN52
+     C                     WRITECTL01
+     C                     MOVE *OFF      *IN52
+     C                     Z-ADD*ZERO     RRN1    40
+     C                     CLEARSFL01
+     C                     MOVE *BLANK    @CHG    1
+     C                     Z-ADD*ZERO     D@FROM
+     C                     Z-ADD*ZERO     D@TO
+     C                     MOVE PSIRE     D@NONY
+     C                     MOVEA'00'      *IN,88
+      *
+     C                     MOVEL*BLANK    D@DLV
+      *
+     C                     SELEC
+      * PMO
+     C           PSIRE     WHEQ '0681'
+     C                     MOVEL'PMO'     D@DLV
+     C                     MOVE *ON       *IN88
+     C                     EXSR #PMO
+      * TAKUMI
+     C           PSIRE     WHEQ '0645'
+     C                     MOVEL'TAKUMI'  D@DLV
+     C                     MOVE *ON       *IN88
+     C                     EXSR #TAK
+      * TAKUMI TEXAS
+     C           PSIRE     WHEQ '0646'
+     C                     MOVEL'TAKUMI T'D@DLV
+     C                     MOVE 'EXAS  '  D@DLV
+     C                     EXSR #TAKTX
+JW7   * TAKUMI TEXAS NORTH
+     C           PSIRE     WHEQ '0648'
+     C                     MOVEL'TAKUMI T'D@DLV
+     C                     MOVE 'X NRTH'  D@DLV
+     C                     EXSR #TAKTX
+TCHK4 * TAKUMI CANADA
+TCHK4C           PSIRE     WHEQ '0647'
+TCHK4C                     MOVEL'TAKUMI C'D@DLV
+TCHK4C                     MOVE 'ANADA '  D@DLV
+TCHK4C                     EXSR #TAKCN
+      * OHASHI
+     C           PSIRE     WHEQ '5671'
+JW1  C           PSIRE     OREQ '5672'
+JW   C           PSIRE     OREQ '5674'
+     C                     MOVEL'OHASHI'  D@DLV
+     C                     MOVE *OFF      *IN88
+     C                     EXSR #OHA
+     C* ABI
+     C           PSIRE     WHEQ '0465'
+     C                     MOVEL'ABI   '  D@DLV
+     C                     EXSR #ABI
+     C* ASJ
+     C           PSIRE     WHEQ '8990'
+     C                     MOVEL'ASJ   '  D@DLV
+     C                     EXSR #ASJ
+     C* RITATSU
+     C           PSIRE     WHEQ '1301'
+     C                     MOVEL'RITATSU' D@DLV
+     C                     EXSR #RTS
+     C* NIFAST MICHIGAN
+     C           PSIRE     WHEQ '0203'
+     C                     MOVEL'NIFAST M'D@DLV
+     C                     MOVE 'ICHIGAN' D@DLV
+     C                     EXSR #NIF
+     C* NIFAST CANADA
+     C           PSIRE     WHEQ '1431'
+     C                     MOVEL'NIFAST C'D@DLV
+     C                     MOVE 'ANADA  ' D@DLV
+     C                     EXSR #NIC
+     C* OTICS
+     C           PSIRE     WHEQ '0740'
+     C           PSIRE     OREQ '0741'
+     C                     MOVEL'OTICS  ' D@DLV
+     C                     EXSR #OTI
+     C* FUTABA TEXAS
+     C           PSIRE     WHEQ '0578'
+     C                     MOVEL'FUTABA T'D@DLV
+     C                     MOVE 'EXAS   ' D@DLV
+     C                     EXSR #FTBTX
+     C* FUTABA INDIANA
+     C           PSIRE     WHEQ '0567'
+     C                     MOVEL'FUTABA I'D@DLV
+     C                     MOVE 'NDIANA ' D@DLV
+     C                     EXSR #FTBIN
+     C* FUTABA CANADA
+     C           PSIRE     WHEQ '0579'
+     C                     MOVEL'FUTABA C'D@DLV
+     C                     MOVE 'ANADA  ' D@DLV
+     C                     EXSR #FTBCN
+     C* FUTABA CHICAGO
+     C           PSIRE     WHEQ '0556'
+     C                     MOVEL'FUTABA C'D@DLV
+     C                     MOVE 'HICAGO ' D@DLV
+     C                     EXSR #FTBCH
+     C* JTEXT TEXAS
+     C           PSIRE     WHEQ '3832'
+     C                     MOVEL'JTEKT TE'D@DLV
+     C                     MOVE 'XAS    ' D@DLV
+     C                     EXSR #JTKTX
+     C* JTEXT VIRGINIA
+     C           PSIRE     WHEQ '3891'
+     C                     MOVEL'JTEKT VI'D@DLV
+     C                     MOVE 'RGINIA ' D@DLV
+     C                     EXSR #JTKVA
+     C* OTHER COMMON
+     C           PSIRE     WHEQ 'OTHC'
+     C                     MOVEL*BLANK    D@DLV
+     C                     EXSR #OTHER
+TCHK3C* TIEM
+TCHK3C           PSIRE     WHEQ '0753'
+TCHK3C                     MOVEL'TIEM   ' D@DLV
+TCHK3C                     EXSR #TIEM
+TCHK7C* ACZ
+TCHK7C           PSIRE     WHEQ '0170'
+TCHK7C                     MOVEL'ACZ    ' D@DLV
+TCHK7C                     EXSR #ACZ
+TCHKAC* ARJ
+TCHKAC           PSIRE     WHEQ '3201'
+TCHKAC                     MOVEL'ARJ    ' D@DLV
+TCHKAC                     EXSR #ARJ
+TCHKBC* ADI
+TCHKBC           PSIRE     WHEQ '0777'
+TCHKBC                     MOVEL'ADI    ' D@DLV
+TCHKBC                     EXSR #ADI
+     C                     ENDSL
+      *
+     C           RRN1      IFEQ *ZERO
+     C                     CLEARSFL01
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+     C                     MOVE ER,1      D@MSG
+     C                     ENDIF
+      *
+     C                     Z-ADD1         #RCNO
+     C                     MOVE '01'      @@ID    2
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * PMO                                                *
+      *----------------------------------------------------*
+     C           #PMO      BEGSR
+      *
+     C           *IN90     DOUEQ*ON
+     C                     READ AB#WPMO                  90
+     C           *IN90     IFEQ *OFF
+     C           AWSRYO    ANDNE*ZERO
+      *
+     C           AWSHDT    IFLT TODAY
+     C                     ITER
+     C                     ENDIF
+     C           AWSHDT    IFGT W@END
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDAWNONY    H@NONY
+     C                     Z-ADDAWTOKU    H@TOKU
+     C                     MOVELAWSBAN    H@SBAN
+     C                     Z-ADDAWSHDT    H@SHDT
+     C                     Z-ADDAWSHDT    S@SHDT
+     C                     MOVE AWMHN1    S@MHN1
+     C                     MOVE AWMHN2    S@MHN2
+     C                     MOVE AWMHN3    S@MHN3
+     C                     Z-ADDAWSRYO    S@QTY
+     C                     MOVELAWORDN    S@ORDN
+JW5  C**                   Z-ADD1         S@BIN#
+JWA  C           AWBLD     IFEQ 'BLD2'
+ .   C                     Z-ADD2         S@BIN#
+ .   C                     ELSE
+ .   C                     Z-ADD1         S@BIN#
+JWA  C                     ENDIF
+      *
+     C                     Z-ADDAWSYOS    S@USYS
+TCHK6C*                    EXSR #DAY1A
+TCHK6C*                    Z-ADDH@ASHT    S@ASHT
+TCHK6C                     Z-ADDAWSHDT    H@ASHT
+TCHK6C                     Z-ADDAWSHDT    S@ASHT
+      *
+     C                     EXSR #SYOS
+      *
+     C                     ADD  1         RRN1
+     C                     MOVE *ON       *IN01
+     C                     WRITESFL01
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * TAKUMI                                             *
+      *----------------------------------------------------*
+     C           #TAK      BEGSR
+      *
+     C           *IN90     DOUEQ*ON
+     C                     READ AB#WTAK                  90
+     C           *IN90     IFEQ *OFF
+     C           ATSRYO    ANDNE*ZERO
+      *
+     C           ATSHDT    IFLT TODAY
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDATNONY    H@NONY
+     C                     Z-ADDATTOKU    H@TOKU
+     C                     Z-ADDATSHDT    H@SHDT
+     C                     Z-ADDATSHDT    S@SHDT
+     C                     MOVELATSBAN    H@SBAN
+     C                     MOVE ATMHN1    S@MHN1
+     C                     MOVE ATMHN2    S@MHN2
+     C                     MOVE ATMHN3    S@MHN3
+     C                     Z-ADDATSRYO    S@QTY
+     C                     MOVELATORDN    S@ORDN
+JW5  C                     Z-ADD1         S@BIN#
+     C                     Z-ADDATSYOS    S@USYS
+TCHK9C*                    EXSR #DAY1A
+TCHK9C*                    Z-ADDH@ASHT    S@ASHT
+TCHK9C                     Z-ADDATSHDT    H@ASHT
+TCHK9C                     Z-ADDATSHDT    S@ASHT
+     C                     EXSR #SYOS
+      *
+     C                     MOVE *ON       *IN01
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * TAKUMI TEXAS                                       *
+      *----------------------------------------------------*
+     C           #TAKTX    BEGSR
+      *
+     C           *IN90     DOUEQ*ON
+     C                     READ AB#WTAX                  90
+     C           *IN90     IFEQ *OFF
+     C           ATSRYO    ANDNE*ZERO
+      *
+     C           ATSHDT    IFLT TODAY
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDATNONY    H@NONY
+     C                     Z-ADDATTOKU    H@TOKU
+     C                     Z-ADDATSHDT    H@SHDT
+     C                     Z-ADDATSHDT    S@SHDT
+     C                     MOVELATSBAN    H@SBAN
+     C                     MOVE ATMHN1    S@MHN1
+     C                     MOVE ATMHN2    S@MHN2
+     C                     MOVE ATMHN3    S@MHN3
+     C                     Z-ADDATSRYO    S@QTY
+     C                     MOVELATORDN    S@ORDN
+JW5  C                     Z-ADD1         S@BIN#
+     C                     Z-ADDATSYOS    S@USYS
+     C                     Z-ADDATSHDT    H@ASHT
+     C                     Z-ADDH@ASHT    S@ASHT
+     C                     EXSR #SYOS
+      *
+     C                     MOVE *ON       *IN01
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+TCHK4C*----------------------------------------------------*
+TCHK4C* TAKUMI CANADA                                      *
+TCHK4C*----------------------------------------------------*
+TCHK4C           #TAKCN    BEGSR
+TCHK4C*
+TCHK4C           *IN90     DOUEQ*ON
+TCHK4C                     READ AB#WTAC                  90
+TCHK4C           *IN90     IFEQ *OFF
+TCHK4C           ATSRYO    ANDNE*ZERO
+TCHK4C*
+TCHK4C           ATSHDT    IFLT TODAY
+TCHK4C                     ITER
+TCHK4C                     ENDIF
+TCHK4C*
+TCHK4C                     Z-ADDATNONY    H@NONY
+TCHK4C                     Z-ADDATTOKU    H@TOKU
+TCHK4C                     Z-ADDATSHDT    H@SHDT
+TCHK4C                     Z-ADDATSHDT    S@SHDT
+TCHK4C                     MOVELATSBAN    H@SBAN
+TCHK4C                     MOVE ATMHN1    S@MHN1
+TCHK4C                     MOVE ATMHN2    S@MHN2
+TCHK4C                     MOVE ATMHN3    S@MHN3
+TCHK4C                     Z-ADDATSRYO    S@QTY
+TCHK4C                     MOVELATORDN    S@ORDN
+JW5  C                     Z-ADD1         S@BIN#
+TCHK4C                     Z-ADDATSYOS    S@USYS
+TCHK4C                     Z-ADDATSHDT    H@ASHT
+TCHK4C                     Z-ADDH@ASHT    S@ASHT
+TCHK4C                     EXSR #SYOS
+TCHK4 *
+TCHK4C                     MOVE *ON       *IN01
+TCHK4C                     ADD  1         RRN1
+TCHK4C                     WRITESFL01
+TCHK4 *
+TCHK4C                     ENDIF
+TCHK4C                     ENDDO
+TCHK4 *
+TCHK4C                     ENDSR
+      *----------------------------------------------------*
+      * OHASHI                                             *
+      *----------------------------------------------------*
+     C           #OHA      BEGSR
+      *
+     C           *LOVAL    SETLLAB#WOHA
+     C           *IN90     DOUEQ*ON
+     C                     READ AB#WOHA                  90
+     C           *IN90     IFEQ *OFF
+     C           AWSRYO    ANDNE*ZERO
+      *
+     C           AWSHDT    IFLT TODAY
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDAWNONY    H@NONY
+     C                     Z-ADDAWTOKU    H@TOKU
+     C                     Z-ADDAWSHDT    H@SHDT
+     C                     Z-ADDAWSHDT    S@SHDT
+     C                     MOVE AWMHN1    S@MHN1
+     C                     MOVE AWMHN2    S@MHN2
+     C                     MOVE AWMHN3    S@MHN3
+     C                     Z-ADDAWSRYO    S@QTY
+     C                     MOVELAWORDN    S@ORDN
+JW5  C                     Z-ADD1         S@BIN#
+     C                     Z-ADDAWSHDT    H@ASHT
+     C                     Z-ADDAWSHDT    S@ASHT
+     C                     EXSR #SYOS
+      *
+     C                     MOVE *BLANK    H@67
+     C                     Z-ADDH@SHDT    K@YMD
+     C           K#AGD     CHAINAGDPL12              95
+     C           *IN95     IFEQ *OFF
+     C           F8YOBI    ANDNE3
+     C           F8YOBI    ANDNE5
+     C                     MOVE *ON       *IN67
+     C                     MOVE '1'       H@67
+     C           D@MSG     IFEQ *BLANK
+     C                     MOVE ER,13     D@MSG
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *IN01
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * ABI                                                *
+      *----------------------------------------------------*
+     C           #ABI      BEGSR
+      *
+     C           *IN90     DOUEQ*ON
+     C                     READ AB#WABI                  90
+     C           *IN90     IFEQ *OFF
+     C           AWSRYO    ANDNE*ZERO
+      *
+     C           AWSHDT    IFLT TODAY
+     C                     ITER
+     C                     ENDIF
+     C           AWSHDT    IFGT W@END
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDAWNONY    H@NONY
+     C                     Z-ADDAWTOKU    H@TOKU
+     C                     MOVELAWSBAN    H@SBAN
+     C                     Z-ADDAWSHDT    H@SHDT
+     C                     Z-ADDAWSHDT    S@SHDT
+     C                     MOVE AWMHN1    S@MHN1
+     C                     MOVE AWMHN2    S@MHN2
+     C                     MOVE AWMHN3    S@MHN3
+     C                     Z-ADDAWSRYO    S@QTY
+     C                     MOVELAWORDN    S@ORDN
+JW5  C                     Z-ADD1         S@BIN#
+     C                     Z-ADDAWSYOS    S@USYS
+     C                     EXSR #DAY1
+     C                     Z-ADDAWSHDT    H@ASHT
+     C                     Z-ADDH@ASHT    S@ASHT
+TCHK5C                     MOVELAWNUKE    H@DOCK
+      *
+     C                     EXSR #SYOS
+      *
+     C                     ADD  1         RRN1
+     C                     MOVE *ON       *IN01
+     C                     WRITESFL01
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * ASJ                                                *
+      *----------------------------------------------------*
+     C           #ASJ      BEGSR
+      *
+     C           *IN90     DOUEQ*ON
+     C                     READ AB#WASJ                  90
+     C           *IN90     IFEQ *OFF
+     C           AWSRYO    ANDNE*ZERO
+      *
+     C           AWSHDT    IFLT TODAY
+     C                     ITER
+     C                     ENDIF
+     C           AWSHDT    IFGT W@END
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDAWNONY    H@NONY
+     C                     Z-ADDAWTOKU    H@TOKU
+     C                     MOVELAWSBAN    H@SBAN
+     C                     Z-ADDAWSHDT    H@SHDT
+     C                     Z-ADDAWSHDT    S@SHDT
+     C                     MOVE AWMHN1    S@MHN1
+     C                     MOVE AWMHN2    S@MHN2
+     C                     MOVE AWMHN3    S@MHN3
+     C                     Z-ADDAWSRYO    S@QTY
+     C                     MOVELAWORDN    S@ORDN
+JW5  C                     Z-ADD1         S@BIN#
+     C                     Z-ADDAWSYOS    S@USYS
+     C                     EXSR #DAY1
+     C                     Z-ADDAWSHDT    H@ASHT
+     C                     Z-ADDH@ASHT    S@ASHT
+      *
+     C                     EXSR #SYOS
+      *
+     C                     ADD  1         RRN1
+     C                     MOVE *ON       *IN01
+     C                     WRITESFL01
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * RITATSU                                            *
+      *----------------------------------------------------*
+     C           #RTS      BEGSR
+      *
+     C           *IN90     DOUEQ*ON
+     C                     READ AB#WRTS                  90
+     C           *IN90     IFEQ *OFF
+     C           AWSRYO    ANDNE*ZERO
+      *
+     C           AWSHDT    IFLT TODAY
+     C                     ITER
+     C                     ENDIF
+     C           AWSHDT    IFGT W@END
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDAWNONY    H@NONY
+     C                     Z-ADDAWTOKU    H@TOKU
+     C                     MOVELAWSBAN    H@SBAN
+     C                     Z-ADDAWSHDT    H@SHDT
+     C                     Z-ADDAWSHDT    S@SHDT
+     C                     MOVE AWMHN1    S@MHN1
+     C                     MOVE AWMHN2    S@MHN2
+     C                     MOVE AWMHN3    S@MHN3
+     C                     Z-ADDAWSRYO    S@QTY
+     C                     MOVELAWORDN    S@ORDN
+JW5  C                     Z-ADD1         S@BIN#
+     C                     Z-ADDAWSYOS    S@USYS
+     C                     Z-ADDAWSHDT    H@ASHT
+     C                     Z-ADDAWSHDT    S@ASHT
+      *
+     C                     EXSR #SYOS
+      *
+     C                     ADD  1         RRN1
+     C                     MOVE *ON       *IN01
+     C                     WRITESFL01
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * NIFAST MICHIGAN                                    *
+      *----------------------------------------------------*
+     C           #NIF      BEGSR
+      *
+     C           *IN90     DOUEQ*ON
+     C                     READ AB#WNIF                  90
+     C           *IN90     IFEQ *OFF
+     C           AWSRYO    ANDNE*ZERO
+      *
+     C           AWSHDT    IFLT TODAY
+     C                     ITER
+     C                     ENDIF
+     C           AWSHDT    IFGT W@END
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDAWNONY    H@NONY
+     C                     Z-ADDAWTOKU    H@TOKU
+     C                     MOVELAWSBAN    H@SBAN
+     C                     Z-ADDAWSHDT    H@SHDT
+     C                     Z-ADDAWSHDT    S@SHDT
+     C                     MOVE AWMHN1    S@MHN1
+     C                     MOVE AWMHN2    S@MHN2
+     C                     MOVE AWMHN3    S@MHN3
+     C                     Z-ADDAWSRYO    S@QTY
+     C                     MOVELAWORDN    S@ORDN
+JW5  C                     Z-ADD1         S@BIN#
+     C                     Z-ADDAWSYOS    S@USYS
+     C                     EXSR #DAY2
+     C                     Z-ADDH@ASHT    S@ASHT
+      *
+     C                     EXSR #SYOS
+      *
+     C                     ADD  1         RRN1
+     C                     MOVE *ON       *IN01
+     C                     WRITESFL01
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * NIFAST CANADA                                      *
+      *----------------------------------------------------*
+     C           #NIC      BEGSR
+      *
+     C           *IN90     DOUEQ*ON
+     C                     READ AB#WNIC                  90
+     C           *IN90     IFEQ *OFF
+     C           AWSRYO    ANDNE*ZERO
+      *
+     C           AWSHDT    IFLT TODAY
+     C                     ITER
+     C                     ENDIF
+     C           AWSHDT    IFGT W@END
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDAWNONY    H@NONY
+     C                     Z-ADDAWTOKU    H@TOKU
+     C                     MOVELAWSBAN    H@SBAN
+     C                     Z-ADDAWSHDT    H@SHDT
+     C                     Z-ADDAWSHDT    S@SHDT
+     C                     MOVE AWMHN1    S@MHN1
+     C                     MOVE AWMHN2    S@MHN2
+     C                     MOVE AWMHN3    S@MHN3
+     C                     Z-ADDAWSRYO    S@QTY
+     C                     MOVELAWORDN    S@ORDN
+JW5  C                     Z-ADD1         S@BIN#
+     C                     Z-ADDAWSYOS    S@USYS
+     C                     EXSR #DAY2
+     C                     Z-ADDH@ASHT    S@ASHT
+      *
+     C                     EXSR #SYOS
+      *
+     C                     ADD  1         RRN1
+     C                     MOVE *ON       *IN01
+     C                     WRITESFL01
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * OTICS                                              *
+      *----------------------------------------------------*
+     C           #OTI      BEGSR
+      *
+     C           *IN90     DOUEQ*ON
+     C                     READ AB#WOTI                  90
+     C           *IN90     IFEQ *OFF
+     C           AWSRYO    ANDNE*ZERO
+      *
+     C           AWSHDT    IFLT TODAY
+     C                     ITER
+     C                     ENDIF
+     C           AWSHDT    IFGT W@END
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDAWNONY    H@NONY
+     C                     Z-ADDAWTOKU    H@TOKU
+     C                     MOVELAWSBAN    H@SBAN
+     C                     Z-ADDAWSHDT    H@SHDT
+     C                     Z-ADDAWSHDT    S@SHDT
+     C                     MOVE AWMHN1    S@MHN1
+     C                     MOVE AWMHN2    S@MHN2
+     C                     MOVE AWMHN3    S@MHN3
+     C                     Z-ADDAWSRYO    S@QTY
+     C                     MOVELAWORDN    S@ORDN
+JW5  C                     Z-ADD1         S@BIN#
+     C                     Z-ADDAWSYOS    S@USYS
+     C                     EXSR #DAY2
+     C                     Z-ADDH@ASHT    S@ASHT
+      *
+     C                     EXSR #SYOS
+      *
+     C                     ADD  1         RRN1
+     C                     MOVE *ON       *IN01
+     C                     WRITESFL01
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * FUTABA TEXAS                                       *
+      *----------------------------------------------------*
+     C           #FTBTX    BEGSR
+      *
+     C           *IN90     DOUEQ*ON
+     C                     READ AB#WFTX                  90
+     C           *IN90     IFEQ *OFF
+     C           AWSRYO    ANDNE*ZERO
+      *
+     C           AWSHDT    IFLT TODAY
+     C                     ITER
+     C                     ENDIF
+     C           AWSHDT    IFGT W@END
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDAWNONY    H@NONY
+     C                     Z-ADDAWTOKU    H@TOKU
+     C                     MOVELAWSBAN    H@SBAN
+     C                     Z-ADDAWSHDT    H@SHDT
+     C                     Z-ADDAWSHDT    S@SHDT
+     C                     MOVE AWMHN1    S@MHN1
+     C                     MOVE AWMHN2    S@MHN2
+     C                     MOVE AWMHN3    S@MHN3
+     C                     Z-ADDAWSRYO    S@QTY
+     C                     MOVELAWORDN    S@ORDN
+     C                     Z-ADDAWSYOS    S@USYS
+     C                     MOVELAWMANI    H@MANI
+JW5  C                     Z-ADD0         H@SHBN
+JW5  C                     MOVE AWBIN#    H@SHBN
+JW5  C                     MOVELH@SHBN    S@BIN#
+      *
+     C**                   EXSR #DAY2
+JW9  C                     EXSR #DAY1
+     C                     Z-ADDH@ASHT    S@ASHT
+      *
+     C                     EXSR #SYOS
+      *
+     C                     ADD  1         RRN1
+     C                     MOVE *ON       *IN01
+     C                     WRITESFL01
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * FUTABA INDIANA                                     *
+      *----------------------------------------------------*
+     C           #FTBIN    BEGSR
+      *
+     C           *IN90     DOUEQ*ON
+     C                     READ AB#WFIN                  90
+     C           *IN90     IFEQ *OFF
+     C           AWSRYO    ANDNE*ZERO
+      *
+     C           AWSHDT    IFLT TODAY
+     C                     ITER
+     C                     ENDIF
+     C           AWSHDT    IFGT W@END
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDAWNONY    H@NONY
+     C                     Z-ADDAWTOKU    H@TOKU
+     C                     MOVELAWSBAN    H@SBAN
+     C                     Z-ADDAWSHDT    H@SHDT
+     C                     Z-ADDAWSHDT    S@SHDT
+     C                     MOVE AWMHN1    S@MHN1
+     C                     MOVE AWMHN2    S@MHN2
+     C                     MOVE AWMHN3    S@MHN3
+     C                     Z-ADDAWSRYO    S@QTY
+     C                     MOVELAWORDN    S@ORDN
+     C                     Z-ADDAWSYOS    S@USYS
+     C                     MOVELAWMANI    H@MANI
+JW5  C                     Z-ADD0         H@SHBN
+JW5  C                     MOVE AWBIN#    H@SHBN
+JW5  C                     MOVELH@SHBN    S@BIN#
+      *
+     C                     Z-ADDAWSHDT    H@ASHT
+     C                     Z-ADDAWSHDT    S@ASHT
+      *
+     C                     EXSR #SYOS
+      *
+     C                     ADD  1         RRN1
+     C                     MOVE *ON       *IN01
+     C                     WRITESFL01
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * FUTABA CANADA                                      *
+      *----------------------------------------------------*
+     C           #FTBCN    BEGSR
+      *
+     C           *IN90     DOUEQ*ON
+     C                     READ AB#WFCN                  90
+     C           *IN90     IFEQ *OFF
+     C           AWSRYO    ANDNE*ZERO
+      *
+     C           AWSHDT    IFLT TODAY
+     C                     ITER
+     C                     ENDIF
+     C           AWSHDT    IFGT W@END
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDAWNONY    H@NONY
+     C                     Z-ADDAWTOKU    H@TOKU
+     C                     MOVELAWSBAN    H@SBAN
+     C                     Z-ADDAWSHDT    H@SHDT
+     C                     Z-ADDAWSHDT    S@SHDT
+     C                     MOVE AWMHN1    S@MHN1
+     C                     MOVE AWMHN2    S@MHN2
+     C                     MOVE AWMHN3    S@MHN3
+     C                     Z-ADDAWSRYO    S@QTY
+     C                     MOVELAWORDN    S@ORDN
+     C                     Z-ADDAWSYOS    S@USYS
+     C                     MOVELAWMANI    H@MANI
+JW5  C                     Z-ADD0         H@SHBN
+JW5  C                     MOVE AWBIN#    H@SHBN
+JW5  C                     MOVELH@SHBN    S@BIN#
+      *
+     C**JW6                EXSR #DAY2
+     C**                   Z-ADDH@ASHT    S@ASHT
+JW6  C                     Z-ADDAWASHT    S@ASHT
+JW6  C                     Z-ADDAWASHT    H@ASHT
+      *
+     C                     EXSR #SYOS
+      *
+     C                     ADD  1         RRN1
+     C                     MOVE *ON       *IN01
+     C                     WRITESFL01
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * FUTABA CHICAGO                                     *
+      *----------------------------------------------------*
+     C           #FTBCH    BEGSR
+      *
+     C           *IN90     DOUEQ*ON
+     C                     READ AB#WFCH                  90
+     C           *IN90     IFEQ *OFF
+     C           AWSRYO    ANDNE*ZERO
+      *
+     C           AWSHDT    IFLT TODAY
+     C                     ITER
+     C                     ENDIF
+     C           AWSHDT    IFGT W@END
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDAWNONY    H@NONY
+     C                     Z-ADDAWTOKU    H@TOKU
+     C                     MOVELAWSBAN    H@SBAN
+     C                     Z-ADDAWSHDT    H@SHDT
+     C                     Z-ADDAWSHDT    S@SHDT
+     C                     MOVE AWMHN1    S@MHN1
+     C                     MOVE AWMHN2    S@MHN2
+     C                     MOVE AWMHN3    S@MHN3
+     C                     Z-ADDAWSRYO    S@QTY
+     C                     MOVELAWORDN    S@ORDN
+     C                     Z-ADDAWSYOS    S@USYS
+     C                     MOVELAWMANI    H@MANI
+JW5  C                     Z-ADD0         H@SHBN
+JW5  C                     MOVE AWBIN#    H@SHBN
+JW5  C                     MOVELH@SHBN    S@BIN#
+      *
+     C**JW5                EXSR #DAY2
+JW5  C                     EXSR #DAY1
+     C                     Z-ADDH@ASHT    S@ASHT
+      *
+     C                     EXSR #SYOS
+      *
+     C                     ADD  1         RRN1
+     C                     MOVE *ON       *IN01
+     C                     WRITESFL01
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * JTEKT TEXAS                                        *
+      *----------------------------------------------------*
+     C           #JTKTX    BEGSR
+      *
+     C           *IN90     DOUEQ*ON
+     C                     READ AB#WJTX                  90
+     C           *IN90     IFEQ *OFF
+     C           AWSRYO    ANDNE*ZERO
+      *
+     C           AWSHDT    IFLT TODAY
+     C                     ITER
+     C                     ENDIF
+     C           AWSHDT    IFGT W@END
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDAWNONY    H@NONY
+     C                     Z-ADDAWTOKU    H@TOKU
+     C                     MOVELAWSBAN    H@SBAN
+     C                     Z-ADDAWSHDT    H@SHDT
+     C                     Z-ADDAWSHDT    S@SHDT
+     C                     MOVE AWMHN1    S@MHN1
+     C                     MOVE AWMHN2    S@MHN2
+     C                     MOVE AWMHN3    S@MHN3
+     C                     Z-ADDAWSRYO    S@QTY
+     C                     MOVELAWORDN    S@ORDN
+JW5  C                     Z-ADD1         S@BIN#
+     C                     Z-ADDAWSYOS    S@USYS
+     C                     MOVELAWMANI    H@MANI
+      *
+     C                     EXSR #DAY2
+     C                     Z-ADDH@ASHT    S@ASHT
+      *
+     C                     EXSR #SYOS
+      *
+     C                     ADD  1         RRN1
+     C                     MOVE *ON       *IN01
+     C                     WRITESFL01
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * JTEKT VIRGINIA                                     *
+      *----------------------------------------------------*
+     C           #JTKVA    BEGSR
+      *
+     C           *IN90     DOUEQ*ON
+     C                     READ AB#WJVA                  90
+     C           *IN90     IFEQ *OFF
+     C           AWSRYO    ANDNE*ZERO
+      *
+     C           AWSHDT    IFLT TODAY
+     C                     ITER
+     C                     ENDIF
+     C           AWSHDT    IFGT W@END
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDAWNONY    H@NONY
+     C                     Z-ADDAWTOKU    H@TOKU
+     C                     MOVELAWSBAN    H@SBAN
+     C                     Z-ADDAWSHDT    H@SHDT
+     C                     Z-ADDAWSHDT    S@SHDT
+     C                     MOVE AWMHN1    S@MHN1
+     C                     MOVE AWMHN2    S@MHN2
+     C                     MOVE AWMHN3    S@MHN3
+     C                     Z-ADDAWSRYO    S@QTY
+     C                     MOVELAWORDN    S@ORDN
+JW5  C                     Z-ADD1         S@BIN#
+     C                     Z-ADDAWSYOS    S@USYS
+     C                     MOVELAWMANI    H@MANI
+      *
+     C                     Z-ADDAWSHDT    H@ASHT
+     C                     Z-ADDAWSHDT    S@ASHT
+      *
+     C                     EXSR #SYOS
+      *
+     C                     ADD  1         RRN1
+     C                     MOVE *ON       *IN01
+     C                     WRITESFL01
+      *
+     C                     ENDIF
+     C                     ENDDO
+     C*
+     C                     ENDSR
+      *----------------------------------------------------*
+      * OTHER COMMON                                       *
+      *----------------------------------------------------*
+     C           #OTHER    BEGSR
+      *
+     C           *IN90     DOUEQ*ON
+     C                     READ AB#WOTH                  90
+     C           *IN90     IFEQ *OFF
+     C           AWSRYO    ANDNE*ZERO
+      *
+     C           AWSHDT    IFLT TODAY
+     C                     ITER
+     C                     END
+     C           AWSHDT    IFGT W@END
+     C                     ITER
+     C                     END
+      *
+     C           D@DLV     IFEQ *BLANK
+     C           K#GADP    KLIST
+     C                     KFLD           AWTOKU
+     C                     KFLD           AWNONY
+     C           K#GADP    CHAINGADPL11              92
+     C  N92                MOVELB5KMEI    D@DLV
+     C                     MOVELAWNONY    D@NONY
+     C                     END
+      *
+     C                     Z-ADDAWNONY    H@NONY
+     C                     Z-ADDAWTOKU    H@TOKU
+     C                     MOVELAWSBAN    H@SBAN
+     C                     Z-ADDAWSHDT    H@SHDT
+     C                     Z-ADDAWSHDT    S@SHDT
+     C                     MOVE AWMHN1    S@MHN1
+     C                     MOVE AWMHN2    S@MHN2
+     C                     MOVE AWMHN3    S@MHN3
+     C                     Z-ADDAWSRYO    S@QTY
+     C                     MOVELAWORDN    S@ORDN
+JW5  C                     Z-ADD1         S@BIN#
+     C                     Z-ADDAWSYOS    S@USYS
+     C                     MOVELAWMANI    H@MANI
+      *
+     C                     Z-ADDAWSHDT    H@ASHT
+     C                     Z-ADDAWSHDT    S@ASHT
+      *
+     C                     EXSR #SYOS
+      *
+     C                     ADD  1         RRN1
+     C                     MOVE *ON       *IN01
+     C                     WRITESFL01
+      *
+     C                     ENDIF
+     C                     ENDDO
+     C*
+     C                     ENDSR
+TCHK3 *--------------------------------------------------
+TCHK3 * TIEM
+TCHK3C           #TIEM     BEGSR
+TCHK3 *
+TCHK3C           *IN90     DOUEQ*ON
+TCHK3C                     READ AB#WTIE                  90
+TCHK3C           *IN90     IFEQ *OFF
+TCHK3C           AWSRYO    ANDNE*ZERO
+TCHK3 *
+TCHK3C           AWSHDT    IFLT TODAY
+TCHK3C                     ITER
+TCHK3C                     ENDIF
+TCHK3C           AWSHDT    IFGT W@END
+TCHK3C                     ITER
+TCHK3C                     ENDIF
+TCHK3 *
+TCHK3C                     Z-ADDAWNONY    H@NONY
+TCHK3C                     Z-ADDAWTOKU    H@TOKU
+TCHK3C                     MOVELAWSBAN    H@SBAN
+TCHK3C                     MOVE AWMHN1    S@MHN1
+TCHK3C                     MOVE AWMHN2    S@MHN2
+TCHK3C                     MOVE AWMHN3    S@MHN3
+TCHK3C                     Z-ADDAWSRYO    S@QTY
+TCHK3C                     MOVELAWORDN    S@ORDN
+JW5  C                     Z-ADD1         S@BIN#
+TCHK3C                     Z-ADDAWSYOS    S@USYS
+TCHK3 *
+TCHK3C                     Z-ADDAWSHDT    K@YMD
+TCHK3C           K#AGD     SETGTAGDPL12
+TCHK3C           *IN95     DOUEQ*ON
+TCHK3C                     READPAGDPL12                  95
+TCHK3C           *IN95     IFEQ *OFF
+TCHK3C           F8HIRU    ANDEQ*BLANK
+TCHK3C                     Z-ADDF8YMD     H@SHDT
+TCHK3C                     Z-ADDF8YMD     S@SHDT
+TCHK3C                     LEAVE
+TCHK3C                     ENDIF
+TCHK3C                     ENDDO
+TCHK3 *
+TCHK3C                     EXSR #DAY1
+TCHK3C                     Z-ADDH@ASHT    S@ASHT
+TCHK3 *
+TCHK3C                     EXSR #SYOS
+TCHK3 *
+TCHK3C                     ADD  1         RRN1
+TCHK3C                     MOVE *ON       *IN01
+TCHK3C                     WRITESFL01
+TCHK3 *
+TCHK3C                     ENDIF
+TCHK3C                     ENDDO
+TCHK3 *
+TCHK3C                     ENDSR
+TCHK7C*----------------------------------------------------*
+TCHK7C* ACZ                                                *
+TCHK7C*----------------------------------------------------*
+TCHK7C           #ACZ      BEGSR
+TCHK7C*
+TCHK7C           *IN90     DOUEQ*ON
+TCHK7C                     READ AB#WACZ                  90
+TCHK7C           *IN90     IFEQ *OFF
+TCHK7C*
+TCHK7C                     Z-ADDAWORDT    K@YMD
+TCHK7C                     Z-ADD*ZERO     @@CNT
+TCHK7C           K#AGD     CHAINAGDPL12              95
+TCHK7C   95                ITER
+TCHK7C                     DO   *HIVAL
+TCHK7C                     READ AGDPL12                  95
+TCHK7C   95                LEAVE
+TCHK7C           F8YOBI    IFEQ 6
+TCHK7C           F8YOBI    OREQ 7
+TCHK7C                     ITER
+TCHK7C                     END
+TCHK7C                     ADD  1         @@CNT
+TCHK7C           @@CNT     IFGE 10
+TCHK7C                     Z-ADDF8YMD     AWSHDT
+TCHK7C                     LEAVE
+TCHK7C                     END
+TCHK7C                     ENDDO
+TCHK7C   95                ITER
+TCHK7C*
+TCHK7C           F8HIRU    IFNE *BLANK
+TCHK7C                     DO   *HIVAL
+TCHK7C                     READPAGDPL12                  94
+TCHK7C   94                LEAVE
+TCHK7C           F8HIRU    IFNE *BLANK
+TCHK7C                     ITER
+TCHK7C                     END
+TCHK7C                     Z-ADDF8YMD     AWSHDT
+TCHK7C                     LEAVE
+TCHK7C                     ENDDO
+TCHK7C                     END
+TCHK7C   94                ITER
+TCHK7C*
+TCHK7C           AWSHDT    IFLT TODAY
+TCHK7C                     ITER
+TCHK7C                     ENDIF
+TCHK7C*
+TCHK7C                     Z-ADDAWNONY    H@NONY
+TCHK7C                     Z-ADDAWTOKU    H@TOKU
+TCHK7C*                    MOVELAWSBAN    H@SBAN
+TCHK7C                     MOVELAWZETI    H@SBAN
+TCHK7C                     Z-ADDAWSHDT    H@SHDT
+TCHK7C                     Z-ADDAWSHDT    S@SHDT
+TCHK7C                     MOVE AWMHN1    S@MHN1
+TCHK7C                     MOVE AWMHN2    S@MHN2
+TCHK7C                     MOVE AWMHN3    S@MHN3
+TCHK7C                     Z-ADDAWSRYO    S@QTY
+TCHK7C                     MOVELAWORDN    S@ORDN
+JW5  C                     Z-ADD1         S@BIN#
+TCHK7C                     Z-ADDAWSYOS    S@USYS
+TCHK7C                     Z-ADDAWSHDT    H@ASHT
+TCHK7C                     Z-ADDH@ASHT    S@ASHT
+TCHK7C*
+TCHK7C                     EXSR #SYOS
+TCHK7C*
+TCHK7C                     MOVEL'X'       S@SLCT
+TCHK7C                     ADD  1         RRN1
+TCHK7C                     MOVE *ON       *IN01
+TCHK7C                     WRITESFL01
+TCHK7C*
+TCHK7C                     UPDATAB#WACZ1
+TCHK7C*
+TCHK7C                     ENDIF
+TCHK7C                     ENDDO
+TCHK7C*
+TCHK7C                     ENDSR
+TCHKA *--------------------------------------------------
+TCHKAC           #ARJ      BEGSR
+TCHKA *
+TCHKAC           *IN90     DOUEQ*ON
+TCHKAC                     READ AB#WARJ                  90
+TCHKAC           *IN90     IFEQ *OFF
+TCHKAC           AWSRYO    ANDNE*ZERO
+TCHKA *
+TCHKAC           AWSHDT    IFLT TODAY
+TCHKAC                     ITER
+TCHKAC                     ENDIF
+TCHKA *
+TCHKAC                     Z-ADDAWNONY    H@NONY
+TCHKAC                     Z-ADDAWTOKU    H@TOKU
+TCHKAC                     Z-ADDAWSHDT    H@SHDT
+TCHKAC                     MOVELAWSBAN    H@SBAN
+TCHKAC                     Z-ADDAWSHDT    S@SHDT
+TCHKAC                     MOVE AWMHN1    S@MHN1
+TCHKAC                     MOVE AWMHN2    S@MHN2
+TCHKAC                     MOVE AWMHN3    S@MHN3
+TCHKAC                     Z-ADDAWSRYO    S@QTY
+TCHKAC                     MOVELAWORDN    S@ORDN
+JW5  C                     Z-ADD1         S@BIN#
+TCHKAC                     Z-ADDAWSYOS    S@USYS
+TCHKCC*TCHKA               Z-ADDAWSHDT    H@ASHT
+TCHKCC                     EXSR #DAY4
+TCHKAC**JW3                Z-ADDH@ASHT    S@ASHT
+JW3  C                     Z-ADDAWSHDT    H@ASHT
+JW3  C                     Z-ADDAWSHDT    S@ASHT
+TCHKAC                     EXSR #SYOS
+TCHKAC*
+TCHKAC                     ADD  1         RRN1
+TCHKAC                     MOVE *ON       *IN01
+TCHKAC                     WRITESFL01
+TCHKAC*
+TCHKAC                     ENDIF
+TCHKAC                     ENDDO
+TCHKAC*
+TCHKAC                     ENDSR
+TCHKB *--------------------------------------------------
+TCHKBC           #ADI      BEGSR
+TCHKB *
+TCHKBC           *IN90     DOUEQ*ON
+TCHKBC                     READ AB#WAI4                  90
+TCHKBC           *IN90     IFEQ *OFF
+TCHKBC           AWSRYO    ANDNE*ZERO
+TCHKB *
+TCHKBC           AWSHDT    IFLT TODAY
+TCHKBC                     ITER
+TCHKBC                     ENDIF
+TCHKB *
+TCHKBC                     Z-ADDAWNONY    H@NONY
+TCHKBC                     Z-ADDAWTOKU    H@TOKU
+TCHKBC                     Z-ADDAWSHDT    H@SHDT
+JW6  C                     Z-ADDAWDEDT    H@SHDT
+TCHKBC                     MOVELAWSBAN    H@SBAN
+TCHKBC                     Z-ADDAWSHDT    S@SHDT
+JW6  C                     Z-ADDAWDEDT    S@SHDT
+TCHKBC                     MOVE AWMHN1    S@MHN1
+TCHKBC                     MOVE AWMHN2    S@MHN2
+TCHKBC                     MOVE AWMHN3    S@MHN3
+TCHKBC                     Z-ADDAWSRYO    S@QTY
+TCHKBC                     MOVELAWORDN    S@ORDN
+TCHKBC                     Z-ADDAWSYOS    S@USYS
+TCHKBC                     Z-ADDAWSHDT    H@ASHT
+TCHKBC                     Z-ADDAWSHBN    H@SHBN
+JW5  C                     MOVELH@SHBN    S@BIN#
+TCHKBC                     Z-ADDH@ASHT    S@ASHT
+TCHKBC                     EXSR #SYOS
+TCHKBC*
+TCHKBC                     ADD  1         RRN1
+TCHKBC                     MOVE *ON       *IN01
+TCHKBC                     WRITESFL01
+TCHKBC*
+TCHKBC                     ENDIF
+TCHKBC                     ENDDO
+TCHKBC*
+TCHKBC                     ENDSR
+      *-----------------------------------------------------
+     C           #SYOS     BEGSR
+      *
+     C                     MOVEA'0000'    *IN,64
+     C                     Z-ADD*ZERO     S@SYOS
+     C                     Z-ADD*ZERO     S@SETQ
+     C                     MOVE S@MHN1    WMHN1
+     C                     MOVE S@MHN2    WMHN2
+     C                     MOVE S@MHN3    WMHN3
+     C                     MOVELH@TOKU    PTOKU   4
+     C                     MOVELH@NONY    PNONY   4
+      *
+     C                     MOVEL'0'       PNKOJ   1
+     C           H@DOCK    IFEQ *BLANK
+     C                     MOVEL'00  '    PNUKE   4
+     C                     ELSE
+     C                     MOVELH@DOCK    PNUKE
+     C                     ENDIF
+      *
+     C                     MOVELWMHIN     @MHIN  20 P
+     C                     MOVEL*BLANK    @SHIN  12
+     C                     MOVEL*BLANK    @FLG    1
+      *
+     C                     CALL 'BBHR50'
+     C                     PARM           PTOKU   4
+     C                     PARM           PNONY   4
+     C                     PARM           PNKOJ   1
+     C                     PARM           PNUKE   4
+     C                     PARM           @MHIN  20
+     C                     PARM           @SHIN  12
+     C                     PARM           @FLG    1
+     C                     MOVE @SHIN     H@SHIN
+     C                     Z-ADD*ZERO     WSYOS
+     C           KEY1      CHAINFCEPL011             77
+     C           *IN77     IFEQ '0'
+     C           A2GSKD    ANDEQ*BLANK
+     C           A2SSHZ    IFLE TODAY
+     C                     Z-ADDA2SSYS    S@SYOS
+     C                     ELSE
+     C                     Z-ADDA2KSYS    S@SYOS
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           *IN77     IFEQ *ON
+     C                     MOVE *ON       *IN66
+     C                     MOVE '1'       H@66
+     C                     ELSE
+     C                     MOVE *BLANK    H@66
+     C                     ENDIF
+      *
+     C           S@USYS    IFNE *ZERO
+     C           S@SYOS    ANDNE*ZERO
+     C           S@USYS    ANDNES@SYOS
+     C                     MOVE *ON       *IN65
+     C           D@MSG     IFEQ *BLANK
+     C                     MOVE ER,7      D@MSG
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           KEY1      SETLLAAHTL06
+     C           *IN77     DOUEQ*ON
+     C           KEY1      READEAAHTL06                  77
+     C           *IN77     IFEQ *OFF
+     C           L6SKJY    ANDEQ*BLANK
+     C           L6STHZ    ANDEQ99999999
+     C                     Z-ADDL6KMAX    S@SETQ
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           *IN77     IFEQ *ON
+     C           KEY1      SETLLAAFTL06
+     C           *IN77     DOUEQ*ON
+     C           KEY1      READEAAFTL06                  77
+     C           *IN77     IFEQ *OFF
+     C           A3SKJY    ANDEQ*BLANK
+     C           A3STHZ    ANDEQ99999999
+     C                     Z-ADDA3KMAX    S@SETQ
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C           S@SYOS    IFNE *ZERO
+     C           S@QTY     DIV  S@SYOS    @@CON   50
+     C           @@CON     IFGT S@SETQ
+     C           S@SETQ    ANDGT*ZERO
+     C                     MOVE *ON       *IN64
+     C           D@MSG     IFEQ *BLANK
+     C                     MOVE ER,6      D@MSG
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------
+     C           #SCRN1    BEGSR
+      *----------------------------------------------------
+     C                     MOVE CMD,1     D@CMD
+     C                     WRITEDSP99
+     C                     MOVE *ON       *IN51
+     C                     EXFMTCTL01
+     C                     MOVE *OFF      *IN51
+      *
+     C                     Z-ADD@@REC     #RCNO
+     C                     SELEC
+     C           *INKA     WHEQ *ON
+     C                     MOVE '99'      @@ID
+     C           *INKI     WHEQ *ON
+     C                     EXSR #ALL
+     C           *INKX     WHEQ *ON
+     C                     EXSR #CHG
+      *
+     C                     OTHER
+     C                     EXSR #CHK1
+     C           *IN99     IFEQ *OFF
+      * F5: UPDATE
+     C           *INKE     ANDEQ*ON
+     C                     EXSR #UPD
+     C           *IN99     IFEQ *OFF
+     C                     MOVE '99'      @@ID
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *----------------------------------------------------
+     C           #CHG      BEGSR
+      *----------------------------------------------------
+     C                     MOVE '1'       @CHG
+     C                     MOVE *OFF      *IN01
+     C                     Z-ADD*ZERO     @@RRN   40
+     C           *IN90     DOUEQ*ON
+     C                     ADD  1         @@RRN
+     C           @@RRN     CHAINSFL01                90
+     C           *IN90     IFEQ *OFF
+     C                     UPDATSFL01
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     EXSR #CHK1
+      *
+     C                     ENDSR
+      *----------------------------------------------------
+     C           #CHK1     BEGSR
+      *----------------------------------------------------
+     C                     SETOF                     99
+     C                     MOVEA'00000000'*IN,61
+     C                     MOVE *BLANK    D@MSG
+      *
+     C           D@TO      IFEQ *ZERO
+     C                     Z-ADDD@FROM    D@TO
+     C                     ENDIF
+      *
+     C                     Z-ADD*ZERO     W@FROM
+     C                     Z-ADD*ZERO     W@TO
+     C           D@FROM    IFNE *ZERO
+     C           20000000  ADD  D@FROM    W@FROM  80
+     C                     ENDIF
+      *
+     C           D@TO      IFNE *ZERO
+     C           20000000  ADD  D@TO      W@TO    80
+     C                     ENDIF
+      *
+     C           W@TO      IFLT W@FROM
+     C                     SETON                     616299
+     C                     MOVE ER,1      D@MSG
+     C                     ENDIF
+      *
+     C                     MOVE *OFF      *IN98
+     C                     Z-ADD*ZERO     @@RRN   40
+     C           *IN90     DOUEQ*ON
+     C                     ADD  1         @@RRN
+     C           @@RRN     CHAINSFL01                90
+     C           *IN90     IFEQ *OFF
+     C                     MOVEA'00000'   *IN,63
+      *
+     C           @CHG      IFEQ *BLANK
+     C                     MOVE *ON       *IN01
+     C                     ELSE
+     C                     MOVE *OFF      *IN01
+     C                     ENDIF
+      *
+     C           D@FROM    IFNE *ZERO
+     C           H@SHDT    IFGE W@FROM
+     C           H@SHDT    ANDLEW@TO
+     C                     MOVE 'X'       S@SLCT
+     C                     ELSE
+     C                     MOVE *BLANK    S@SLCT
+     C                     ENDIF
+     C                     ENDIF
+     C           S@SLCT    IFNE *BLANK
+     C           S@QTY     ANDGT*ZERO
+     C                     MOVE *ON       *IN98
+     C                     MOVE S@MHN1    WMHN1
+     C                     MOVE S@MHN2    WMHN2
+     C                     MOVE S@MHN3    WMHN3
+     C                     MOVELH@TOKU    PTOKU   4
+     C                     MOVELH@NONY    PNONY   4
+      *
+     C                     MOVEL'0'       PNKOJ   1
+     C           H@DOCK    IFEQ *BLANK
+     C                     MOVEL'00  '    PNUKE   4
+     C                     ELSE
+     C                     MOVELH@DOCK    PNUKE
+     C                     ENDIF
+     C                     MOVELWMHIN     @MHIN  20 P
+     C                     MOVEL*BLANK    @SHIN  12
+     C                     MOVEL*BLANK    @FLG    1
+      *
+     C                     CALL 'BBHR50'
+     C                     PARM           PTOKU   4
+     C                     PARM           PNONY   4
+     C                     PARM           PNKOJ   1
+     C                     PARM           PNUKE   4
+     C                     PARM           @MHIN  20
+     C                     PARM           @SHIN  12
+     C                     PARM           @FLG    1
+     C                     MOVE @SHIN     H@SHIN
+     C                     Z-ADD*ZERO     WSYOS
+     C           KEY1      CHAINFCEPL011             77
+     C           *IN77     IFEQ '0'
+     C           A2GSKD    ANDEQ*BLANK
+     C           A2SSHZ    IFLE TODAY
+     C                     Z-ADDA2SSYS    WSYOS
+     C                     ELSE
+     C                     Z-ADDA2KSYS    WSYOS
+     C                     ENDIF
+     C                     ELSE
+     C                     MOVE *ON       *IN66
+     C                     ENDIF
+      *
+     C           WSYOS     IFEQ *ZERO
+     C                     Z-ADD1         WSYOS
+     C                     ENDIF
+     C           S@QTY     DIV  WSYOS     @@BOX   50
+     C                     MVR            @@MVR   50
+     C           @@MVR     IFNE *ZERO
+     C                     SETON                     9963
+     C                     MOVE ER,5      D@MSG
+     C                     Z-ADD@@RRN     #RCNO
+     C                     ENDIF
+     C                     ENDIF
+     C           S@USYS    IFNE *ZERO
+     C           S@SYOS    ANDNE*ZERO
+TCHK2C*          S@USYS    ANDNES@USYS
+TCHK2C           S@USYS    ANDNES@SYOS
+     C                     MOVE *ON       *IN65
+     C                     ENDIF
+      *
+     C           S@SYOS    IFNE *ZERO
+     C           S@QTY     DIV  S@SYOS    @@CON   50
+     C           @@CON     IFGT S@SETQ
+     C           S@SETQ    ANDGT*ZERO
+     C                     MOVE *ON       *IN64
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           H@67      IFEQ '1'
+     C                     MOVE *ON       *IN67
+     C                     ENDIF
+      *
+     C                     UPDATSFL01
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           *IN98     IFEQ *OFF
+     C                     MOVE ER,3      D@MSG
+     C                     MOVE *ON       *IN99
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------
+     C           #ALL      BEGSR
+      *----------------------------------------------------
+     C                     MOVE *OFF      *IN98
+     C                     Z-ADD*ZERO     @@RRN   40
+     C           *IN90     DOUEQ*ON
+     C                     ADD  1         @@RRN
+     C           @@RRN     CHAINSFL01                90
+     C           *IN90     IFEQ *OFF
+     C                     SETOF                     636465
+      *
+     C                     MOVE 'X'       S@SLCT
+     C           S@USYS    IFNE *ZERO
+     C           S@SYOS    ANDNE*ZERO
+     C           S@USYS    ANDNES@USYS
+     C                     MOVE *ON       *IN65
+     C                     ENDIF
+      *
+     C           S@SYOS    IFNE *ZERO
+     C           S@QTY     DIV  S@SYOS    @@CON   50
+     C           @@CON     IFGT S@SETQ
+     C           S@SETQ    ANDGT*ZERO
+     C                     MOVE *ON       *IN64
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           H@66      IFEQ '1'
+     C                     MOVE *ON       *IN66
+     C                     ENDIF
+     C           H@67      IFEQ '1'
+     C                     MOVE *ON       *IN67
+     C                     ENDIF
+      *
+     C                     UPDATSFL01
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------
+     C           #UPD      BEGSR
+      *----------------------------------------------------
+     C                     MOVE D@NONY    WSIRE   4
+     C                     MOVE '0'       WSIRK   1
+     C                     MOVE '0'       WNKOJ   1
+     C                     MOVEL'00'      WNUKE   4
+     C                     MOVE '01'      WNOBN   2
+TCHK3C*
+TCHK3C                     SELEC
+JW5   ** 0465=ADVICS(ABI) **
+TCHK3C           PSIRE     WHEQ '0465'
+JW5  C                     MOVE AWBIN#    WNOBN
+     C**JW       AWBIN#    IFEQ '2'
+     C**                   MOVE '02'      WNOBN
+     C**                   ENDIF
+JW5  C**         AWBIN#    IFEQ '3'
+JW5  C**                   MOVE '03'      WNOBN
+JW5  C**                   ENDIF
+      ** 0753=TIEM **
+TCHK3C           PSIRE     WHEQ '0753'
+TCHK3C           K#PL1B    KLIST
+TCHK3C                     KFLD           K#NONY  40
+TCHK3C                     KFLD           K#NOBN  20
+TCHK3C                     KFLD           K#NOHZ  80
+TCHK3C                     Z-ADD0753      K#NONY
+TCHK3C                     Z-ADDH@ASHT    K#NOHZ
+TCHK3C                     Z-ADD*ZERO     K#NOBN
+TCHK3C                     DO   *HIVAL
+TCHK3C                     ADD  1         K#NOBN
+TCHK3C           K#PL1B    CHAINAB#PL1B              91
+TCHK3C  N91                ITER
+TCHK3C                     MOVELK#NOBN    WNOBN
+TCHK3C                     LEAVE
+TCHK3C                     ENDDO
+JW1  C                     MOVE '01'      WNOBN
+TCHK3C                     ENDSL
+TCHK3C*
+     C                     MOVE WNOBN     @@BIN   20
+     C                     Z-ADD0         WNOTM   40
+     C                     Z-ADD*ZERO     @@RRN   40
+     C                     MOVE *OFF      *IN97
+     C**                   TIME           @@TIME  60
+JW6  C                     Z-ADDNOW       @@TIME  60
+     C                     Z-ADD*ZERO     TOTLB
+      *
+     C           *IN90     DOUEQ*ON
+     C                     ADD  1         @@RRN
+     C           @@RRN     CHAINSFL01                90
+     C           *IN90     IFEQ *OFF
+     C           S@SLCT    ANDNE*BLANK
+     C           S@QTY     ANDGT*ZERO
+     C           H@DOCK    IFNE *BLANK
+     C                     MOVE H@DOCK    WNUKE
+     C                     ENDIF
+     C                     MOVE H@TOKU    WTOKU
+     C                     MOVE H@NONY    WNONY
+     C                     MOVE S@MHN1    WMHN1
+     C                     MOVE S@MHN2    WMHN2
+     C                     MOVE S@MHN3    WMHN3
+     C                     MOVELWTOKU     PTOKU   4
+     C                     MOVELWNONY     PNONY   4
+     C                     MOVELWNKOJ     PNKOJ   1
+     C                     MOVELWNUKE     PNUKE   4
+     C                     MOVELWMHIN     @MHIN  20 P
+     C                     MOVEL*BLANK    @SHIN  12
+     C                     MOVEL*BLANK    @FLG    1
+     C                     Z-ADD1         WSYOS   60
+      *
+     C                     CALL 'BBHR50'
+     C                     PARM           PTOKU   4
+     C                     PARM           PNONY   4
+     C                     PARM           PNKOJ   1
+     C                     PARM           PNUKE   4
+     C                     PARM           @MHIN  20
+     C                     PARM           @SHIN  12
+     C                     PARM           @FLG    1
+      *
+     C                     Z-ADDH@ASHT    WNYMD
+      * SET BIN#
+TCHKBC**         PSIRE     IFEQ '0777'
+JW5  C**         PSIRE     OREQ '0556'
+JW5  C**         PSIRE     OREQ '0579'
+TCHKBC**                   MOVELH@SHBN    WNOBN
+TCHKBC**                   END
+JW5  C                     MOVELS@BIN#    WNOBN
+      * ADI * DELIVERY DATE
+JW6  C           PSIRE     IFEQ '0777'
+ |   C                     MOVELH@SHDT    WDEHZ   8
+JW6  C                     END
+      *
+     C           PSIRE     IFEQ '0578'
+     C           PSIRE     OREQ '3832'
+JW8  C           PSIRE     OREQ '0556'                     FUTABA
+"    C           PSIRE     OREQ '0567'                     "
+"    C           PSIRE     OREQ '0579'                     "
+     C                     MOVELH@MANI    WINVN  16
+     C                     END
+      *
+     C           K#17      SETLLAB#PL17
+     C           *IN95     DOUEQ*ON
+     C           K#17      READEAB#PL17                  95
+     C           *IN95     IFEQ *OFF
+     C           BASKJY    ANDEQ*BLANK
+     C           BANOBN    ANDEQ@@BIN
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           *IN95     IFEQ *OFF
+JW   C           BACRHZ    ANDEQTODAY
+     C                     MOVE ER,4      D@MSG
+     C                     MOVE *ON       *IN99
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     Z-ADDS@QTY     WSURY   70
+     C                     MOVELS@ORDN    WODRN  10
+     C                     MOVELH@SBAN    WSBAN   4
+     C           H@SBAN    IFEQ *BLANK
+     C                     Z-ADDWNOMM     K@MM
+     C                     DO   *HIVAL
+     C           KEY6      SETGTFCCTL12
+     C           *IN95     DOUEQ*ON
+     C           KEY6      REDPEFCCTL12                  95
+     C           *IN95     IFEQ *OFF
+     C                     MOVELB4SBAN    WSBAN   4
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           *IN95     IFEQ *OFF
+     C                     LEAVE
+     C                     ELSE
+     C                     SUB  1         K@MM
+     C           K@MM      IFEQ 0
+     C                     ADD  12        K@MM
+     C                     ENDIF
+      *
+     C           K@MM      IFEQ WNOMM
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C           H@S       IFNE *BLANK
+     C           K#85      CHAINAB#PP85              95
+     C           *IN95     IFEQ *ON
+     C                     CLEARAB#PP851
+     C                     Z-ADDTODAY     A5KODT
+     C**                   TIME           A5KOTM
+JW6  C                     Z-ADDNOW       A5KOTM
+      *
+     C                     MOVEL#USER     A5KOME
+     C                     MOVEL#PGM      A5UPGM
+     C                     MOVEL#WSID     A5UPWS
+     C                     MOVE WTOKU     A5TOKU
+     C                     MOVE WNONY     A5NONY
+     C                     MOVE WNUKE     A5NUKE
+     C                     MOVELWMHN1     A5MHN1
+     C                     MOVELWMHN2     A5MHN2
+     C                     MOVELWMHN3     A5MHN3
+     C                     MOVELH@SBAN    A5SBAN
+     C                     Z-ADDTODAY     A5DATE
+     C                     WRITEAB#PP851
+     C                     ELSE
+     C           A5SBAN    IFNE H@SBAN
+     C                     Z-ADDTODAY     A5KODT
+     C**                   TIME           A5KOTM
+JW6  C                     Z-ADDNOW       A5KOTM
+      *
+     C                     MOVEL#USER     A5KOME
+     C                     MOVEL#PGM      A5UPGM
+     C                     MOVEL#WSID     A5UPWS
+     C                     MOVELH@SBAN    A5SBAN
+     C                     UPDATAB#PP851
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     SETOF                     77
+     C           KEY1      CHAINFCEPL011             77
+     C           *IN77     IFEQ '0'
+     C           A2GSKD    IFEQ 'D'
+     C           A2GSHZ    ANDLETODAY
+     C                     SETON                     77
+     C                     ELSE
+     C           A2SSHZ    IFLE TODAY
+     C                     Z-ADDA2SSYS    WSYOS
+     C                     ELSE
+     C                     Z-ADDA2KSYS    WSYOS
+     C                     END
+     C           PSIRE     IFEQ '5671'
+JW1  C           PSIRE     OREQ '5672'
+JW   C           PSIRE     OREQ '5674'
+     C                     MOVE '01'      WNOBN
+      *CONTAINER(HAKO) WEIGHT
+     C           WSURY     DIV  A2SSYS    QTY6   110
+     C           QTY6      MULT 1.07      CONTWT 112H
+      *WEIGHT
+     C           WSURY     MULT A2KASI    WETG   112
+     C           WETG      DIV  1000      WETK   112
+     C           CONTWT    ADD  WETK      WETT   112
+     C           WETT      MULT 2.2046    WETLB  112H
+     C                     ADD  WETLB     TOTLB  112
+     C**JW4      TOTLB     IFGT 44000
+     C**                   MOVE '02'      WNOBN
+     C**         TOTLB     SUB  WETLB     TOTLB
+     C**                   ENDIF
+     C                     ENDIF
+     C                     END
+     C                     END
+      *
+     C                     MOVE S@USYS    WUSYS   60
+JW   C                     MOVEL#PGM      WPGM   10
+      *
+     C           *IN77     IFEQ '1'
+     C                     MOVE '2'       WERID   1
+     C                     EXCPTERR
+     C                     END
+      *
+     C                     SETON                     U1
+     C                     EXCPTDT
+      *
+     C           S@SYOS    IFNE *ZERO
+     C           S@QTY     DIV  S@SYOS    @@CON   50
+     C           @@CON     IFGT S@SETQ
+     C           S@SETQ    ANDGT*ZERO
+     C                     MOVELER,10     @@ERR  37
+     C                     EXSR #ERR
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           S@USYS    IFNE *ZERO
+     C           S@SYOS    ANDNE*ZERO
+     C           S@USYS    ANDNES@SYOS
+     C                     MOVELER,11     @@ERR
+     C                     EXSR #ERR
+     C                     ENDIF
+      *
+     C           H@66      IFEQ '1'
+     C                     MOVELER,12     @@ERR
+     C                     EXSR #ERR
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *--------------------------------------------------
+     C           #DAY1     BEGSR
+      *
+     C                     Z-ADDH@SHDT    K@YMD
+     C           K#AGD     SETLLAGDPL12
+     C           *IN95     DOUEQ*ON
+     C                     READPAGDPL12                  95
+     C           *IN95     IFEQ *OFF
+     C           F8HIRU    ANDEQ*BLANK
+     C                     Z-ADDF8YMD     H@ASHT
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+     C*--------------------------------------------------
+     C           #DAY1A    BEGSR
+     C*
+     C                     DO
+     C*
+     C           H@SHDT    IFGT 20090430
+     C                     EXSR #DAY1
+     C                     LEAVE
+     C                     END
+     C*
+     C                     MOVELH@SHDT    K@YMD
+     C           K#AGD     CHAINAGDPL121             95
+     C           *IN95     IFEQ *ON
+     C                     EXSR #DAY1
+     C                     LEAVE
+     C                     END
+     C           F8YOBI    IFNE 1
+     C                     EXSR #DAY1
+     C                     LEAVE
+     C                     END
+     C*
+     C                     DO   *HIVAL
+     C*
+     C                     READPAGDPL121                 95
+     C           *IN95     IFEQ *OFF
+     C           F8YOBI    ANDEQ5
+     C                     Z-ADDF8YMD     H@ASHT           SHIPPING DATE
+     C                     LEAVE
+     C                     END
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+      *--------------------------------------------------
+     C           #DAY2     BEGSR
+      *
+     C                     Z-ADDH@SHDT    K@YMD
+     C                     Z-ADD*ZERO     @@CNT   20
+     C           K#AGD     SETLLAGDPL12
+     C           *IN95     DOUEQ*ON
+     C                     READPAGDPL12                  95
+     C           *IN95     IFEQ *OFF
+     C           F8HIRU    ANDEQ*BLANK
+     C                     ADD  1         @@CNT
+     C           @@CNT     IFEQ 2
+     C                     Z-ADDF8YMD     H@ASHT
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *--------------------------------------------------
+     C           #DAY3     BEGSR
+      *
+     C                     Z-ADDH@SHDT    K@YMD
+     C                     Z-ADD*ZERO     @@CNT   20
+     C           K#AGD     SETLLAGDPL12
+     C           *IN95     DOUEQ*ON
+     C                     READPAGDPL12                  95
+     C           *IN95     IFEQ *OFF
+     C           F8HIRU    ANDEQ*BLANK
+     C                     ADD  1         @@CNT
+     C           @@CNT     IFEQ 3
+     C                     Z-ADDF8YMD     H@ASHT
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *--------------------------------------------------
+     C           #DAY4     BEGSR
+      *
+     C                     Z-ADDH@SHDT    K@YMD
+     C                     Z-ADD*ZERO     @@CNT   20
+     C           K#AGD     SETLLAGDPL12
+     C           *IN95     DOUEQ*ON
+     C                     READPAGDPL12                  95
+     C           *IN95     IFEQ *OFF
+     C           F8HIRU    ANDEQ*BLANK
+     C                     ADD  1         @@CNT
+     C           @@CNT     IFEQ 4
+     C                     Z-ADDF8YMD     H@ASHT
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+     C*--------------------------------------------------
+     C           #DAY5     BEGSR
+     C*
+     C                     Z-ADDH@SHDT    K@YMD
+     C                     Z-ADD*ZERO     @@CNT   20
+     C           K#AGD     SETLLAGDPL12
+     C           *IN95     DOUEQ*ON
+     C                     READPAGDPL12                  95
+     C           *IN95     IFEQ *OFF
+     C           F8HIRU    ANDEQ*BLANK
+     C                     ADD  1         @@CNT
+     C           @@CNT     IFEQ 5
+     C                     Z-ADDF8YMD     H@ASHT
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+     C*
+     C                     ENDSR
+      *--------------------------------------------------
+     C           #ERR      BEGSR
+      *
+     C           *IN97     IFEQ *OFF
+     C           *INOF     OREQ *ON
+     C                     EXCPT@HED
+     C                     ENDIF
+     C  N97                MOVE *ON       *IN97
+      *
+     C                     Z-ADDS@SETQ    WSETQ   40
+     C                     EXCPT@DTL
+      *
+     C                     ENDSR
+      *--------------------------------------------------
+TCHK8C*          #PP4A     BEGSR
+TCHK8 *
+TCHK8C*          K#4AX     SETLLAB#PP4A
+TCHK8C*          *IN80     DOUEQ*ON
+TCHK8C*          K#4AX     READEAB#PP4A                  80
+TCHK8C*          *IN80     IFEQ *OFF
+TCHK8C*                    MOVE '1'       AAFLAG
+TCHK8C*                    UPDATAB#PP4A1
+TCHK8C*                    ENDIF
+TCHK8C*                    ENDDO
+TCHK8 *
+TCHK8C*                    ENDSR
+      *--------------------------------------------------
+     OAB#WP451E                DT
+     O                         WSIRE      4
+     O                         WSIRK      5
+     O                         WTOKU      9
+     O                         WNONY     13
+     O                         WNKOJ     14
+     O                         WNUKE     18
+     O                         WSBAN     22
+     O                         WMHIN     42
+     O                         WNYMD     50
+     O                         WODRN     60
+     O                         WSURY     67
+     O                         WSYOS     73
+     O                         WNOTM     77
+     O                         @SHIN     89
+     O                         WNOBN     99
+     O                         WUSYS    105
+     O                         WINVN    121
+JW6  O                         WDEHZ    133
+JW6  O                         WPGM     218
+     C*
+     OAB#WP2A E                ERR
+     O                         WSIRE      4
+     O                         WSIRK      5
+     O                         WTOKU      9
+     O                         WNONY     13
+     O                         WNKOJ     14
+     O                         WNUKE     18
+     O                         WSBAN     22
+     O                         WMHIN     42
+     O                         WODRN     52
+     O                         WSURY     59
+     O                         WNYMD     67
+     O                         WERID    100
+     OQPRINT  E   01           @HED
+     O                         #PGM       8
+     O                         UDATE Y  110
+     O                         @@TIME   119 '  :  :  '
+     O                                  122 'P.'
+     O                         PAGE  Z  126
+     O        E   02           @HED
+     O                                   60 'WARNING ERROR REPORT'
+     O        E   04           @HED
+     O                                   60 '# OF'
+     O                                   67 'CUST'
+     O                                   75 'IAF'
+     O                                   83 '# OF'
+     O        E   05           @HED
+     O                                    5 'CUST'
+     O                                   10 'DELV'
+     O                                   21 'SHIP DATE'
+     O                                   38 'CUST PART NUMBER'
+     O                                   54 'ORER QTY'
+     O                                   60 'BOX'
+     O                                   68 'QTY/BOX'
+     O                                   76 'QTY/BOX'
+     O                                   83 'KANBNS'
+     O        E   06           @HED
+     O                         @@LIN    125
+     O        E 1              @DTL
+     O                         WTOKU      5
+     O                         WNONY     10
+     O                         WNYMD     21 '    /  /  '
+     O                         WMHN1     27
+     O                                   28 '-'
+     O                         WMHN2     33
+     O                                   34 '-'
+     O                         WMHN3     39
+     O                                   40 '-'
+     O                         WMHN4     45
+     O                         WSURY 1   54
+     O                         @@CON 1   60
+     O                         WUSYS 1   68
+     O                         WSYOS 1   76
+     O                         S@SETQ1   84
+     O                         @@ERR    125
+** CMD
+ F1: END     F5:UPDATE   F9:SELECT ALL    F23(SHIFT+F11):CHG QTY
+** ER(60A) ........2.........3.........4.........5.........6
+NO DATA.                                                       1
+DATE ERROR.                                                    2
+SELECT AT LEAST ONE RECORD.                                    3
+ORDER ALREADY EXISTS. TO CHANGE OR ADD, USE ORDER ENTRY PGM.   4
+QUANTITY IS NOT MULTIPLE OF THE BOX QUANTITY.                  5
+WARNING: # OF CONTAINERS EXCEEDS # OF KANBANS.                 6
+WARNING: QTY/BOX IS DEFFERENT.                                 7
+WARNING: PART# NOT FOUND NO REGISTRATION IN THE PART MASTER.   8
+DATE SHOULD BE WEDNESDAY OR FRIDAY.                            9
+# OF CONTAINERS EXCEEDS # OF KANBANS.                         10
+QTY/BOX NOT MATCHED.                                          11
+PART# NOT FOUND IN THE PART MASTER.                           12
+DATE SHOULD BE WEDNESDAY OR THURSDAY.                         13
+                                                              14
+                                                              15

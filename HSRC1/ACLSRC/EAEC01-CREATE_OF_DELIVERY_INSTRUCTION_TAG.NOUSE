@@ -1,0 +1,335 @@
+             PGM
+             /**EAEC01*******************************************/
+             /*  CREATE OF DELIVERY INSTRUCTION TAG         */
+             /*              K.NAKAMURA            H3.3.22      */
+             /*******************************************EAEC01**/
+             DCL        VAR(&US)     TYPE(*CHAR) LEN(10)
+             DCL        VAR(&WS)     TYPE(*CHAR) LEN(10)
+             DCL        VAR(&WT)     TYPE(*CHAR) LEN(2)
+             DCL        VAR(&PRT)    TYPE(*CHAR) LEN(7)
+             DCL        VAR(&TYPE)   TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG)   TYPE(*CHAR) LEN(10)
+             DCL        VAR(&USRSW1) TYPE(*CHAR) LEN(1) VALUE(' ')
+             DCL        VAR(&PBRNK)  TYPE(*CHAR) LEN(1)
+
+             DCL        VAR(&FILE01) TYPE(*CHAR) LEN(9)
+             DCL        VAR(&FILE02) TYPE(*CHAR) LEN(9)
+             DCL        VAR(&FILE03) TYPE(*CHAR) LEN(9)
+             DCL        VAR(&FILE04) TYPE(*CHAR) LEN(9)
+             DCL        VAR(&FILE05) TYPE(*CHAR) LEN(9)
+             DCL        VAR(&FILE06) TYPE(*CHAR) LEN(9)
+             DCL        VAR(&FILE08) TYPE(*CHAR) LEN(9)
+             DCL        VAR(&FILE09) TYPE(*CHAR) LEN(9)
+             DCL        VAR(&FILEA5) TYPE(*CHAR) LEN(9)
+             DCL        VAR(&FILEA8) TYPE(*CHAR) LEN(9)
+             CHGJOB     RUNPTY(40)   SWS(00000000)
+
+             RTVJOBA    JOB(&WS)     USER(&US)
+             CHGVAR     VAR(&WT)     VALUE(%SST(&WS 1 2))
+
+             CHGVAR     VAR(&FILE01) VALUE('DACWP11' *CAT &WT)
+             CHGVAR     VAR(&FILE02) VALUE('DACWP12' *CAT &WT)
+             CHGVAR     VAR(&FILE03) VALUE('EAEWP03' *CAT &WT)
+             CHGVAR     VAR(&FILE04) VALUE('EAEWP04' *CAT &WT)
+             CHGVAR     VAR(&FILE05) VALUE('EAEWP05' *CAT &WT)
+             CHGVAR     VAR(&FILE06) VALUE('EAEWP06' *CAT &WT)
+             CHGVAR     VAR(&FILE08) VALUE('EAEWP08' *CAT &WT)
+             CHGVAR     VAR(&FILE09) VALUE('EAEWP09' *CAT &WT)
+             CHGVAR     VAR(&FILEA5) VALUE('EAEWPA8' *CAT &WT)
+             CHGVAR     VAR(&FILEA8) VALUE('EAEWPA9' *CAT &WT)
+
+             CALL       PGM(AGAR00)  PARM(&WS &PRT &TYPE &PRTG)
+
+
+             OVRDBF     FILE(DACWP11) TOFILE(&FILE01)
+             DLTF       FILE(&FILE01)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE0/&FILE01) RCDLEN(200) +
+                          TEXT('TAG CREATE WORK') OPTION(*NOLIST *NOSRC) +
+                          SIZE(2000) LVLCHK(*NO)
+
+
+             OVRDBF     FILE(DACWP12) TOFILE(&FILE02)
+             DLTF       FILE(&FILE02)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE0/&FILE02) RCDLEN(200) +
+                          TEXT('TAG CREATE WORK') OPTION(*NOLIST *NOSRC) +
+                          SIZE(2000) LVLCHK(*NO)
+
+      /*   TAG PUBLICATION DATA SELECT FROM ORDER RECEIPT ACCUMULATION FILE */
+             CALL       PGM(EAER01)
+             IF         (%SWITCH(1XXXXXXX)) DO
+             GOTO       END
+             ENDDO
+
+             CHGJOB     SWS(00000000)
+
+             FMTDTA     INFILE((&FILE01)) OUTFILE(&FILE02) +
+                          SRCFILE(HSRC0/FMTSRC) SRCMBR(EAES01) +
+                          OPTION(*NOPRT)
+
+             DLTF       FILE(EACWPF1)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE0/EACWPF1) RCDLEN(160) +
+                          TEXT('SALES CREATE') OPTION(*NOLIST) +
+                          SIZE(100 50) LVLCHK(*NO)
+
+             /**BUARF1********************/
+             /*  TOYOTA OCR PUBLICATION */
+             /*  * * * * * * * * * * * * * * * * * * * * * * * * * * */
+             OVRPRTF    FILE(AUAPRE1) PAGESIZE(42 132) OVRFLW(13) +
+                          OUTQ(QPRINTB) FORMTYPE('TY OCR JB') +
+                          HOLD(*NO) SAVE(*NO)
+
+             OVRPRTF    FILE(QPRINT)   OUTQ(UPRINT) HOLD(*YES)
+             OVRDBF     FILE(AUAWPF1)  TOFILE(EACWPF1)
+             CALL       PGM(BUARF1)    PARM(&USRSW1)
+             DLTOVR     FILE(AUAPRE1)
+             DLTOVR     FILE(QPRINT)
+             DLTOVR     FILE(AUAWPF1)
+             IF         (&USRSW1 *EQ ' ') GOTO NOOCR
+             /**************************/
+             /*  SALES ADDING UP WITH THIS PART. */
+             /****************************/
+             /* NO SALES, DELETE IT. */
+ NOOCR:
+             DLTF       FILE(EACWPF1)
+             /** BUARF2 ******************/
+             /*  ARAKO OCR PUBLICATION */
+             /****************************/
+             OVRPRTF    FILE(AUAPRM1) PAGESIZE(42 132) OVRFLW(13) +
+                          OUTQ(QPRINTB) FORMTYPE('ARAKO OCR') +
+                          HOLD(*YES) SAVE(*YES)
+             OVRPRTF    FILE(QPRINT)   OUTQ(UPRINT) HOLD(*YES)
+
+             CALL       PGM(BUARF2)
+
+             DLTOVR     FILE(AUAPRM1)
+             DLTOVR     FILE(QPRINT)
+             /********* END OF ARAKO OCR OUTPUT **********/
+
+             OVRDBF     FILE(EAEWP03) TOFILE(&FILE03)
+             DLTF       FILE(&FILE03)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE0/&FILE03) RCDLEN(200) +
+                          TEXT('TAG CREATE WORK') OPTION(*NOLIST *NOSRC) +
+                          SIZE(2000) LVLCHK(*NO)
+
+     /*  ORDER RECEIPT NO. UPDATE                       */
+             CALL       PGM(EAERA2)
+
+
+     /*PERSON IN CHARGE CODE ADD  FOR  DELIVERY INSTRUCTION TAG SORT*/
+             CALL       PGM(EAER02)
+
+             OVRDBF     FILE(EAEWP04) TOFILE(&FILE04)
+             DLTF       FILE(&FILE04)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE0/&FILE04) RCDLEN(200) +
+                          TEXT('TAG CREATE WORK') OPTION(*NOLIST *NOSRC) +
+                          SIZE(2000) LVLCHK(*NO)
+
+             FMTDTA     INFILE((&FILE03)) OUTFILE(&FILE04) +
+                          SRCFILE(HSRC0/FMTSRC) SRCMBR(EAES02) +
+                          OPTION(*NOPRT)
+
+
+             OVRDBF     FILE(EAEWP05) TOFILE(&FILE05)
+             DLTF       FILE(&FILE05)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE0/&FILE05) RCDLEN(200) +
+                          TEXT('TAG CREATE WORK') OPTION(*NOLIST *NOSRC) +
+                          SIZE(2000) LVLCHK(*NO)
+
+             OVRDBF     FILE(EAEWP08) TOFILE(&FILE08)
+             DLTF       FILE(&FILE08)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE0/&FILE08) RCDLEN(200) +
+                          TEXT('TAG CREATE WORK') OPTION(*NOLIST *NOSRC) +
+                          SIZE(2000) LVLCHK(*NO)
+
+     /*  DELIVERY INSTRUCTION TAG AOYAMA AOSHO CLASSIFICATION */
+             CALL       PGM(EAER03)
+
+
+             OVRDBF     FILE(EAEWPA5) TOFILE(&FILEA5)
+             DLTF       FILE(&FILEA5)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE0/&FILEA5) RCDLEN(200) +
+                          TEXT('TAG CREATE WORK') OPTION(*NOLIST *NOSRC) +
+                          SIZE(2000) LVLCHK(*NO)
+
+             OVRDBF     FILE(EAEWPA8) TOFILE(&FILEA8)
+             DLTF       FILE(&FILEA8)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE0/&FILEA8) RCDLEN(200) +
+                          TEXT('TAG CREATE WORK') OPTION(*NOLIST *NOSRC) +
+                          SIZE(2000) LVLCHK(*NO)
+
+             FMTDTA     INFILE((&FILE05)) OUTFILE(&FILEA5) +
+                          SRCFILE(HSRC0/FMTSRC) SRCMBR(EAES05) +
+                          OPTION(*NOPRT)
+
+
+             FMTDTA     INFILE((&FILE08)) OUTFILE(&FILEA8) +
+                          SRCFILE(HSRC0/FMTSRC) SRCMBR(EAES08) +
+                          OPTION(*NOPRT)
+
+
+             OVRDBF     FILE(EAEWP06) TOFILE(&FILE06)
+             DLTF       FILE(&FILE06)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE0/&FILE06) RCDLEN(260) +
+                          TEXT('TAG CREATE WORK') OPTION(*NOLIST *NOSRC) +
+                          SIZE(2000) LVLCHK(*NO)
+
+     /* DELIVERY INSTRUCTION(FOR AOYAMA)NECESSARY ITEM ADD */
+             CALL       PGM(EAER05)
+
+             OVRPRTF    FILE(EAEPR06) PAGESIZE(20 132) OVRFLW(20) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(N611) +
+                          IGCCPI(*CPI)
+
+             CHGJOB     SWS(00000000)
+
+             CALL       PGM(EAER06)
+
+     /*  OUTPUTS IT TO  TAKATA CO. LTD. DELIVERY LABEL DATA FILE */
+             CALL       PGM(EAER90)
+
+     /* OUTPUTS IT TO HASHIMOTO FORMING INDUSTRY DELIVERY DETAILS LIST */
+             CALL       PGM(EAER96)
+
+     /*OUTPUTS IT TO JONAN PRODUCTION PLACE DELIVERY DETAILS LIST */
+             CALL       PGM(EAER75)
+
+             CALL       PGM(EAER86)
+             CALL       PGM(EAER87)
+
+             IF         (%SWITCH(0XXXXXXX)) DO
+             GOTO       EXIT1
+             ENDDO
+
+ EXIT1:      OVRDBF     FILE(EAEWP09) TOFILE(&FILE09)
+             DLTF       FILE(&FILE09)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE0/&FILE09) RCDLEN(260) +
+                          TEXT('TAG CREATE WORK') OPTION(*NOLIST *NOSRC) +
+                          SIZE(2000) LVLCHK(*NO)
+
+     /* DELIVERY INSTRUCTION TAG(FOR AOSHO)NECESSAARY ITEM ADD */
+             CALL       PGM(EAER08)
+
+             OVRPRTF    FILE(EAEPR09) PAGESIZE(180 132) OVRFLW(180) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(K6H1) +
+                          HOLD(*YES) IGCCPI(*CPI)
+
+             CHGJOB     SWS(00000000)
+
+     /* DELIVERY INSTRUCTION TAG(FOR AOSHO)PRINT WITH 5337 */
+             CALL       PGM(EAER09)
+
+             IF         (%SWITCH(0XXXXXXX)) DO
+             GOTO       EXIT2
+             ENDDO
+
+     /* MERGE PPW */
+             MRGPPW     FORM((EAER06PPW HOBJ0/EAER06PPW)) +
+                          SPLF(EAEPR09) OUTQ(QPRINT) FORMTYPE(N612)
+
+
+ EXIT2:      OVRPRTF    FILE(EAEPR07) PAGESIZE(18 132) OVRFLW(18) +
+                          RPLUNPRT(*YES) OUTQ(QPRINTE) FORMTYPE(D613) +
+                          IGCCPI(*CPI)
+
+     /* PRINT  STATEMENT OF DELIVERY (FOR AOYAMA )  */
+             CALL       PGM(EAER07)
+
+
+             OVRPRTF    FILE(EAEPR10) PAGESIZE(18 132) OVRFLW(18) +
+                          RPLUNPRT(*YES) OUTQ(QPRINTE) FORMTYPE(D617) +
+                          IGCCPI(*CPI)
+
+     /* PRINT STATEMENT OF DELIVERY (FOR AOSHO) */
+             CALL       PGM(EAER10)
+
+             CRTDTAARA  DTAARA(HFILE0/DAAACT) TYPE(*CHAR) LEN(6) +
+                          TEXT('INSTRUCTION DATA ACTCHECK')
+
+             CALL       PGM(RAGR20) PARM(&PBRNK)
+             CALL       PGM(RAGC16)
+
+             OVRPRTF    FILE(EACPR36) PAGESIZE(18 132) LPI(6) +
+                          OVRFLW(18) RPLUNPRT(*YES) OUTQ(QPRINTE) +
+                          FORMTYPE(D704)
+             CALL       PGM(EACR36)
+             DLTOVR     FILE(EACPR36)
+
+             DLTF       FILE(SJKANBANH)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTDUPOBJ  OBJ(SJKANBAN) FROMLIB(HWFILE0) +
+                          OBJTYPE(*FILE) NEWOBJ(SJKANBANH) DATA(*YES)
+             CLRPFM     FILE(SJKANBAN)
+
+             /********************************************/
+             /*CREATE  OF AOSHO INSTRUCTION TAG PUBLICATION DETAILS LIST */
+             /*             FOR BATCH PROCESSING       */
+             /* C:N.HAYAKAWA            1988.05.08       */
+             /********************************************/
+             DLTF       FILE(EACWP40)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE0/EACWP40) RCDLEN(200) +
+                          TEXT('TAG LIST WORK') OPTION(*NOLIST) +
+                          SIZE(2000 1000) LVLCHK(*NO)
+             FMTDTA     INFILE((DACWP12)) OUTFILE(EACWP40) +
+                          SRCFILE(HSRC0/FMTSRC) SRCMBR(EACS40) +
+                          OPTION(*NOPRT)
+             OVRPRTF    FILE(QPRINT) PAGESIZE(66 198) LPI(6) CPI(15) +
+                          OVRFLW(62) RPLUNPRT(*YES) OUTQ(UPRINT) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             CALL       PGM(EACR40)
+             /********************************************/
+             /*CREATE  OF AOSHO INSTRUCTION TAG PUBLICATION DETAILS LIST */
+             /*             FOR TV INPUT               */
+             /* C:N.HAYAKAWA            1988.05.08       */
+             /********************************************/
+             DLTF       FILE(EAAWP41)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE0/EAAWP41) RCDLEN(200) +
+                          TEXT('TAG LIST WORK') OPTION(*NOLIST) +
+                          SIZE(2000 1000) LVLCHK(*NO)
+             FMTDTA     INFILE((EAAWP40)) OUTFILE(EAAWP41) +
+                          SRCFILE(HSRC0/FMTSRC) SRCMBR(EACS40) +
+                          OPTION(*NOPRT)
+             CLRPFM     FILE(EAAWP40)
+             OVRPRTF    FILE(QPRINT) PAGESIZE(66 198) LPI(6) CPI(15) +
+                          OVRFLW(62) RPLUNPRT(*YES) OUTQ(UPRINT) +
+                          FORMTYPE(K6H1) HOLD(*YES)
+             CALL       PGM(EAAR40)
+             /* END OF AOSYO- MEISAI PRINT */
+             DLTDTAARA  DTAARA(DAAACT)
+
+             CALL       PGM(DACR35)
+             /* ISUZU LABEL PUBLICATION EACC54 */
+             CALL       PGM(EACC54) PARM('DACWP12')
+             /*CREATE  OF DATA FOR ISUZU LABEL PUBLICATION */
+             CALL       PGM(EACC52) PARM('DACWP12')
+             /* HOSHINOKOKI LABEL PUBLICATION EACC51 */
+             CALL       PGM(EACC51) PARM('DACWP12')
+             /* TAG PUBLICATION DATA SEND TO S88(ARRS) 94.03.15*/
+     /* CALL PGM(OBAC60) PARM('WORKLIB' &FILE04) */
+
+     /* DLTF FILE(&FILE01) */
+     /* DLTF FILE(&FILE02) */
+     /* DLTF FILE(&FILE03) */
+     /* DLTF FILE(&FILE04) */
+     /* DLTF FILE(&FILE05) */
+     /* DLTF FILE(&FILE06) */
+     /* DLTF FILE(&FILE08) */
+     /* DLTF FILE(&FILE09) */
+     /* DLTF FILE(&FILEA8) */
+             DLTOVR     FILE(*ALL)
+
+ END:        CHGJOB     RUNPTY(20)
+
+             ENDPGM

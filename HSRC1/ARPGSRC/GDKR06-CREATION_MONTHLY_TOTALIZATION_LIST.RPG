@@ -1,0 +1,267 @@
+      *** GDKR06 *************************************
+      *   CREATION MONTHLY TOTALIZATION LIST         *
+      *  G.B.C                         97/07/25      *
+      ************************************************
+     H            Y/                                    1
+     FGDKPW06 CF  E                    WORKSTN
+     FGDKPL10 IF  E           K        DISK
+     FQPRINT  O   F     198     OF     PRINTER
+     E****************************************************************
+     E                    MSG     1   2 59
+     E                    PT      1   8  1   PTN    30
+     E                    AM         12 11 0
+     E                    AM2        12  9 0
+     E                    AM3        12  9 0
+     I****************************************************************
+     I*
+     I            DS
+     I                                        1 132 AM
+     I                                        1  110IUAM01
+     I                                       12  220IUAM02
+     I                                       23  330IUAM03
+     I                                       34  440IUAM04
+     I                                       45  550IUAM05
+     I                                       56  660IUAM06
+     I                                       67  770IUAM07
+     I                                       78  880IUAM08
+     I                                       89  990IUAM09
+     I                                      100 1100IUAM10
+     I                                      111 1210IUAM11
+     I                                      122 1320IUAM12
+     I            DS
+     I                                        1   80W@YMD
+     I                                        1   40W@YY
+     I                                        5   60W@MM
+     I                                        7   80W@DD
+     I*
+     I            DS
+     I                                        1   80W@DATE
+     I                                        1   20W@MM1
+     I                                        3   40W@DD1
+     I                                        5   80W@YY1
+     C****************************************************************
+     C*           KEY LIST                                           *
+     C****************************************************************
+     C***
+     C           IUKEY1    KLIST
+     C                     KFLD           D1YY
+     C                     KFLD           K@VEND
+     C****************************************************************
+     C*           MAIN ROUTINE                                       *
+     C****************************************************************
+     C           @START    TAG
+     C                     CLEARDSP01
+     C                     MOVE *ON       *IN40            FIRST
+     C*** DSP01 ***
+     C           @DSP01    TAG
+     C                     WRITEDSP02
+     C                     EXFMTDSP01
+     C*
+     C                     MOVEA'00'      *IN,11
+     C                     MOVE *OFF      *IN99
+     C                     MOVE *BLANK    D#MSG
+     C*
+     C           *INKA     CABEQ'1'       @END
+     C*
+     C                     EXSR #D1CHK
+     C           *IN99     CABEQ'1'       @DSP01
+     C*
+     C           *INKE     CABEQ'0'       @DSP01
+     C**
+     C                     EXSR #LIST
+     C**
+     C           *IN40     IFEQ *ON
+     C  N99                MOVELMSG,2     D#MSG
+     C                     SETON                     991112
+     C                     GOTO @DSP01
+     C                     ENDIF
+     C***
+     C           @END      TAG
+     C                     SETON                     LR
+     C                     RETRN
+     C****************************************************************
+     C*          #D1CHK    DSP01 CHECK                               *
+     C****************************************************************
+     C           #D1CHK    BEGSR                                     *
+     C           D1YY      IFEQ 0
+     C                     MOVEA'1'       *IN,11
+     C           *IN99     IFEQ '0'
+     C                     MOVELMSG,1     D#MSG
+     C                     MOVEA'1'       *IN,99
+     C                     END
+     C                     END
+     C                     ENDSR
+     C****************************************************************
+     C*          #LIST     LIST                                      *
+     C****************************************************************
+     C           #LIST     BEGSR
+     C                     EXSR #KYSET
+     C*
+     C                     DO   *HIVAL
+     C           D1YY      READEGDKPL101                 90
+     C   90                LEAVE
+     C**
+     C           IUVEND    IFGT E@VEND
+     C                     LEAVE
+     C                     ENDIF
+     C** FIRST **
+     C           *IN40     IFEQ *ON
+     C                     MOVELIUVEND    W@VEND  4
+     C                     MOVE *OFF      *IN40
+     C                     MOVE *ON       *INOF
+     C                     ENDIF
+     C** VENDOR OR PART TYPE BREAK? **
+     C           IUVEND    IFNE W@VEND
+     C                     XFOOTAM3       A3TOT  100
+     C                     EXCPT@TOTL
+     C                     Z-ADD0         AM3
+     C                     EXSR #HEAD
+     C                     MOVELIUVEND    W@VEND
+     C                     ENDIF
+     C** OVERFLOW ? **
+     C           *INOF     CASEQ*ON       #HEAD
+     C                     END
+     C**
+     C                     MOVEL*BLANK    TYPENM 26
+     C                     Z-ADD1         A       20
+     C           IUTYPE    LOKUPPT,A                     50
+     C   50                MOVELPTN,A     TYPENM
+     C**
+     C                     Z-ADD1         A       20
+     C           1         DO   12        A
+     C                     Z-ADDAM,A      AM2,A
+     C                     END
+     C                     XFOOTAM        A2TOT  100
+     C                     ADD  AM        AM3
+     C**
+     C                     EXCPT@DETL
+     C                     ENDDO
+     C                     XFOOTAM3       A3TOT  100
+     C           A3TOT     IFNE 0
+     C                     EXCPT@TOTL
+     C                     END
+     C**
+     C                     ENDSR
+     C****************************************************************
+     C*          #KYSET    KEY SET                                   *
+     C****************************************************************
+     C           #KYSET    BEGSR
+     C** KEY SET **
+     C           D1VEND    IFEQ *BLANK
+     C                     MOVE *BLANK    K@VEND  4
+     C                     MOVEL*HIVAL    E@VEND  4
+     C                     ELSE
+     C                     MOVELD1VEND    K@VEND
+     C                     MOVELD1VEND    E@VEND
+     C                     ENDIF
+     C*
+     C           IUKEY1    SETLLGDKPL101
+     C                     ENDSR
+     C****************************************************************
+     C*          #HEAD     HEAD PRINT                                *
+     C****************************************************************
+     C           #HEAD     BEGSR
+     C*
+     C                     Z-ADD*DATE     W@YMD
+     C                     Z-ADDW@YY      W@YY1
+     C                     Z-ADDW@MM      W@MM1
+     C                     Z-ADDW@DD      W@DD1
+     C                     MOVEL*BLANK    W@VNNM 30
+     C**
+     C                     EXCPT@HEAD
+     C**
+     C                     MOVE *OFF      *INOF
+     C                     ENDSR
+     C****************************************************************
+     O****************************************************************
+     OQPRINT  E   01           @HEAD
+     O                                    7 'GDKR06'
+     O                                   55 'MONTHLY'
+     O                                 +  1 'TOTALIZATION LIST'
+     O                                  166 'PAGE'
+     O                         PAGE  Z  177
+     O        E   02           @HEAD
+     O                                   11 'YEAR :'
+     O                         D1YY    +  1
+     O                                  166 'DATE'
+     O                         W@DATE   177 '  /  /    '
+     O        E   04           @HEAD
+     O                                   11 'VENDOR :'
+     O                         IUVEND  +  1
+     O                         W@VNNM  +  1
+     O        E   06           @HEAD
+     O                                    4 'TYPE'
+     O                                   40 'JAN'
+     O                                   52 'FEB'
+     O                                   64 'MAR'
+     O                                   76 'APR'
+     O                                   88 'MAY'
+     O                                  100 'JUN'
+     O                                  112 'JUL'
+     O                                  124 'AUG'
+     O                                  136 'SEP'
+     O                                  148 'OCT'
+     O                                  160 'NOV'
+     O                                  172 'DEC'
+     O                                  188 'TOTAL'
+     O        E   07           @HEAD
+     O                                   23 ' - --------------------'
+     O                                   29 '------'
+     O                                   43 '-----------'
+     O                                   55 '-----------'
+     O                                   67 '-----------'
+     O                                   79 '-----------'
+     O                                   91 '-----------'
+     O                                  103 '-----------'
+     O                                  115 '-----------'
+     O                                  127 '-----------'
+     O                                  139 '-----------'
+     O                                  151 '-----------'
+     O                                  163 '-----------'
+     O                                  175 '-----------'
+     O                                  190 '--------------'
+     C**
+     O        E 1              @DETL
+     O                         IUTYPE     2
+     O                         TYPENM    29
+     O                         AM2,1 J   44
+     O                         AM2,2 J   56
+     O                         AM2,3 J   68
+     O                         AM2,4 J   80
+     O                         AM2,5 J   92
+     O                         AM2,6 J  104
+     O                         AM2,7 J  116
+     O                         AM2,8 J  128
+     O                         AM2,9 J  140
+     O                         AM2,10J  152
+     O                         AM2,11J  164
+     O                         AM2,12J  176
+     O                         A2TOT J  191
+     C**
+     O        E 1              @TOTL
+     O                                   30 'VENDOR TOTAL '
+     O                         AM3,1 J   44
+     O                         AM3,2 J   56
+     O                         AM3,3 J   68
+     O                         AM3,4 J   80
+     O                         AM3,5 J   92
+     O                         AM3,6 J  104
+     O                         AM3,7 J  116
+     O                         AM3,8 J  128
+     O                         AM3,9 J  140
+     O                         AM3,10J  152
+     O                         AM3,11J  164
+     O                         AM3,12J  176
+     O                         A3TOT J  191
+**  MSG  **
+INPUT THE YEAR.
+NO DATA.
+**  PT
+AMAIN MATERIAL EXPENSES
+BHALF-FINESHED GOODS
+CPARTS PURCHASE EXPENSES
+DPURCHASED GOODS
+EDIE EXPENSES
+FINDIRECT MATERIAL EXPENSES
+MMACHINERY
+NMACHINE MAINTENANCE PARTS

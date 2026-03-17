@@ -1,0 +1,251 @@
+     H            Y.
+      ** AB#R0FN *******************************************************
+      *  CREATE EDI(856) FROM AB#EP60 /61S/62S                         *
+      *  JW     2021/08/17                                             *
+      ******************************************************************
+     FAB#PW0FMCF  E                    WORKSTN
+     FAB#EP60SIF  E           K        DISK
+     FAB#EP62SIF  E           K        DISK
+      *---------------------------------------------------
+     E                    MSG     1  10 70
+     I* SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1  80 M6ADER
+     I                                       52  59 M6MAN
+     I                                       61  75 M6MHIN
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************
+      *  MAIN
+      *************************************************************
+      * INITIALIZE
+     C                     EXSR #INIT
+      *
+     C           $RTN      IFEQ '@'
+     C                     MOVELMSG,8     XMSG             RETURNED
+     C                     ELSE
+     C                     MOVE *BLANK    XMSG
+     C                     ENDIF
+      *
+     C           W@ID      DOWEQ'01'
+      * DISPLAY
+     C                     EXFMTDSP01
+      * F1/3 END
+     C           *INKA     IFEQ *ON
+     C           *INKC     OREQ *ON
+     C           *INKL     OREQ *ON
+     C                     MOVE '99'      W@ID
+     C                     LEAVE
+     C                     ENDIF
+      * F10 INQUIRY
+     C**         *INKJ     IFEQ *ON
+     C**                   CALL 'AB#R0GQ'
+     C**                   MOVE '01'      W@ID
+     C**                   ITER
+     C**                   ENDIF
+      *
+     C                     EXSR #CHK1
+      * NO ERROR & F5
+     C           *IN85     IFEQ *OFF
+     C           *INKE     ANDEQ*ON
+     C                     EXSR #WRT
+     C                     MOVELMSG,4     XMSG
+     C                     MOVE '99'      W@ID
+     C                     ENDIF
+      * NO ERROR & NOT F5
+     C           *IN85     IFEQ *OFF
+     C           *INKE     ANDEQ*OFF
+     C                     MOVELMSG,3     XMSG
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C           RCNT      IFEQ 0
+     C                     MOVE '*'       $RTN
+     C                     ELSE
+     C                     MOVE ' '       $RTN
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *-----------------------------------------------------------
+      *          CHECK DATA
+      *-----------------------------------------------------------
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE *OFF      *IN41
+     C                     MOVE *OFF      *IN85
+     C                     MOVE *BLANK    XCUST
+     C                     Z-ADD0         XRCVDT
+     C                     MOVE *BLANK    XACT
+     C                     MOVE *BLANK    XMSG
+      *
+     C           XSHID     IFEQ *BLANK
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,1     XMSG
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      * CHECK DUPLICATE ASN
+     C           *LOVAL    SETLLABWEP60
+     C                     DO   *HIVAL
+     C                     READ ABWEP60                  98
+     C   98                LEAVE
+      *
+     C           E1FIL1    IFEQ XSHID
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,6     XMSG
+     C                     GOTO E#CHK1
+     C                     ENDIF
+     C                     ENDDO
+      * CHECK DUPLICATE ASN
+     C           *LOVAL    SETLLAB#EL60C
+     C                     DO   *HIVAL
+     C                     READ AB#EL60C                 97
+     C   97                LEAVE
+      *
+     C           E1FIL1    IFEQ XSHID
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,9     XMSG
+     C                     GOTO E#CHK1
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     MOVEL*BLANK    XCUST
+     C                     Z-ADD0         XRCVDT
+      * GET ACTUAL SHIP DATE
+     C                     MOVELXSHID     $SHID
+     C                     MOVELM6MAN     $MAN#
+     C                     MOVELM6MHIN    $MHIN
+     C                     MOVE *BLANK    $SHPDT
+     C                     CALL 'UEXR45 '
+     C                     PARM           $SHID  10
+     C                     PARM           $MAN#  10
+     C                     PARM           $MHIN  20
+     C                     PARM           $SHPDT  8
+     C           $SHPDT    IFEQ *BLANK
+     C           $SHPDT    OREQ *ZERO
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,5     XMSG
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      * CHECK DATE
+     C                     MOVELXDATA     OLD6    6
+     C                     MOVE $SHPDT    NEW6    6
+     C           OLD6      IFEQ NEW6
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,7     XMSG
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      * IF NO ERROR...
+     C           *IN85     IFEQ *OFF
+     C                     MOVEL$SHPDT    XACT
+     C                     MOVELMSG,5     XMSG
+     C                     ENDIF
+      *
+     C           E#CHK1    ENDSR
+      *-----------------------------------------------------------
+      * OUTPUT
+      *-----------------------------------------------------------
+     C           #WRT      BEGSR
+      * EP60
+     C           XSHID     CHAINAB#EP60S             90
+     C           *IN90     IFEQ *OFF
+     C                     MOVELXACT      E1NOHZ
+     C                     EXSR #SHID
+     C                     MOVEL$SHID     E1SHID
+     C                     MOVELXSHID     E1FIL1
+     C                     WRITEABWEP601
+     C                     Z-ADDECRTM     SVTIME
+     C                     ADD  1         RCNT
+      * WRITE E60S
+     C                     Z-ADDTODAY     ECRDT
+     C                     Z-ADDNOW       ECRTM
+     C                     MOVEL#WSID     ECRWS
+     C                     MOVEL#USER     ECRUS
+     C                     MOVEL#PGM      ECRPG
+     C                     WRITEAB#E60S1
+      *
+     C                     ELSE
+     C                     GOTO E#WRT
+     C                     ENDIF
+      * EP61
+     C           XSHID     SETLLAB#EP61S
+     C                     DO   *HIVAL
+     C           XSHID     READEAB#EP61S                 91
+     C   91                LEAVE
+     C           E2CRTM    IFEQ SVTIME
+     C                     MOVEL$SHID     E2SHID
+     C                     WRITEABWEP611
+      * WRITE E61S
+     C                     Z-ADDTODAY     E2CRDT
+     C                     Z-ADDNOW       E2CRTM
+     C                     MOVEL#PGM      E2CRPG
+     C                     WRITEAB#E61S1
+      *
+     C                     ENDIF
+     C                     ENDDO
+      * EP62
+     C           XSHID     SETLLAB#EP62S
+     C                     DO   *HIVAL
+     C           XSHID     READEAB#EP62S                 92
+     C   92                LEAVE
+     C           E3CRTM    IFEQ SVTIME
+     C                     MOVEL$SHID     E3SHID
+     C                     WRITEABWEP621
+      * WRITE E62S
+     C                     Z-ADDTODAY     E3CRDT
+     C                     Z-ADDNOW       E3CRTM
+     C                     MOVEL#PGM      E3CRPG
+     C                     WRITEAB#E62S1
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           E#WRT     ENDSR
+      *-----------------------------------------------------------
+      *  GET NEW SHID
+      *-----------------------------------------------------------
+     C           #SHID     BEGSR
+      *
+     C                     MOVEL'Y'       $UPD
+     C                     CALL 'UTLR56B'
+     C                     PARM           $UPD    1
+     C                     PARM           $SHID  10
+      *
+     C                     ENDSR
+      *-----------------------------------------------------------
+      *          INITIALIZE
+      *-----------------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $RTN    1
+      *
+     C                     TIME           WSDT
+     C                     MOVEL'01'      W@ID    2
+     C                     Z-ADD0         RCNT    40
+     C                     Z-ADD0         SVTIME  60
+      *
+     C                     ENDSR
+** MSG(70A)........2.........3.........4.........5.........6.........7
+ENTER SHIP ID !                                                        01
+SHIP ID IS NOT IN THE REJECTED ASN DATA !                              02
+PRESS F5 TO CREATE ASN DATA...                                         03
+ASN DATA WAS CREATED...                                                04
+SHIP ID DOES NOT WORK IN THIS PROGRAM !                                05
+THIS ASN ALREADY EXISTS IN WORK FILE !                                 06
+REJECTED DATE = ACTUAL DATE !                                          07
+ASN DATA HAS BEEN CREATED. ENTER NEXT SHIP ID...                       08
+THIS ASN ALREADY EXISTS IN PRODUCTION FILE !                           09
+                                                                       10

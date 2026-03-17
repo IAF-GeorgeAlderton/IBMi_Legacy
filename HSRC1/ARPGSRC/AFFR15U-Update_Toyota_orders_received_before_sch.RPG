@@ -1,0 +1,134 @@
+     H            Y.
+      ****************************************************************
+      *  PROGRAM    : AFFR15U                                        *
+      *  WRITTEN    : 05/05/2023                                     *
+      *  WRITTEN BY : LEC                                            *
+      *  FUNCTION   : UPDATE TOYOTA ORDERS RECEIVED BEFORE SCHEDULE  *
+      *               CHANGED.                                       *
+      *--------------------------------------------------            *
+      *  JW      2024.02.27 SAVE OLD BIN# IN BAKOME                  *
+      ****************************************************************
+     FAB#PL1D UF  E           K        DISK
+      ****FAB#PP44 IF  E           K        DISK
+      *
+      *-----------------------------------------------------------------
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I                                        1   20HH
+     I                                        3   40MN
+     I                                        7  100YY
+     I                                       11  120MM
+     I                                       13  140DD
+     I            DS
+     I                                        1   80NYMD
+     I                                        1   40NOYY
+     I                                        5   60NOMM
+     I                                        7   80NODD
+     I            DS
+     I                                        1   80BASHID
+     I                                        1   40BANOYY
+     I                                        5   60BANOMM
+     I                                        7   80BANODD
+      *
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           EFFDAT  80
+      *
+     C           K#1D1     KLIST
+     C                     KFLD           TOKU    40
+     C                     KFLD           NOYY
+     C                     KFLD           NOMM
+     C                     KFLD           NODD
+      *
+     C           K#1D2     KLIST
+     C                     KFLD           TOKU
+      *
+      *----------------------------------------------------*
+      * MAIN ROUTINE
+      *----------------------------------------------------*
+      *
+     C                     TIME           WSDT
+     C                     Z-ADDEFFDAT    NYMD
+     C                     Z-ADD3411      TOKU
+      *
+     C           K#1D1     SETLLAB#PL1D
+      *
+     C           *IN50     DOWEQ*OFF
+     C           K#1D2     READEAB#PL1D                  50
+      *
+     C           *IN50     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+      * if order was created before the change date, and ship date is
+      *    on or after change date, bin# may need to be updated.
+      *     (also must be an EDI order that has not been processed yet)
+     C           BACRHZ    IFLT EFFDAT
+     C           BASHID    ANDGEEFFDAT
+     C           BASERL    ANDEQ*BLANKS
+     C           BAEDIK    ANDEQ'E'
+     C                     EXSR @GETBN
+     C           BANOBN    IFNE ##BIN
+     C           ##BIN     ANDNE*ZERO
+     C                     EXSR @UPDBN
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      * get new bin# from toyota truck schedule file...
+      *------------------------------------------------------
+     C           @GETBN    BEGSR
+      *
+     C                     MOVELBAROUT    ROUTE  10 P
+     C                     Z-ADD*ZERO     ##BIN   20
+      *
+     C           BANONY    IFEQ 323                        = NAPCK
+     C                     CALL 'AB#R8N'
+     C                     PARM           BAHPOS
+     C                     PARM           EFFDAT
+     C                     PARM           ##BIN
+      *
+     C                     ELSE
+      *  if route isn't blank, call pgm to get bin# from new truck schd
+     C           BAROUT    IFNE *BLANKS
+     C                     CALL 'AB#R8M'
+     C                     PARM           EFFDAT
+     C                     PARM           ROUTE
+     C                     PARM           ##BIN
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      * update order/bin# in order file with new bin#...
+      *------------------------------------------------------
+     C           @UPDBN    BEGSR
+      *
+     C                     Z-ADD##BIN     BANOBN
+     C                     Z-ADDYY        BAKOYY
+     C                     Z-ADDMM        BAKOMM
+     C                     Z-ADDDD        BAKODD
+     C                     Z-ADDHH        BAKOHH
+     C                     Z-ADDMN        BAKOSS
+     C                     MOVEL'BINCHG'  BAKOME    P
+JW   C                     MOVE BANOBN    BAKOME
+     C                     MOVEL#PGM      BAKOPG    P
+      *
+     C                     Z-ADD##BIN     BANOBN
+      *
+     C                     UPDATAB#PP101
+      *
+     C                     ENDSR
+      *------------------------------------------------------

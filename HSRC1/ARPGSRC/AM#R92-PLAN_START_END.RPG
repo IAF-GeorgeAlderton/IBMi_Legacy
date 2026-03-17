@@ -1,0 +1,241 @@
+     H            Y.
+     F** AM#R92  *******************************************
+     F* PLAN START END                                     *
+     F*      ITS.        2015.06.24                        *
+     F******************************************************
+     FAM#WP90 UF  E           K        DISK
+     FAM#PP71 IF  E           K        DISK
+     FAM#PP72 IF  E                    DISK
+     FAM#PP00 IF  E           K        DISK
+      *
+     E                    ST          5  4 0
+     E                    EN          5  4 0
+     E                    WRK         5  1
+     E                    SUN         5  1
+     E                    MON         5  1
+     E                    TUE         5  1
+     E                    WED         5  1
+     E                    THU         5  1
+     E                    FRI         5  1
+     E                    SAT         5  1
+     E                    BST        99  4 0             BREAK TIME START
+     E                    BEN        99  4 0             BREAK TIME END
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60STIME
+     I                                        7  140SDATE
+      *
+     I            DS
+     I                                        1   80WKDATE
+     I                                        1   40WKDAYY
+     I                                        5   60WKDAMM
+     I                                        7   80WKDADD
+      *
+     I            DS
+     I                                        1   40WWST
+     I                                        1   20WWSTTH
+     I                                        3   40WWSTTM
+      *
+     I            DS
+     I                                        1   80F8KA
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+      *-----------------------------------------------------
+      *  MAIN ROUTINE
+      *-----------------------------------------------------
+     C                     TIME           WTIME
+      *
+      * WORKING SHIFT
+     C                     CLEARST
+     C                     CLEAREN
+     C                     CLEARSUN
+     C                     CLEARMON
+     C                     CLEARTUE
+     C                     CLEARWED
+     C                     CLEARTHU
+     C                     CLEARFRI
+     C                     CLEARSAT
+     C                     Z-ADD1         X       50
+     C           X         DOWLE5
+     C                     MOVE X         SFT     1
+     C           SFT       CHAINAM#PP711             25
+     C           *IN25     IFEQ '0'
+     C                     MOVELR7STRT    ST,X
+     C                     MOVELR7END     EN,X
+     C                     MOVELR7SUN     SUN,X
+     C                     MOVELR7MON     MON,X
+     C                     MOVELR7TUE     TUE,X
+     C                     MOVELR7WED     WED,X
+     C                     MOVELR7THU     THU,X
+     C                     MOVELR7FRI     FRI,X
+     C                     MOVELR7SAT     SAT,X
+     C                     ENDIF
+     C                     ADD  1         X
+     C                     ENDDO
+      * BREAK TIME
+     C                     CLEARBST
+     C                     CLEARBEN
+     C                     Z-ADD0         X       50
+     C           1         SETLLAM#PP721
+     C                     READ AM#PP721                 25
+     C           *IN25     DOWEQ'0'
+     C           T7SKJY    IFEQ 'D'
+     C           T7SKHZ    ANDLE*DATE
+     C                     ELSE
+     C                     ADD  1         X
+     C                     MOVELT7STRT    BST,X
+     C                     MOVELT7END     BEN,X
+     C                     ENDIF
+     C                     READ AM#PP721                 25
+     C                     ENDDO
+      * PULLING CYCLE
+     C                     Z-ADD0         D1PULC  50
+     C                     MOVEL'PULCYC'  KEY    10
+     C           KEY       CHAINAM#PP001             20
+     C           *IN20     IFEQ '0'
+     C                     Z-ADDD0VALU    D1PULC
+     C                     ENDIF
+      * PACKING CYCLE
+     C                     Z-ADD0         D1PACC  50
+     C                     MOVEL'PACCYC'  KEY    10
+     C           KEY       CHAINAM#PP001             20
+     C           *IN20     IFEQ '0'
+     C                     Z-ADDD0VALU    D1PACC
+     C                     ENDIF
+      * PACKING-PULLING BIN
+     C                     Z-ADD0         D1PAPU  50
+     C                     MOVEL'PACPUL'  KEY    10
+     C           KEY       CHAINAM#PP001             20
+     C           *IN20     IFEQ '0'
+     C                     Z-ADDD0VALU    D1PAPU
+     C                     ENDIF
+      * START TIME OF 1ST BIN
+     C                     Z-ADD0         D11BIN  40
+     C                     MOVEL'1BINST'  KEY    10
+     C           KEY       CHAINAM#PP001             20
+     C           *IN20     IFEQ '0'
+     C                     Z-ADDD0VALU    D11BIN
+     C                     ENDIF
+      *
+     C                     READ AM#WP901                 80
+     C           *IN80     DOWEQ'0'
+     C                     MOVEL*BLANK    WKUSE   2
+     C                     Z-ADDW0TIME    WKT     40
+     C                     EXSR #SB100
+     C                     EXSR #SB110
+     C           WKUSE     IFNE *BLANK
+     C                     MOVELWKUSE     W0USE
+     C                     UPDATAM#WP901
+     C                     ENDIF
+     C                     READ AM#WP901                 80
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *-----------------------------------------------------
+      *休憩時間に該当するか
+      *-----------------------------------------------------
+     CSR         #SB100    BEGSR
+      *
+     C                     Z-ADD1         X
+     C           X         DOWLE99
+     C           WKUSE     ANDEQ*BLANK
+     C                     Z-ADDBST,X     WKS     40
+     C                     Z-ADDBEN,X     WKE     40
+     C           WKS       IFEQ 0
+     C           WKE       ANDEQ0
+     C                     ELSE
+     C                     EXSR #SB101
+     C           GET       IFEQ '1'
+     C                     MOVEL'BK'      WKUSE
+     C                     ENDIF
+     C                     ENDIF
+     C                     ADD  1         X
+     C                     ENDDO
+      *
+     CSR         ESB100    ENDSR
+      *-----------------------------------------------------
+      *稼動時間に該当するか
+      *-----------------------------------------------------
+     CSR         #SB110    BEGSR
+      *
+     C                     CLEARWRK
+     C                     SELEC
+     C           W0YOBI    WHEQ 'SUN'
+     C                     MOVEASUN       WRK
+     C           W0YOBI    WHEQ 'MON'
+     C                     MOVEAMON       WRK
+     C           W0YOBI    WHEQ 'TUE'
+     C                     MOVEATUE       WRK
+     C           W0YOBI    WHEQ 'WED'
+     C                     MOVEAWED       WRK
+     C           W0YOBI    WHEQ 'THU'
+     C                     MOVEATHU       WRK
+     C           W0YOBI    WHEQ 'FRI'
+     C                     MOVEAFRI       WRK
+     C           W0YOBI    WHEQ 'SAT'
+     C                     MOVEASAT       WRK
+     C                     ENDSL
+      *
+     C                     Z-ADD1         X
+     C           X         DOWLE5
+     C           WKUSE     ANDEQ*BLANK
+      *
+     C           WRK,X     IFEQ '*'
+     C                     Z-ADDST,X      WKS     40
+     C                     Z-ADDEN,X      WKE     40
+     C           WKS       IFEQ 0
+     C           WKE       ANDEQ0
+     C                     ELSE
+     C                     EXSR #SB101
+     C           GET       IFEQ '1'
+     C                     MOVEL'00'      WKUSE
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ADD  1         X
+     C                     ENDDO
+      *
+     CSR         ESB110    ENDSR
+      *-----------------------------------------------------
+      *時間に該当するか
+      *-----------------------------------------------------
+     CSR         #SB101    BEGSR
+      *
+     C                     MOVEL'0'       GET     1
+     C           WKS       IFGT WKE
+     C                     EXSR #SB102
+     C                     ELSE
+     C           WKT       IFGE WKS
+     C           WKT       ANDLEWKE
+     C                     MOVEL'1'       GET     1
+     C                     ENDIF
+     C                     ENDIF
+      *
+     CSR         ESB101    ENDSR
+      *-----------------------------------------------------
+      *時間に該当するか
+      *-----------------------------------------------------
+     CSR         #SB102    BEGSR
+      *
+     C           WKT       IFGE WKS
+     C           WKT       ANDLE2400
+     C                     MOVEL'1'       GET     1
+     C                     ENDIF
+      *
+     C           WKT       IFGE 0000
+     C           WKT       ANDLEWKE
+     C                     MOVEL'1'       GET     1
+     C                     ENDIF
+      *
+     CSR         ESB102    ENDSR

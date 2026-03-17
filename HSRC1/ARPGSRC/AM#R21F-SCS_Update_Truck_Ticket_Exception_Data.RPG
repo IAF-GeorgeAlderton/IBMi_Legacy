@@ -1,0 +1,724 @@
+     H            Y.                                    1
+      ** AM#PW21F **************************************************************
+      *  SCS - Update Truck Ticket Load Data                                   *
+      *    LEC     CREATE                  2024/02/21
+      **************************************************************************
+     FAM#PW21FCF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL010
+     F                                              KINFDS @INFDS
+     FAM#PL21 UF  E           K        DISK                      A
+     FAM#PL21FIF  E           K        DISK
+     F            AM#PP211                          KRENAMEAM#21FR
+     FAM#EX24 UF  E           K        DISK                      A
+     FALBPL30 IF  E           K        DISK
+     FAL#PP21 IF  E           K        DISK
+     FFGBPL01 IF  E           K        DISK
+     FAM#PL411IF  E           K        DISK
+      **************************************************************************
+     E                    ERR     1  10 70
+     E                    NAMC       30  5
+     E                    CUST       30 10
+     E                    NONY       30  4 0
+      **************************************************************************
+     I@INFDS      DS
+     I                                     *STATUS  @STTS
+     I                                    B 370 3710@@LIN
+     I                                    B 378 3790@@REC
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140WTIME
+     I                                        7  140SDATE
+     I                                        1   60STIME
+      *
+      * TRUCK TICKET
+     I            DS
+     I                                        1  19 TT
+     I                                        1  15 TTBC
+     I                                        1   7 TTSURT
+     I                                        8  15 TTSHID
+     I                                       16  19 TTSHIT
+     I                                       20  21 TTSECS
+     I                                       16  21 TTSHTM
+      * MANIFEST
+     I            DS
+     I                                        1  50 MAN
+     I                                        1   5 MFNAMC
+     I                                        3   5 MFTYPE
+     I                                        6  10 MFSUPP
+     I                                       11  12 MFDOCK
+     I                                       13  24 MFORD#
+     I                                       25  33 MFMRTE
+     I                                       34  36 MFSDCK
+     I                                       37  38 MFPALT
+     I                                       39  40 MFMROS
+     I                                       41  44 MFSKID
+     I                                       41  43 ##SKID
+     I                                       45  50 MFFILR
+     I                                       44  44 MFSIDE
+      *
+      **************************************************************************
+      *                    MAIN ROUTINE
+      **************************************************************************
+      *
+     C           @@ID      DOWNE'99'
+     C           @@ID      CASEQ'10'      #FMT10
+     C           @@ID      CASEQ'20'      #FMT20
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *
+      **************************************************************************
+      *         INITIALIZE
+      **************************************************************************
+     C           *INZSR    BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           WORKER  6
+      *
+     C                     MOVELWORKER    WKCD    60
+     C           WKCD      CHAINALBPL30              61
+      *
+     C           TTKEY     KLIST
+     C                     KFLD           TTROUT
+     C                     KFLD           TTSHID
+     C                     KFLD           TTSHTM
+      *
+     C           KEY411    KLIST
+     C                     KFLD           MFORD#
+     C                     KFLD           MFNAMC
+     C                     KFLD           MFDOCK
+     C                     KFLD           MFPALT
+     C                     KFLD           ##SKID
+      *
+     C                     MOVEL*BLANK    MSG
+      *
+      *******
+      * load namc and cust arrays...
+      *
+     C                     MOVE *OFF      *IN61
+     C           *IN61     DOWEQ*OFF
+     C                     READ AL#PP21                  61
+     C           *IN61     IFEQ *OFF
+     C           C2SKJY    ANDEQ*BLANK
+     C                     ADD  1         X       40
+     C                     MOVELC2NAMC    NAMC,X
+     C                     Z-ADDC2NONY    NONY,X
+     C           C2NONY    CHAINFGBPL01              62
+     C           *IN62     IFEQ *OFF
+     C                     MOVELB2SMEI    CUST,X
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      *******
+      *
+     C                     MOVEL'10'      @@ID    2
+     C                     MOVEL*OFF      *IN99
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     1ST SCREEN  TRUCK TICKET
+      **************************************************************************
+     C           #FMT10    BEGSR
+      *
+     C                     EXFMTFMT010
+     C                     MOVEL*BLANK    MSG
+     C                     MOVEL*OFF      *IN99
+      *
+     C                     SELEC
+     C           *INKC     WHEQ *ON
+     C                     MOVE '99'      @@ID
+     C                     OTHER
+     C                     EXSR #CHK10
+     C           *IN99     IFEQ *OFF
+     C                     EXSR #CHKTE                     TRAILER EXCP
+     C           *INKL     IFEQ *ON
+     C                     MOVEL*BLANKS   BAR01
+     C                     MOVEL*BLANKS   TT
+     C                     MOVEL*BLANKS   MAN
+     C                     GOTO EFMT10
+     C                     ENDIF
+     C                     ENDIF
+     C           *IN99     IFEQ *ON
+     C                     MOVEL'10'      @@ID
+     C                     ELSE
+     C                     EXSR #SET20
+     C                     MOVEL'20'      @@ID
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C           EFMT10    ENDSR
+      *************************************************************************
+      *     1ST SCREEN CHECK TRUCK TICKET
+      **************************************************************************
+     C           #CHK10    BEGSR
+      *
+     C                     TIME           WTIME
+     C           BAR01     IFEQ *BLANK
+     C                     MOVELERR,1     MSG
+     C                     MOVE *ON       *IN99
+     C                     GOTO ECHK10
+     C                     ENDIF
+      *
+     C                     MOVELBAR01     TT
+     C                     MOVELTTSURT    TTROUT  9 P
+      *
+      * adjust the seconds in the ship time...
+     C           3         SUBSTTTSURT:1  CHKEX   3
+     C           CHKEX     IFEQ 'EX-'
+     C                     MOVE '  '      TTSECS
+     C                     ELSE
+     C                     MOVE '00'      TTSECS
+     C                     ENDIF
+      *
+     C           TTKEY     CHAINAM#PL21F             60
+     C           *IN60     IFEQ *ON
+     C                     MOVE *ON       *IN99
+     C                     MOVELERR,2     MSG
+     C                     ENDIF
+      *
+     C           ECHK10    ENDSR
+      *************************************************************************
+      *     CHECK FOR TRAILER-LEVEL EXCEPTION
+      **************************************************************************
+     C           #CHKTE    BEGSR
+      *
+     C                     MOVEL*BLANKS   F15XCD
+     C                     MOVEL*BLANKS   MSG
+     C                     MOVELTT        TT21   21
+      *
+     C                     MOVELTTSHID    S1SHID
+     C                     MOVELTTSURT    S1SURT
+     C                     MOVELTTSHIT    S1SHIT
+      *
+     C           TT21      CHAINAM#EX24             N60
+     C           *IN60     IFEQ *OFF
+     C                     MOVEL'24'      F15XCD
+     C                     ELSE
+     C                     MOVEL*BLANKS   F15XCD
+     C                     ENDIF
+      *
+     C                     DO   *HIVAL
+      *
+     C                     EXFMTFMT015
+      *
+     C                     MOVE *OFF      *IN99
+     C                     MOVEL*BLANKS   MSG
+      *
+     C           *INKL     IFEQ *ON
+     C                     MOVEL*BLANKS   BAR01
+     C                     MOVEL*BLANKS   TT
+     C                     MOVEL*BLANKS   MAN
+     C                     MOVEL'10'      @@ID
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           F15XCD    IFNE *BLANKS
+     C           F15XCD    ANDNE'24'
+     C                     MOVELERR,3     MSG
+     C                     MOVE *ON       *IN99
+     C                     ITER
+     C                     ENDIF
+      *
+     C           F15XCD    IFEQ *BLANKS
+     C           TT21      DELETAM#EX24              31
+     C                     ELSE
+     C           TT21      CHAINAM#EX24              31
+     C           *IN31     IFEQ *ON
+     C                     TIME           WTIME
+     C                     Z-ADDSDATE     R4SSHZ
+     C                     Z-ADDSTIME     R4SSTI
+     C                     MOVELTT21      R4TICK
+     C                     WRITEAM#PP241
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     LEAVE
+      *
+     C                     ENDDO
+      *
+     C           ECHKTE    ENDSR
+      *
+      *************************************************************************
+      *     SET SUBFILE WITH MANIFEST DATA ATTACHED TO TRUCK TICKET
+      **************************************************************************
+     C           #SET20    BEGSR
+      *
+     C                     MOVEL*ON       *IN41
+     C                     WRITECTL010
+     C                     MOVEL*OFF      *IN41
+     C                     MOVEL*OFF      *IN42
+     C                     Z-ADD*ZERO     RRN1    40
+      *
+     C                     MOVELTTSHID    S1SHID
+     C                     MOVELTTSURT    S1SURT
+     C                     MOVELTTSHIT    S1SHIT
+     C                     Z-ADD*ZERO     S1TLMF
+      *
+      * start with getting all manifest records attached to truck tick
+      *
+     C           TTKEY     SETLLAM#PL21F
+      *
+     C                     DO   *HIVAL
+      *
+     C           TTKEY     READEAM#PL21F                 97
+     C   97                LEAVE
+      *
+     C           R2SKJY    IFEQ 'D'
+     C           R2HNTE    OREQ 'NG'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     CLEARSFL010
+      *
+     C                     MOVE *BLANK    S1SEL
+     C                     MOVELR2NUKE    S1NUKE
+     C                     MOVELR2ORDN    S1ORD#
+     C                     MOVELR2PLTC    S1PALT
+     C                     MOVELR2SKID    S1SKID
+     C                     MOVELR2EXCD    S1EXCD
+     C                     MOVELR2NAMC    H1NAMC
+     C                     MOVELR22D      H1MFBC
+      *
+      * check log file for last skid transmission status...
+     C                     MOVELH1MFBC    MAN
+     C                     EXSR CHKLOG
+      *
+     C                     Z-ADD1         X       40
+     C           R2NAMC    LOKUPNAMC,X                   31
+     C           *IN31     IFEQ *ON
+     C                     MOVELCUST,X    S1CNAM
+     C                     Z-ADDNONY,X    H1NONY
+     C                     ENDIF
+      *
+     C                     ADD  1         RRN1
+     C                     WRITESFL010
+      *
+     C                     ENDDO
+      *
+     C                     Z-ADDRRN1      S1TLMF
+      *
+     C           RRN1      IFEQ *ZERO
+     C                     MOVE *ON       *IN99
+     C           MSG       IFEQ *BLANK
+     C                     MOVELERR,2     MSG
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     DISPLAY - MANIFEST SUBFILE
+      **************************************************************************
+     C           #FMT20    BEGSR
+      *
+     C                     Z-ADD1         W#RNP1  40
+      *
+     C                     DO   *HIVAL
+      *
+     C                     MOVEL*OFF      *IN47
+     C                     MOVEL*ON       *IN48
+     C                     WRITEFMT099
+     C                     Z-ADDW#RNP1    #RCN01
+     C                     EXFMTCTL010
+      *
+     C           @@REC     IFNE *ZERO
+     C                     Z-ADD@@REC     W#RNP1
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    MSG
+     C                     MOVEL*OFF      *IN99
+      *
+     C                     SELEC
+      *F3 End
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'99'      @@ID
+     C                     LEAVE
+      *F4 Delete
+     C           *INKD     WHEQ *ON
+     C                     EXSR #DSP40
+     C                     EXSR #SET20
+     C                     MOVEL'20'      @@ID
+     C                     LEAVE
+      *F6 Add
+     C           *INKF     WHEQ *ON
+     C                     EXSR #DSP30
+     C                     EXSR #SET20
+     C                     MOVEL'20'      @@ID
+     C                     LEAVE
+      *F9 Upd
+     C           *INKI     WHEQ *ON
+     C                     EXSR #DSP20
+     C                     EXSR #SET20
+     C                     MOVEL'20'      @@ID
+     C                     LEAVE
+      *F10 Resend
+     C           *INKJ     WHEQ *ON
+     C                     EXSR #DSP50
+     C                     EXSR #SET20
+     C                     MOVEL'20'      @@ID
+     C                     LEAVE
+      *F12 Cancel
+     C           *INKL     WHEQ *ON
+     C                     MOVEL*BLANKS   BAR01
+     C                     MOVEL*BLANKS   TT
+     C                     MOVEL*BLANKS   MAN
+     C                     MOVEL'10'      @@ID
+     C                     LEAVE
+     C                     ENDSL
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      **************************************************************************
+      *     GET NEW EXCEPTION CODE AND UPDATE SELECTED MANIFESTS
+      **************************************************************************
+     C           #DSP20    BEGSR
+      *
+     C                     MOVELTTSHID    S1SHID
+     C                     MOVELTTSURT    S1SURT
+     C                     MOVELTTSHIT    S1SHIT
+      *
+      * get exception code to apply...
+      *
+     C                     DO   *HIVAL
+      *
+     C                     EXFMTFMT020
+     C                     MOVEL*BLANKS   MSG
+     C                     MOVE *OFF      *IN99
+      *
+     C           *INKL     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           F2EXCD    IFNE '14'
+     C           F2EXCD    ANDNE'18'
+     C           F2EXCD    ANDNE'19'
+     C           F2EXCD    ANDNE'23'
+     C           F2EXCD    ANDNE'R '
+     C                     MOVELERR,3     MSG
+     C                     MOVE *ON       *IN99
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     LEAVE
+      *
+     C                     ENDDO
+      *
+      * update selected manifests...
+      *
+     C                     Z-ADD*ZERO     RRN1
+      *
+     C           *INKL     IFEQ *OFF
+      *
+     C                     DO   *HIVAL
+      *
+     C                     ADD  1         RRN1
+     C           RRN1      CHAINSFL010               93
+     C   93                LEAVE
+      *
+     C           S1SEL     IFEQ 'X'
+     C                     EXSR #UPDMF
+     C                     ENDIF
+      *
+     C                     MOVEL*ON       *IN52
+     C                     MOVEL*BLANK    S1SEL
+     C                     UPDATSFL010
+     C                     MOVEL*OFF      *IN52
+      *
+     C                     ENDDO
+      *
+     C                     ENDIF
+      *
+     C                     MOVE *BLANKS   F2EXCD
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     ADD SKID MANIFEST TO THE TRUCK TICKET.
+      **************************************************************************
+     C           #DSP30    BEGSR
+      *
+     C                     MOVELTTSHID    S1SHID
+     C                     MOVELTTSURT    S1SURT
+     C                     MOVELTTSHIT    S1SHIT
+      *
+     C                     DO   *HIVAL
+      *
+     C                     EXFMTFMT030
+     C                     MOVEL*BLANKS   MSG
+     C                     MOVE *OFF      *IN99
+      *
+     C           *INKL     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           F3MFBC    IFEQ *BLANKS
+     C                     MOVELERR,4     MSG
+     C                     MOVE *ON       *IN99
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVE *OFF      *IN61
+     C           F3MFBC    SETLLAM#PL21
+     C           *IN61     DOWEQ*OFF
+      *
+     C           F3MFBC    READEAM#PL21                  61
+     C           *IN61     IFEQ *OFF
+     C           R2SKJY    ANDEQ*BLANK
+     C           R2HNTE    ANDEQ'OK'
+     C                     MOVELERR,5     MSG
+     C                     MOVE *ON       *IN99
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C           *IN99     IFEQ *OFF
+      *
+     C                     TIME           WTIME
+     C                     CLEARAM#PP211
+      *
+     C                     Z-ADDSDATE     R2KOHZ
+     C                     Z-ADDSTIME     R2KOTI
+     C                     MOVELWORKER    R2KOME
+     C                     MOVEL#PGM      R2KPGM
+     C                     Z-ADDSDATE     R2SSHZ
+     C                     Z-ADDSTIME     R2SSTI
+     C                     MOVELWORKER    R2USCD
+     C                     MOVELALWKNM    R2USNM
+     C                     MOVEL'OK'      R2HNTE
+      *
+     C                     MOVELTT        R2TICK
+     C                     MOVELTTSURT    R2SURT    P
+     C                     MOVELTTSHID    R2SHID
+     C                     MOVELTTSHTM    R2SHIT
+      *
+     C                     MOVELF3MFBC    MAN
+     C                     MOVE 'A'       MFSIDE
+     C                     MOVELMAN       R22D
+     C                     MOVELMFNAMC    R2NAMC
+     C                     MOVELMFSUPP    R2SUPP
+     C                     MOVELMFDOCK    R2NUKE
+     C                     MOVELMFORD#    R2ORDN
+     C                     MOVELMFMRTE    R2MRTE
+     C                     MOVELMFSDCK    R2DOCK
+     C                     MOVELMFPALT    R2PLTC
+     C                     MOVELMFMROS    R2MRSO
+     C                     MOVELMFSKID    R2SKID
+     C                     MOVELMFFILR    R2FIL2
+      *
+     C                     WRITEAM#PP211
+     C                     ENDIF
+      *
+      * send skid data for this manifest to SCS...
+     C                     CALL 'AM#R413'
+     C                     PARM           MAN
+     C                     PARM           WORKER
+      *
+     C                     MOVEL*BLANKS   F3MFBC
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     CONFIRM AND THEN DELETE SELECTED MANIFESTS
+      **************************************************************************
+     C           #DSP40    BEGSR
+      *
+     C                     MOVELTTSHID    S1SHID
+     C                     MOVELTTSURT    S1SURT
+     C                     MOVELTTSHIT    S1SHIT
+      *
+     C                     MOVE *BLANKS   F4YORN
+      *
+      * display screen to confirm deletion...
+      *
+     C                     DO   *HIVAL
+      *
+     C                     EXFMTFMT040
+     C                     MOVEL*BLANKS   MSG
+     C                     MOVE *OFF      *IN99
+      *
+     C           *INKL     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           F4YORN    IFNE 'Y'
+     C                     MOVELERR,6     MSG
+     C                     MOVE *ON       *IN99
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     LEAVE
+      *
+     C                     ENDDO
+      *
+      * delete selected manifests...
+      *
+     C                     Z-ADD*ZERO     RRN1
+      *
+     C           *INKL     IFEQ *OFF
+      *
+     C                     DO   *HIVAL
+      *
+     C                     ADD  1         RRN1
+     C           RRN1      CHAINSFL010               93
+     C   93                LEAVE
+      *
+     C           S1SEL     IFEQ 'D'
+     C                     EXSR #DLTMF
+     C                     ENDIF
+      *
+     C                     MOVEL*ON       *IN52
+     C                     MOVEL*BLANK    S1SEL
+     C                     UPDATSFL010
+     C                     MOVEL*OFF      *IN52
+      *
+     C                     ENDDO
+      *
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     DELETE SELECTED MANIFEST FROM LOAD FILE
+      **************************************************************************
+     C           #DLTMF    BEGSR
+      *
+     C                     TIME           WTIME
+      *
+     C                     MOVE *OFF      *IN60
+     C           H1MFBC    SETLLAM#PL21
+     C           *IN60     DOWEQ*OFF
+     C           H1MFBC    READEAM#PL21                  60
+     C           *IN60     IFEQ *OFF
+     C           R2SKJY    ANDNE'D'
+     C                     MOVE 'D'       R2SKJY
+     C                     Z-ADDSDATE     R2SKHZ
+     C                     Z-ADDSDATE     R2KOHZ
+     C                     Z-ADDSTIME     R2KOTI
+     C                     MOVELWORKER    R2KOME
+     C                     MOVEL#PGM      R2KPGM
+     C                     UPDATAM#PP211
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     UPDATE SELECTED MANIFESTS IN LOAD FILE WITH NEW EXCEPTION
+      **************************************************************************
+     C           #UPDMF    BEGSR
+      *
+     C                     TIME           WTIME
+      *
+     C                     MOVE *OFF      *IN60
+     C           H1MFBC    SETLLAM#PL21
+     C           *IN60     DOWEQ*OFF
+     C           H1MFBC    READEAM#PL21                  60
+     C           *IN60     IFEQ *OFF
+     C           R2SKJY    ANDEQ*BLANK
+     C                     Z-ADDSDATE     R2KOHZ
+     C                     Z-ADDSTIME     R2KOTI
+     C                     MOVELWORKER    R2KOME
+     C                     MOVEL#PGM      R2KPGM
+     C           F2EXCD    IFEQ 'R'
+     C                     MOVE *BLANKS   R2EXCD
+     C                     ELSE
+     C                     MOVELF2EXCD    R2EXCD
+     C                     ENDIF
+     C                     UPDATAM#PP211
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *************************************************************************
+      * FOR SELECTED SKIDS, UPDATE MANIFEST# FROM ORDER FILE AND RESEND
+      **************************************************************************
+     C           #DSP50    BEGSR
+      *
+     C                     MOVELTTSHID    S1SHID
+     C                     MOVELTTSURT    S1SURT
+     C                     MOVELTTSHIT    S1SHIT
+      *
+      *
+      * display screen to confirm resending skids to SCS...
+     C                     EXFMTFMT050
+     C                     MOVEL*BLANKS   MSG
+     C                     MOVE *OFF      *IN99
+      *
+      * resend selected manifests...
+     C                     Z-ADD*ZERO     RRN1
+      *
+     C           *INKL     IFEQ *OFF
+      *
+     C                     DO   *HIVAL
+      *
+     C                     ADD  1         RRN1
+     C           RRN1      CHAINSFL010               93
+     C   93                LEAVE
+      *
+     C           S1SEL     IFEQ 'R'
+      *
+      * update manifest# in packing file with manifest in order file...
+     C                     Z-ADD3411      TOKU
+     C                     CALL 'AM#R21M'
+     C                     PARM           TOKU    40
+     C                     PARM           H1NONY
+     C                     PARM           S1NUKE
+     C                     PARM           S1ORD#
+     C                     PARM           S1PALT
+      *
+      * send skid data for this manifest to SCS...
+     C                     MOVELH1MFBC    MAN
+     C                     CALL 'AM#R413'
+     C                     PARM           MAN
+     C                     PARM           WORKER
+      *
+     C                     ENDIF
+      *
+     C                     MOVEL*ON       *IN52
+     C                     MOVEL*BLANK    S1SEL
+     C                     UPDATSFL010
+     C                     MOVEL*OFF      *IN52
+      *
+     C                     ENDDO
+      *
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *************************************************************************
+      * CHECK SCS LOG TO SEE IF PALLET SEND WAS CONFIRMED  *
+      *  IF SO, SET SEND STATUS TO 'OK'.                   *
+      *----------------------------------------------------*
+     CSR         CHKLOG    BEGSR
+      *
+     C                     MOVEL'ns'      S1STAT
+      *
+     C           KEY411    SETGTAM#PL411
+     C           KEY411    REDPEAM#PL411                 55
+     C           *IN55     IFEQ *OFF
+      *
+     C           L1CFM#    IFEQ *BLANK
+     C           L1CFM#    OREQ '*NULL'
+     C                     MOVEL'NG'      S1STAT
+     C                     ELSE
+     C                     MOVEL'OK'      S1STAT
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     CSR                   ENDSR
+      *----------------------------------------------------*
+** ERR
+TRUCK TICKET IS INVALID
+TRUCK TICKET NOT FOUND IN TRUCK LOAD FILE
+INVALID EXCEPTION CODE
+SCAN MANIFEST BARCODE
+MANIFEST ALREADY SCANNED TO A TRUCK TICKET
+ENTER 'Y' TO CONFIRM, PRESS F12 TO CANCEL
+
+
+
+

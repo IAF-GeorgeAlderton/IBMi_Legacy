@@ -1,0 +1,223 @@
+     H            Y.
+     F** T#TR64 *********************************************
+     F* OUTSOURCE FORECAST
+     F*             ITS.           2015.07.16               *
+     F*******************************************************
+     FT#TWP62 IF  E                    DISK
+     FT#TWP63 IF  E           K        DISK
+     FAB#PL09 IF  E           K        DISK
+     FAGDPL12 IF  E           K        DISK
+     FT#TWP64 O   E                    DISK                      A
+      *
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60WTIME
+     I                                        7  140WDATE
+      *
+     I            DS
+     I                                        1   80F8KA
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+      *
+     I            DS
+     I                                        1   80WKDATE
+     I                                        1   40WKDAYY
+     I                                        5   60WKDAMM
+     I                                        7   80WKDADD
+      *
+     I            DS
+     I                                        1   80##DATE
+     I                                        1   40##DAYY
+     I                                        5   60##DAMM
+     I                                        7   80##DADD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           P1BMON  40
+     C                     PARM           P9CMD   2
+      *----------------------------------------------------*
+      *   K  E  Y   L  I  S  T                             *
+      *----------------------------------------------------*
+      *
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     TIME           SDATE
+     C                     MOVELP1BMON    WKBMON  4
+      *
+     C                     READ T#TWP621                 80
+     C           *IN80     DOWEQ'0'
+     C                     EXSR #SB310
+     C                     EXSR #SB400
+     C                     READ T#TWP621                 80
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *１０日間実績                                      *
+      *----------------------------------------------------*
+     CSR         #SB310    BEGSR
+      *１０日前
+     C                     MOVE *DATE     P#DATE  8
+     C                     MOVE '-'       P#PORM  1        + OR -
+     C                     MOVE '0010'    P#DAYS  4
+     C                     MOVE *BLANK    P#RDAT  8
+     C                     MOVE *BLANK    P#RTN   1
+     C                     CALL 'DATR1A'
+     C                     PARM           P#DATE
+     C                     PARM           P#PORM  1        + OR -
+     C                     PARM           P#DAYS  4
+     C                     PARM           P#RDAT  8
+     C                     PARM           P#RTN   1
+      *
+     C                     MOVELP#RDAT    ##DATE
+     C           KEYG81    KLIST
+     C                     KFLD           W2HIN1
+     C                     KFLD           W2HIN2
+     C                     KFLD           W2HIN3
+     C                     KFLD           ##DAYY
+     C                     KFLD           ##DAMM
+     C                     KFLD           ##DADD
+     C           KEYG82    KLIST
+     C                     KFLD           W2HIN1
+     C                     KFLD           W2HIN2
+     C                     KFLD           W2HIN3
+     C                     EXSR #SB311
+      *
+     C                     Z-ADD0         WKSHIP  82
+     C           WKHAKO    IFEQ 0
+      *２０日前
+     C                     MOVE *DATE     P#DATE  8
+     C                     MOVE '-'       P#PORM  1        + OR -
+     C                     MOVE '0020'    P#DAYS  4
+     C                     MOVE *BLANK    P#RDAT  8
+     C                     MOVE *BLANK    P#RTN   1
+     C                     CALL 'DATR1A'
+     C                     PARM           P#DATE
+     C                     PARM           P#PORM  1        + OR -
+     C                     PARM           P#DAYS  4
+     C                     PARM           P#RDAT  8
+     C                     PARM           P#RTN   1
+     C                     MOVELP#RDAT    ##DATE
+     C                     EXSR #SB311
+     C           WKHAKO    DIV  20        WKSHIP
+     C                     ELSE
+     C           WKHAKO    DIV  10        WKSHIP
+     C                     ENDIF
+      *当日の未出荷
+     C                     Z-ADD0         D@UNS1  61
+     C                     MOVE '1'       PZMODE
+     C                     MOVE *DATE     PZSDAT  8
+     C                     CALL 'AB#CAY0'
+     C                     PARM           PZMODE  1
+     C                     PARM           W2HIN1
+     C                     PARM           W2HIN2
+     C                     PARM           W2HIN3
+     C                     PARM           PZSDAT  8
+     C                     PARM           PZDAT1  8
+     C                     PARM           PZTOL1  6
+     C                     PARM           PZUNS1  6
+     C                     PARM           PZDAT2  8
+     C                     PARM           PZTOL2  6
+     C                     PARM           PZUNS2  6
+     C                     PARM           PZDAT3  8
+     C                     PARM           PZTOL3  6
+     C                     PARM           PZUNS3  6
+     C                     MOVE PZUNS1    D@UNS1  61
+      *
+     CSR         ESB310    ENDSR
+      *----------------------------------------------------*
+      *実績                                              *
+      *----------------------------------------------------*
+     CSR         #SB311    BEGSR
+      *
+     C                     Z-ADD0         WKHAKO  70
+     C           KEYG81    SETLLAB#PL071
+     C           KEYG82    READEAB#PL071                 81
+     C           *IN81     DOWEQ'0'
+     C           B1NOHZ    ANDLT*DATE
+     C           B1SKJY    IFEQ 'D'
+     C           B1SKHZ    ANDLE*DATE
+     C                     ELSE
+     C                     ADD  B1HAKO    WKHAKO
+     C                     ENDIF
+     C           KEYG82    READEAB#PL071                 81
+     C                     ENDDO
+      *
+     CSR         ESB311    ENDSR
+      *----------------------------------------------------*
+      *２１日分                                          *
+      *----------------------------------------------------*
+     CSR         #SB400    BEGSR
+      *
+     C                     Z-ADDW2INVE    WKINVE  82
+     C           KEYF8     KLIST
+     C                     KFLD           WKDAYY
+     C                     KFLD           WKDAMM
+     C                     KFLD           WKDADD
+     C                     Z-ADD*DATE     WKDATE
+     C                     Z-ADD1         X       30
+     C           KEYF8     SETLLAGDPL121
+     C                     READ AGDPL121                 20
+     C           *IN20     DOWEQ'0'
+     C           X         ANDLE21
+     C           F8HIRU    IFEQ *BLANK
+     C                     EXSR #SB500
+     C                     ADD  1         X
+     C                     ENDIF
+     C                     READ AGDPL121                 20
+     C                     ENDDO
+      *
+     CSR         ESB400    ENDSR
+      *----------------------------------------------------*
+      *２１日分                                          *
+      *----------------------------------------------------*
+     CSR         #SB500    BEGSR
+      *
+     C                     CLEART#TWP641
+     C                     MOVELW2BMON    W4BMON
+     C                     MOVELW2HIN1    W4HIN1
+     C                     MOVELW2HIN2    W4HIN2
+     C                     MOVELW2HIN3    W4HIN3
+     C                     MOVELW2TKR     W4TKR
+     C                     Z-ADDW2INVE    W4INVE
+     C                     Z-ADDF8KA      W4DATE
+      *入荷箱数
+     C           KEYW3     KLIST
+     C                     KFLD           W2HIN1
+     C                     KFLD           W2HIN2
+     C                     KFLD           W2HIN3
+     C                     KFLD           W2TKR
+     C                     KFLD           F8KA
+     C           KEYW3     SETLLT#TWP631
+     C           KEYW3     READET#TWP631                 23
+     C           *IN23     DOWEQ'0'
+     C                     ADD  W3NYKA    W4NYKA
+     C           KEYW3     READET#TWP631                 23
+     C                     ENDDO
+      *出荷予定
+     C                     MOVELPZDAT1    PZDT    80
+     C           W4DATE    IFEQ *DATE
+     C           PZDT      IFEQ *DATE
+     C                     Z-ADDD@UNS1    W4SHIP
+     C                     ELSE
+     C                     Z-ADD0         W4SHIP
+     C                     ENDIF
+     C                     ELSE
+     C                     Z-ADDWKSHIP    W4SHIP
+     C                     ENDIF
+      *予想在庫
+     C                     ADD  W4NYKA    WKINVE
+     C                     SUB  W4SHIP    WKINVE
+     C                     Z-ADDWKINVE    W4YZIK
+      *
+     C                     WRITET#TWP641
+      *
+     CSR         ESB500    ENDSR

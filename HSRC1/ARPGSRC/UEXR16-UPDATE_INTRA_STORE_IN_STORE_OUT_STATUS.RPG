@@ -1,0 +1,345 @@
+     H            Y.                                    1
+     F** UEXR16 **********************************
+     F* UPDATE INTRA STORE IN/STORE OUT STATUS   *
+     F*     T.SAKAKI             2019.11.22      *
+     F********************************************
+     FNZTPL02 UF  E           K        DISK                      A
+     FALDPL35DIF  E           K        DISK
+     FNZTPP09 O   E           K        DISK
+      *
+     I* UPDATE DATE
+     I            DS
+     I                                        1  140WUDTTM
+     I                                        1   80WUDATE
+     I                                        9  140WUTIME
+     I* STORE IN
+     I            DS
+     I                                        1  140WIDTTM
+     I                                        1   80WIDATE
+     I                                        9  140WITIME
+     I* STORE OUT
+     I            DS
+     I                                        1  140WODTTM
+     I                                        1   80WODATE
+     I                                        9  140WOTIME
+     I            DS
+     I                                        1  140W3DTTM
+     I                                        1   80W3DATE
+     I                                        9  140W3TIME
+      *
+     I            DS
+     I                                        1  12 K1SHIN
+     I                                        1   5 K1PRT1
+     I                                        6  10 K1PRT2
+     I                                       11  12 K1PRT3
+      *
+     I            DS
+     I                                        1   6 W1LOCA
+     I                                        1   1 W1LOC1
+     I                                        2   3 W1LOC2
+     I                                        4   5 W1LOC3
+     I                                        6   6 W1LOC4
+     I*
+     IW@DATA      DS
+     I                                        1 256 W@QR1
+     I                                      257 512 W@QR2
+     I*
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60WTIME
+     I                                        7  140WDATE
+     I           SDS
+     I                                     *PROGRAM #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     I                                      264 269 #JBNO
+      *
+     I              '0123456789'          C         DIGITS
+      ***********************************************
+      * ENTRY LIST
+      ***********************************************
+     C           *ENTRY    PLIST
+     C                     PARM           P1BCD  20
+     C                     PARM           P1QR1 256
+     C                     PARM           P1QR2 256
+      *
+     C                     PARM           P1LOC1  1
+     C                     PARM           P1LOC2  2
+     C                     PARM           P1LOC3  2
+     C                     PARM           P1LOC4  1
+     C                     PARM           P1PRT1  5
+     C                     PARM           P1PRT2  5
+     C                     PARM           P1PRT3  2
+      *
+     C                     PARM           P1TMCD 10
+     C                     PARM           P1TMNM 20
+     C                     PARM           P1PGM  10
+      *  '1' STORE-IN / '2' STORE-OUT
+     C                     PARM           P1TYPE  1
+     C                     PARM           P1RTN   1
+      ***********************************************
+      * KEY   LIST
+      ***********************************************
+     C           KEY1      KLIST
+     C                     KFLD           P1BCD
+     C                     KFLD           P1LOC1
+     C                     KFLD           P1LOC2
+     C                     KFLD           P1LOC3
+     C                     KFLD           P1LOC4
+      ***********************************************
+      * MAIN
+      ***********************************************
+     C                     TIME           WSDT
+     C                     MOVEL'Y'       P1RTN
+     C*
+     C                     MOVELP1LOC1    W1LOC1
+     C                     MOVELP1LOC2    W1LOC2
+     C                     MOVELP1LOC3    W1LOC3
+     C                     MOVELP1LOC4    W1LOC4
+     C*
+     C                     MOVELP1BCD     W1KIN1  1
+     C*  P/T KANBAN
+     C           W1KIN1    IFEQ 'I'
+     C*     CHECK WHEN STORE OUT
+     C           P1TYPE    IFEQ '2'
+     C                     EXSR #SB300
+     C                     ENDIF
+     C*  INTRA KANBANS
+     C                     ELSE
+     C                     EXSR #SB100                     BCD
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      ****************************************************
+      *  CHECK BY BARCODE
+      ****************************************************
+     CSR         #SB100    BEGSR
+      *
+     C           KEY1      SETGTNZTPL02
+     C                     DO   *HIVAL
+     C           KEY1      REDPENZTPL02                  80
+     C   80                LEAVE
+     C           N1SKJY    IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+     C                     LEAVE
+     C                     ENDDO
+      *--------
+     C* CHECK LAST SCAN
+     C                     MOVEL'Y'       WCHK    1
+     C           *IN80     IFEQ *OFF
+     C                     Z-ADDN1KOHZ    WUDATE
+     C                     Z-ADDN1KOTI    WUTIME
+     C                     Z-ADDN1SIHZ    WIDATE
+     C                     Z-ADDN1SITI    WITIME
+     C                     Z-ADDN1SOHZ    WODATE
+     C                     Z-ADDN1SOTI    WOTIME
+     C                     EXSR #SBCHK                     CHECK
+     C                     ENDIF
+      *--------
+     C           WCHK      IFEQ 'Y'
+      *--------
+     C                     SELEC
+      *- STORE IN -
+     C           P1TYPE    WHEQ '1'
+     C           *IN80     IFEQ *OFF
+     C*  OK
+     C           N1SIHZ    IFNE 0
+     C           N1SOHZ    IFNE 0
+     C                     EXSR #SB101                     UPDATE OK
+     C*  IN -> IN
+     C                     ELSE
+     C                     EXSR #SB102                     NG LOG
+     C                     EXSR #SB101                     UPDATE AGAIN
+     C                     ENDIF
+     C                     ENDIF
+     C* NO DATA
+     C                     ELSE
+     C                     EXSR #SB104                     WRITE
+     C                     ENDIF
+      *- STORE OUT -
+     C           P1TYPE    WHEQ '2'
+     C           *IN80     IFEQ *OFF
+     C*  OK
+     C           N1SIHZ    IFNE 0
+     C           N1SOHZ    IFEQ 0
+     C                     EXSR #SB101                     OK
+     C                     EXSR #SB103                     OK LOG
+     C* OUT -> OUT
+     C                     ELSE
+     C                     EXSR #SB102                     NG LOG
+     C                     MOVEL'N'       P1RTN
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     C                     ENDSL
+      *--------
+     C                     ENDIF
+      *--------
+      *
+     CSR         ESB100    ENDSR
+      ****************************************************
+      *  UPDATE   OK
+      ****************************************************
+     CSR         #SB101    BEGSR
+     C*
+     C                     Z-ADDWDATE     N1KOHZ
+     C                     Z-ADDWTIME     N1KOTI
+     C                     MOVEL#USER     N1KOME
+     C                     MOVELP1PGM     N1KOPG
+     C                     MOVELP1TMCD    N1TMCD
+     C                     MOVELP1TMNM    N1TMNM
+      * STORE IN
+     C           P1TYPE    IFEQ '1'
+     C                     MOVELP1LOC1    N1LOC1
+     C                     MOVELP1LOC2    N1LOC2
+     C                     MOVELP1LOC3    N1LOC3
+     C                     MOVELP1LOC4    N1LOC4
+     C                     MOVELP1PRT1    N1SHN1
+     C                     MOVELP1PRT2    N1SHN2
+     C                     MOVELP1PRT3    N1SHN3
+     C                     Z-ADDWDATE     N1SIHZ
+     C                     Z-ADDWTIME     N1SITI
+     C                     Z-ADD0         N1SOHZ
+     C                     Z-ADD0         N1SOTI
+     C                     ENDIF
+      * STORE OUT
+     C           P1TYPE    IFEQ '2'
+     C                     Z-ADDWDATE     N1SOHZ
+     C                     Z-ADDWTIME     N1SOTI
+     C                     ENDIF
+      *
+     C                     UPDATNZTPL021
+     C*
+     CSR         ESB101    ENDSR
+      ****************************************************
+      *  WRITE  NG LOG
+      ****************************************************
+     CSR         #SB102    BEGSR
+     C*
+     C                     Z-ADDWDATE     N1KOHZ
+     C                     Z-ADDWTIME     N1KOTI
+     C                     MOVEL#USER     N1KOME
+     C                     MOVELP1PGM     N1KOPG
+     C                     MOVELP1TMCD    N1TMCD
+     C                     MOVELP1TMNM    N1TMNM
+     C*
+     C           P1TYPE    IFEQ '1'
+     C                     MOVEL'1'       N1ERR
+     C                     ELSE
+     C                     MOVEL'2'       N1ERR
+     C                     ENDIF
+     C*
+     C                     WRITENZTPP091
+     C*
+     CSR         ESB102    ENDSR
+      ****************************************************
+      *  WRITE  OK LOG
+      ****************************************************
+     CSR         #SB103    BEGSR
+     C*
+     C                     Z-ADDWDATE     N1KOHZ
+     C                     Z-ADDWTIME     N1KOTI
+     C                     MOVEL#USER     N1KOME
+     C                     MOVELP1PGM     N1KOPG
+     C                     MOVELP1TMCD    N1TMCD
+     C                     MOVELP1TMNM    N1TMNM
+     C*  OK
+     C                     MOVEL*BLANK    N1ERR
+     C*
+     C                     WRITENZTPP091
+     C*
+     CSR         ESB103    ENDSR
+      ****************************************************
+      *  WRITE NEW DATA
+      ****************************************************
+     CSR         #SB104    BEGSR
+     C*
+     C                     CLEARNZTPL021
+     C                     Z-ADDWDATE     N1KOHZ
+     C                     Z-ADDWTIME     N1KOTI
+     C                     MOVEL#USER     N1KOME
+     C                     MOVELP1PGM     N1KOPG
+     C                     MOVELP1TMCD    N1TMCD
+     C                     MOVELP1TMNM    N1TMNM
+     C                     MOVELP1BCD     N1BCD
+      *
+     C                     MOVELP1LOC1    N1LOC1
+     C                     MOVELP1LOC2    N1LOC2
+     C                     MOVELP1LOC3    N1LOC3
+     C                     MOVELP1LOC4    N1LOC4
+     C                     MOVELP1PRT1    N1SHN1
+     C                     MOVELP1PRT2    N1SHN2
+     C                     MOVELP1PRT3    N1SHN3
+      *
+     C                     Z-ADDWDATE     N1SIHZ
+     C                     Z-ADDWTIME     N1SITI
+      *
+     C                     WRITENZTPL021
+     C*
+     CSR         ESB104    ENDSR
+      *----------------------------------------------------*
+      *  CHECK LAST SCAN DATE & TIME
+      *----------------------------------------------------*
+     CSR         #SBCHK    BEGSR
+      *
+      * CHECK DUPLICATED SCAN TO RETRIEVAL KANBAN
+      *  GET DATE & TIME 2 HOURS AGO
+     C                     MOVE WDATE     PIYMD   8
+     C                     MOVE WTIME     PIJFB   6
+     C                     MOVEL*BLANK    POYMD   8
+     C                     MOVEL*BLANK    POJFB   6
+     C                     MOVEL'-'       PFUGO   1
+     C                     MOVEL'00120'   PFUN    5
+     C                     CALL 'DATR45'
+     C                     PARM           PIYMD
+     C                     PARM           PIJFB
+     C                     PARM           POYMD
+     C                     PARM           POJFB
+     C                     PARM           PFUGO
+     C                     PARM           PFUN
+      *
+     C                     MOVE POYMD     W3DATE
+     C                     MOVE POJFB     W3TIME
+      *
+      * STORE OUT
+     C           P1TYPE    IFEQ '2'
+      *
+     C           WODTTM    IFGE W3DTTM
+     C                     MOVEL'N'       WCHK
+     C                     ENDIF
+      *
+     C           WODTTM    IFNE 0
+     C           WUDTTM    ANDGEW3DTTM
+     C                     MOVEL'N'       WCHK
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     CSR         ESBCHK    ENDSR
+      ****************************************************
+      *  CHECK FOR P/T KANBAN  STORE-IN RESULT
+      ****************************************************
+     CSR         #SB300    BEGSR
+      *
+     C           P1BCD     CHAINALDPL35D             80
+      *--------
+     C           *IN80     IFEQ *ON
+     C                     MOVELP1LOC1    N1LOC1
+     C                     MOVELP1LOC2    N1LOC2
+     C                     MOVELP1LOC3    N1LOC3
+     C                     MOVELP1LOC4    N1LOC4
+     C                     MOVELP1PRT1    N1SHN1
+     C                     MOVELP1PRT2    N1SHN2
+     C                     MOVELP1PRT3    N1SHN3
+     C                     MOVELP1BCD     N1BCD
+      *
+     C                     EXSR #SB102                     NG LOG
+     C                     MOVEL'N'       P1RTN
+      *
+     C                     ENDIF
+      *--------
+     CSR         ESB300    ENDSR

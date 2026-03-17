@@ -1,0 +1,503 @@
+     H            Y.
+     F** ABAR2K *********************************************
+     F*  FORD EDI830 FORECAST LIST                          *
+     F*  I-HACHISUKA 00.06.09                               *
+     F*  N-HYOTO     00.06.09 EXCLUDE APNAA                 *
+     F*                                                     *
+     F*  *IN30=1 (FIRST ABFPP20 RECORD)                     *
+     F*  *IN31=1 (CHANGE DATE IS IN BETWEEN START/END DATE  *
+     F*  *IN90=1 (NOT READ ABFPP20)                         *
+     F*  *IN93=1 (NOT READ FCEPL01)                         *
+     F******************************************* ABAR2K ****
+     FABFPL1A UP  E           K        DISK
+     FABFPL20 UF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+     FQPRINT2 O   F     132     OA     PRINTER
+     ********************************************************
+     E                    CD         14  1
+     E                    DAS        14  6 0
+     E                    DAE        14  6 0
+     E                    CUM        14 10 0
+     E                    NET        14 10 0
+     E                    BOX        14  5 0
+     ********************************************************
+     IABFPP101    01
+     I                                              FBPARTL1
+     I                                              FBDOCKL1
+     I                                              FBSIDTL1
+     I* SYSTEM DATE
+     I            DS
+     I                                        1  120WTIME
+     I                                        1   60SYTM1
+     I                                        7  120SYDT1
+     I* PART NUMBER OF ABFPP10
+     I            DS
+     I                                        1  12 FBIPAR
+     I                                        1   5 #PAR1
+     I                                        6  10 #PAR2
+     I                                       11  12 #PAR3
+     I* CHANGE DATE OF PART MASTER
+     I            DS
+     I                                        1   80CDATE
+     I                                        1   40CDAT1
+     I                                        5   60CDAT2
+     I                                        7   80CDAT3
+     I                                        3   80CDAT
+      ***********************************************************
+     C                     TIME           WTIME
+     C                     MOVE *ALL'-'   @LINE 132
+     C*
+     C  N50                MOVE *ON       *IN50
+     C* DEFINE PARM1 AND PARM2 AS PARAMETER FROM INPUT FILE
+     C           *ENTRY    PLIST
+     C                     PARM           PUSR   10
+     C*
+     C* DEFINE KEY1 (ABFPP20)
+     C           KEY1      KLIST
+     C                     KFLD           FBDOCK
+     C                     KFLD           FBPART
+     C                     KFLD           FBSIDT
+     C*
+     C           KEY2      KLIST
+     C                     KFLD           #PAR1   5
+     C                     KFLD           #PAR2   5
+     C                     KFLD           #PAR3   2
+     C*
+     C                     MOVELPUSR      WUSR    7
+     C*
+     C                     ADD  1         I       20
+     C           I         IFGT 14
+     C                     EXSR @GET
+     C                     EXSR @WRT1
+     C                     EXSR @WRT2
+     C                     Z-ADD1         I
+     C                     END
+     C                     Z-ADDFBQTY1    CUM,I
+     C                     Z-ADDFBQTY2    NET,I
+     C                     MOVEAFBQTCD    CD,I
+     C                     Z-ADDFBCSDT    DAS,I
+     C                     Z-ADDFBCEDT    DAE,I
+     C                     EXSR @SYOS
+     C*
+     C*1P                   EXCPT#ERR
+     CL1 50                EXSR @GET
+     CL1 50                EXSR @WRT1
+     CL1 50                EXSR @WRT2
+     C*****************************************************************
+     C*     @GET : GET QTY / CONTAINERS
+     C*****************************************************************
+     C           @GET      BEGSR
+     C*
+     C                     SETOF                     31
+     C*
+     C           KEY2      CHAINFCEPL011             93
+     C           *IN93     IFEQ '0'
+     C                     MOVE A2SYYY    CDAT1
+     C                     MOVE A2SYMM    CDAT2
+     C                     MOVE A2SYDD    CDAT3
+     C*
+     C* IF THE CHANGE DATE OF PART MASTER IS IN
+     C*    BETWEEN START-END SCHEDULE ISSUE DATE,
+     C*    PRINT BOTH PREVIOU AND CURRENT UNIT QTY..
+     C           CDAT      IFGE FBHSDT
+     C           CDAT      ANDLEFBHEDT
+     C                     SETON                     31
+     C                     MOVELA2SSYS    WSYDT   50
+     C                     MOVE CDAT      WLCDT   60
+     C*
+     C                     END
+     C                     MOVELA2KSYS    WSYSU   50
+     C*
+     C                     END
+     C*
+     C                     ENDSR
+     C*****************************************************************
+     C*     @SYOS:CALCULATION WITH REMAINDER
+     C*****************************************************************
+     C           @SYOS     BEGSR
+     C*
+     C           KEY2      CHAINFCEPL011             93
+     C           *IN93     IFEQ '0'
+     C                     MOVE A2SYYY    CDAT1
+     C                     MOVE A2SYMM    CDAT2
+     C                     MOVE A2SYDD    CDAT3
+     C*
+     C* SAVE UNIT QTY.
+     C* CALUCULATE THE NUMBER OF CONTAINER
+     C           DAE,I     IFLT CDAT
+     C                     MOVE A2KSYS    WSYOS   50
+     C                     ELSE
+     C                     MOVE A2SSYS    WSYOS
+     C                     END
+     C*
+     C           NET,I     IFNE *ZERO
+     C           WSYOS     ANDNE*ZERO
+     C           NET,I     DIV  WSYOS     BOX,I
+     C                     MVR            P1      30
+     C*
+     C           P1        IFGT 0
+     C           BOX,I     ANDGE0
+     C                     ADD  1         BOX,I
+     C                     END
+     C*
+     C           P1        IFLT 0
+     C           BOX,I     ANDLE0
+     C                     SUB  1         BOX,I
+     C                     END
+     C*
+     C                     ELSE
+     C                     Z-ADD*ZERO     BOX,I
+     C                     END
+     C*
+     C                     ELSE
+     C                     Z-ADD*ZERO     WSYOS
+     C                     Z-ADD*ZERO     WSYSU
+     C                     Z-ADD*ZERO     WSYDT
+     C                     Z-ADD*ZERO     WLCDT
+     C                     Z-ADD*ZERO     BOX,I
+     C                     END
+     C*
+     C                     MOVE '1'       FBPRNT
+     C                     UPDATABFPP101
+     C*
+     C                     ENDSR
+     C*****************************************************************
+     C*     @WRT1:WRITE NOTE(ABFPP10)
+     C*********************************************************
+     C           @WRT1     BEGSR
+     C*
+     C                     TIME           WTIME
+     C                     EXCPT#HED1
+      *
+     C                     Z-ADD*ZERO     W@CUM  100
+     C                     MOVE *OFF      *IN97
+     C           1         DO   14        I
+     C           CD,I      IFEQ 'M'
+     C           W@CUM     IFNE *ZERO
+     C           CUM,I     ANDEQW@CUM
+     C                     EXSR #DISU
+     C                     ENDIF
+     C                     Z-ADDCUM,I     W@CUM
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     Z-ADD*ZERO     CUM
+     C                     Z-ADD*ZERO     NET
+     C                     MOVE *BLANK    CD
+     C                     Z-ADD*ZERO     DAS
+     C                     Z-ADD*ZERO     DAE
+     C                     Z-ADD*ZERO     BOX
+     C                     Z-ADD*ZERO     I
+     C*
+     C                     ENDSR
+     C*****************************************************************
+     C*     @WRT2:WRITE NOTE(ABFPP20)
+     C*********************************************************
+     C           @WRT2     BEGSR
+     C*
+     C                     SETON                     30
+     C*
+     C           KEY1      SETLLABFPP201
+     C           KEY1      READEABFPP201                 90
+     C           *IN90     DOWEQ'0'
+     C                     EXCPT#PP20
+     C*
+     C                     MOVE '1'       FDPRNT
+     C                     UPDATABFPP201
+     C                     SETOF                     30
+     C           KEY1      READEABFPP201                 90
+     C                     END
+     C*
+     C                     ENDSR
+     C*****************************************************************
+     C*  DISUSE
+     C*********************************************************
+     C           #DISU     BEGSR
+     C*
+     C           *IN98     IFEQ *OFF
+     C                     EXCPT@HEDE
+     C                     ENDIF
+      *
+     C  N98                MOVE *ON       *IN98
+     C           *IN97     IFEQ *OFF
+     C                     EXCPT@DTL1
+     C           I         SUB  1         Z       20
+     C                     EXCPT@DTLE
+     C                     MOVE *ON       *IN97
+     C                     ENDIF
+     C                     Z-ADDI         Z
+     C                     EXCPT@DTLE
+      *
+     C                     ENDSR
+     C********************************************************
+     OQPRINT  E    2           #HED1
+     O       OR        OF
+     O                                  131 '.....................'
+     O*
+     O        E 1              #HED1
+     O       OR        OF
+     O                                  131 '.         .         .'
+     O*
+     O        E 1              #HED1
+     O       OR        OF
+     O                                   89 'TIME'
+     O                         SYTM1     98 '  :  :  '
+     O                                  112 '. '
+     O                         WUSR     119
+     O                                  131 '.         .'
+     O*
+     O        E 11             #HED1
+     O       OR        OF
+     O                                    8 'ABAR2K'
+     O                                   50 'EDI FORD 830 FOR'
+     O                                   60 'ECAST LIST'
+     O                                   89 'DATE'
+     O                         SYDT1 Y   98
+     O                                  104 'PAGE'
+     O                         PAGE  Z  108
+     O                                  131 '.....................'
+     O*
+     O        E 1              #HED1
+     O                                   13 'PART NUMBER'
+     O                                   18 ':'
+     O                         FBIPAR    31
+     O*
+     O        E 11             #HED1
+     O                                   15 'DELIVERY CODE'
+     O                                   18 ':'
+     O                         FBDOCK    24
+     O*
+     O        E 2              #HED1
+     O                                   16 'SCHEDULE ISSUE'
+     O                                   18 ':'
+     O                         FBSIDT    27 '0 /  /  '
+     O*
+     O                                   62 'CODE'
+     O                                   75 'START DATE'
+     O                                   87 'END DATE'
+     O                                  104 'CUM QUANTITY'
+     O                                  121 'QUANTITY'
+     O                                  130 'BOXES'
+     O*
+     O        E 1              #HED1
+     O                                   11 'START/END'
+     O                                   18 ':'
+     O                         FBHSDT    27 '0 /  /  '
+     O                                   29 '-'
+     O                         FBHEDT    38 '0 /  /  '
+     O                         CD,1      62
+     O                         DAS,1     75 '0 /  /  '
+     O                         DAE,1     87 '0 /  /  '
+     O                         CUM,1    104 ' ,   ,   ,   '
+     O                         NET,1    121 ' ,   ,   ,   '
+     O                         BOX,1    130 '  ,   '
+     O*
+     O        E 1              #HED1
+     O                                   16 'RELEASE NUMBER'
+     O                         FBREL#    29
+     O                         CD,2      62
+     O                         DAS,2     75 '0 /  /  '
+     O                         DAE,2     87 '0 /  /  '
+     O                         CUM,2    104 ' ,   ,   ,   '
+     O                         NET,2    121 ' ,   ,   ,   '
+     O                         BOX,2    130 '  ,   '
+     O*
+     O        E 1              #HED1
+     O                         CD,3      62
+     O                         DAS,3     75 '0 /  /  '
+     O                         DAE,3     87 '0 /  /  '
+     O                         CUM,3    104 ' ,   ,   ,   '
+     O                         NET,3    121 ' ,   ,   ,   '
+     O                         BOX,3    130 '  ,   '
+     O*
+     O        E 1              #HED1
+     O                         CD,4      62
+     O                         DAS,4     75 '0 /  /  '
+     O                         DAE,4     87 '0 /  /  '
+     O                         CUM,4    104 ' ,   ,   ,   '
+     O                         NET,4    121 ' ,   ,   ,   '
+     O                         BOX,4    130 '  ,   '
+     O*
+     O        E 1              #HED1
+     O                                   17 '<<  CONTACT  >>'
+     O*
+     O                         CD,5      62
+     O                         DAS,5     75 '0 /  /  '
+     O                         DAE,5     87 '0 /  /  '
+     O                         CUM,5    104 ' ,   ,   ,   '
+     O                         NET,5    121 ' ,   ,   ,   '
+     O                         BOX,5    130 '  ,   '
+     O*
+     O        E 1              #HED1
+     O                                   10 'RECEVING'
+     O                                   18 'DOCK :'
+     O                         FBRDCD    54
+     O                         CD,6      62
+     O                         DAS,6     75 '0 /  /  '
+     O                         DAE,6     87 '0 /  /  '
+     O                         CUM,6    104 ' ,   ,   ,   '
+     O                         NET,6    121 ' ,   ,   ,   '
+     O                         BOX,6    130 '  ,   '
+     O*
+     O        E 1              #HED1
+     O                                   18 ':'
+     O                         FBRD#     40
+     O                         CD,7      62
+     O                         DAS,7     75 '0 /  /  '
+     O                         DAE,7     87 '0 /  /  '
+     O                         CUM,7    104 ' ,   ,   ,   '
+     O                         NET,7    121 ' ,   ,   ,   '
+     O                         BOX,7    130 '  ,   '
+     O*
+     O        E 1              #HED1
+     O                                   18 'EXPEDITER      :'
+     O                         FBEXCD    54
+     O                         CD,8      62
+     O                         DAS,8     75 '0 /  /  '
+     O                         DAE,8     87 '0 /  /  '
+     O                         CUM,8    104 ' ,   ,   ,   '
+     O                         NET,8    121 ' ,   ,   ,   '
+     O                         BOX,8    130 '  ,   '
+     O*
+     O        E 1              #HED1
+     O                                   18 ':'
+     O                         FBEX#     40
+     O                         CD,9      62
+     O                         DAS,9     75 '0 /  /  '
+     O                         DAE,9     87 '0 /  /  '
+     O                         CUM,9    104 ' ,   ,   ,   '
+     O                         NET,9    121 ' ,   ,   ,   '
+     O                         BOX,9    130 '  ,   '
+     O*
+     O        E 1              #HED1
+     O                         CD,10     62
+     O                         DAS,10    75 '0 /  /  '
+     O                         DAE,10    87 '0 /  /  '
+     O                         CUM,10   104 ' ,   ,   ,   '
+     O                         NET,10   121 ' ,   ,   ,   '
+     O                         BOX,10   130 '  ,   '
+     O*
+     O        E 1              #HED1
+     O                         CD,11     62
+     O                         DAS,11    75 '0 /  /  '
+     O                         DAE,11    87 '0 /  /  '
+     O                         CUM,11   104 ' ,   ,   ,   '
+     O                         NET,11   121 ' ,   ,   ,   '
+     O                         BOX,11   130 '  ,   '
+     O*
+     O        E 1              #HED1
+     O                                   19 '<<< PART INFO >>>'
+     O                         CD,12     62
+     O                         DAS,12    75 '0 /  /  '
+     O                         DAE,12    87 '0 /  /  '
+     O                         CUM,12   104 ' ,   ,   ,   '
+     O                         NET,12   121 ' ,   ,   ,   '
+     O                         BOX,12   130 '  ,   '
+     O*
+     O        E 1              #HED1
+     O                                   11 'START   :'
+     O                         FBSHSD    24 '0 /  /  '
+     O                         CD,13     62
+     O                         DAS,13    75 '0 /  /  '
+     O                         DAE,13    87 '0 /  /  '
+     O                         CUM,13   104 ' ,   ,   ,   '
+     O                         NET,13   121 ' ,   ,   ,   '
+     O                         BOX,13   130 '  ,   '
+     O*
+     O        E 1              #HED1
+     O                                   11 'END     :'
+     O                         FBSHLD    24 '0 /  /  '
+     O                         CD,14     62
+     O                         DAS,14    75 '0 /  /  '
+     O                         DAE,14    87 '0 /  /  '
+     O                         CUM,14   104 ' ,   ,   ,   '
+     O                         NET,14   121 ' ,   ,   ,   '
+     O                         BOX,14   130 '  ,   '
+     O*
+     O        E 1              #HED1
+     O                                   11 '*CUM QTY*:'
+     O                         FBSHQT    24 ' ,   ,   ,   '
+     O*
+     O        E 2              #HED1
+     O                                   16 'IAF QTY/CNT  :'
+     O                         WSYSU     24 '  ,   '
+     O*
+     O        E 1              #HED1
+     O                 31                11 'CHG.DATE:'
+     O                 31      WLCDT     24 '0 /  /  '
+     O*
+     O        E 1              #HED1
+     O                 31                11 'NEW QTY :'
+     O                 31      WSYDT     24 '   ,   '
+     O*
+     O        E 2              #HED1
+     O                                   24 '<<<  FABRICATION   >>>'
+     O*
+     O        E 1              #HED1
+     O                                   11 'START   :'
+     O                         FBFISD    24 '0 /  /  '
+     O*
+     O        E 1              #HED1
+     O                                   11 'END     :'
+     O                         FBFIED    24 '0 /  /  '
+     O*
+     O        E 1              #HED1
+     O                                   11 '*CUM QTY*:'
+     O                         FBFIQT    24 ' ,   ,   ,   '
+     O*
+     O        E 2              #HED1
+     O                                   24 '<<<  RAW MATERIAL  >>>'
+     O*
+     O        E 1              #HED1
+     O                                   11 'START   :'
+     O                         FBMTSD    24 '0 /  /  '
+     O*
+     O        E 1              #HED1
+     O                                   11 'END     :'
+     O                         FBMTED    24 '0 /  /  '
+     O*
+     O        E 12             #HED1
+     O                                   11 '*CUM QTY*:'
+     O                         FBMTQT    24 ' ,   ,   ,   '
+     O*
+     O        E 1      30      #PP20
+     O                 30                14 '<<< NOTE >>>'
+     O*
+     O        E 1              #PP20
+     O                         FDNOTE   101
+     OQPRINT2 E    2           @HEDE
+     O       OR        OA
+     O                                   50 'EDI FORD 830 FORECAST <<'
+     O                                   70 'DISUSE INFORMATION>>'
+     O                                   89 'DATE'
+     O                         SYDT1 Y   98
+     O                                  104 'PAGE'
+     O                         PAGE1 Z  108
+     O        E    3           @HEDE
+     O       OR        OA
+     O                                   89 'TIME'
+     O                         SYTM1     98 '  :  :  '
+     O        E    4           @HEDE
+     O       OR        OA
+     O                                   16 'SCHEDULE ISSUE'
+     O                                   34 'PART NUMBER'
+     O                                   55 'DELIVERY CODE'
+     O                                   62 'CODE'
+     O                                   75 'START DATE'
+     O                                   87 'END DATE'
+     O                                  104 'CUM QUANTITY'
+     O                                  121 'QUANTITY'
+     O                                  130 'BOXES'
+     O        E 1              @DTL1
+     O                         @LINE    132
+     O        E 1              @DTLE
+     O                         FBSIDT    14 '0 /  /  '
+     O                         FBIPAR    35
+     O                         FBDOCK    50
+     O                         CD,Z      62
+     O                         DAS,Z     75 '0 /  /  '
+     O                         DAE,Z     87 '0 /  /  '
+     O                         CUM,Z    104 ' ,   ,   ,   '
+     O                         NET,Z    121 ' ,   ,   ,   '
+     O                         BOX,Z    130 '  ,   '

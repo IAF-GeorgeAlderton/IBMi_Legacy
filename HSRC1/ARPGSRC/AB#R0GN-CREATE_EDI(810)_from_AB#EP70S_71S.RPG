@@ -1,0 +1,320 @@
+     H            Y.
+      ** AB#R0GN *******************************************************
+      *  CREATE EDI(810) FROM AB#EP70S/71S                             *
+      *  JW     2021/06/09                                             *
+      * ---------------------------------                              *
+JW1   *  JW     2024.04.03 DISPLAY MEG                                 *
+JW2   *  JW     2024.05.06 ADD UEXR52 (CHECK HEADER)                   *
+      ******************************************************************
+     FAB#PW0GNCF  E                    WORKSTN
+     FAB#EL71TIF  E           K        DISK
+     FABWEP70 O   E                    DISK
+     FABWEL71 IF  E           K        DISK                      A
+      *---------------------------------------------------
+     E                    MSG     1  15 70
+     I* SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1   5 BAXX
+     I                                        1   1 ENKOJ
+     I                                        2   5 ENUKE
+     I                                        1   3 EDOCK
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************
+      *  MAIN
+      *************************************************************
+      * INITIALIZE
+     C                     EXSR #INIT
+      * DISPLAY
+     C           W@ID      DOWEQ'01'
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVE *OFF      *IN85
+     C                     SETOF                     414243
+     C                     SETOF                     4445
+      * F1/3 END
+     C           *INKA     IFEQ *ON
+     C           *INKC     OREQ *ON
+     C           *INKL     OREQ *ON
+     C                     MOVE '99'      W@ID
+     C                     LEAVE
+     C                     ENDIF
+      * F10 INQUIRY
+     C           *INKJ     IFEQ *ON
+     C                     CALL 'AB#R0GQ'
+     C                     MOVE '01'      W@ID
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     EXSR #CHK1
+      * NO ERROR & F5
+     C           *IN85     IFEQ *OFF
+     C           *INKE     ANDEQ*ON
+     C                     EXSR #WRT
+     C                     Z-ADD0         XQTY
+     C                     Z-ADD0         XQTY2
+     C**                   MOVELMSG,4     XMSG
+ JW1 C                     MOVELMSG,12    LIN1
+  .  C                     MOVELMSG,13    LIN2
+  .  C                     CALL 'UTLC96'
+  .  C                     PARM           LIN1   30
+  .  C                     PARM           LIN2   30
+ JW1 C                     MOVE '99'      W@ID
+     C                     ENDIF
+      * NO ERROR & NOT F5
+     C           *IN85     IFEQ *OFF
+     C           *INKE     ANDEQ*OFF
+     C                     MOVELMSG,3     XMSG
+     C                     ENDIF
+      *
+     C                     ENDDO
+      * FOOT
+     C           HCNT      IFEQ 0
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *-----------------------------------------------------------
+      *          CHECK DATA
+      *-----------------------------------------------------------
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE 'N'       HFLG    1
+     C                     Z-ADD0         XQTY2
+     C                     MOVE *BLANK    XMSG2
+      * DELIVERY#
+     C           XNONY     IFEQ 0
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,1     XMSG
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      * CHECK DATE
+     C           XNOHZ     IFEQ *BLANK
+     C                     MOVE *ON       *IN42
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,9     XMSG
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      *
+     C                     MOVELXNOHZ     $SRC
+     C                     CALL 'UTLR01A'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE1  8
+     C                     PARM           $TRUE2 10
+     C                     PARM           $RTN2   1
+     C           $RTN2     IFEQ *BLANK
+     C                     MOVEL$TRUE1    @NOHZ   80
+     C                     MOVEL$TRUE2    XNOHZ
+     C                     ELSE
+     C                     MOVE *ON       *IN42
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,8     XMSG
+     C                     Z-ADD0         @NOHZ
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      * ORDER#
+     C           XODRN     IFEQ *BLANK
+     C                     MOVE *ON       *IN43
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,10    XMSG
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      * PART
+     C           XMHIN     IFEQ *BLANK
+     C                     MOVE *ON       *IN44
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,11    XMSG
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      * REMOVE "-"
+     C                     MOVELXMHIN     $FLD1     P
+     C                     CALL 'UUUR05'
+     C                     PARM           $FLD1  25
+     C                     PARM           $FLD2  25
+     C                     MOVEL$FLD2     XMHIN     P
+      *
+      * CHECK DUPLICATE INVOICE
+     C                     Z-ADDXNONY     KNONY
+     C                     MOVELXODRN     KODRN
+     C                     MOVELXMHIN     KMHIN
+     C                     MOVEL@NOHZ     KNOHZ
+     C           K#71A     CHAINABWEL71              98
+     C           *IN98     IFEQ *OFF
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,6     XMSG
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      * CHECK SAME SHIP DATE
+     C           KNOHZ     CHAINABWEL71              98
+     C           *IN98     IFEQ *OFF
+     C                     MOVE 'Y'       HFLG
+     C                     ENDIF
+      *
+      * CHECK DATA EXIST IN PAST DATA
+     C           K#71T     SETLLAB#EL71T
+     C                     DO   *HIVAL
+     C           K#71T     READEAB#EL71T                 97
+     C           *IN97     IFEQ *ON
+     C                     SETON                     414243
+     C                     SETON                     44  85
+     C                     MOVELMSG,2     XMSG
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      *
+     C           XDOCK     IFNE '   '
+     C           EDOCK     ANDNEXDOCK
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELEDOCK     XDOCK
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C           XQTY      IFEQ 0
+     C                     MOVE *ON       *IN45
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,7     XMSG
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      * IF NO ERROR...
+     C           *IN85     IFEQ *OFF
+     C                     Z-ADDESRYO     XQTY2
+     C                     MOVELMSG,5     XMSG2
+     C                     ENDIF
+      *
+     C           E#CHK1    ENDSR
+      *-----------------------------------------------------------
+      *          CREATE INVOICE DATA
+      *-----------------------------------------------------------
+     C           #WRT      BEGSR
+      * CREATE EP71
+     C                     Z-ADDXQTY      ESRYO
+     C           ETANK     MULT XQTY      ETAMT
+     C           ESYOS     IFEQ 0
+     C                     Z-ADDXQTY      EBOX#
+     C                     ELSE
+     C           XQTY      DIV  ESYOS     EBOX#
+     C                     MVR            REM     50
+     C           REM       IFNE 0
+     C                     ADD  1         EBOX#
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     WRITEABWEP711
+     C                     ADD  1         DCNT
+      *
+      * CREATE EP70
+     C           HFLG      IFEQ 'Y'
+     C                     GOTO E#WRT
+     C                     ENDIF
+      * CREATE HEADER
+     C                     MOVEL'14060'   ESUPL
+     C                     Z-ADD3411      ETOKU
+      *
+     C                     CLEARENUKE
+     C                     CLEAREDUED
+     C                     CLEAREBCOD
+     C                     CLEARE7PODT
+     C                     CLEARE7SHID
+     C                     CLEARE7VNNM
+     C                     CLEARE7VAD1
+     C                     CLEARE7VCTY
+     C                     CLEARE7VSTT
+     C                     CLEARE7VZIP
+     C                     CLEARE7VCTR
+     C                     CLEARE7SNAM
+     C                     CLEARE7SPCD
+     C                     CLEARE7SAD1
+     C                     CLEARE7SCTY
+     C                     CLEARE7SSTT
+     C                     CLEARE7SZIP
+     C                     CLEARE7SCTR
+     C                     CLEARE7BNAM
+     C                     CLEARE7BPCD
+     C                     CLEARE7BAD1
+     C                     CLEARE7BCTY
+     C                     CLEARE7BSTT
+     C                     CLEARE7BZIP
+     C                     CLEARE7SCTR
+     C                     CLEARE7BNAM
+     C                     CLEARE7BPCD
+     C                     CLEARE7BAD1
+     C                     CLEARE7BCTY
+     C                     CLEARE7BSTT
+     C                     CLEARE7BZIP
+     C                     CLEARE7BCTR
+     C                     CLEARE7TMNT
+     C                     CLEARE7TMDS
+     C                     CLEARE7TRL#
+     C                     CLEARE7SCAC
+     C                     CLEARE7PRO
+     C                     CLEARE7FLG0
+     C                     CLEARE7FPRC
+      * CHECK HEADER DUPLICATE
+JW2  C                     MOVELENONY     $NONY
+ .   C                     MOVELEISDT     $DATE
+ .   C                     CALL 'UEXR52 '
+ .   C                     PARM           $NONY   4
+ .   C                     PARM           $DATE   8
+JW2  C                     PARM           $RTN    1
+      *
+     C           $RTN      IFEQ 'N'
+     C                     WRITEABWEP701
+     C                     ENDIF
+      *
+     C                     ADD  1         HCNT
+      *
+     C           E#WRT     ENDSR
+      *-----------------------------------------------------------
+      *          INITIALIZE
+      *-----------------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $RTN    1
+      *
+     C           K#71T     KLIST
+     C                     KFLD           KNONY   40
+     C                     KFLD           KODRN  10
+     C                     KFLD           KMHIN  20
+     C                     KFLD           KNOHZ   80
+      *
+     C           K#71A     KLIST
+     C                     KFLD           KNOHZ
+     C                     KFLD           KNONY
+     C                     KFLD           KODRN
+     C                     KFLD           KMHIN
+      *
+     C                     MOVE *BLANK    $RTN
+     C                     TIME           WSDT
+     C                     MOVEL'01'      W@ID    2
+     C                     Z-ADD0         HCNT    40
+     C                     Z-ADD0         DCNT    40
+     C                     Z-ADD3503      XNONY
+      *
+     C                     ENDSR
+** MSG(70A)........2.........3.........4.........5.........6.........7
+ENTER DELIVERY CODE!                                                   01
+INVOICE DATA DOES NOT FOUND IN THE PAST INVOICE DATA!                  02
+INVOICE DATA FOUND. PRESS F5 TO RESTORE INVOICE DATA...                03
+INVOICE DATA HAS BEEN CREATED...                                       04
+Original Qty...                                                        05
+SAME INVOICE EXISTS! TRY 15 MIN LATER..                                06
+ERROR! ENTER CORRECT QTY!                                              07
+SHIP DATE IS INVALID!                                                  08
+ENTER SHIP DATE!                                                       09
+ENTER ORDER# !                                                         10
+ENTER USER PART !                                                      11
+INVOICE HAS BEEN SENT                                                  12
+SUCCESSFULLY...                                                        13
+                                                                       14
+                                                                       15

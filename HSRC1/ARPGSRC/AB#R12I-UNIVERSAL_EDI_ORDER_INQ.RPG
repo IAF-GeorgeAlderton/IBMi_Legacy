@@ -1,0 +1,868 @@
+     H            Y.
+      ** AB#R12I *********************************************
+      *  UNIVERSAL EDI ORDER INQUIRY                         *
+      *  J.WATANABE 2025.03.19                               *
+      ********************************************************
+     FAB#PW12ICF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     F                                        RRN2  KSFILE SFL02
+     F                                        RRN3  KSFILE SFL03
+     F                                              KINFDS @INFDS
+     FAB#EP12 IF  E           K        DISK
+     FAB#EL13 IF  E           K        DISK
+     FAB#EL4S7IF  E           K        DISK
+     FRDBPL21 IF  E           K        DISK
+     FEDIWP01 IF  E                    DISK                           UC
+      ********************************************************
+     E                    MSG     1  10 60
+      *---------------------------------------------------
+     I@INFDS      DS
+     I                                     *STATUS  @STTS
+     I                                    B 370 3710@@LIN
+     I                                    B 378 3790@@REC
+      *
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *-----------------------------------------------------------*
+      *     M  A  I  N  L  I  N  E                                *
+      *-----------------------------------------------------------*
+      *
+     C                     EXSR #INIT
+      *
+     C           W@ID      DOWNE'99'
+     C           W@ID      CASEQ'01'      #DSP1
+     C           W@ID      CASEQ'02'      #DSP2
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *************************************************************
+      * DISPLAY 1ST SCREEN (PARAMETER  ENTRY)
+      *************************************************************
+     C           #DSP1     BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANKS   XMSG
+     C                     SETOF                     414285
+      * F1/F3: EXIT
+     C           *INKA     IFEQ *ON
+     C           *INKC     OREQ *ON
+     C                     MOVEL'99'      W@ID
+     C                     GOTO XDSP1
+     C                     ENDIF
+      *
+     C                     EXSR #CHK1
+      *
+     C           *IN85     IFEQ *OFF
+     C                     MOVEL'02'      W@ID
+     C                     ENDIF
+      *
+     C           XDSP1     ENDSR
+      *************************************************************
+      *  CHECK ENTRY SCREEN
+      *************************************************************
+     C           #CHK1     BEGSR
+      * CHECK DATE FROM
+     C           XFROM     IFEQ *BLANK
+     C                     MOVELMSG,6     XMSG
+     C                     SETON                     4185
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * CHECK CALENDAR
+     C                     MOVE XFROM     $SRC
+     C                     CALL 'UTLR01A'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE1  8
+     C                     PARM           $TRUE2 10
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ *BLANK
+     C                     MOVEL$TRUE1    @FROM   80
+     C                     MOVEL$TRUE2    XFROM
+     C                     ELSE
+     C                     MOVELMSG,1     XMSG
+     C                     SETON                     4185
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * CHECK DATE TO
+     C           XTO       IFEQ *BLANK
+     C                     MOVELXFROM     XTO
+     C                     ENDIF
+      *
+     C           XTO       IFEQ '99999999'
+     C                     Z-ADD99999999  @TO     80
+     C                     ELSE
+     C                     MOVE XTO       $SRC
+     C                     CALL 'UTLR01A'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE1  8
+     C                     PARM           $TRUE2 10
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ *BLANK
+     C                     MOVEL$TRUE1    @TO     80
+     C                     MOVEL$TRUE2    XTO
+     C                     ELSE
+     C                     MOVELMSG,2     XMSG
+     C                     SETON                     4285
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           @FROM     IFGT @TO
+     C                     MOVELMSG,3     XMSG
+     C                     SETON                     414285
+     C                     ENDIF
+      * IF NO ERROR
+     C           *IN85     IFEQ *OFF
+     C                     EXSR #SFL1
+      *
+     C           RRN1      IFGT 0
+     C                     MOVEL'02'      W@ID
+     C                     ELSE
+     C                     MOVELMSG,4     XMSG
+     C                     SETON                     414285
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           XCHK1     ENDSR
+      *************************************************************
+      *  SET DATA IN SFL01 (EDI HEADER DATA)
+      *************************************************************
+     C           #SFL1     BEGSR
+      *
+     C                     EXSR #CLR1
+      *
+     C           @FROM     SETLLAB#EP12
+      *
+     C                     DO   *HIVAL
+     C                     READ AB#EP12                  98
+     C   98                LEAVE
+      * END
+     C           E2RCHZ    IFGT @TO
+     C                     LEAVE
+     C                     ENDIF
+      * SELECT
+     C           XNONY     IFNE 0
+     C           XNONY     ANDNEE2NONY
+     C                     ITER
+     C                     ENDIF
+      * BREAK LINE
+     C           SVRCHZ    IFNE 0
+     C           E2RCHZ    IFNE SVRCHZ
+     C           E2RCT4    ORNE SVRCT4
+     C                     CLEARSFL01
+     C                     MOVE *ON       *IN95
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+     C                     MOVE *OFF      *IN95
+     C                     ENDIF
+     C                     ENDIF
+      * DETAIL LINE
+     C                     CLEARSFL01
+     C                     MOVELE2PRTN    S1PR30
+     C                     Z-ADDE2RCHZ    S1RCHZ
+     C                     Z-ADDE2RCTM    S1RCTM
+     C                     MOVELE2CRPG    S1CRPG
+     C                     Z-ADDE2RCHZ    S1CRH6
+     C                     Z-ADDE2RCT4    S1RCT4
+     C                     Z-ADDE2NONY    S1NONY
+     C                     MOVELE2NKOJ    S1NKOJ
+     C                     MOVELE2NUKE    S1NUKE
+     C                     MOVELE2REF#    S1REF#
+      * GET NAME
+     C                     MOVELE2NONY    PMNONY
+     C                     MOVE 'D'       PMOPT
+     C                     CALL 'UTLR16A'
+     C                     PARM           PMNONY  4
+     C                     PARM           PMOPT   1
+     C                     PARM           PMNAME 20
+     C                     MOVELPMNAME    S1NAM
+      *
+     C                     MOVELE2TRID    S1EDI
+     C                     Z-ADDE2RCD#    S1RCD#
+     C                     MOVELE2PRTN    S1PRTN
+     C                     MOVELE2PRTN    PRTN4   4
+     C                     Z-ADDE2BCH#    S1BCH#
+      *
+     C           E2NUKE    IFEQ *BLANK
+     C                     MOVEL'00  '    E2NUKE
+     C                     ENDIF
+      * PLANT/ SHIP-TO
+     C                     SELEC
+     C           E2CRPG    WHEQ 'AB#R12H'
+     C                     MOVELE2PLNT    S1PLNT
+     C                     MOVELE2SHCD    S1SHCD
+     C           E2CRPG    WHEQ 'AB#R12F'
+     C                     MOVELE2PLNT    S1PLNT
+     C                     MOVELE2NUKE    S1SHCD
+     C           E2CRPG    WHEQ 'AB#R12W'
+     C                     MOVELE2PLNT    S1PLNT
+     C                     MOVELE2NUKE    S1SHCD
+     C                     OTHER
+     C                     MOVELE2NKOJ    S1PLNT
+     C                     MOVELE2NUKE    S1SHCD
+     C                     ENDSL
+      *
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+     C                     Z-ADDE2RCHZ    SVRCHZ
+     C                     Z-ADDE2RCT4    SVRCT4
+      *
+     C                     ENDDO
+      *
+     C                     Z-ADDRRN1      RCNT1   60
+      *
+     C           XNONY     IFEQ 0
+     C                     MOVEL'*ALL'    XNONY1
+     C                     ELSE
+     C                     MOVELXNONY     XNONY1
+     C                     ENDIF
+      *
+     C                     ENDSR
+      ************************************************************
+      *  DSPLAY 2ND SCREEN (EDI HEADER)
+      ************************************************************
+     C           #DSP2     BEGSR
+      *
+     C                     Z-ADD1         #RRN1
+      *
+     C                     DO   *HIVAL
+      *
+     C                     Z-ADD#RRN1     #RCN1
+      *
+     C                     MOVELMSG,8     XCMD1
+     C                     WRITEDSP99
+     C                     MOVEL'1'       *IN70
+     C                     EXFMTCTL01
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVEL'0'       *IN85
+     C                     MOVEL'0'       *IN70
+      *
+     C                     SELEC
+      * F1: EXIT
+     C           *INKA     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+     C                     LEAVE
+      * F3: BACK
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'01'      W@ID
+     C                     LEAVE
+      * F12: BACK
+     C           *INKL     WHEQ *ON
+     C                     MOVEL'01'      W@ID
+     C                     LEAVE
+      * CHECK SELECT
+     C                     OTHER
+     C                     EXSR #SEL1
+      *
+     C           RCNT2     IFEQ 0
+     C**                   Z-ADD1         #RRN1            DISPLAY FROM 1
+     C                     ELSE
+     C                     EXSR #DSP3
+     C                     ENDIF
+      *
+     C                     ENDSL
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *************************************************************
+      * CHECK SELECTION IN EDI HEADER SCREEN
+      *************************************************************
+     C           #SEL1     BEGSR
+      *
+     C                     Z-ADD0         RCNT2
+     C                     MOVE *BLANK    S1SELX  1
+     C           1         DO   RCNT1     RRN1
+      *
+     C           RRN1      CHAINSFL01                50
+     C   50                LEAVE
+      *
+     C           S1SEL     IFEQ *BLANK
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDRRN1      #RRN1   40
+     C                     MOVE S1SEL     S1SELX
+     C                     MOVE *BLANK    S1SEL
+     C                     UPDATSFL01
+      * RAW DATA
+     C           S1SELX    IFEQ 'X'
+     C           S1SELX    OREQ 'x'
+     C                     MOVEL'0000000' $BCH#
+     C                     MOVE S1BCH#    $BCH#
+     C                     CALL 'EDIC06'
+     C                     PARM           $BCH#   7
+     C                     PARM           $RTN    1
+      *
+     C           $RTN      IFEQ ' '
+     C                     EXSR #EDI
+     C                     ELSE
+     C                     MOVELMSG,9     S1SEL
+     C                     LEAVE
+     C                     ENDIF
+      * SEE DEATIL
+     C                     ELSE
+     C                     EXSR #SFL2
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *************************************************************
+      *  DISPLAY EDI RAW DATA
+      *************************************************************
+     C           #EDI      BEGSR
+      *
+     C                     EXSR #CLR3
+      * SET HEADER
+     C                     MOVELS1NONY    XNONY2
+      *
+     C                     MOVELS1NONY    PMNONY
+     C                     MOVE 'D'       PMOPT
+     C                     CALL 'UTLR16A'
+     C                     PARM           PMNONY  4
+     C                     PARM           PMOPT   1
+     C                     PARM           PMNAME 20
+     C                     MOVELPMNAME    D2NAME
+      *
+     C                     MOVELS1RCHZ    D2RCHZ
+     C                     MOVELS1RCT4    D2RCT4
+     C                     MOVELS1PR30    D2PRTN
+     C                     MOVELS1EDI     D2EDI
+     C                     Z-ADDS1BCH#    D2BCH#
+     C                     MOVELS1PLNT    D2PLNT
+     C                     MOVELS1SHCD    D2SHCD
+      *
+     C           S1CRPG    IFEQ 'AB#R12T'
+     C                     MOVEL'Factory' D2PLNX
+     C                     ELSE
+     C                     MOVEL'Plant :' D2PLNX
+     C                     ENDIF
+      *
+     C           S1CRPG    IFEQ 'AB#R12T'
+     C           S1CRPG    OREQ 'AB#R12F'
+     C                     MOVEL'Dock..:' D2SHCX
+     C                     ELSE
+     C                     MOVEL'Shp-To:' D2SHCX
+     C                     ENDIF
+      *
+      * SET RAW DATA TO SFL03
+     C                     OPEN EDIWP01
+     C           1         SETLLEDIWP01
+     C                     DO   *HIVAL
+     C                     READ EDIWP01                  98
+     C   98                LEAVE
+      *
+     C                     MOVELTXT80     S3TXT
+     C                     ADD  1         RRN3
+      *
+     C           RRN3      IFEQ 9999
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     WRITESFL03
+     C                     ENDDO
+     C                     CLOSEEDIWP01
+      * IF RRN3=0,
+     C           RRN3      IFEQ 0
+     C                     MOVELMSG,9     S3TXT
+     C                     ADD  1         RRN3
+     C                     WRITESFL03
+     C                     ENDIF
+      * DISPLAY
+     C                     DO   *HIVAL
+     C                     MOVELMSG,10    XCMD1
+     C                     WRITEDSP99
+     C                     MOVEL'1'       *IN70
+     C                     EXFMTCTL03
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVEL'0'       *IN85
+     C                     MOVEL'0'       *IN70
+      * F1/3: BACK
+     C           *INKA     IFEQ *ON
+     C           *INKC     OREQ *ON
+     C           *INKL     OREQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      * F7: DOWNLOAD
+     C           *INKG     IFEQ *ON
+     C                     CALL 'EDIC07'
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *************************************************************
+      *  SET DATA IN SFL02 (EDI DETAIL DATA)
+      *************************************************************
+     C           #SFL2     BEGSR
+      *
+     C                     EXSR #CLR2
+      * SET HEADER
+     C                     MOVELS1NONY    XNONY2
+      *
+     C                     MOVELS1NONY    PMNONY
+     C                     MOVE 'D'       PMOPT   1
+     C                     CALL 'UTLR16A'
+     C                     PARM           PMNONY  4
+     C                     PARM           PMOPT   1
+     C                     PARM           PMNAME 20
+     C                     MOVELPMNAME    D2NAME
+      *
+     C                     MOVELS1RCHZ    D2RCHZ
+     C                     MOVELS1RCT4    D2RCT4
+     C                     MOVELS1PR30    D2PRTN
+     C                     MOVELS1EDI     D2EDI
+     C                     Z-ADDS1BCH#    D2BCH#
+     C                     MOVELS1PLNT    D2PLNT
+     C                     MOVELS1SHCD    D2SHCD
+      *
+     C           S1CRPG    IFEQ 'AB#R12T'
+     C                     MOVEL'Factory' D2PLNX
+     C                     ELSE
+     C                     MOVEL'Plant :' D2PLNX
+     C                     ENDIF
+      *
+     C           S1CRPG    IFEQ 'AB#R12T'
+     C           S1CRPG    OREQ 'AB#R12F'
+     C                     MOVEL'Dock..:' D2SHCX
+     C                     ELSE
+     C                     MOVEL'Shp-To:' D2SHCX
+     C                     ENDIF
+      * SET DETAIL
+     C                     MOVELS1PR30    K#PRTN
+     C                     Z-ADDS1RCHZ    K#RCHZ
+     C                     Z-ADDS1RCT4    K#RCT4
+     C                     Z-ADDS1BCH#    K#BCH#
+     C                     MOVELS1PLNT    K#PLNT
+      *
+     C                     MOVELS1PR30    PRT8    8
+     C                     MOVELS1SHCD    K#SHCD
+      * GET 2 MINUTES AHEAD
+     C                     MOVE *ALL'0'   $TM1
+     C                     MOVELS1RCT4    $TM1
+     C                     MOVE '+'       $SIGN
+     C                     MOVEL'0120'    $SEC
+     C                     CALL 'UTLR19A'
+     C                     PARM           $TM1    6
+     C                     PARM           $SIGN   1
+     C                     PARM           $SEC    4
+     C                     PARM           $TM2    6
+     C                     MOVEL$TM2      XXRCT4  40
+      * DETAIL
+     C                     SELEC
+     C           S1CRPG    WHEQ 'AB#R12H '
+     C                     EXSR #HOND2
+     C           S1CRPG    WHEQ 'AB#R12F '
+     C                     EXSR #FORD2
+     C           S1CRPG    WHEQ 'AB#R12W '
+     C                     EXSR #WEB2
+     C                     OTHER
+     C                     EXSR #TOYO2
+     C                     ENDSL
+      *
+      * IF NO DATA, WRITE ERROR WCREEN
+     C           RRN2      IFEQ 0
+     C                     CLEARSFL02
+     C                     MOVELMSG,5     S2MHIN
+     C                     MOVE *ALL'*'   S2ODRN
+     C                     ADD  1         RRN2
+     C                     WRITESFL02
+     C                     ENDIF
+      *
+     C                     Z-ADDRRN2      RCNT2   60
+      *
+     C                     ENDSR
+      ************************************************************
+      *  SET HONDA EDI DETAIL DATA
+      ************************************************************
+     C           #HOND2    BEGSR
+      *
+     C           K#13H1    SETLLAB#EL13
+     C                     DO   *HIVAL
+     C           K#13H2    READEAB#EL13                  98
+     C   98                LEAVE
+      *
+     C           E3RCT4    IFGT XXRCT4
+     C                     LEAVE
+     C                     ENDIF
+      * IGNORE
+     C           E3NOHZ    IFEQ 0
+     C           E3SRYO    ANDEQ0
+     C           E3NUKE    ORNE S1NUKE
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     CLEARSFL02
+     C                     MOVELE3CRPG    S2CRPG
+     C                     MOVELE3MHIN    S2MHIN
+     C                     Z-ADDE3NOHZ    S2NOHZ
+     C                     Z-ADDE3SRYO    S2QTY
+     C                     Z-ADDE3SYOS    S2QPC
+     C                     Z-ADDE3BOX     S2BOX
+     C                     MOVELE3ODRN    S2ODRN
+     C**                   MOVELE3PLNT    S2PLNT
+     C**                   MOVELE3SHCD    S2SHCD
+      *
+     C                     ADD  1         RRN2
+     C                     WRITESFL02
+     C                     ENDDO
+      *
+     C                     ENDSR
+      ************************************************************
+      *  SET FORD EDI DETAIL DATA
+      ************************************************************
+     C           #FORD2    BEGSR
+      *
+     C           K#13F     SETLLAB#EL13
+     C                     DO   *HIVAL
+     C           K#13F     READEAB#EL13                  98
+     C   98                LEAVE
+      *
+     C           E3RCT4    IFGT XXRCT4
+     C                     LEAVE
+     C                     ENDIF
+      * IGNOE
+     C           E3NOHZ    IFEQ 0
+     C           E3SRYO    ANDEQ0
+     C           E3NUKE    ORNE S1NUKE
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     CLEARSFL02
+     C                     MOVELE3CRPG    S2CRPG
+     C                     MOVELE3MHIN    S2MHIN
+     C                     Z-ADDE3NOHZ    S2NOHZ
+     C                     Z-ADDE3SRYO    S2QTY
+     C                     Z-ADDE3SYOS    S2QPC
+     C                     Z-ADDE3BOX     S2BOX
+     C                     MOVELE3ODRN    S2ODRN
+      *
+     C                     ADD  1         RRN2
+     C                     WRITESFL02
+     C                     ENDDO
+      *
+     C                     ENDSR
+      ************************************************************
+      *  SET WEB EDI DETAIL DATA
+      ************************************************************
+     C           #WEB2     BEGSR
+      *
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD0         @QTY    70
+     C                     MOVELS1RCHZ    KKCRDT
+     C                     MOVELS1RCTM    KKCRTM
+     C                     MOVELS1PRTN    KKNAME
+     C                     MOVELS1PLNT    KKORGC
+     C                     MOVELS1REF#    KKODRN
+     C                     Z-ADD0         KKSHID
+     C                     MOVE *BLANK    KKMHN
+      *
+     C           K#RDB1    SETLLRDBPL21
+     C                     DO   *HIVAL
+     C           K#RDB2    READERDBPL21                  98
+     C   98                LEAVE
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELTDCRDT    SVCRDT
+     C                     MOVELTDCRTM    SVCRTM
+     C                     MOVELTDNAME    SVNAME
+     C                     MOVELTDORGC    SVORGC
+     C                     MOVELTDODRN    SVODRN
+     C                     Z-ADDTDSHID    SVSHID
+     C                     MOVELTDMHN     SVMHN
+     C                     Z-ADDTDQPC     SVQPC
+     C                     ENDIF
+      * BREAK?
+     C           TDCRDT    IFNE SVCRDT
+     C           TDCRTM    ORNE SVCRTM
+     C           TDNAME    ORNE SVNAME
+     C           TDORGC    ORNE SVORGC
+     C           TDODRN    ORNE SVODRN
+     C           TDSHID    ORNE SVSHID
+     C           TDMHN     ORNE SVMHN
+     C                     EXSR #BRKW
+     C                     ENDIF
+      *
+     C                     ADD  TDQPC     @QTY
+      *
+     C                     ENDDO
+      * LAST BREAK?
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRKW
+     C                     ENDIF
+      *
+     C                     ENDSR
+      ************************************************************
+      *  WEB EDI BREAK FOR DETAIL
+      ************************************************************
+     C           #BRKW     BEGSR
+      *
+     C                     CLEARSFL02
+     C                     MOVEL'RDBPP21 'S2CRPG
+     C                     MOVELSVMHN     S2MHIN
+     C                     Z-ADDSVSHID    S2NOHZ
+     C                     Z-ADD@QTY      S2QTY
+     C                     Z-ADDSVQPC     S2QPC
+      *
+     C           SVQPC     IFEQ 0
+     C                     Z-ADD1         S2BOX
+     C                     ELSE
+     C           @QTY      DIV  SVQPC     S2BOX
+     C                     MVR            REM     60
+     C           REM       IFNE 0
+     C                     ADD  1         S2BOX
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     MOVELS1REF#    S2ODRN
+      *
+     C                     ADD  1         RRN2
+     C                     WRITESFL02
+      * RESET
+     C                     MOVELTDCRDT    SVCRDT
+     C                     MOVELTDCRTM    SVCRTM
+     C                     MOVELTDNAME    SVNAME
+     C                     MOVELTDORGC    SVORGC
+     C                     MOVELTDODRN    SVODRN
+     C                     Z-ADDTDSHID    SVSHID
+     C                     MOVELTDMHN     SVMHN
+     C                     Z-ADDTDQPC     SVQPC
+     C                     Z-ADD0         @QTY
+      *
+     C                     ENDSR
+      ************************************************************
+      *  SET TOYOTA EDI DETAIL DATA
+      ************************************************************
+     C           #TOYO2    BEGSR
+      *
+     C                     Z-ADDS1RCHZ    K#PODT
+     C                     MOVELS1PR30    K#PRT1
+      * ASI
+     C           S1PR30    IFEQ 'ASI'
+     C                     MOVE *BLANK    K#NONY
+     C                     ELSE
+     C                     MOVELS1NONY    K#NONY
+     C                     ENDIF
+      *
+     C                     MOVELS1NKOJ    K#NKOJ
+     C                     MOVELS1NUKE    K#NUKE
+      * 15 MIN DELAY
+     C                     MOVE *ALL'0'   $TM1
+     C                     MOVELS1RCT4    $TM1
+     C                     MOVE '-'       $SIGN
+     C                     MOVEL'0900'    $SEC
+     C                     CALL 'UTLR19A'
+     C                     PARM           $TM1    6
+     C                     PARM           $SIGN   1
+     C                     PARM           $SEC    4
+     C                     PARM           $TM2    6
+     C                     MOVEL$TM2      K#POTM
+      *
+     C           K#40T1    SETLLAB#EL4S7
+     C                     DO   *HIVAL
+     C           K#40T2    READEAB#EL4S7                 98
+     C   98                LEAVE
+      * END
+     C                     MOVELECRTM     EPOTM4  40
+     C           EPOTM4    IFGT XXRCT4
+     C                     LEAVE
+     C                     ENDIF
+      * IGNORE
+     C           ENKOJ     IFEQ *BLANK
+     C                     MOVE '0'       ENKOJ
+     C                     ENDIF
+     C           ENUKE     IFEQ *BLANK
+     C                     MOVEL'00  '    ENUKE
+     C                     ENDIF
+      *
+     C           ENKOJ     IFNE S1NKOJ
+     C           ENUKE     ORNE S1NUKE
+     C           ENDATE    OREQ 0
+     C                     ITER
+     C                     ENDIF
+      *
+     C           EPRTNR    IFNE 'ASI'
+     C           ESRYO     ANDEQ0
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     CLEARSFL02
+     C                     MOVEL'AB#EP40S'S2CRPG
+     C                     MOVELEMHIN     S2MHIN
+     C                     Z-ADDENDATE    S2NOHZ
+     C                     Z-ADDESRYO     S2QTY
+     C                     Z-ADDEUSYS     S2QPC
+      *
+     C           EUSYS     IFEQ 0
+     C                     Z-ADD1         S2BOX
+     C                     ELSE
+     C           ESRYO     DIV  EUSYS     S2BOX
+     C                     MVR            REM     60
+     C           REM       IFNE 0
+     C                     ADD  1         S2BOX
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     MOVELEODRN     S2ODRN
+      * GET DETAIL
+     C**                   MOVELS1NKOJ    S2PLNT
+     C**                   MOVELS1NUKE    S2SHCD
+      *
+     C                     ADD  1         RRN2
+     C                     WRITESFL02
+     C                     ENDDO
+      *
+     C                     ENDSR
+      ************************************************************
+      *  DISPLAY 3RD SCREEN (EDI DETAIL SCREEN)
+      ************************************************************
+     C           #DSP3     BEGSR
+      *
+     C                     MOVE *BLANK    XCMD1
+     C                     WRITEDSP99
+     C                     MOVEL'1'       *IN70
+     C                     EXFMTCTL02
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVEL'0'       *IN85
+     C                     MOVEL'0'       *IN70
+      *
+     C                     SELEC
+      * F1: EXIT
+     C           *INKA     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+      * F3: BACK
+     C           *INKC     WHEQ *ON
+      * F12: BACK
+     C           *INKL     WHEQ *ON
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *************************************************************
+      * CLEAR SUB FILE 1
+      *************************************************************
+     C           #CLR1     BEGSR
+      *
+     C                     SETON                     71
+     C                     WRITECTL01
+     C                     SETOF                     71
+     C                     Z-ADD0         RRN1
+     C                     Z-ADD0         SVRCHZ  80
+     C                     Z-ADD0         SVRCT4  40
+      *
+     C                     ENDSR
+      *************************************************************
+      * CLEAR SUB FILE
+      *************************************************************
+     C           #CLR2     BEGSR
+      *
+     C                     SETON                     71
+     C                     WRITECTL02
+     C                     SETOF                     71
+     C                     Z-ADD0         RRN2
+      *
+     C                     ENDSR
+      *************************************************************
+      * CLEAR SUB FILE
+      *************************************************************
+     C           #CLR3     BEGSR
+      *
+     C                     SETON                     71
+     C                     WRITECTL03
+     C                     SETOF                     71
+     C                     Z-ADD0         RRN3
+      *
+     C                     ENDSR
+      *************************************************************
+      * INITIAL SETTINGS
+      *************************************************************
+     C           #INIT     BEGSR
+      *
+     C           K#13H1    KLIST
+     C                     KFLD           K#PRTN 30
+     C                     KFLD           K#RCHZ  80
+     C                     KFLD           K#BCH#  70
+     C                     KFLD           K#PLNT  5
+     C                     KFLD           K#SHCD 10
+     C                     KFLD           K#RCT4  40
+      *
+     C           K#13H2    KLIST
+     C                     KFLD           K#PRTN 30
+     C                     KFLD           K#RCHZ  80
+     C                     KFLD           K#BCH#  70
+     C                     KFLD           K#PLNT  5
+     C                     KFLD           K#SHCD 10
+      *
+     C           K#13F     KLIST
+     C                     KFLD           K#PRTN 30
+     C                     KFLD           K#RCHZ  80
+     C                     KFLD           K#BCH#  70
+     C                     KFLD           K#PLNT  5
+      *
+     C           K#40T1    KLIST
+     C                     KFLD           K#PODT  80
+     C                     KFLD           K#PRT1 10
+     C                     KFLD           K#NONY  4
+     C                     KFLD           K#NKOJ  1
+     C                     KFLD           K#NUKE  4
+     C                     KFLD           K#POTM  60
+      *
+     C           K#40T2    KLIST
+     C                     KFLD           K#PODT
+     C                     KFLD           K#PRT1
+     C                     KFLD           K#NONY
+     C                     KFLD           K#NKOJ
+     C                     KFLD           K#NUKE
+      *
+     C           K#RDB1    KLIST
+     C                     KFLD           KKCRDT  8
+     C                     KFLD           KKCRTM  6
+     C                     KFLD           KKNAME 10
+     C                     KFLD           KKORGC 10
+     C                     KFLD           KKODRN 15
+     C                     KFLD           KKSHID  80
+     C                     KFLD           KKMHN  15
+      *
+     C           K#RDB2    KLIST
+     C                     KFLD           KKCRDT
+     C                     KFLD           KKCRTM
+     C                     KFLD           KKNAME
+     C                     KFLD           KKORGC
+     C                     KFLD           KKODRN
+      *
+     C                     TIME           SDATE
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVEL'01'      W@ID    2
+     C                     MOVELTODAY     XFROM
+     C                     MOVELTODAY     XTO
+     C                     Z-ADD0         RRN1    40
+     C                     Z-ADD0         RRN2    40
+     C                     Z-ADD0         RRN3    40
+      *
+     C           *LIKE     DEFN TDCRDT    SVCRDT
+     C           *LIKE     DEFN TDCRTM    SVCRTM
+     C           *LIKE     DEFN TDNAME    SVNAME
+     C           *LIKE     DEFN TDORGC    SVORGC
+     C           *LIKE     DEFN TDODRN    SVODRN
+     C           *LIKE     DEFN TDSHID    SVSHID
+     C           *LIKE     DEFN TDMHN     SVMHN
+     C           *LIKE     DEFN TDQPC     SVQPC
+      *
+     C                     ENDSR
+      *************************************************************
+** (MSG) (60A).....2.........3.........4.........5.........6
+FROM_DATE IS INCORRECT !                                      1
+TO_DATE IS INCORRECT !                                        2
+FROM_DATE > TO_DATE !                                         3
+NO DATA FOUND !                                               4
+NO VALID DATA!                                                5
+ENTER FROM_DATE !                                             6
+ENTER TO_DATE !                                               7
+X:DISPLAY EDI RAW DATA                                        8
+EDI RAW DATA NOT FOUND!                                       9
+F7:DOWNLOAD EDI RAW DATA                                     10

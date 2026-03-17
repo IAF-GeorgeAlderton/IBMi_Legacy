@@ -1,0 +1,307 @@
+     H            Y.
+     F** AB#RHV *********************************************
+     F* HONDA QUICK RECEIVE VERIFICATION SCAN               *
+     F*    LEC.             2021.06.10                      *
+     F*******************************************************
+     FAB#PWHV CF  E                    WORKSTN
+     FAB#PL2F4IF  E           K        DISK
+     FAB#PL2F5IF  E           K        DISK
+     F            AB#PP2F1                          KRENAMEAB#PP2F5
+     FAB#PL2F6IF  E           K        DISK
+     F            AB#PP2F1                          KRENAMEAB#PP2F6
+     FAB#PP2F IF  E           K        DISK
+     F            AB#PP2F1                          KRENAMEAB#PP2FR
+     FAB#PPHV O   E                    DISK                      A
+     E                    ER      1   6 65
+      *
+      * QUICK RECEIVE LABEL
+     I            DS
+     I                                        1  25 QRBAR
+     I                                        1   2 QRPRFX
+     I                                        3  20 QRSERL
+     I                                       11  18 MIX8
+      * CONTAINER LABEL
+     I            DS
+     I                                        1  25 CNBAR
+     I                                        1   2 CNPRFX
+     I                                        1  18 SERIAL
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        7  140SDATE
+     I                                        1   60STIME
+      *
+     I              '         0'          C         PREFIX
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           WORKER  6
+      *
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     EXSR #SB100
+     C           DSPSW     DOUEQ'99'
+     C                     EXSR #SB200
+     C                     ENDDO
+     C                     EXSR #SB300
+      *----------------------------------------------------*
+      * INZ                                                *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C           KEY01     KLIST
+     C                     KFLD           MASTER
+      *
+     C           KEY02     KLIST
+     C                     KFLD           MASTER
+     C                     KFLD           SERIAL
+      *
+     C           KEY5      KLIST
+     C                     KFLD           MIXLAB
+      *
+     C           KEY6      KLIST
+     C                     KFLD           CNTLAB
+      *
+     C                     TIME           WTIME
+     C                     MOVEL'01'      DSPSW   2
+     C                     MOVEL*BLANK    PCMD    2
+     C                     MOVELWORKER    USRCD   6
+      *
+     C                     CLEARAB#PPHV1
+     C                     CLEARQRBAR
+      *
+     CSR         ESB100    ENDSR
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C           DSPSW     DOWEQ'01'
+     C                     EXSR #SB210
+     C                     ENDDO
+      *
+     C           DSPSW     DOWEQ'02'
+     C                     EXSR #SB220
+     C                     ENDDO
+      *
+     CSR         ESB200    ENDSR
+      *----------------------------------------------------*
+      *ʨ聭��瀀脗�鯐沴�　　　　　　　　　　　　　　　�
+      *----------------------------------------------------*
+     CSR         #SB210    BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANK    MSG
+     C                     SETOF                     3199
+      *
+     C                     TIME           WTIME
+     C           *IN03     IFEQ *ON
+     C                     MOVEL'99'      DSPSW
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C                     EXSR #CHK01
+      *
+     C           *IN99     IFEQ *ON
+     C                     EXSR #SB999
+     C                     CLEARQRBAR
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C                     MOVEL'02'      DSPSW
+      *
+     CSR         ESB210    ENDSR
+      *----------------------------------------------------*
+      *瀗疢�ʨ聭��瀀脗�鯐沴�　　　　　　　　　　　　�
+      *----------------------------------------------------*
+     CSR         #CHK01    BEGSR
+      *
+     C                     MOVE *BLANKS   D1TYPE
+     C                     MOVE *BLANKS   ASN
+      *
+     C           QRBAR     IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,1      MSG
+     C                     GOTO ECHK01
+     C                     ENDIF
+      *
+     C           QRPRFX    IFNE '9S'
+     C                     SETON                     3199
+     C                     MOVELER,3      MSG
+     C                     MOVEL'NG'      HVHNTE
+     C                     EXSR #WRTLG
+     C                     GOTO ECHK01
+     C                     ENDIF
+      *
+     C                     MOVELQRSERL    MASTER 18
+     C           KEY01     CHAINAB#PL2F4             50
+     C                     SELEC
+     C           *IN50     WHEQ *ON
+     C           PREFIX    CAT  MIX8      MIXLAB 18
+     C           KEY5      CHAINAB#PL2F5             50
+      *
+     C                     SELEC
+     C           *IN50     WHEQ *ON
+     C                     MOVELQRBAR     CNTLAB 18
+     C                     MOVEL'1S'      CNTLAB
+     C           KEY6      CHAINAB#PL2F6             50
+     C           *IN50     IFEQ *ON
+     C                     SETON                     3199
+     C                     MOVELER,5      MSG
+     C                     MOVEL'NG'      HVHNTE
+     C                     EXSR #WRTLG
+     C                     ELSE
+     C                     MOVE 'CNT'     D1TYPE
+     C                     MOVELAFMSNO    MASTER
+     C                     ENDIF
+      *
+     C           *IN50     WHEQ *OFF
+     C                     MOVE 'MIX'     D1TYPE
+     C                     MOVELAFASNO    ASN     8
+     C                     ENDSL
+      *
+     C           *IN50     WHEQ *OFF
+     C                     MOVE 'MST'     D1TYPE
+     C                     MOVELAFMSNO    MASTER
+     C                     ENDSL
+      *
+     CSR         ECHK01    ENDSR
+      *----------------------------------------------------*
+      *灎�槱��鯐沴�　　　　　　　　　　　　　　　　　�
+      *----------------------------------------------------*
+     CSR         #SB220    BEGSR
+      *
+     C                     EXFMTDSP02
+     C                     MOVEL*BLANK    MSG
+     C                     SETOF                     3299
+      *
+     C           *IN03     IFEQ *ON
+     C                     CLEARCNBAR
+     C                     MOVEL'01'      DSPSW
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+     C           D1TYPE    IFEQ 'MIX'
+     C                     EXSR #CHKMX
+     C                     ELSE
+     C                     EXSR #CHK02
+     C                     ENDIF
+      *
+     C           *IN99     IFEQ *ON
+     C                     MOVEL'NG'      HVHNTE
+     C                     EXSR #WRTLG
+     C                     EXSR #SB999
+     C                     CLEARCNBAR
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+     C                     EXFMTDSP03
+     C                     MOVEL'OK'      HVHNTE
+     C                     EXSR #WRTLG
+     C                     CLEARQRBAR
+     C                     CLEARCNBAR
+      *
+     C                     MOVEL'01'      DSPSW
+      *
+     CSR         ESB220    ENDSR
+      *----------------------------------------------------*
+      *瀗疢�灎�槱��鯐沴�　　　　　　　　　　　　　　�
+      *----------------------------------------------------*
+     CSR         #CHK02    BEGSR
+      *
+     C                     TIME           WTIME
+      *
+     C           CNBAR     IFEQ *BLANK
+     C                     SETON                     3299
+     C                     MOVELER,2      MSG
+     C                     GOTO ECHK02
+     C                     ENDIF
+      *
+     C           CNPRFX    IFNE '1S'
+     C                     SETON                     3299
+     C                     MOVELER,4      MSG
+     C                     GOTO ECHK02
+     C                     ENDIF
+      *
+     C           KEY02     CHAINAB#PL2F4             50
+     C           *IN50     IFEQ *ON
+     C                     SETON                     3299
+     C                     MOVELER,6      MSG
+     C                     GOTO ECHK02
+     C                     ENDIF
+      *
+     CSR         ECHK02    ENDSR
+      *----------------------------------------------------*
+      *瀗疢�灎�槱��鯐沴�硠�黿���鰋瘏　　　　　　�
+      *----------------------------------------------------*
+     CSR         #CHKMX    BEGSR
+      *
+     C           KEY       KLIST
+     C                     KFLD           ASN
+      *
+     C           KEY       CHAINAB#PP2F              50
+     C           *IN50     DOWEQ*OFF
+     C           AFSERL    IFEQ CNBAR
+     C                     LEAVE
+     C                     ENDIF
+     C           KEY       READEAB#PP2F                  50
+     C                     ENDDO
+      *
+     C           *IN50     IFEQ *ON
+     C                     SETON                     3299
+     C                     MOVELER,6      MSG
+     C                     GOTO ECHKMX
+     C                     ENDIF
+      *
+     CSR         ECHKMX    ENDSR
+      *----------------------------------------------------*
+      * END                                                *
+      *----------------------------------------------------*
+     CSR         #SB300    BEGSR
+     C                     SETON                     LR
+     C                     RETRN
+     CSR         ESB300    ENDSR
+      *----------------------------------------------------*
+      * WRITE TO LOG FILE                                  *
+      *----------------------------------------------------*
+     CSR         #WRTLG    BEGSR
+      *
+     C                     Z-ADDSDATE     HVSCDT
+     C                     Z-ADDSTIME     HVSCTM
+     C                     MOVELWORKER    HVWKCD
+     C                     MOVELQRBAR     HVQRBC
+     C                     MOVELCNBAR     HVCNBC
+     C                     MOVELMSG       HVEMSG
+     C                     MOVELD1TYPE    HVTYPE
+     C                     MOVELMASTER    HVMSNO
+     C                     MOVELASN       HVASNO
+     C                     WRITEAB#PPHV1
+     C                     CLEARAB#PPHV1
+      *
+     CSR                   ENDSR
+      *----------------------------------------------------*
+      * ERR                                                *
+      *----------------------------------------------------*
+     CSR         #SB999    BEGSR
+      *
+     C                     MOVELMSG       P1ERR
+     C                     CALL 'AM#R08'
+     C                     PARM           P1ERR  25
+     C                     SETOF                     313299
+     C                     MOVEL*BLANK    MSG
+      *
+     CSR         ESB999    ENDSR
+      *----------------------------------------------------*
+**
+INPUT QUICK RECEIVE.                            1
+INPUT CONTAINER LABEL.                          2
+INVALID QUICK RECEIVE.                          3
+INVALID CONTAINER LABEL.                        4
+NO DATA.                                        5
+LABEL MISMATCH.                                 6

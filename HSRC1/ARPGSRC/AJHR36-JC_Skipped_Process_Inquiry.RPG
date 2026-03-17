@@ -1,0 +1,411 @@
+     H            Y.                                    1
+      ** AJHR36 ****************************************************************
+      *  JC SKIPPED PROCESS INQUIRY                                            *
+      *  LEC           2024.06.12                                              *
+      **************************************************************************
+     FAJHPW36 CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     F                                              KINFDS @INFDS
+     FAJHPLS1 IF  E           K        DISK
+     FALBPL30 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+     FFCEPL07 IF  E           K        DISK
+      *
+      **************************************************************************
+     E                    ERR     1  12 70
+      **************************************************************************
+      *
+     I@INFDS      DS
+     I                                     *STATUS  @STTS
+     I                                    B 370 3710@@LIN
+     I                                    B 378 3790@@REC
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60WSSTM6
+     I                                        1   40WSSTM4
+     I                                        1   20WSSHHH
+     I                                        3   40WSSNNN
+     I                                        5   60WSSSSS
+     I                                        7  140WSSDAT
+     I                                        7  100WSSYYY
+     I                                       11  120WSSMMM
+     I                                       13  140WSSDDD
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      * filter from date
+     I           IDS
+     I                                        1   80XFDAT
+     I                                        1   40XFYY
+     I                                        5   60XFMM
+     I                                        7   80XFDD
+     I                                        9  120XFTM
+     I                                       13  140XFSS
+     I                                        1  140XFDTTM
+      * filter to date
+     I           IDS
+     I                                        1   80XTDAT
+     I                                        1   40XTYY
+     I                                        5   60XTMM
+     I                                        7   80XTDD
+     I                                        9  120XTTM
+     I                                       13  140XTSS
+     I                                        1  140XTDTTM
+      *
+      *  scanned date/time
+     I            DS
+     I                                        1  140JDDTTM
+     I                                        1   80JDKODT
+     I                                        9  140JDKOTM
+      *
+      *  part number edit
+     I            DS
+     I                                        1  20 PARTNO
+     I                                        1   5 XSHN1
+     I                                        6   6 DASH1
+     I                                        7  11 XSHN2
+     I                                       12  12 DASH2
+     I                                       13  14 XSHN3
+      *
+     I            DS
+     I                                        1  12 #XPART
+     I                                        1   5 #XSHN1
+     I                                        6  10 #XSHN2
+     I                                       11  12 #XSHN3
+      *
+     I            DS
+     I                                        1  12 A2PART
+     I                                        1   5 A2BHB1
+     I                                        6  10 A2BHB2
+     I                                       11  12 A2BHB3
+      *
+     I            DS
+     I                                        1  20 #A2PRT
+     I                                        1   5 #A2PR1
+     I                                        6   6 #A2DS1
+     I                                        7  11 #A2PR2
+     I                                       12  12 #A2DS2
+     I                                       13  14 #A2PR3
+      *
+      *  bar code
+     I            DS
+     I                                        1  20 JDBARC
+     I                                        2   5 JDZETI
+     I                                        6   8 JDLOT#
+     I                                        9  10 JDPAG#
+      *
+      **************************************************************************
+      *                    MAIN ROUTINE
+      **************************************************************************
+     C                     EXSR #INIT
+      *
+     C           @@ID      DOWNE'99'
+     C           @@ID      CASEQ'10'      #DSP01
+     C           @@ID      CASEQ'20'      #SFL01
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *************************************************************************
+      *     1ST SCREEN(SCAN DATE)
+      **************************************************************************
+     C           #DSP01    BEGSR
+      *
+     C                     SETOF                     4748
+     C                     EXFMTDSP01
+     C                     MOVE *BLANK    XMSG
+     C                     SETOF                     313233
+     C                     SETOF                     3738
+      *
+     C                     SELEC
+      * <F1: END>
+     C           *INKA     WHEQ *ON
+     C                     MOVE '99'      @@ID
+     C                     OTHER
+      * <ENTR>
+     C                     EXSR #CHK1
+      *
+     C           *IN85     IFEQ *OFF
+     C                     EXSR #SET2
+     C                     ENDIF
+      *
+     C           *IN85     IFEQ *ON
+     C                     MOVEL'10'      @@ID
+     C                     ELSE
+     C                     MOVEL'20'      @@ID
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     1ST SCREEN CHECK
+      **************************************************************************
+     C           #CHK1     BEGSR
+      *
+     C                     SETOF                     85
+     C                     TIME           WSDT
+      * from date...
+     C           XFDAT     IFEQ 0
+     C  N85                MOVELERR,10    XMSG
+     C                     SETON                     3185
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XFDAT     IFGT TODAY
+     C  N85                MOVELERR,1     XMSG
+     C                     SETON                     3185
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * check calendar...
+     C                     MOVELXFDAT     $SRC      P
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN1   1
+      *
+     C           $RTN1     IFNE *BLANK
+     C  N85                MOVELERR,1     XMSG
+     C                     SETON                     3185
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * from time...
+     C                     MOVELXFTM      $TIME
+     C                     CALL 'UTLR01B'
+     C                     PARM           $TIME   4
+     C                     PARM           $RTN2   1
+     C           $RTN2     IFNE *BLANK
+     C  N85                MOVELERR,9     XMSG
+     C                     SETON                     3785
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+      *
+      *******
+      *
+      * to date...
+     C           XTDAT     IFEQ *ZERO
+     C                     Z-ADDXFDAT     XTDAT
+     C                     ENDIF
+      *
+     C           XTDAT     IFGT TODAY
+     C  N85                MOVELERR,6     XMSG
+     C                     SETON                     3285
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+      * check calendar...
+     C                     MOVELXTDAT     $SRC      P
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC
+     C                     PARM           $TRUE
+     C                     PARM           $RTN1
+      *
+     C           $RTN1     IFNE *BLANK
+     C  N85                MOVELERR,6     XMSG
+     C                     SETON                     3285
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * to time...
+     C                     MOVELXTTM      $TIME
+     C                     CALL 'UTLR01B'
+     C                     PARM           $TIME   4
+     C                     PARM           $RTN2   1
+     C           $RTN2     IFNE *BLANK
+     C  N85                MOVELERR,7     XMSG
+     C                     SETON                     3885
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     Z-ADD59        XTSS
+      *
+      * check from date/time is after to date/time...
+     C           XFDTTM    IFGT XTDTTM
+     C  N85                MOVELERR,2     XMSG
+     C                     SETON                     313285
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+      * part number...
+     C                     MOVE '-'       DASH1
+     C           XSHN3     IFNE *BLANKS
+     C                     MOVE '-'       DASH2
+     C                     ENDIF
+      *
+     C           XSHN1     IFNE *BLANK
+     C           XSHN2     ORNE *BLANK
+     C           XSHN3     ORNE *BLANK
+     C           K#PL01    KLIST
+     C                     KFLD           XSHN1
+     C                     KFLD           XSHN2
+     C                     KFLD           XSHN3
+     C           K#PL01    CHAINFCEPL01              99
+     C           *IN99     IFEQ *ON
+     C  N85                MOVELERR,5     XMSG
+     C                     SETON                     3385
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           XCHK1     ENDSR
+      *************************************************************************
+      *     2ND SCREEN SET
+      **************************************************************************
+     C           #SET2     BEGSR
+      *
+     C                     MOVEL*ON       *IN41
+     C                     WRITECTL01
+     C                     MOVEL*OFF      *IN41
+     C                     MOVEL*OFF      *IN42
+     C                     Z-ADD0         RRN1    40
+      *
+     C           K#LS1     KLIST
+     C                     KFLD           K@DATE  80
+     C                     KFLD           K@TIME  60
+      *
+     C                     Z-ADDXFDAT     K@DATE
+     C           XFTM      MULT 100       K@TIME
+      *
+     C           K#LS1     SETLLAJHPLS1
+      *
+     C                     DO   *HIVAL
+      *
+     C                     READ AJHPLS1                  97
+     C   97                LEAVE
+      *
+     C           JDDTTM    IFGT XTDTTM
+     C                     LEAVE
+     C                     ENDIF
+      *
+      * get A2PART from part master...
+     C           JDZETI    CHAINFCEPL07              55
+     C           *IN55     IFEQ *OFF
+     C                     ELSE
+     C                     MOVEL*BLANKS   A2PART
+     C                     ENDIF
+      *
+     C                     MOVELXSHN1     #XSHN1
+     C                     MOVELXSHN2     #XSHN2
+     C                     MOVELXSHN3     #XSHN3
+      *
+      * check screen1 filter for part#...
+     C           #XPART    IFNE *BLANK
+      *
+     C           A2PART    IFNE #XPART
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      *
+      * check screen1 filter for lot#...
+     C           XLOT#     IFNE *BLANK
+      *
+     C           JDLOT#    IFNE XLOT#
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      *
+      * get team member name...
+     C                     MOVELJDWOKR    NUM60   60
+     C           NUM60     CHAINALBPL30              95
+     C           *IN95     IFEQ *ON
+     C                     MOVE *BLANK    ALWKNM
+     C                     ENDIF
+      *
+     C                     CLEARSFL01
+     C                     MOVELJDWOKR    S1TMC
+     C                     MOVELALWKNM    S1TMNM
+     C                     Z-ADDJDKODT    S1SCDT
+     C           JDKOTM    DIV  100       S1SCTM
+     C                     MOVELA2BHB1    #A2PR1
+     C                     MOVELA2BHB2    #A2PR2
+     C                     MOVELA2BHB3    #A2PR3
+     C                     MOVEL#A2PRT    S1PART
+     C                     MOVELJDLOT#    S1LOT#
+     C                     MOVELJDPAG#    S1PAG#
+     C                     MOVELJDZETI    S1ZETI
+      *
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+      *
+     C                     ENDDO
+      *
+     C           RRN1      IFEQ *ZERO
+     C  N85                MOVELERR,3     XMSG
+     C                     SETON                     313285
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     2ND SCREEN
+      **************************************************************************
+     C           #SFL01    BEGSR
+      *
+     C                     Z-ADD1         W#RNP2  40
+      *
+     C                     DO   *HIVAL
+      *
+     C                     MOVEL*OFF      *IN47
+     C                     MOVEL*ON       *IN48
+     C                     WRITEDSP99
+     C                     Z-ADDW#RNP2    #RCN02
+     C                     EXFMTCTL01
+      *
+     C           @@REC     IFNE *ZERO
+     C                     Z-ADD@@REC     W#RNP2
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    XMSG
+     C                     MOVEL*OFF      *IN85
+      * F1: END
+     C                     SELEC
+     C           *INKA     WHEQ *ON
+     C                     MOVEL'99'      @@ID
+     C                     LEAVE
+      * F12: BACK
+     C           *INKL     WHEQ *ON
+     C                     MOVEL'10'      @@ID
+     C                     LEAVE
+     C                     ENDSL
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      **************************************************************************
+      *         INITIALIZE
+      **************************************************************************
+     C           #INIT     BEGSR
+      *
+     C                     TIME           WSDT
+      *
+     C                     Z-ADDWSSYYY    XFYY
+     C                     Z-ADDWSSMMM    XFMM
+     C                     Z-ADDWSSDDD    XFDD
+     C                     Z-ADD0         XFTM
+     C                     Z-ADDWSSYYY    XTYY
+     C                     Z-ADDWSSMMM    XTMM
+     C                     Z-ADDWSSDDD    XTDD
+     C                     Z-ADD2359      XTTM
+     C                     MOVEL*BLANK    XMSG
+      *
+     C                     MOVEL'10'      @@ID    2
+     C                     MOVEL*OFF      *IN85
+      *
+     C                     ENDSR
+     C**************************************************************************
+** ERR   +.........+.........+.........+.........+.........+.........> (70)
+DATE FROM IS INVALID                                                   01
+FROM DATE > TO DATE                                                    02
+NO DATA FOUND                                                          03
+ENTER X FOR SELECTION                                                  04
+PART NOT FOUND IN MASTER                                               05
+DATE TO IS INVALID                                                     06
+TIME TO ID INVALID                                                     07
+ENTER OK, NG OR BLANK                                                  08
+TIME FROM ID INVALID                                                   09
+ENTER DATE FROM                                                        10
+                                                                       11
+                                                                       12

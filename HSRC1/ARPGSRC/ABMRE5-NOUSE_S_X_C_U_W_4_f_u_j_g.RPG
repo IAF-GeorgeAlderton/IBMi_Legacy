@@ -1,0 +1,148 @@
+     H            Y.
+     F** ABMR25 *********************************************
+     F*設定数自動処理　工程内かんばんマスタ更新           *
+     F*     HOTTA.              2018.06.11                  *
+     F*******************************************************
+     FABMWP31 IF  E                    DISK
+     FGHCTL21 IF  E           K        DISK
+     FABHPL02 UF  E           K        DISK
+     FABMPL21 IF  E           K        DISK
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60WJFB
+     I                                        1   20WTITH
+     I                                        3   40WTITM
+     I                                        5   60WTITS
+     I                                        7  140WTIHZ
+     I                                        7  100WTIYY
+     I                                       11  120WTIMM
+     I                                       13  140WTIDD
+      *
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W$WSID
+     I                                      254 263 W$USER
+     I                                      264 269 W$JBNO
+      *
+     I              '0123456789'          C         WKCKSU
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           P@DTYM  60
+      *
+      *----------------------------------------------------*
+      * PLIST                                              *
+      *----------------------------------------------------*
+      *
+     C                     TIME           WTIME
+     C           1         SETLLABMWP311
+     C                     READ ABMWP311                 21
+     C           *IN21     DOWEQ'0'
+     C           @AKERR    IFEQ '*'
+     C           @BKCD1    ANDEQ'A'
+     C                     EXSR #SB200
+     C                     ENDIF
+     C                     READ ABMWP311                 21
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *---------------------------*
+      *工程内かんばん検索       *
+      *---------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C           KEYM61    KLIST
+     C                     KFLD           #KNKOJ  40
+     C                     KFLD           #K1HB5  5
+     C                     KFLD           #K2HB5  5
+     C                     KFLD           #K3HB2  2
+      *
+     C                     Z-ADD0111      #KNKOJ
+     C                     MOVEL@BJHN1    #K1HB5
+     C                     MOVEL@BJHN2    #K2HB5
+     C                     MOVEL@BJHN3    #K3HB2
+     C           KEYM61    SETGTABHPL021
+     C           KEYM61    REDPEABHPL021                 82
+     C           *IN82     DOWEQ'0'
+     C           M6SKJY    IFEQ 'D'
+     C           M6SKHZ    ANDLE*DATE
+     C                     ELSE
+     C           M6STHZ    IFEQ 99999999
+     C                     MOVEL'ZIDOU'   M6KMEI    P
+     C                     Z-ADD*DATE     M6KOHZ
+     C                     EXSR #SB400
+     C                     Z-ADDWKSRYO    M6KSSU
+     C                     UPDATABHPL021
+     C                     ENDIF
+     C                     ENDIF
+     C           KEYM61    REDPEABHPL021                 82
+     C                     ENDDO
+      *
+     CSR         ESB200    ENDSR
+      *---------------------------*
+      * GHCPP21より設定数       *
+      *---------------------------*
+     CSR         #SB400    BEGSR
+      *
+     C                     SETOF                     99
+     C           KEYMD1    KLIST
+     C                     KFLD           #KMBN1  1
+     C                     KFLD           #KMBN2  2
+     C                     KFLD           #KMBN3  2
+     C                     KFLD           #KMBN4  1
+     C                     KFLD           #KMHN1  5
+     C                     KFLD           #KMHN2  5
+     C                     KFLD           #KMHN3  2
+      *
+     C                     MOVELM6JBN1    #KMBN1
+     C                     MOVELM6JBN2    #KMBN2
+     C                     MOVELM6JBN3    #KMBN3
+     C                     MOVELM6JBN4    #KMBN4
+     C                     MOVELM6HIN1    #KMHN1
+     C                     MOVELM6HIN2    #KMHN2
+     C                     MOVELM6HIN3    #KMHN3
+     C                     MOVEL'0'       FGET2   1
+     C                     Z-ADD0         WKSRYO  90
+     C           KEYMD1    SETLLGHCTL211
+     C           KEYMD1    READEGHCTL211                 83
+     C           *IN83     DOWEQ'0'
+     C                     EXSR #SB405
+     C                     MOVEL'1'       FGET2
+     C           KEYMD1    READEGHCTL211                 83
+     C                     ENDDO
+      *
+     CSR         ESB400    ENDSR
+      *---------------------------*
+      * ABMPL21より設定数       *
+      *---------------------------*
+     CSR         #SB405    BEGSR
+      *
+     C           KEY21     KLIST
+     C                     KFLD           W2NTYM  60
+     C                     KFLD           MDJHN1
+     C                     KFLD           MDJHN2
+     C                     KFLD           MDJHN3
+     C                     Z-ADDP@DTYM    W2NTYM
+     C                     Z-ADD0         W@FFF   90
+     C           KEY21     CHAINABMPL211             48
+     C           *IN48     IFEQ '0'
+      *
+     C           S4OMIT    IFEQ '0'
+     C                     Z-ADDS4NSRY    W@FFF
+     C           S4FSMN    IFGT W@FFF
+     C                     Z-ADDS4FSMN    W@FFF
+     C                     ENDIF
+     C           S4FSM1    IFGT W@FFF
+     C                     Z-ADDS4FSM1    W@FFF
+     C                     ENDIF
+     C                     ELSE
+     C                     Z-ADDMDSETI    W@FFF
+     C                     SETON                     99
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     C                     ADD  W@FFF     WKSRYO
+      *
+     CSR         ESB405    ENDSR

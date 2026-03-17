@@ -1,0 +1,433 @@
+     H            Y.                                    1
+      *  IAFR01  ***************************************************************
+      *  UPDATE IAF JOB SCHEDULER CONTROL FILE                                 *
+      *  LEC           2024.01.23                                              *
+      **************************************************************************
+     FIAFPW01 CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     F                                              KINFDS @INFDS
+     FRDBPPCT UF  E           K        DISK                      A
+      **************************************************************************
+     E                    ERR     1  15 70
+      **************************************************************************
+     I@INFDS      DS
+     I                                     *STATUS  @STTS
+     I                                    B 370 3710@@LIN
+     I                                    B 378 3790@@REC
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60WSSTM6
+     I                                        1   40WSSTM4
+     I                                        1   20WSSHHH
+     I                                        3   40WSSNNN
+     I                                        5   60WSSSSS
+     I                                        7  140WSSDAT
+     I                                        7  100WSSYYY
+     I                                       11  120WSSMMM
+     I                                       13  140WSSDDD
+      * DAYS
+     I            DS
+     I                                        1   7 F2DAYS
+     I                                        1   1 F2MON
+     I                                        2   2 F2TUE
+     I                                        3   3 F2WED
+     I                                        4   4 F2THU
+     I                                        5   5 F2FRI
+     I                                        6   6 F2SAT
+     I                                        7   7 F2SUN
+      *
+      **************************************************************************
+      *                    MAIN ROUTINE
+      **************************************************************************
+     C                     EXSR #INIT
+      *
+     C           @@ID      DOWNE'99'
+     C           @@ID      CASEQ'10'      #SFL01
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *************************************************************************
+      *         INITIALIZE
+      **************************************************************************
+     C           #INIT     BEGSR
+      *
+     C                     TIME           WSDT
+      *
+     C                     MOVEL'10'      @@ID    2
+      *
+     C                     ENDSR
+      **************************************************************************
+      *     SET 1ST SUBFILE - CONTROL RECORDS
+      **************************************************************************
+     C           #SET1     BEGSR
+      *
+      * clear subfile1...
+     C                     MOVEL*ON       *IN41
+     C                     WRITECTL01
+     C                     MOVEL*OFF      *IN41
+     C                     MOVEL*OFF      *IN42
+     C                     Z-ADD0         RRN1    40
+      *
+      * read RDBPPCT and fill subfile1...
+     C           *LOVAL    SETLLRDBPPCT
+     C                     READ RDBPPCT             N    97
+      *
+     C           *IN97     DOWEQ*OFF
+      *
+     C                     ADD  1         RRN1
+     C                     MOVELCTJBNM    S1JBNM
+     C                     MOVELCTPGM     S1PGNM
+     C                     MOVELCTJOBQ    S1JOBQ
+     C                     MOVELCTSTAT    S1STAT
+     C                     MOVELCTDESC    H1DESC
+     C                     MOVELCTDAYS    H1DAYS
+     C                     Z-ADDCTFCAL    H1FCAL
+     C                     Z-ADDCTLCAL    H1LCAL
+     C                     Z-ADDCTFQMN    H1FQMN
+      *
+     C                     WRITESFL01
+      *
+     C                     READ RDBPPCT             N    97
+      *
+     C                     ENDDO
+      *
+     C           RRN1      IFEQ *ZERO
+     C                     MOVELERR,1     XMSG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     1ST SUBFILE - CONTROL RECORDS
+      **************************************************************************
+     C           #SFL01    BEGSR
+      *
+     C                     DO   *HIVAL
+      *
+     C                     EXSR #SET1
+      *
+     C                     Z-ADD1         W#RNP1  40
+      *
+     C                     MOVEL*OFF      *IN47
+     C                     MOVEL*ON       *IN48
+     C                     WRITEDSP98
+     C                     Z-ADDW#RNP1    #RCN01
+     C                     EXFMTCTL01
+      *
+     C           @@REC     IFNE *ZERO
+     C                     Z-ADD@@REC     W#RNP1
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    XMSG
+      * F1: END
+     C                     SELEC
+     C           *INKA     WHEQ *ON
+     C                     MOVEL'99'      @@ID
+     C                     LEAVE
+      * F6: ADD New Control Record
+     C           *INKF     WHEQ *ON
+     C                     EXSR #ADD
+     C                     MOVEL'10'      @@ID
+     C                     LEAVE
+      * ENTER
+     C                     OTHER
+     C                     EXSR #CHK1
+      * <F1:END>
+     C           *INKA     IFEQ *ON
+     C                     MOVEL'99'      @@ID
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      **************************************************************************
+     C*     Check 1st SUBFILE
+     C**************************************************************************
+     C           #CHK1     BEGSR
+      *
+     C                     Z-ADD0         RRN1
+      *
+     C                     DO   *HIVAL
+      *
+     C                     ADD  1         RRN1
+     C           RRN1      CHAINSFL01                93
+     C   93                LEAVE
+      *
+     C           S1SEL     IFEQ 'X'
+     C                     MOVEL*BLANK    S1SEL
+     C                     UPDATSFL01
+     C                     MOVEL*OFF      *IN52
+     C                     EXSR #SET2
+     C                     EXSR #FMT2
+      * F1: END
+     C           *INKA     IFEQ *ON
+     C                     MOVEL'99'      @@ID
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ELSE
+     C                     MOVEL*OFF      *IN52
+     C                     MOVEL*BLANK    S1SEL
+     C                     UPDATSFL01
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     SET 2ND SCREEN
+      **************************************************************************
+     C           #SET2     BEGSR
+      *
+     C                     CLEARFMT02
+     C                     MOVELS1JBNM    F2JBNM
+     C                     MOVELS1PGNM    F2PGM
+     C                     MOVELS1JOBQ    F2JOBQ
+     C                     MOVELS1STAT    F2STAT
+     C                     MOVELH1DESC    F2DESC
+     C                     MOVELH1DAYS    F2DAYS
+     C                     Z-ADDH1FCAL    F2FCAL
+     C                     Z-ADDH1LCAL    F2LCAL
+     C                     Z-ADDH1FQMN    F2FQMN
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     DISPLAY 2ND SCREEN
+      **************************************************************************
+     C           #FMT2     BEGSR
+      *
+     C                     DO   *HIVAL
+      *
+     C           F2DAYS    IFEQ *BLANK
+     C                     MOVEL'0000000' F2DAYS
+     C                     ENDIF
+      *
+     C                     EXFMTFMT02
+     C                     MOVE *BLANK    XMSG
+     C                     MOVE *OFF      *IN99
+     C                     MOVEA'0000000' *IN,60
+      *
+      * <F1:END OR F12:BACK>
+     C   KA
+     COR KL                LEAVE
+      *
+     C                     EXSR #CHK2
+     C           *IN99     IFEQ *OFF
+     C                     EXSR #UPD
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*     Check 2nd Screen
+     C**************************************************************************
+     C           #CHK2     BEGSR
+      *
+     C                     DO
+      *
+     C           F2PGM     IFEQ *BLANKS
+     C                     MOVE *ON       *IN60
+     C                     MOVE *ON       *IN99
+     C                     MOVELERR,11    XMSG
+     C                     LEAVE
+     C                     ENDIF
+      *
+      * check to see if program exists...
+     C                     MOVEL'*PGM  '  OBJTYP    P
+     C                     CALL 'IAFC01'
+     C                     PARM           F2PGM
+     C                     PARM           OBJTYP 10
+     C                     PARM           YN      1
+     C           YN        IFEQ 'N'
+     C                     MOVE *ON       *IN60
+     C                     MOVE *ON       *IN99
+     C                     MOVELERR,11    XMSG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           F2JOBQ    IFEQ *BLANKS
+     C                     MOVE *ON       *IN61
+     C                     MOVE *ON       *IN99
+     C                     MOVELERR,12    XMSG
+     C                     LEAVE
+     C                     ENDIF
+      *
+      * check to see if job queue exists...
+     C                     MOVEL'*JOBQ '  OBJTYP    P
+     C                     CALL 'IAFC01'
+     C                     PARM           F2JOBQ
+     C                     PARM           OBJTYP 10
+     C                     PARM           YN      1
+     C           YN        IFEQ 'N'
+     C                     MOVE *ON       *IN61
+     C                     MOVE *ON       *IN99
+     C                     MOVELERR,12    XMSG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           F2STAT    IFNE 'A'
+     C           F2STAT    ANDNE'H'
+     C           F2STAT    ANDNE'D'
+     C                     MOVE *ON       *IN62
+     C                     MOVE *ON       *IN99
+     C                     MOVELERR,3     XMSG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           F2DESC    IFEQ *BLANKS
+     C                     MOVE *ON       *IN63
+     C                     MOVE *ON       *IN99
+     C                     MOVELERR,4     XMSG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           F2FCAL    IFEQ *ZERO
+     C                     MOVE *ON       *IN64
+     C                     MOVE *ON       *IN99
+     C                     MOVELERR,6     XMSG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           F2LCAL    IFEQ *ZERO
+     C           F2LCAL    ORLT F2FCAL
+     C                     MOVE *ON       *IN65
+     C                     MOVE *ON       *IN99
+     C                     MOVELERR,7     XMSG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           F2FCAL    IFEQ F2LCAL
+     C           F2FQMN    ANDNE*ZERO
+     C                     MOVE *ON       *IN66
+     C                     MOVE *ON       *IN99
+     C                     MOVELERR,14    XMSG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           F2FCAL    IFLT F2LCAL
+     C           F2FQMN    IFGE 0
+     C           F2FQMN    ANDLT5
+     C                     MOVE *ON       *IN66
+     C                     MOVE *ON       *IN99
+     C                     MOVELERR,8     XMSG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           F2FQMN    IFGT 720
+     C                     MOVE *ON       *IN66
+     C                     MOVE *ON       *IN99
+     C                     MOVELERR,8     XMSG
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+      *
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     Update the Info for the Job in the Job Control File
+      **************************************************************************
+     C           #UPD      BEGSR
+      *
+     C                     DO
+      *
+     C           F2JBNM    CHAINRDBPPCT              97
+      *
+     C           F2STAT    IFEQ 'D'
+     C           *IN97     ANDEQ*OFF
+     C                     DELETRDBPPCT1
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     MOVELF2PGM     CTPGM
+     C                     Z-ADDF2FCAL    CTFCAL
+     C                     Z-ADDF2LCAL    CTLCAL
+     C                     MOVELF2DAYS    CTDAYS
+     C           F2FCAL    IFEQ F2LCAL
+     C                     Z-ADD*ZERO     F2FQMN
+     C                     ENDIF
+     C                     Z-ADDF2FQMN    CTFQMN
+     C                     MOVELF2JOBQ    CTJOBQ
+     C                     MOVELF2DESC    CTDESC
+     C                     MOVELF2STAT    CTSTAT
+     C           *IN97     IFEQ *OFF
+     C                     UPDATRDBPPCT1
+     C                     ELSE
+     C                     MOVELF2JBNM    CTJBNM
+     C                     WRITERDBPPCT1
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+      * update schedule for this job...
+     C                     CALL 'RDBR003'
+     C                     PARM           CTJBNM
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     Add New Job to Schedule
+      **************************************************************************
+     C           #ADD      BEGSR
+      *
+     C                     CLEARWINADD
+     C                     CLEARFMT02
+      *
+     C                     DO   *HIVAL
+      *
+     C                     EXFMTWINADD
+     C                     MOVE *OFF      *IN67
+     C                     MOVE *BLANKS   WMSG
+      *
+     C           *INKL     IFEQ *ON
+     C           W1JBNM    OREQ *BLANK
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           W1JBNM    CHAINRDBPPCT             N97
+     C           *IN97     IFEQ *OFF
+     C                     MOVE *ON       *IN67
+     C                     MOVELERR,15    WMSG
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELW1JBNM    F2JBNM
+      *
+     C                     EXSR #FMT2
+     C                     LEAVE
+      * F1: END
+     C           *INKA     IFEQ *ON
+     C                     MOVEL'99'      @@ID
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *************************************************************************
+** ERR   +.........+.........+.........+.........+.........+.........> (70)
+NO DATA FOUND                                                         1
+Enter X for Selection                                                 2
+Invalid Status (A,H,D)                                                3
+Enter a Description                                                   4
+Enter 0 or 1 for Day                                                  5
+Invalid Time                                                          6
+Last Run Cannot be Less Than First Run                                7
+Valid Minutes (5 - 720)                                               8
+Program Not Found                                                     9
+JobQ Not Found                                                        10
+Invalid Program Name                                                  11
+Invalid Job Queue Name                                                12
+                                                                      13
+If Pgm Only Runs Once, run every should be zero                       14
+Job Name Already Exists                                               15

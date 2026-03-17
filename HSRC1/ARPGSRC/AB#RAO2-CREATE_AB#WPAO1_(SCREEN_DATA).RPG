@@ -1,0 +1,285 @@
+     H            Y.
+     F**AB#RAO2 **************************************
+     F* CREATE AB#WPAO1 (SCREEN DATA)                *
+     F* J.WATANABE  2021.03.12                       *
+     F************************************************
+     FAB#WPAO IF  E           K        DISK
+     FAB#WLAO IF  E           K        DISK
+     F            AB#WPAO1                          KRENAMEAB#WLA01
+     FAB#WLAO2IF  E           K        DISK
+     F            AB#WPAO1                          KRENAMEAB#WLA02
+     FAB#WPAO2O   E           K        DISK
+     F************************************************
+     E                    IND     1   3 11
+      * DATE TABLE
+     E                    DAT        40  8 0
+      * CALC TABLE
+     E                    LSZ       400  3
+     E                    LSQ       400  2 0
+     E                    LMC       400  3
+      * WORK DATE
+     I            DS
+     I                                        1   8 WDT
+     I                                        1   4 WDTYY
+     I                                        5   6 WDTMM
+     I                                        7   8 WDTDD
+      * EXT  DATE
+     I            DS
+     I                                        1  10 XDT
+     I                                        1   4 XDTYY
+     I                                        5   5 XDT1
+     I                                        6   7 XDTMM
+     I                                        8   8 XDT2
+     I                                        9  10 XDTDD
+      * SYSTEM DATE
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *----------------------------------------------------*
+      *  MAIN ROUTINE
+      *----------------------------------------------------*
+     C                     EXSR #INIT
+      * SET HEADER DATE
+     C           1         DO   MAXIY     IY
+      * CLEAR SFL
+     C                     Z-ADD0         RRN1    40
+     C                     Z-ADD0         SVSQ    20
+     C                     MOVE *BLANK    SVSZ    3
+     C                     Z-ADD0         TQT
+     C                     Z-ADD0         TBX
+     C                     Z-ADD0         GQT
+     C                     Z-ADD0         GBX
+      * SET DETAIL LINE
+     C           1         DO   MAXIX     IX
+      * FIRST?
+     C           IX        IFEQ 1
+     C                     MOVELLSQ,IX    S#SEQ   20
+     C                     MOVELLSZ,IX    S#SIZ   3
+     C                     MOVELLMC,IX    S#MCN   3
+     C                     ENDIF
+      * BREAK?
+     C           LSQ,IX    IFNE S#SEQ
+     C                     EXSR #BRK1
+     C                     EXSR #BRK2
+     C                     ELSE
+     C           LMC,IX    IFNE S#MCN
+     C                     EXSR #BRK1
+     C                     ENDIF
+     C                     ENDIF
+      * DETAIL PROC
+     C                     MOVEL#WSID     K#WSID
+     C                     MOVELLSQ,IX    K#SEQ
+     C                     MOVELLMC,IX    K#MCN
+     C                     Z-ADDDAT,IY    K#DATE
+     C           K#WLA     SETLLAB#WLAO2
+     C                     Z-ADD0         @@QTY   90
+     C                     Z-ADD0         @@BOX   90
+     C                     DO   *HIVAL
+     C           K#WLA     READEAB#WLAO2                 98
+     C   98                LEAVE
+     C                     ADD  W#QTY     @@QTY
+     C                     ADD  W#BOX     @@BOX
+     C                     ENDDO
+      *
+     C                     Z-ADD@@QTY     LQT
+     C                     ADD  @@QTY     TQT
+     C                     ADD  @@QTY     GQT
+     C                     Z-ADD@@BOX     LBX
+     C                     ADD  @@BOX     TBX
+     C                     ADD  @@BOX     GBX
+      *
+     C                     ENDDO
+      * LAST BREAK
+     C           IX        IFNE 0
+     C                     EXSR #BRK1
+     C                     EXSR #BRK2
+     C                     ENDIF
+      * GENERAL TOTAL
+     C                     EXSR #TTL
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  BREAK BY MACHINE
+      *----------------------------------------------------*
+     C           #BRK1     BEGSR
+      *
+     C                     CLEARAB#WPA21
+      * ADD SFL01
+     C                     ADD  1         RRN1
+     C                     Z-ADDRRN1      A#LN#
+     C                     Z-ADDIY        A#DT#
+     C                     MOVE *OFF      A#41
+     C                     Z-ADDLQT       A#QT01
+     C                     Z-ADDLBX       A#BX01
+      * SET DATE
+     C                     MOVELDAT,IY    WDT
+     C                     EXSR #WDT
+     C                     MOVELXDT       A#DATE
+      * SET INDEX
+     C                     MOVELS#SIZ     A#SIZ     P
+     C                     MOVE S#MCN     A#SIZ
+     C           LSQ,IX    IFEQ 09
+     C                     MOVEL'OTHER'   A#SIZ
+     C                     ENDIF
+     C                     WRITEAB#WPA21
+      * RESET
+     C                     Z-ADD0         LQT
+     C                     Z-ADD0         LBX
+     C                     MOVELLMC,IX    S#MCN
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  BREAK BY SEQ#
+      *----------------------------------------------------*
+     C           #BRK2     BEGSR
+      *
+     C                     CLEARAB#WPA21
+     C                     Z-ADDTQT       A#QT01
+     C                     Z-ADDTBX       A#BX01
+     C                     MOVE *ON       A#41
+      * SET DATE
+     C                     MOVELDAT,IY    WDT
+     C                     EXSR #WDT
+     C                     MOVELXDT       A#DATE
+      * SET INDEX
+     C                     MOVELIND,1     A#SIZ     P
+     C                     MOVELS#SIZ     A#SIZ
+     C           S#SEQ     IFEQ 09
+     C                     MOVEL'OTH'     A#SIZ
+     C                     ENDIF
+      * ADD SFL01
+     C                     ADD  1         RRN1
+     C                     Z-ADDRRN1      A#LN#
+     C                     Z-ADDIY        A#DT#
+     C                     WRITEAB#WPA21
+      * RESET
+     C                     Z-ADD0         TQT
+     C                     Z-ADD0         TBX
+     C                     MOVELLSZ,IX    S#SIZ
+     C                     MOVELLSQ,IX    S#SEQ
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  GENERAL TOTAL
+      *----------------------------------------------------*
+     C           #TTL      BEGSR
+      * 1ST LINE
+     C                     CLEARAB#WPA21
+     C                     Z-ADD0         A#BX01
+     C                     Z-ADD0         A#QT01
+     C                     MOVE *ON       A#41
+     C                     MOVELIND,2     A#SIZ     P
+      * SET DATE
+     C                     MOVELDAT,IY    WDT
+     C                     EXSR #WDT
+     C                     MOVELXDT       A#DATE
+      * ADD SFL01
+     C                     ADD  1         RRN1
+     C                     Z-ADDRRN1      A#LN#
+     C                     Z-ADDIY        A#DT#
+     C                     WRITEAB#WPA21
+      * 2ND LINE
+     C                     Z-ADDGQT       A#QT01
+     C                     Z-ADDGBX       A#BX01
+     C                     MOVE *ON       A#41
+     C                     MOVELIND,3     A#SIZ     P
+      * ADD SFL01
+     C                     ADD  1         RRN1
+     C                     Z-ADDRRN1      A#LN#
+     C                     Z-ADDIY        A#DT#
+     C                     WRITEAB#WPA21
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  EDIT DATE
+      *----------------------------------------------------*
+     C           #WDT      BEGSR
+      *
+     C           WDTYY     IFEQ '0000'
+     C           WDTYY     OREQ '    '
+     C                     MOVE *BLANK    XDT
+     C                     ELSE
+     C                     MOVELWDTYY     XDTYY
+     C                     MOVE '/'       XDT1
+     C                     MOVELWDTMM     XDTMM
+     C                     MOVE '/'       XDT2
+     C                     MOVELWDTDD     XDTDD
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETING
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           K#WLA     KLIST
+     C                     KFLD           K#WSID 10
+     C                     KFLD           K#SEQ   20
+     C                     KFLD           K#MCN   3
+     C                     KFLD           K#DATE  80
+      *
+     C                     TIME           SDATE
+     C                     Z-ADD1         WEK     10
+     C                     Z-ADD1         LIN     40
+     C                     Z-ADD@@QTY     LQT     90
+     C                     ADD  @@QTY     TQT     90
+     C                     ADD  @@QTY     GQT     90
+     C                     Z-ADD@@BOX     LBX     70
+     C                     ADD  @@BOX     TBX     70
+     C                     ADD  @@BOX     GBX     70
+      * SET DATE TABLE (MAX 31 DAYS)
+     C                     Z-ADD0         IY      30
+     C                     Z-ADD0         SVDATE  80
+     C           #WSID     SETLLAB#WPAO
+     C                     DO   *HIVAL
+     C           #WSID     READEAB#WPAO                  99
+     C   99                LEAVE
+      * BREAK?
+     C           W#DATE    IFNE SVDATE
+     C                     ADD  1         IY
+     C                     Z-ADDW#DATE    DAT,IY
+     C                     Z-ADDW#DATE    SVDATE
+     C                     ENDIF
+     C                     ENDDO
+     C           IY        DIV  5         MAXWEK  20
+     C                     MVR            REM     20
+     C           REM       IFNE 0
+     C                     ADD  1         MAXWEK
+     C                     ENDIF
+     C                     Z-ADDIY        MAXIY   30
+      * SET SIZE/MACHINE TABLE
+     C                     Z-ADD0         IX      30
+     C                     MOVE *BLANK    SVSIZE  3
+     C                     Z-ADD0         SVSEQ   20
+     C                     MOVE *BLANK    SVMCN   3
+     C           #WSID     SETLLAB#WLAO
+     C                     DO   *HIVAL
+     C           #WSID     READEAB#WLAO                  99
+     C   99                LEAVE
+      * BREAK?
+     C           W#SEQ     IFNE SVSEQ
+     C           W#MCN     ORNE SVMCN
+     C                     ADD  1         IX
+     C                     MOVELW#SIZE    LSZ,IX
+     C                     MOVELW#SIZE    SVSIZE
+     C                     MOVELW#SEQ     LSQ,IX
+     C                     MOVELW#SEQ     SVSEQ
+     C                     MOVELW#MCN     LMC,IX
+     C                     MOVELW#SEQ     SVSEQ
+     C                     MOVELW#MCN     SVMCN
+     C                     ENDIF
+     C                     ENDDO
+     C                     Z-ADDIX        MAXIX   30
+      *
+     C                     ENDSR
+** IND(11).
+XXX TOTAL:    01
+***********   02
+GEN-TOTAL:    03

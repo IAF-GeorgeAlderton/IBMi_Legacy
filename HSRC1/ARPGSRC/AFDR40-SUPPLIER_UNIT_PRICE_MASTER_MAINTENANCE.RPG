@@ -1,0 +1,472 @@
+     H            Y.
+     F** AFDR40 ***********************************************
+     F*  SUPPLIER UNIT PRICE MASTER MAINTENANCE
+     F*  COPIED FROM FBCR05
+     F*  J.WATANABE  2018.05.25
+     F*********************************************************
+     FAFDPW40 CF  E                    WORKSTN
+     FAFDPL80 UF  E           K        DISK                      A
+     FFGBPL01 IF  E           K        DISK
+      *
+     E                    $ER     1  20 60
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *
+     I            DS
+     I                                        1  23 WKSHN
+     I                                        1   5 X1SHN1
+     I                                        6   6 WKF1
+     I                                        7  11 X1SHN2
+     I                                       12  12 WKF2
+     I                                       13  17 X1SHN3
+      *
+     I            DS
+     I                                        1  20 WKMHIN
+     I                                        1   5 WMHN1
+     I                                        6  10 WMHN2
+     I                                       11  15 WMHN3
+     I                                       16  20 WMHN4
+      *
+     I            DS
+     I                                        1   80WKYMD
+     I                                        1   40WKYY
+     I                                        5   60WKMM
+     I                                        7   80WKDD
+      *
+     I            DS
+     I                                        1   80B2SKHZ
+     I                                        1   40B2SKYY
+     I                                        5   60B2SKMM
+     I                                        7   80B2SKDD
+      *
+     I            DS
+     I                                        1  12 A8SHIN
+     I                                        1   5 A8SHN1
+     I                                        6  10 A8SHN2
+     I                                       11  12 A8SHN3
+      *
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *----------------------------------------------------*
+      * MAIN ROUTINE
+      *----------------------------------------------------*
+     C                     EXSR #INIT
+      * DSP01
+     C           DSPSW1    DOWEQ*ON
+     C                     EXSR #DSP01
+      * F1: EXIT
+     C           *INKA     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      * DSP02
+     C           DSPSW2    DOWEQ*ON
+     C                     EXSR #DSP02
+     C                     ENDDO
+      *
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      * DISPLAY DSP01                                      *
+      *----------------------------------------------------*
+     C           #DSP01    BEGSR
+     C                     EXFMTDSP01
+     C                     SETOF                     303132
+     C                     SETOF                     33  99
+     C                     MOVEL*BLANK    XMSG
+      * F1:EXIT
+     C           *INKA     IFEQ *ON
+     C                     GOTO SKIP1
+     C                     ENDIF
+      * F12:INQ
+     C           *INKL     IFEQ *ON
+      * CHECK SUPPLIER
+     C           XSUPP     IFEQ 0
+     C                     SETON                     31  99
+     C                     MOVEL$ER,3     XMSG
+     C                     GOTO SKIP1
+     C                     ENDIF
+     C                     MOVELXSUPP     P@SUPP
+     C                     CALL 'AFDR41'
+     C                     PARM           P@SUPP  4
+     C                     PARM           P@SHN1  5
+     C                     PARM           P@SHN2  5
+     C                     PARM           P@SHN3  2
+     C                     PARM           P@TKHZ  80
+     C                     PARM           P@RTN   1
+     C                     ENDIF
+     C           P@RTN     IFEQ '*'
+     C                     MOVELP@SHN1    X1SHN1
+     C                     MOVELP@SHN2    X1SHN2
+     C                     MOVELP@SHN3    X1SHN3
+     C                     Z-ADDP@TKHZ    X1TKHZ
+     C                     ENDIF
+      * CHECK OPTION
+     C           XOPT      IFNE '0'
+     C           XOPT      ANDNE'1'
+     C           XOPT      ANDNE'2'
+     C                     SETON                     3099
+     C                     MOVEL$ER,14    XMSG
+     C                     GOTO SKIP1
+     C                     ENDIF
+      *
+      * CHECK SUPPLIER
+     C           XSUPP     IFEQ 0
+     C                     SETON                     31  99
+     C                     MOVEL$ER,3     XMSG
+     C                     GOTO SKIP1
+     C                     ENDIF
+      *
+     C                     MOVELXSUPP     NUM4    40
+     C           NUM4      CHAINFGBPL01              21
+     C           *IN21     IFEQ *OFF
+     C           B2SKJY    ANDEQ'D'
+     C                     SETON                     21
+     C                     ENDIF
+      *
+     C           *IN21     IFEQ *ON
+     C                     SETON                     31  99
+     C                     MOVEL$ER,4     XMSG
+     C                     GOTO SKIP1
+     C                     ENDIF
+      * CHECK PART
+     C           X1SHN1    IFEQ *BLANK
+     C           X1SHN2    ANDEQ*BLANK
+     C           X1SHN3    ANDEQ*BLANK
+     C                     MOVEL$ER,6     XMSG
+     C                     SETON                     32  99
+     C                     GOTO SKIP1
+     C                     ENDIF
+      * CHECK EFFECTIVE DATE 1
+     C           X1TKHZ    IFEQ 0
+     C                     MOVEL$ER,8     XMSG
+     C                     SETON                     33  99
+     C                     GOTO SKIP1
+     C                     ENDIF
+      * CHECK EFFECTIVE DATE 2
+     C                     MOVE *BLANK    $SRC
+     C                     MOVELX1TKHZ    $SRC
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ *BLANK
+     C                     Z-ADD0         X1TKHZ
+     C                     MOVEL$TRUE     X1TKHZ
+     C                     ELSE
+     C                     MOVEL$ER,9     XMSG
+     C                     SETON                     33  99
+     C                     GOTO SKIP1
+     C                     ENDIF
+      * CHECK PRICE MASTER
+     C                     MOVELXSUPP     #KNONY
+     C                     MOVELX1SHN1    #KSHN1
+     C                     MOVELX1SHN2    #KSHN2
+     C                     MOVELX1SHN3    #KSHN3
+     C                     Z-ADDX1TKHZ    #KTKHD
+     C           K#AF8B    CHAINAFDPL80              91
+      * NOT FOUND
+     C           XOPT      IFEQ '0'
+     C           XOPT      OREQ '2'
+     C           *IN91     IFEQ *ON
+     C                     SETON                     313233
+     C                     SETON                     99
+     C                     MOVE $ER,17    XMSG
+     C                     GOTO SKIP1
+     C                     ENDIF
+     C                     ENDIF
+      * FOUND
+     C           XOPT      IFEQ '1'
+     C           *IN91     ANDEQ*OFF
+     C                     SETON                     313233
+     C                     SETON                     99
+     C                     MOVE $ER,18    XMSG
+     C                     GOTO SKIP1
+     C                     ENDIF
+      *--------------
+      * IF NO ERROR,
+      *--------------
+     C                     EXSR #CLR2
+      *
+     C                     SELEC
+     C           XOPT      WHEQ '0'
+     C                     MOVEL'0.DELETE'XOPTD
+     C           XOPT      WHEQ '1'
+     C                     MOVEL'1.ADD   'XOPTD
+     C           XOPT      WHEQ '2'
+     C                     MOVEL'2.INQ   'XOPTD
+     C                     OTHER
+     C                     MOVEL'???     'XOPTD
+     C                     ENDSL
+      *
+     C                     MOVELXSUPP     XSUPPD
+     C                     MOVE '-'       WKF1
+     C                     MOVE '-'       WKF2
+     C           X1SHN3    IFEQ *BLANK
+     C                     MOVE *BLANK    WKF2
+     C                     ENDIF
+     C           X1SHN2    IFEQ *BLANK
+     C                     MOVE *BLANK    WKF1
+     C                     ENDIF
+      *
+     C                     MOVELWKSHN     XSHND
+     C                     MOVE *OFF      DSPSW1
+     C                     MOVE *ON       DSPSW2
+      *
+     C           XOPT      IFEQ '0'
+     C           XOPT      OREQ '2'
+     C                     MOVE *OFF      *IN51
+     C                     Z-ADDA8OTAN    X2OTAN
+     C                     MOVELA8TANU    X2TANU
+     C                     Z-ADDA8TKHZ    X2TKHZ
+     C                     Z-ADDA8TSHZ    X2TSHZ
+     C                     Z-ADDA8MINQ    X2MINQ
+     C                     Z-ADDA8MINA    X2MINA
+     C                     MOVE A8MINU    X2MINU
+      *
+     C                     ELSE
+     C                     MOVE *ON       *IN51
+     C                     MOVEL'PC'      X2TANU
+     C                     Z-ADDX1TKHZ    X2TKHZ
+     C                     Z-ADD99999999  X2TSHZ
+     C                     ENDIF
+      *
+     C           SKIP1     ENDSR
+      *----------------------------------------------------*
+      *  DISPLAY DSP02                                     *
+      *----------------------------------------------------*
+     C           #DSP02    BEGSR
+     C                     EXFMTDSP02
+     C                     SETOF                     353637
+     C                     SETOF                     38  99
+     C                     MOVEL*BLANK    XMSG
+      * F3:EXIT
+     C           *INKC     IFEQ *ON
+     C                     MOVE *ON       DSPSW1
+     C                     MOVE *OFF      DSPSW2
+     C                     EXSR #CLR1
+     C                     CLEARDSP02
+     C                     GOTO SKIP2
+     C                     ENDIF
+      * IF ADD MODE, CHECK DATA
+     C           XOPT      IFEQ '1'
+     C                     EXSR #CHK2
+     C           *IN99     IFEQ *ON
+     C                     GOTO SKIP2
+     C                     ENDIF
+     C                     ENDIF
+      * F5:UPDATE
+     C           *INKE     IFEQ *ON
+     C                     SELEC
+     C           XOPT      WHEQ '0'
+     C                     EXSR #DLT
+     C           XOPT      WHEQ '1'
+     C                     EXSR #ADD
+     C           XOPT      WHEQ '2'
+     C                     GOTO SKIP2
+     C                     ENDSL
+      *
+     C                     EXSR #CLR1
+     C                     MOVE *OFF      DSPSW2
+     C                     MOVE *ON       DSPSW1
+     C                     GOTO SKIP2
+     C                     ENDIF
+      * ENTR
+     C           XOPT      IFEQ '0'
+     C           XOPT      OREQ '1'
+     C                     MOVEL$ER,1     XMSG
+     C                     ENDIF
+      *
+     C           SKIP2     ENDSR
+      *----------------------------------------------------*
+      *     CHECK SCREEN 2                                 *
+      *----------------------------------------------------*
+     C           #CHK2     BEGSR
+      *
+     C           X2OTAN    IFEQ 0
+     C                     SETON                     35  99
+     C                     MOVEL$ER,7     XMSG
+     C                     GOTO SKIP3
+     C                     ENDIF
+      *
+     C           X2TANU    IFNE 'PC'
+     C           X2TANU    ANDNE'LB'
+     C                     SETON                     36  99
+     C                     MOVEL$ER,16    XMSG
+     C                     GOTO SKIP3
+     C                     ENDIF
+      *
+     C           X2TSHZ    IFEQ 0
+     C                     SETON                     37  99
+     C                     MOVEL$ER,10    XMSG
+     C                     GOTO SKIP3
+     C                     ENDIF
+      *
+     C           X2MINQ    IFNE 0
+     C           X2MINA    ORNE 0
+     C           X2MINU    IFNE 'PC'
+     C           X2MINU    ANDNE'LB'
+     C                     SETON                     38  99
+     C                     MOVEL$ER,16    XMSG
+     C                     GOTO SKIP3
+     C                     ENDIF
+     C                     ENDIF
+      * CHECK EXP DATE 2
+     C           X2TSHZ    IFNE 99999999
+     C                     MOVE *BLANK    $SRC
+     C                     MOVELX2TSHZ    $SRC
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ *BLANK
+     C                     Z-ADD0         X2TSHZ
+     C                     MOVEL$TRUE     X2TSHZ
+     C                     ELSE
+     C                     MOVEL$ER,11    XMSG
+     C                     SETON                     37  99
+     C                     GOTO SKIP3
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           X2TKHZ    IFGT X2TSHZ
+     C                     SETON                     37  99
+     C                     MOVEL$ER,12    XMSG
+     C                     GOTO SKIP3
+     C                     ENDIF
+      *
+     C           SKIP3     ENDSR
+      *----------------------------------------------------*
+      *  CLEAR SCRREN 1                                    *
+      *----------------------------------------------------*
+     C           #CLR1     BEGSR
+     C                     MOVE *OFF      *IN51
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  CLEAR SCREEN 2                                    *
+      *----------------------------------------------------*
+     C           #CLR2     BEGSR
+      *
+     C                     MOVE *BLANK    XOPTD
+     C                     MOVE *BLANK    XSUPPD
+     C                     MOVE *BLANK    XSHND
+     C                     MOVE *BLANK    XMSG
+     C                     Z-ADD0         X2OTAN
+     C                     MOVE *BLANK    X2TANU
+     C                     Z-ADD0         X2TKHZ
+     C                     Z-ADD0         X2TSHZ
+     C                     Z-ADD0         X2MINQ
+     C                     Z-ADD0         X2MINA
+     C                     MOVE *BLANK    X2MINU
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  UNIT PRICE MASTER  DELETION                       *
+      *----------------------------------------------------*
+     C           #DLT      BEGSR
+      *
+     C                     MOVE 'D'       A8SKJY
+     C                     Z-ADDTODAY     A8SKHZ
+     C                     Z-ADDNOW       A8SKTM
+     C                     MOVEL#USER     A8SKME
+     C                     MOVEL#PGM      A8SKPG
+     C                     UPDATAFDPP801
+     C                     MOVEL$ER,2     XMSG
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  UNIT PRICE MASTER  ADDITION                       *
+      *----------------------------------------------------*
+     C           #ADD      BEGSR
+      *
+     C                     CLEARAFDPP801
+     C                     MOVELXSUPP     A8SUPP
+     C                     MOVELX1SHN1    A8SHN1
+     C                     MOVELX1SHN2    A8SHN2
+     C                     MOVELX1SHN3    A8SHN3
+     C                     Z-ADDX2OTAN    A8OTAN
+     C                     MOVELX2TANU    A8TANU
+     C                     Z-ADDX2TKHZ    A8TKHZ
+     C                     Z-ADDX2TSHZ    A8TSHZ
+     C                     Z-ADDX2MINQ    A8MINQ
+     C                     Z-ADDX2MINA    A8MINA
+     C                     MOVELX2MINU    A8MINU
+      *
+     C                     Z-ADDTODAY     A8CRHZ
+     C                     Z-ADDNOW       A8CRTM
+     C                     MOVEL#USER     A8CRME
+     C                     MOVEL#PGM      A8CRPG
+      *
+     C                     WRITEAFDPP801
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  CALECNDER  CHECK                                  *
+      *----------------------------------------------------*
+     C           #CHKD     BEGSR
+     C                     SETOF                     21
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  DATE CALCULATION                                  *
+      *----------------------------------------------------*
+     C           #DATE     BEGSR
+     C                     Z-ADD#KTKHD    WHYMD   80
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * INITIALIZE
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           K#AF80    KLIST
+     C                     KFLD           #KNONY  4
+     C                     KFLD           #KSHN1  5
+     C                     KFLD           #KSHN2  5
+     C                     KFLD           #KSHN3  2
+     C                     KFLD           #KTKHD  80
+      *
+     C           K#AF8B    KLIST
+     C                     KFLD           #KNONY
+     C                     KFLD           #KSHN1
+     C                     KFLD           #KSHN2
+     C                     KFLD           #KSHN3
+      *
+     C                     TIME           WSDT
+     C                     MOVEL*BLANK    XMSG
+     C                     Z-ADD0         WHY     40
+     C                     Z-ADD0         WHM     20
+     C                     Z-ADD0         WHD     20
+     C                     Z-ADD0         URU     40
+     C                     Z-ADD0         AMA     40
+     C                     MOVE *ON       DSPSW1  1
+     C                     MOVE *OFF      DSPSW2  1
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+** ERR MSG
+PRESS F5 TO UPDATE OR F3 TO GO BACK...                        01
+PRICE HAS BEEN DELETED...                                     02
+ENTER SUPPLIER!                                               03
+SUPPLIER IS INVALID!                                          04
+NO DATA IN SHIPMENT M/F!                                      05
+ENTER IAF PART NO.!                                           06
+ENTER UNIT PRICE!                                             07
+ENTER EFFECTIVE DATE!                                         08
+EFFECTIVE DATE (YYYYMMDD) IS INVALID!                         09
+ENTER EXP DATE!                                               10
+EXP DATE (YYYYMMDD) IS INVALID                                11
+EFFECTIVE DATE > EXP DATE!                                    12
+EFFECTIVE DATE IS LESS THAN OR EQUAL TO LAST EFFECTIVE!       13
+OPTION SHOULD BE 0, 1 OR 2!                                   14
+DATA NOT FOUND IN PRICE MASTER!                               15
+UNIT MEASURE SHOULD BE "PC" OR "LB"!                          16
+PRICE M/F DATA DOES NOT EXIST!                                17
+CANNOT ADD BECAUSE M/F EXISTS!                                18
+                                                              19
+                                                              20

@@ -1,0 +1,95 @@
+             PGM        PARM(&HHMM &FILE)
+             /** ADACJ1 *********************************************/
+             /* PROGRAM NAME. : FOR TEST                               2) */
+             /********************************************* ADACJ1 **/
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&USER) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&HHMM) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&PRT) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&TYPE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PDEVT) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&PIGCD) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&WLIB) TYPE(*CHAR) LEN(8)
+             DCL        VAR(&FILE) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&DAT6) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&DAT8) TYPE(*CHAR) LEN(8)
+             DCL        VAR(&SLCT) TYPE(*CHAR) LEN(50)
+             DCL        VAR(&CRDT) TYPE(*CHAR) LEN(13)
+             DCL        VAR(&CHK1) TYPE(*CHAR) LEN(2)
+             DCL        VAR(&CHK2) TYPE(*CHAR) LEN(2)
+
+             CHGVAR     VAR(&CHK1) VALUE(%SUBSTRING(&HHMM 1 2))
+             CHGLIBL    LIBL(QTEMP QGPL QMGU QPCFSU TFILE1 TWFILE1 +
+                          TOBJ1 TJRN1 HSRC1 TCHLIB)
+
+             RTVJOBA    JOB(&WSID) USER(&USER) DATE(&DAT6)
+
+             CALL       PGM(AGAR01) PARM(&WSID &PDEVT &PIGCD)
+
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+
+             CALL       PGM(ALBC00) PARM(&USER &WLIB)
+
+             RTVOBJD    OBJ(HWFILE1/&FILE) OBJTYPE(*FILE) +
+                          CRTDATE(&CRDT)
+             CHGVAR     VAR(&CHK2) VALUE(%SUBSTRING(&CRDT 8 2))
+
+             IF         COND(&HHMM *NE '0800' *AND &CHK1 *NE &CHK2) +
+                          THEN(GOTO CMDLBL(@SKIP))
+
+             RUNQRY     QRY(TCHLIB/AGAPPAQ)      /* BEFORE  */
+             RUNQRY     QRY(TCHLIB/AGAPPBQ)      /* AFTER   */
+
+             CHGJOB     OUTQ(QDKT)
+             CALL       PGM(AGAC812)
+
+             RUNQRY     QRY(TCHLIB/AGAPPCQ)
+
+             CPYF       FROMFILE(HWFILE1/&FILE) +
+                          TOFILE(TWFILE1/AGAWRK) MBROPT(*REPLACE) +
+                          FMTOPT(*NOCHK)
+
+             OVRDBF     FILE(INPUT) TOFILE(AGAWRK)
+             CALL       PGM(AGAR80) PARM(&HHMM)
+             DLTOVR     FILE(INPUT)
+
+             RUNQRY     QRY(TCHLIB/AGAPPDQ)
+
+ /* CHECK LIST */
+             CALL       PGM(AGAC813)
+             CALL       PGM(AGAC810) PARM(&HHMM)
+ /*   */
+             OVRDBF     FILE(INPUT) TOFILE(AGAWRK)
+             OVRDBF     FILE(AGAPP31) TOFILE(TCHLIB/AGAPP31)
+             OVRDBF     FILE(AGAPL31) TOFILE(TCHLIB/AGAPL31)
+             CALL       PGM(AGAR81) PARM(&HHMM)
+             OVRDBF     FILE(FCEPL01) TOFILE(HFILE1/FCEPL01)
+             OVRDBF     FILE(FCEPL11) TOFILE(HFILE1/FCEPL11)
+             OVRDBF     FILE(AGDPL12) TOFILE(HFILE1/AGDPL12)
+             OVRPRTF    FILE(QPRINT) OUTQ(QDKT)
+
+             CALL       PGM(AGAR810) PARM('TCHLIB    ' &HHMM)
+
+             DLTOVR     FILE(AGAPL31)
+             DLTOVR     FILE(*ALL)
+
+             CHGVAR     VAR(&DAT8) VALUE('20' *CAT &DAT6)
+
+             OVRDBF     FILE(AGAWP80) TOFILE(TWFILE1/AGAWP80) +
+                          SHARE(*YES)
+             CHGVAR     VAR(&SLCT) VALUE('WGDATE *EQ ' *CAT &DAT8 +
+             *CAT ' *AND WGTIME *EQ ' *CAT &HHMM)
+             OPNQRYF    FILE((TWFILE1/AGAWP80)) QRYSLT(&SLCT)
+
+             CALL       PGM(AGAR814)
+
+             CLOF       OPNID(AGAWP80)
+
+ @SKIP:
+             CALL       PGM(AGAR804) PARM(&HHMM)
+             CPYF       FROMFILE(HFILE1/AGAPP31) +
+                          TOFILE(TFILE1/AGATEMP) MBROPT(*REPLACE)
+
+
+             ENDPGM

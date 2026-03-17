@@ -1,0 +1,456 @@
+     H            Y.
+     F** ACHR01 *********************************************
+     F*調整理由ファイルの更新                             *
+     F*       ITS.                 2012.04.25               *
+     F*かんばんマスターの更新からCALLされるが           *
+     F*更新対象のかんばんマスターはレコードロックが       *
+     F*かかっている為、ワークファイルに出力しておき       *
+     F*更新プログラムの後、ACHR09で                     *
+     F*かんばんマスターに更新をかける                     *
+     F*
+%0001F* SAKAKI 2020.07.29 PSTS = '1'を追加（自動調整）    *
+     F* 2021.01.20 DCS. T.MITSUI
+     F*   CHANGE WITH THE NUMBER OF FIGURES EXPANSION OF THE "KANBAN"
+     F*******************************************************
+     FACHPW01 CF  E                    WORKSTN
+     FABHPL03 IF  E           K        DISK
+     FADHPL03 IF  E           K        DISK
+     FAKBPL03 IF  E           K        DISK
+     FACHWP01 UF  E           K        DISK                      A
+     E                    ER      1  20 65               d[- xlﾈ-ﾆﾞ
+      * ACHWP01
+     I            DS
+     I                                        1   80Z1KOHZ
+     I                                        1   40Z1KOYY
+     I                                        5   60Z1KOMM
+     I                                        7   80Z1KODD
+      *
+     I            DS
+     I                                        1   60Z1KOTM
+     I                                        1   40Z1KOT4
+     I                                        1   20Z1KOHH
+     I                                        3   40Z1KOSS
+     I                                        5   60Z1KOMN
+      *
+     I           SDS
+     I                                        1  10 PGMNM
+     I                                       91 170 MSGTXT
+     I                                      244 253 WSID
+     I                                      254 263 USID
+     I                                      264 269 JBNO
+     I*システム値
+     I            DS
+     I                                        1   60WTIME
+     I                                        1   20SYSJI
+     I                                        3   40SYSPN
+     I                                        5   60SYSBY
+      *
+     I              'KANBAN ADJUST'       C         CMT01
+      *
+      *----------------------------------------------------*
+      *  パラメータＴＲＡＮＣＦＥＲ                      *
+      *----------------------------------------------------*
+     C           *ENTRY    PLIST
+     C                     PARM           P@JBN1  1
+     C                     PARM           P@JBN2  2
+     C                     PARM           P@JBN3  2
+     C                     PARM           P@JBN4  1
+     C                     PARM           P@UKYY  40
+     C                     PARM           P@UKMM  20
+     C                     PARM           P@UKDD  20
+     C                     PARM           P@UBIN  20
+     C                     PARM           P@FPGM 10
+     C                     PARM           P@MAIS  50       調整枚数
+      * ' ' = UPDATE
+      * '1' = AUTO ADJUST
+      * 'M' = INQUIRY
+     C                     PARM           PSTS    1        *ステータス
+      *----------------------------------------------------*
+      *  メインルーチン                                  *
+      *----------------------------------------------------*
+     C                     MOVE PSTS      W@SYS   1
+      *
+     C                     EXSR #SB100
+     C           DSPSW     DOWNE'99'
+     C                     EXSR #SB200
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *   初期処理                                       *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+     C                     TIME           WTIME
+     C                     MOVE P@JBN1    K@JBN1  1
+     C                     MOVE P@JBN2    K@JBN2  2
+     C                     MOVE P@JBN3    K@JBN3  2
+     C                     MOVE P@JBN4    K@JBN4  1
+     C                     Z-ADDP@UKYY    K@UKYY  40
+     C                     Z-ADDP@UKMM    K@UKMM  20
+     C                     Z-ADDP@UKDD    K@UKDD  20
+     C                     Z-ADDP@UBIN    K@UBIN  20
+     C                     MOVE WSID      E@JOBM 10
+     C                     MOVE USID      E@USER 10
+     C                     MOVE JBNO      E@WNBR  6
+     C                     Z-ADD*DATE     E@DATE  80
+      *
+     C           E@KKEY    KLIST
+     C                     KFLD           K@JBN1
+     C                     KFLD           K@JBN2
+     C                     KFLD           K@JBN3
+     C                     KFLD           K@JBN4
+     C                     KFLD           K@UKYY
+     C                     KFLD           K@UKMM
+     C                     KFLD           K@UKDD
+     C                     KFLD           K@UBIN
+      *
+     C           E@KKEY    CHAINABHPL031             54
+     C           *IN54     IFEQ '0'
+     C                     EXSR #ABH
+     C                     ENDIF
+      *
+     C           E@KKEY    CHAINADHPL031             54
+     C           *IN54     IFEQ '0'
+     C                     EXSR #ADH
+     C                     ENDIF
+      *
+     C           E@KKEY    CHAINAKBPL031             54
+     C           *IN54     IFEQ '0'
+     C                     EXSR #AKB
+     C                     ENDIF
+      *
+     C           KEYZ11    KLIST
+     C                     KFLD           K@JBN1
+     C                     KFLD           K@JBN2
+     C                     KFLD           K@JBN3
+     C                     KFLD           K@JBN4
+     C                     KFLD           K@UKYY
+     C                     KFLD           K@UKMM
+     C                     KFLD           K@UKDD
+     C                     KFLD           K@UBIN
+     C                     KFLD           E@JOBM 10
+     C                     KFLD           E@USER 10
+     C                     KFLD           E@WNBR  6
+     C                     KFLD           E@DATE  80
+      *
+     C           KEYZ11    CHAINACHWP011             88
+     C           *IN88     IFEQ '0'
+     C                     EXSR #ANZ                       GET WORK
+     C                     ENDIF
+      *
+     C           W@SYS     IFEQ 'M'
+     C                     SETON                     43    PROTECT
+     C                     ENDIF
+      *
+     C                     Z-ADDP@MAIS    D1MAIS
+     C                     Z-ADD0         D1CMAI
+     C                     ADD  D1DAND    D1CMAI
+     C                     ADD  D1KYOT    D1CMAI
+     C                     ADD  D1FRYO    D1CMAI
+     C                     ADD  D1SENY    D1CMAI
+     C                     ADD  D11NAI    D1CMAI
+     C                     ADD  D12NAI    D1CMAI
+     C                     ADD  D1JISK    D1CMAI
+     C                     ADD  D1AUAJ    D1CMAI
+     C                     ADD  D1OTHH    D1CMAI
+%0001 * AUTO ADJUST
+%0001C           W@SYS     IFEQ '1'
+%0001C                     EXSR #SB500
+%0001C                     MOVEL'99'      DSPSW
+      *
+     C                     ELSE
+     C                     MOVEL'01'      DSPSW   2
+     C                     ENDIF
+      *
+     CSR         ESB100    ENDSR
+      *----------------------------------------------------*
+      *   主処理                                         *
+      *----------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C           DSPSW     DOWEQ'01'
+     C                     EXSR #SB210
+     C                     ENDDO
+      *
+     CSR         ESB200    ENDSR
+      *----------------------------------------------------*
+      *   詳細画面処理                                   *
+      *----------------------------------------------------*
+     CSR         #SB210    BEGSR
+     C                     EXFMTACHPW011
+      *
+     C                     SETOF                     313233
+     C                     SETOF                     343536
+     C                     SETOF                     373839
+     C                     SETOF                     99
+     C                     SETOF                     4142
+     C                     MOVE *BLANK    D1ERR
+      * F3
+     C           *IN03     IFEQ '1'
+     C                     MOVE '99'      DSPSW
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C           W@SYS     IFEQ 'M'
+     C                     GOTO ESB210
+     C                     ENDIF
+      *更新チェック
+     C                     EXSR #SB400
+      *
+     C           *IN99     IFEQ '1'
+     C                     GOTO ESB210
+     C                     ENDIF
+      * F5
+     C           *IN05     IFEQ '1'
+     C                     EXSR #FILE
+     C                     MOVE '99'      DSPSW
+     C                     ENDIF
+      *
+     CSR         ESB210    ENDSR
+      *----------------------------------------------------*
+      *            更新時画面チェック処理                *
+      *----------------------------------------------------*
+     C           #SB400    BEGSR
+      *
+     C                     Z-ADD0         D1CMAI
+     C                     ADD  D1DAND    D1CMAI
+     C                     ADD  D1KYOT    D1CMAI
+     C                     ADD  D1FRYO    D1CMAI
+     C                     ADD  D1SENY    D1CMAI
+     C                     ADD  D11NAI    D1CMAI
+     C                     ADD  D12NAI    D1CMAI
+     C                     ADD  D1JISK    D1CMAI
+     C                     ADD  D1AUAJ    D1CMAI
+     C                     ADD  D1OTHH    D1CMAI
+      *
+     C           D1CMAI    IFNE D1MAIS
+     C                     SETON                     313233
+     C                     SETON                     343999
+     C                     SETON                     353637
+     C                     MOVELER,1      D1ERR
+     C                     GOTO ESB400
+     C                     ENDIF
+      *
+     C           D1OTHH    IFNE 0
+     C           D1CMT1    IFEQ *BLANK
+     C           D1CMT2    ANDEQ*BLANK
+     C                     SETON                     414299
+     C                     MOVELER,2      D1ERR
+     C                     GOTO ESB400
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           ESB400    ENDSR
+      *----------------------------------------------------*
+      *ワークファイル更新処理                            *
+      *----------------------------------------------------*
+     CSR         #FILE     BEGSR
+      *
+     C           KEYZ11    CHAINACHWP011             88
+     C                     MOVELWSID      Z1JOBM
+     C                     MOVELUSID      Z1USER
+     C                     MOVELJBNO      Z1WNBR
+     C                     Z-ADD*DATE     Z1DATE
+     C                     MOVELP@FPGM    Z1FPGM
+      *
+     C                     Z-ADD*DATE     Z1KOHZ
+     C                     TIME           Z1KOTM
+     C                     MOVELUSID      Z1KOME
+     C                     MOVELPGMNM     Z1KOPG
+      *
+     C                     MOVELP@JBN1    Z1JBN1
+     C                     MOVELP@JBN2    Z1JBN2
+     C                     MOVELP@JBN3    Z1JBN3
+     C                     MOVELP@JBN4    Z1JBN4
+     C                     Z-ADDP@UKYY    Z1UKYY
+     C                     Z-ADDP@UKMM    Z1UKMM
+     C                     Z-ADDP@UKDD    Z1UKDD
+     C                     Z-ADDP@UBIN    Z1UBIN
+      *
+     C                     Z-ADDD1CMAI    Z1CMAI
+     C                     Z-ADDD1DAND    Z1DAND
+     C                     Z-ADDD1KYOT    Z1KYOT
+     C                     Z-ADDD1FRYO    Z1FRYO
+     C                     Z-ADDD1SENY    Z1SENY
+     C                     Z-ADDD11NAI    Z11NAI
+     C                     Z-ADDD12NAI    Z12NAI
+     C                     Z-ADDD1JISK    Z1JISK
+     C                     Z-ADDD1AUAJ    Z1AUAJ
+     C                     Z-ADDD1OTHH    Z1OTHH
+     C                     MOVELD1CMT1    Z1CMT1
+     C                     MOVELD1CMT2    Z1CMT2
+      *
+     C           *IN88     IFEQ '0'
+     C                     UPDATACHWP011
+     C                     ELSE
+     C                     WRITEACHWP011
+     C                     ENDIF
+      *
+     CSR         EFILE     ENDSR
+      *----------------------------------------------------*
+      * ABHPV06                                            *
+      *----------------------------------------------------*
+     CSR         #ABH      BEGSR
+      *
+     C                     Z-ADDM6KOHZ    D1KOHZ
+     C                     MOVELM6KMEI    D1KOME
+     C                     MOVELM6HIN1    D1SHN1
+     C                     MOVELM6HIN2    D1SHN2
+     C                     MOVELM6HIN3    D1SHN3
+      *
+     C                     Z-ADDM6CMAI    D1CMAI
+     C                     Z-ADDM6DAND    D1DAND
+     C                     Z-ADDM6KYOT    D1KYOT
+     C                     Z-ADDM6FRYO    D1FRYO
+     C                     Z-ADDM6SENY    D1SENY
+     C                     Z-ADDM61NAI    D11NAI
+     C                     Z-ADDM62NAI    D12NAI
+     C                     Z-ADDM6JISK    D1JISK
+     C                     Z-ADDM6AUAJ    D1AUAJ
+     C                     Z-ADDM6OTHH    D1OTHH
+     C                     MOVELM6CMT1    D1CMT1
+     C                     MOVELM6CMT2    D1CMT2
+      *
+     CSR         EABH      ENDSR
+      *----------------------------------------------------*
+      * ADHPV06                                            *
+      *----------------------------------------------------*
+     CSR         #ADH      BEGSR
+      *
+     C                     Z-ADDJ6KOHZ    D1KOHZ
+     C                     MOVELJ6KOME    D1KOME
+     C                     MOVELJ6SHN1    D1SHN1
+     C                     MOVELJ6SHN2    D1SHN2
+     C                     MOVELJ6SHN3    D1SHN3
+      *
+     C                     Z-ADDJ6CMAI    D1CMAI
+     C                     Z-ADDJ6DAND    D1DAND
+     C                     Z-ADDJ6KYOT    D1KYOT
+     C                     Z-ADDJ6FRYO    D1FRYO
+     C                     Z-ADDJ6SENY    D1SENY
+     C                     Z-ADDJ61NAI    D11NAI
+     C                     Z-ADDJ62NAI    D12NAI
+     C                     Z-ADDJ6JISK    D1JISK
+     C                     Z-ADDJ6AUAJ    D1AUAJ
+     C                     Z-ADDJ6OTHH    D1OTHH
+     C                     MOVELJ6CMT1    D1CMT1
+     C                     MOVELJ6CMT2    D1CMT2
+      *
+     CSR         EADH      ENDSR
+      *----------------------------------------------------*
+      * AKBPL03                                            *
+      *----------------------------------------------------*
+     CSR         #AKB      BEGSR
+      *
+     C                     Z-ADDL1KOHZ    D1KOHZ
+     C                     MOVELL1KOME    D1KOME
+     C                     MOVELL1SHN1    D1SHN1
+     C                     MOVELL1SHN2    D1SHN2
+     C                     MOVELL1SHN3    D1SHN3
+      *
+     C                     Z-ADDL1CMAI    D1CMAI
+     C                     Z-ADDL1DAND    D1DAND
+     C                     Z-ADDL1KYOT    D1KYOT
+     C                     Z-ADDL1FRYO    D1FRYO
+     C                     Z-ADDL1SENY    D1SENY
+     C                     Z-ADDL11NAI    D11NAI
+     C                     Z-ADDL12NAI    D12NAI
+     C                     Z-ADDL1JISK    D1JISK
+     C                     Z-ADDL1AUAJ    D1AUAJ
+     C                     Z-ADDL1OTHH    D1OTHH
+     C                     MOVELL1CMT1    D1CMT1
+     C                     MOVELL1CMT2    D1CMT2
+      *
+     CSR         EAKB      ENDSR
+      *-----------------------------------------------------*
+      * ACHWP01                                            *
+      *----------------------------------------------------*
+     CSR         #ANZ      BEGSR
+      *
+     C                     Z-ADDZ1KOHZ    D1KOHZ
+     C                     MOVE Z1KOME    D1KOME
+     C                     Z-ADDZ1CMAI    D1CMAI
+     C                     Z-ADDZ1DAND    D1DAND
+     C                     Z-ADDZ1KYOT    D1KYOT
+     C                     Z-ADDZ1FRYO    D1FRYO
+     C                     Z-ADDZ1SENY    D1SENY
+     C                     Z-ADDZ11NAI    D11NAI
+     C                     Z-ADDZ12NAI    D12NAI
+     C                     Z-ADDZ1JISK    D1JISK
+     C                     Z-ADDZ1AUAJ    D1AUAJ
+     C                     Z-ADDZ1OTHH    D1OTHH
+     C                     MOVELZ1CMT1    D1CMT1
+     C                     MOVELZ1CMT2    D1CMT2
+      *
+     CSR         EANZ      ENDSR
+      *----------------------------------------------------*
+%0001 * UPDATE WORK FILE BY AUTO ADJUSTMENT                *
+      *----------------------------------------------------*
+     CSR         #SB500    BEGSR
+      *
+     C           KEYZ11    CHAINACHWP011             88
+     C                     MOVELWSID      Z1JOBM
+     C                     MOVELUSID      Z1USER
+     C                     MOVELJBNO      Z1WNBR
+     C                     Z-ADD*DATE     Z1DATE
+     C                     MOVELP@FPGM    Z1FPGM
+      *
+     C                     Z-ADD*DATE     Z1KOHZ
+     C                     TIME           Z1KOTM
+     C                     MOVELUSID      Z1KOME
+     C                     MOVELPGMNM     Z1KOPG
+      *
+     C                     MOVELP@JBN1    Z1JBN1
+     C                     MOVELP@JBN2    Z1JBN2
+     C                     MOVELP@JBN3    Z1JBN3
+     C                     MOVELP@JBN4    Z1JBN4
+     C                     Z-ADDP@UKYY    Z1UKYY
+     C                     Z-ADDP@UKMM    Z1UKMM
+     C                     Z-ADDP@UKDD    Z1UKDD
+     C                     Z-ADDP@UBIN    Z1UBIN
+      *
+     C                     Z-ADDD1DAND    Z1DAND
+     C                     Z-ADDD1KYOT    Z1KYOT
+     C                     Z-ADDD1FRYO    Z1FRYO
+     C                     Z-ADDD1SENY    Z1SENY
+     C                     Z-ADDD11NAI    Z11NAI
+     C                     Z-ADDD12NAI    Z12NAI
+     C                     Z-ADDD1JISK    Z1JISK
+     C                     Z-ADDD1OTHH    Z1OTHH
+     C                     MOVEL*BLANK    Z1CMT1
+     C                     MOVELCMT01     Z1CMT1
+     C                     MOVEL*BLANK    Z1CMT2
+      *
+     C                     ADD  1         Z1CMAI
+     C                     ADD  1         Z1AUAJ
+      *
+     C           *IN88     IFEQ '0'
+     C                     UPDATACHWP011
+     C                     ELSE
+     C                     WRITEACHWP011
+     C                     ENDIF
+      *
+     CSR         ESB500    ENDSR
+      *----------------------------------------------------*
+** ERR
+E-01 DIFFERENT FROM TOTAL ADJUSTMENT.
+E-02 INPUT COMMENT.
+E-03
+E-04
+E-05
+E-06
+E-07
+E-08
+E-09
+E-10
+E-11
+E-12
+E-13
+E-14
+E-15
+E-16
+E-17
+E-18
+E-19
+E-20

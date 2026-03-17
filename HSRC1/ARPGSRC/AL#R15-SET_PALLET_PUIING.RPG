@@ -1,0 +1,161 @@
+     H            Y.
+     F** AL#R15  *******************************************
+     F*番地条件でのパレットプーリングセット              *
+     F*    KATOGI.       2016.02.18                        *
+     F******************************************************
+     FAL#PP11 UF  E           K        DISK
+     FAL#PL03 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+      *
+     I            DS
+     I                                        1  12 C1SHN
+     I                                        1   5 C1SHN1
+     I                                        6  10 C1SHN2
+     I                                       11  12 C1SHN3
+      *
+     I            DS
+     I                                        1   80A2GSHZ
+     I                                        1   40A2GSYY
+     I                                        5   60A2GSMM
+     I                                        7   80A2GSDD
+      *
+     I            DS
+     I                                        1   80A2TR
+     I                                        1   40A2TRYY
+     I                                        5   60A2TRMM
+     I                                        7   80A2TRDD
+      *
+     I            DS
+     I                                        1  12 @SHIN
+     I                                        1   5 @SHN1
+     I                                        6  10 @SHN2
+     I                                       11  12 @SHN3
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60STIME
+     I                                        7  140SDATE
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+      *-----------------------------------------------------
+      *  MAIN ROUTINE
+      *-----------------------------------------------------
+     C                     TIME           WTIME
+      *
+     C                     READ AL#PP111                 81
+     C           *IN81     DOWEQ'0'
+      *品番がセットされているデータは品番条件での
+      *パレットプーリングのため対象としない
+     C           C1SHN     IFEQ *BLANK
+     C                     EXSR #SB400
+     C                     UPDATAL#PP111
+     C                     ENDIF
+     C                     READ AL#PP111                 81
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *
+      *-----------------------------------------------------
+      *同一パレットのデータを検索し
+      *全てパレットプーリング対象通路であれば
+      *パレットプーリングにする
+      *-----------------------------------------------------
+     CSR         #SB400    BEGSR
+      *
+     C           KEYCA     KLIST
+     C                     KFLD           C1SHID
+     C                     KFLD           C1SHIT
+     C                     KFLD           C1SURT
+     C                     KFLD           C1NONY
+     C                     KFLD           C1NKOJ
+     C                     KFLD           C1NUKE
+     C                     KFLD           C1ORD#
+     C                     KFLD           C1PALT
+      *
+     C                     Z-ADD0         X       50
+     C           KEYCA     SETLLAL#PL031
+     C           KEYCA     READEAL#PL031                 90
+     C           *IN90     DOWEQ'0'
+     C           CASKJY    IFEQ 'D'
+     C           CASKHZ    ANDLESDATE
+     C                     ELSE
+     C           CAFIXD    IFEQ 0
+     C                     EXSR #SB410
+     C                     ENDIF
+     C                     ENDIF
+     C           KEYCA     READEAL#PL031                 90
+     C                     ENDDO
+      *パレットプーリング対象外が０件の場合パレットプーリングセット
+     C           X         IFEQ 0
+     C                     MOVEL'1'       C1PPUL
+     C                     ENDIF
+      *
+     CSR         ESB400    ENDSR
+      *-----------------------------------------------------
+      *社内品番、番地
+      *-----------------------------------------------------
+     CSR         #SB410    BEGSR
+      *社内品番
+     C                     MOVELCATOKU    PTOKU
+     C                     MOVELCANONY    PNONY
+     C                     MOVELCANKOJ    PNKOJ
+     C                     MOVELCANUKE    PNUKE
+     C                     MOVEL*BLANK    @MHIN
+     C                     MOVELCAMHN     @MHIN
+     C                     MOVEL*BLANK    @SHIN
+     C                     CALL 'BBHR50'
+     C                     PARM           PTOKU   4
+     C                     PARM           PNONY   4
+     C                     PARM           PNKOJ   1
+     C                     PARM           PNUKE   4
+     C                     PARM           @MHIN  20
+     C                     PARM           @SHIN  12
+     C                     PARM           @FLG    1
+      *番地
+     C           KEYFCE    KLIST
+     C                     KFLD           KKSHN1  5
+     C                     KFLD           KKSHN2  5
+     C                     KFLD           KKSHN3  2
+     C                     MOVEL@SHN1     KKSHN1
+     C                     MOVEL@SHN2     KKSHN2
+     C                     MOVEL@SHN3     KKSHN3
+     C                     MOVEL*BLANK    W@TKR1  1
+     C                     MOVEL*BLANK    W@TKR2  2
+     C                     MOVEL*BLANK    W@TKR3  2
+     C                     MOVEL*BLANK    W@TKR4  1
+     C           KEYFCE    CHAINFCEPL011             46
+     C           *IN46     IFEQ '0'
+     C           A2GSKD    IFEQ 'D'
+     C           A2GSHZ    ANDLESDATE
+     C                     ELSE
+     C           A2TR      IFLE SDATE
+     C                     MOVELA2STRK    W@TKR1
+     C                     MOVELA2STRT    W@TKR2
+     C                     MOVELA2STRR    W@TKR3
+     C                     MOVELA2STRD    W@TKR4
+     C                     ELSE
+     C                     MOVELA2KTRK    W@TKR1
+     C                     MOVELA2KTRT    W@TKR2
+     C                     MOVELA2KTRR    W@TKR3
+     C                     MOVELA2KTRD    W@TKR4
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+      *パレットプーリング番地マスター検索
+     C                     MOVEL*BLANK    P9GET   1
+     C                     CALL 'AL#R87'
+     C                     PARM           W@TKR1
+     C                     PARM           W@TKR2
+     C                     PARM           P9GET
+      *番地がパレットプーリング対象外のときカウントアップ
+     C           P9GET     IFNE '1'
+     C                     ADD  1         X
+     C                     ENDIF
+      *
+     CSR         ESB410    ENDSR

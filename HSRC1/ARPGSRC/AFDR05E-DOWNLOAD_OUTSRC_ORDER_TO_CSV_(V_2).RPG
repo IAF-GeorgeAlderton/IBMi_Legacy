@@ -1,0 +1,303 @@
+     H            Y.                                    1
+     H* AFDR05E *******************************************************
+     H* CREATE OUTSRC ORDER DOWNLOADING DATA                          *
+     H* JW     2023.10.11                                             *
+     H*----------------------------------------------------*
+     H*  CALLING SEQ.
+     H*                    CALL 'AFDR05E'
+     H*                    PARM           $SUPP   4
+     H*                    PARM           $FROM   8
+     H*                    PARM           $TO     8
+     H*                    PARM           $PART  12
+     H*   IN  $SUPP   4A SUPPLIER  (9999=ALL)
+     H*       $FROM   8A DATE FROM (YYYYMMDD)
+     H*       $TO     8A DATE TO   (YYYYMMDD)
+     H*       $PART  12A IAF PART# (BLANK=ALL)
+     H*****************************************************************
+     FAFDPL23 IF  E           K        DISK
+     FAFDWP05EO   E                    DISK
+      *--------------------------------------------------------------
+     I            DS
+     I                                        1  12 AFPART
+     I                                        1   5 AFPAR1
+     I                                        6  10 AFPAR2
+     I                                       11  12 AFPAR3
+     I            DS
+     I                                        1   80AFNOHZ
+     I                                        1   40AFNOYY
+     I                                        5   60AFNOMM
+     I                                        7   80AFNODD
+     I            DS
+     I                                        1   80AFNYHZ
+     I                                        1   40AFNYYY
+     I                                        5   60AFNYMM
+     I                                        7   80AFNYDD
+     I            DS
+     I                                        1   80AFODHZ
+     I                                        1   40AFODYY
+     I                                        5   60AFODMM
+     I                                        7   80AFODDD
+     I            DS
+     I                                        1   80K1ODHZ
+     I                                        1   40K1ODYY
+     I                                        5   60K1ODMM
+     I                                        7   80K1ODDD
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *-----------------------------------------------
+      *  MAIN ROUTINE
+      *-----------------------------------------------
+     C                     EXSR #INIT
+      *
+     C           K#PL23    SETLLAFDPL23
+     C                     DO   *HIVAL
+     C                     READ AFDPL23                  98
+     C   98                LEAVE
+      * END
+     C           AFODHZ    IFGT @TO
+     C                     LEAVE
+     C                     ENDIF
+      * DELETED
+     C           AFSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * CHECK PART#
+     C           $PART     IFNE *BLANK
+     C           AFPART    ANDNE$PART
+     C                     ITER
+     C                     ENDIF
+      * CHECK SUPPLIER
+     C           $SUPP     IFNE '9999'
+     C           AFSUPP    ANDNE$SUPP
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     EXSR #SET
+     C                     WRITEAFDPW052
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *-----------------------------------------------
+      * SET WORK DATA
+      *-----------------------------------------------
+     C           #SET      BEGSR
+      *
+     C                     CLEARAFDPW052
+     C                     MOVELAFSUPP    A5SUPP
+      * GET SUPP NAME
+     C                     MOVELAFSUPP    $DLV
+     C                     CALL 'UTLR62'
+     C                     PARM           $DLV    4
+     C                     PARM           $GRP    3
+     C                     PARM           $NAME1 15
+     C                     PARM           $NAME2 50
+     C                     PARM           $RTN    1
+     C                     MOVEL$NAME1    A5SUPN
+      * EDIT DATE
+     C                     MOVELAFODHZ    $SRC      P
+     C                     CALL 'UTLR01A'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE1  8
+     C                     PARM           $TRUE2 10
+     C                     PARM           $RTN    1
+     C                     MOVEL$TRUE2    A5ODAT
+      * EDIT BIN
+     C                     MOVELAFBINN    $IN10     P
+     C                     MOVEL'03'      $LONG
+     C                     CALL 'EDTR04A'
+     C                     PARM           $IN10  10
+     C                     PARM           $LONG   2
+     C                     PARM           $OUT11 11
+     C                     MOVEL$OUT11    A5BIN
+      * EDIT PART
+     C                     MOVELAFPART    $SHIN
+     C                     CALL 'EDTR02'
+     C                     PARM           $SHIN  12
+     C                     PARM           $SHIN2 14
+     C                     MOVEL$SHIN2    A5PART
+      *
+     C                     MOVELAFHAKO    A5BOX
+     C                     MOVELAFODNO    A5ODNO
+      * EDIT TO BE RCV
+     C                     MOVELAFNYHZ    $SRC      P
+     C                     CALL 'UTLR01A'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE1  8
+     C                     PARM           $TRUE2 10
+     C                     PARM           $RTN    1
+     C                     MOVEL$TRUE2    A5RVDT
+      * EDIT RCVD DATE
+     C           AFNOHZ    IFNE 0
+     C                     MOVELAFNOHZ    $SRC      P
+     C                     CALL 'UTLR01A'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE1  8
+     C                     PARM           $TRUE2 10
+     C                     PARM           $RTN    1
+     C                     MOVEL$TRUE2    A5RDDT
+     C                     ENDIF
+      * EDIT RCVD BIN
+     C                     MOVELAFAKI2    LTR3    3
+     C                     MOVELLTR3      $IN10     P
+     C                     MOVEL'03'      $LONG
+     C                     CALL 'EDTR04A'
+     C                     PARM           $IN10  10
+     C                     PARM           $LONG   2
+     C                     PARM           $OUT11 11
+     C                     MOVEL$OUT11    A5RDBN
+      *
+     C           AFHAKO    MULT AFSYOS    NUM8    80
+     C                     MOVELNUM8      A5QTY
+     C                     MOVELAFSYOS    A5QPC
+      * EDIT WEIGHT KG
+     C                     MOVELAFWGT1    NUM72   72
+     C                     Z-ADDNUM72     $IN
+     C                     CALL 'EDTR05B'
+     C                     PARM           $IN    156
+     C                     PARM           $TRUE3 17
+     C                     MOVEL$TRUE3    A5WGT1
+      * EDIT WEIGHT LB
+     C           AFWGT1    MULT 2.20462   NUM72
+     C                     Z-ADDNUM72     $IN
+     C                     CALL 'EDTR05B'
+     C                     PARM           $IN    156
+     C                     PARM           $TRUE3 17
+     C                     MOVEL$TRUE3    A5WGT2
+      * GET LOCATION
+     C                     MOVELAFPART    P@SHN
+     C                     MOVELAFSUPP    P@DPT
+     C                     MOVE *BLANK    P@DAT
+     C                     CALL 'UEXR05C'
+     C                     PARM           P@SHN  12
+     C                     PARM           P@DPT   4
+     C                     PARM           P@DAT   8
+     C                     PARM           O@LOC   6
+     C                     PARM           O@TYP   1
+     C                     MOVELO@LOC     A5LOC
+      * EDIT LOCATION
+     C                     MOVELO@LOC     LTR1    1
+     C           LTR1      IFNE '-'
+     C                     MOVELO@LOC     $LOC6
+     C                     CALL 'EDTR06B'
+     C                     PARM           $LOC6   6
+     C                     PARM           $LOC9   9
+     C                     MOVEL$LOC9     A5LOC
+     C                     ENDIF
+      * GET LAED TIME
+     C                     MOVELO@LOC     I@LOC
+     C                     MOVELO@TYP     I@TYP
+     C                     MOVE *BLANK    I@DAT
+     C                     CALL 'UEXR05D'
+     C                     PARM           I@LOC   6
+     C                     PARM           I@TYP   1
+     C                     PARM           I@DAT   8
+     C                     PARM           O@LT    3
+      * EDIT LAED TIME
+     C                     MOVELO@LT      NUM31   31
+     C                     Z-ADDNUM31     $IN
+     C                     CALL 'EDTR05B'
+     C                     PARM           $IN    156
+     C                     PARM           $TRUE  17
+     C                     MOVEL$TRUE     A5LT
+      * PARAMETER
+     C                     MOVEL@FROM     A5FRDT
+     C                     MOVEL@TO       A5TODT
+     C                     MOVEL$PART     A5SHIN
+      *
+     C                     MOVELTODAY     $DATE1
+     C                     MOVELNOW       $TIME1
+     C                     MOVEL'YMD'     $YMD
+     C                     CALL 'EDTR01 '
+     C                     PARM           $DATE1  8
+     C                     PARM           $TIME1  6
+     C                     PARM           $YMD    3
+     C                     PARM           $DATE2 10
+     C                     PARM           $TIME2  8
+     C                     MOVEL$DATE2    A5CRHZ
+     C                     MOVEL$TIME2    A5CRTM
+      *
+     C                     MOVEL#USER     A5CRUS
+     C                     MOVEL#PGM      A5CRPG
+     C**                   MOVEL$SUPX     A5SUPX
+     C**                   MOVELAFWGT2    A5WGT2
+     C**                   MOVE *BLANK    A5DESC
+      *
+     C                     ENDSR
+      *-----------------------------------------------
+      * SET HEADE
+      *-----------------------------------------------
+     C           #HEAD     BEGSR
+      *
+     C                     CLEARAFDPW052
+     C                     MOVEL'SUPPLIER'A5SUPP
+     C                     MOVEL'SUP_NAME'A5SUPN
+     C                     MOVEL'ORD_DATE'A5ODAT
+     C                     MOVEL'ORD_BIN 'A5BIN
+     C                     MOVEL'IAF_PART'A5PART
+     C                     MOVEL'BOX     'A5BOX
+     C                     MOVEL'ORDER#  'A5ODNO
+     C                     MOVEL'TO_BE_RC'LTR9    9
+     C                     MOVE 'V'       LTR9
+     C                     MOVELLTR9      A5RVDT
+     C                     MOVEL'RCVD_DAT'LTR9
+     C                     MOVE 'E'       LTR9
+     C                     MOVELLTR9      A5RDDT
+     C                     MOVEL'RCVD_BIN'LTR9
+     C                     MOVE '#'       LTR9
+     C                     MOVELLTR9      A5RDBN
+     C                     MOVEL'LEAD_TIM'A5LT
+     C                     MOVEL'QTY     'A5QTY
+     C                     MOVEL'QPC     'A5QPC
+     C                     MOVEL'WGT_(KG)'A5WGT1
+     C                     MOVEL'WGT_(LB)'A5WGT2
+     C                     MOVEL'LOCATION'A5LOC
+      * PARAMETER
+     C                     MOVEL'INP*FROM'A5FRDT
+     C                     MOVEL'INP*TO  'A5TODT
+     C                     MOVEL'INP*PART'A5SHIN
+     C                     MOVEL'OUT_DATE'A5CRHZ
+     C                     MOVEL'OUT_TIME'A5CRTM
+     C                     MOVEL'OUT_USER'A5CRUS
+     C                     MOVEL'OUT_PGM 'A5CRPG
+      *
+     C                     WRITEAFDPW052
+      *
+     C                     ENDSR
+      *-----------------------------------------------
+      * INITIAL SETTING
+      *-----------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $SUPP   4
+     C                     PARM           $FROM   8
+     C                     PARM           $TO     8
+     C                     PARM           $PART  12
+      *
+     C                     TIME           SDATE
+      *
+     C           K#PL23    KLIST
+     C                     KFLD           K1ODYY
+     C                     KFLD           K1ODMM
+     C                     KFLD           K1ODDD
+      *
+     C                     MOVEL$FROM     K1ODHZ
+     C                     MOVEL$SUPP     @SUPP   40
+     C                     MOVEL$FROM     @FROM   80
+     C           $TO       IFEQ *BLANK
+     C           $TO       OREQ *ZERO
+     C                     MOVEL$FROM     @TO     80
+     C                     ELSE
+     C                     MOVEL$TO       @TO
+     C                     ENDIF
+      * SET HEADER
+     C                     EXSR #HEAD
+      *
+     C                     ENDSR

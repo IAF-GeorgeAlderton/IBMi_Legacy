@@ -1,0 +1,22 @@
+/*  CREATE A LIBRARY TOSAVE DATA           */
+/*-----------------------------------------*/
+    PGM PARM(&LIBL)
+    DCL VAR(&USER) TYPE(*CHAR) LEN(10)
+    DCL VAR(&LIBL) TYPE(*CHAR) LEN(10)
+    DCL VAR(&DTYM) TYPE(*CHAR) LEN(6)
+
+    RTVJOBA  USER(&USER)
+
+    CALL PGM(VJBRDT) PARM(&DTYM)
+
+    CHGVAR VAR(&LIBL) VALUE('SAV' *CAT &DTYM)
+
+    IF         (&USER *EQ 'TEST      ') DO
+    CHGVAR VAR(&LIBL) VALUE('TSAV' *CAT &DTYM)
+    ENDDO
+
+    CHKOBJ OBJ(&LIBL) OBJTYPE(*LIB)
+    MONMSG MSGID(CPF9801) EXEC(DO)
+    CRTLIB LIB(&LIBL)
+    ENDDO
+    ENDPGM

@@ -1,0 +1,147 @@
+     H            Y.
+     F** AL#R7C **************************************
+     F*かんばん仕分け枚数を計算する
+     F*        ITS.         2015.05.27               *
+     F************************************************
+     FAL#WP71 IF  E           K        DISK
+     FAL#PP00 IF  E           K        DISK
+      *
+     I            DS
+     I                                        1   80WKHZ
+     I                                        1   40WKYY
+     I                                        5   60WKMM
+     I                                        7   80WKDD
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60STIME
+     I                                        7  140SDATE
+      *
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W$WSID
+     I                                      254 263 @@USER
+     I                                      264 269 W$JBNO
+      *----------------------------------------------------*
+      * PLIST                                              *
+      *----------------------------------------------------*
+     C           *ENTRY    PLIST
+     C                     PARM           P1NAMC  5
+     C                     PARM           P1SECT  2
+     C                     PARM           P9MAIS  30
+      *----------------------------------------------------*
+      *   K  E  Y   L I  S  T                              *
+      *----------------------------------------------------*
+      *
+     C                     TIME           WTIME
+     C                     Z-ADD0         P9MAIS
+     C                     MOVEL*BLANK    WKIAFB  3
+     C                     MOVEL*BLANK    WKEXT   1
+     C                     Z-ADD0         WKEXTR  20
+     C                     Z-ADD0         WKPAG#  30
+     C                     Z-ADD0         WKPAGT  30
+     C                     Z-ADD0         WKFIXD  80
+     C                     Z-ADD0         WKTIMS  30
+     C                     Z-ADD0         SVSIKI  50
+     C                     Z-ADD0         SVAMR   50
+     C                     Z-ADD0         SVMAI   30
+      *かんばん仕分け枚数通常
+     C                     Z-ADD54        WKREG   30
+     C                     MOVEL'SWKREG'  KEY    10
+     C           KEY       CHAINAL#PP001             20
+     C           *IN20     IFEQ '0'
+     C                     Z-ADDC0VALU    WKREG
+     C                     ENDIF
+      *かんばん仕分け枚数最大
+     C                     Z-ADD60        WKMAX   30
+     C                     MOVEL'SWKMAX'  KEY    10
+     C           KEY       CHAINAL#PP001             20
+     C           *IN20     IFEQ '0'
+     C                     Z-ADDC0VALU    WKMAX
+     C                     ENDIF
+      *
+     C                     Z-ADDWKREG     WKMAI   30
+     C***        WKMAI     DOWLEWKMAX
+     C***        P9MAIS    ANDEQ0
+     C***                  EXSR #SB400
+     C***                  ADD  1         WKMAI
+     C***                  ENDDO
+      *
+     C***                  Z-ADDSVMAI     P9MAIS
+      * 2016.03.24
+     C                     EXSR #SB600
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *-----------------------------------------------------
+      * AL#WP71
+      *-----------------------------------------------------
+     CSR         #SB400    BEGSR
+      *
+     C                     Z-ADDWKMAI     WKCNT   30
+     C                     Z-ADD0         WKSIKI  50       仕切り枚数
+      *
+     C           *LOVAL    SETLLAL#WP711
+     C                     READ AL#WP711                 22
+     C           *IN22     DOWEQ'0'
+     C           W1PPUL    IFEQ *BLANK
+     C*****      W1NAMC    ANDEQP1NAMC
+     C           W1SECT    ANDEQP1SECT
+      *
+     C           WKCNT     IFGE WKMAI
+     C                     Z-ADD0         WKCNT
+     C                     ADD  1         WKSIKI
+     C                     ENDIF
+     C           W1SYOT    IFEQ 'D'
+     C                     ADD  2         WKCNT
+     C                     ELSE
+     C                     ADD  1         WKCNT
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     READ AL#WP711                 22
+     C                     ENDDO
+      *最後仕切り以降のかんばん枚数が大きいものを採用（ゼロは最優先）
+      *仕切り枚数が少ないものを採用
+     C                     SELEC
+     C           WKCNT     WHEQ 0                          確定
+     C                     Z-ADDWKMAI     P9MAIS
+     C                     Z-ADDWKMAI     SVMAI
+     C                     Z-ADDWKSIKI    SVSIKI
+     C                     Z-ADDWKCNT     SVAMR
+     C           WKCNT     WHGT SVAMR
+     C                     Z-ADDWKMAI     SVMAI
+     C                     Z-ADDWKSIKI    SVSIKI
+     C                     Z-ADDWKCNT     SVAMR
+     C           WKCNT     WHEQ SVAMR
+     C           WKSIKI    IFLT SVSIKI
+     C                     Z-ADDWKMAI     SVMAI
+     C                     Z-ADDWKSIKI    SVSIKI
+     C                     Z-ADDWKCNT     SVAMR
+     C                     ENDIF
+     C                     ENDSL
+      *
+     CSR         ESB400    ENDSR
+      *-----------------------------------------------------
+      * AL#WP71
+      *-----------------------------------------------------
+     CSR         #SB600    BEGSR
+      *
+     C                     Z-ADD0         WKMAIS  50       かんばん枚数
+      *
+     C           *LOVAL    SETLLAL#WP711
+     C                     READ AL#WP711                 22
+     C           *IN22     DOWEQ'0'
+     C           W1PPUL    IFEQ *BLANK
+     C           W1SECT    ANDEQP1SECT
+     C           W1SYOT    IFEQ 'D'
+     C                     ADD  2         WKMAIS
+     C                     ELSE
+     C                     ADD  1         WKMAIS
+     C                     ENDIF
+     C                     ENDIF
+     C                     READ AL#WP711                 22
+     C                     ENDDO
+     C                     Z-ADDWKMAIS    P9MAIS
+      *
+     CSR         ESB600    ENDSR

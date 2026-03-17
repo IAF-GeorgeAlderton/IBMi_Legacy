@@ -1,0 +1,202 @@
+     H            Y.
+      ** UEXR06 ***********************************************
+      *                                                       *
+      *  WRITTEN: JW (SRA)   2018.04.05                       *
+      *  ------------------------------                       *
+JW1   *  JW    2018.09.28  ADD BZ LINE CHECK                  *
+      *-------------------------------------------------------*
+      *  CALLING SEQ.                                         *
+      *                    CALL 'UEXR06'
+      *                    PARM           PSHIN  12
+      *                    PARM           PHTHZ   8
+      *                    PARM           PTHNO   3
+      *                    PARM           PFLG    1
+      *-------------------------------------------------------*
+      *   IN   PSHIN  12A    IAF PART NO.                     *
+      *        PHTHZ   8A    KANBAN ISSUE DATE                *
+      *        PTHNO   3A    TEHI#, ORDER#                    *
+      *   OUT  PRTN    1A    RETURN FLAG (Y=SKIP, N=NOT SKIP) *
+      *********************************************************
+     FAH#PL15 IF  E           K        DISK
+      ******************************************************
+     I            DS
+     I                                        1  12 K#SHIN
+     I                                        1   5 K#SHN1
+     I                                        6  10 K#SHN2
+     I                                       11  12 K#SHN3
+     I            DS
+     I                                        1   80K#HTHZ
+     I                                        1   40K#HTYY
+     I                                        5   60K#HTMM
+     I                                        7   80K#HTDD
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W$JBNO
+      *==========================================================
+      *  MAIN ROUTINE
+      *==========================================================
+     C                     EXSR #INIT
+      *
+     C           K#15      SETLLAH#PL15
+     C           *IN91     DOWEQ*OFF
+     C           K#15B     READEAH#PL15                  91
+     C           *IN91     IFEQ *OFF
+     C                     EXSR #SCAN
+     C           SCNFLG    IFEQ 'Y'
+     C           NOSFLG    ANDEQ'Y'
+     C                     MOVE 'Y'       PFLG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           SCNFLG    IFEQ 'Y'
+     C                     LEAVE
+     C                     ENDIF
+      * SET NO SCAN FLAG=Y, IF SCAN FLAG=N
+     C           SCNFLG    IFEQ 'N'
+     C                     MOVE 'Y'       NOSFLG
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *===============================================================
+      *  SET SCAN FLAG
+      *===============================================================
+     C           #SCAN     BEGSR
+      *
+     C                     MOVE 'Y'       SCNFLG
+      *
+     C                     EXSR #PICK
+     C           PCKFLG    IFEQ 'N'
+     C                     EXSR #WIN
+     C                     ENDIF
+      *
+     C           PCKFLG    IFEQ 'N'
+     C           WINFLG    ANDEQ'N'
+     C                     MOVE 'N'       SCNFLG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *===============================================================
+      *  SET PICK UP FLAG
+      *===============================================================
+     C           #PICK     BEGSR
+     C                     CALL 'ALCRS1'
+     C                     PARM           CFCHYU  1
+     C                     PARM CFZENO    CFZENO  4
+     C                     PARM CFTHNO    CFTHNO  3
+     C                     PARM CFHTHZ    P@HTHZ  80       KANBAN PUBLICAT
+      *                               GET ------
+     C                     PARM           P@PKHZ  80       WORK ADMITTABLE
+     C                     PARM           P@PKTM  60       WORK ADMITTABLE
+      *
+     C           P@PKHZ    IFEQ 0
+     C           P@PKTM    ANDEQ0
+     C                     MOVE 'N'       PCKFLG
+     C                     ELSE
+     C                     MOVE 'Y'       PCKFLG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *===============================================================
+      *   GET BZ/DS/SB DATE
+      *===============================================================
+     C           #WIN      BEGSR
+     C                     CALL 'AJSR1Z'
+     C                     PARM CFHIN1    P@HIN1  5        PART NUMBER 1
+     C                     PARM CFHIN2    P@HIN2  5        PART NUMBER 2
+     C                     PARM CFHIN3    P@HIN3  2        PART NUMBER 3
+     C                     PARM CFTHNO    P@THAI  3        PRODUCTION ORDE
+     C                     PARM CFHTHZ    P@HTHZ  80       KANBAN PUBLICAT
+      *                               GET ------
+     C                     PARM           P@WIHZ  80       WORK ADMITTABLE
+     C                     PARM           P@WITM  60       WORK ADMITTABLE
+      *
+     C           P@WIHZ    IFEQ 0
+     C           P@WITM    ANDEQ0
+     C                     EXSR #WIN2
+     C                     ENDIF
+      *
+     C           P@WIHZ    IFEQ 0
+     C           P@WITM    ANDEQ0
+     C**                   EXSR #WIN3
+     C                     ENDIF
+      *
+     C           P@WIHZ    IFEQ 0
+     C           P@WITM    ANDEQ0
+     C                     MOVE 'N'       WINFLG
+     C                     ELSE
+     C                     MOVE 'Y'       WINFLG
+     C                     ENDIF
+     C*
+     C                     ENDSR
+      *===============================================================
+      *   GET BZ/DS/SB DATE
+      *===============================================================
+     C           #WIN2     BEGSR
+     C                     CALL 'AJSR2Z'
+     C                     PARM CFHIN1    P@HIN1  5        PART NUMBER 1
+     C                     PARM CFHIN2    P@HIN2  5        PART NUMBER 2
+     C                     PARM CFHIN3    P@HIN3  2        PART NUMBER 3
+     C                     PARM CFTHNO    P@THAI  3        PRODUCTION ORDER
+     C                     PARM CFHTHZ    P@HTHZ  80       KANBAN PUBLICATION
+      *                               GET ------
+     C                     PARM           P@WIHZ  80       WORK ADMITTABLE DATE
+     C                     PARM           P@WITM  60       WORK ADMITTABLE TIME
+      *
+     C                     ENDSR
+      *===============================================================
+      *   GET BZ/DS/SB DATE
+      *===============================================================
+     C           #WIN3     BEGSR
+     C                     CALL 'ALMR0Z'
+     C                     PARM CFHIN1    P@HIN1  5        PART NUMBER 1
+     C                     PARM CFHIN2    P@HIN2  5        PART NUMBER 2
+     C                     PARM CFHIN3    P@HIN3  2        PART NUMBER 3
+     C                     PARM CFTHNO    P@THAI  3        PRODUCTION ORDER
+     C                     PARM CFHTHZ    P@HTHZ  80       KANBAN PUBLICATION
+     C*                               GET ------
+     C                     PARM           P@WIHZ  80       WORK ADMITTABLE DATE
+     C                     PARM           P@WITM  60       WORK ADMITTABLE TIME
+      *
+     C                     ENDSR
+      *===============================================================
+      *  INITIAL SETTING
+      *===============================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           PSHIN  12
+     C                     PARM           PHTHZ   8
+     C                     PARM           PTHNO   3
+     C                     PARM           PFLG    1
+      *
+     C           K#15      KLIST
+     C                     KFLD           K#SHN1  5
+     C                     KFLD           K#SHN2  5
+     C                     KFLD           K#SHN3  2
+     C                     KFLD           K#HTYY  40
+     C                     KFLD           K#HTMM  20
+     C                     KFLD           K#HTDD  20
+     C                     KFLD           K#THNO  3
+      *
+     C           K#15B     KLIST
+     C                     KFLD           K#SHN1
+     C                     KFLD           K#SHN2
+     C                     KFLD           K#SHN3
+      *
+     C                     MOVELPSHIN     K#SHIN
+     C                     MOVELPHTHZ     K#HTHZ
+     C                     MOVELPTHNO     K#THNO
+      *
+     C                     MOVE 'N'       PFLG             SKIP YES FLAG
+     C                     MOVE 'N'       PCKFLG  1        PICK UP FLAG
+     C                     MOVE 'N'       WINFLG  1        BZ/DS.. FLAG
+     C                     MOVE 'N'       SCNFLG  1        SCAN    FLAG
+     C                     MOVE 'N'       NOSFLG  1        NO SCAN FLAG
+      *
+     C                     ENDSR

@@ -1,0 +1,614 @@
+     H            Y.
+     F***CHKR61*****************************************************************
+     F*  PROGRAM    : CHECK FORTD ADD-ON ORDER                                 *
+     F*  WRITTEN    : 2020.07.29                                               *
+     F*  WRITTEN BY : JW (SRA)                                                 *
+     F*------------------------------------------------------------------------*
+JW1  F*  JW           2020.11.24 ADD ADJUSTMENT                                *
+     F**************************************************************************
+     FABF2L09 IF  E           K        DISK
+     FABFDL06 IF  E           K        DISK
+     FAB#PL13 IF  E           K        DISK
+     FAB#PL1J IF  E           K        DISK
+     FABFAP01 IF  E           K        DISK
+     FQPRINT  O   F     198     OF     PRINTER
+     E                    ERR     1   6 40
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1   80K#NOHZ
+     I                                        1   40K#NOYY
+     I                                        5   60K#NOMM
+     I                                        7   80K#NODD
+     I            DS
+     I                                        1  20 K#MHIN
+     I                                        1   5 K#MHN1
+     I                                        6  10 K#MHN2
+     I                                       11  15 K#MHN3
+     I                                       16  20 K#MHN4
+     I            DS
+     I                                        1  20 SVIPAR
+     I                                        1   5 SVMHN1
+     I                                        6  10 SVMHN2
+     I                                       11  15 SVMHN3
+     I                                       16  20 SVMHN4
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+      * 1ST DAY SHIP
+     C                     EXSR #SHP1
+      * TOTAL
+     C           SEQ#      IFEQ 0
+     C                     Z-ADD0         ECNT
+     C                     EXCPT@HDR
+     C                     EXCPT@TTL1
+     C                     ELSE
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     EXCPT@TTL2
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  1ST DAY SHIP                                      *
+      *----------------------------------------------------*
+     C           #SHP1     BEGSR
+      *
+     C           @TDATE    SETLLABF2L09
+     C                     DO   *HIVAL
+     C           @TDATE    READEABF2L09                  98
+     C   98                LEAVE
+      *
+      * SELECT LAST ORDER
+     C           AFSIDT    IFGE @TDATE
+     C                     ITER
+     C                     ENDIF
+      * IGNORE
+     C**         AFSTID    IFEQ 'AP05A'                    5147* 5166X
+     C**         AFSTID    OREQ 'AP10A'                    5152* 5153X
+     C**         AFSTID    OREQ 'AP20A'                    5185* 5139X 5144X
+     C**         AFSTID    IFEQ 'AP04A'                    5148* 5168*
+     C**         AFSTID    OREQ 'G9W1A'                    5108* 5107X
+      *
+     C**         AFSTID    IFEQ 'AP23A'                    5163X
+      *
+     C           AFSTID    IFEQ 'EF16A'                    8888X
+     C                     ITER
+     C                     ENDIF
+      * FIRST ?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELAFSTID    SVSTID
+     C                     MOVELAFDOCK    SVDOCK
+     C                     MOVELAFIPAR    SVIPAR
+     C                     Z-ADDAFSIDT    SVSIDT
+     C**TEMP               Z-ADDAFQTY2    SVQTY2
+     C                     Z-ADD0         SVQTY2
+     C                     MOVELAFDLDT    SVDLDT
+     C                     Z-ADD0         XXSIDT  80
+     C                     MOVE *BLANK    SVPOR#
+     C                     ENDIF
+      * BREAK ?
+     C           AFSTID    IFNE SVSTID
+     C           AFDOCK    ORNE SVDOCK
+     C           AFIPAR    ORNE SVIPAR
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * PROCESS
+     C           AFSIDT    IFGT XXSIDT
+     C           AFQTY2    SUB  AFYSQY    QTY1    70
+     C                     MOVELAFPOR#    SVPOR#
+     C                     Z-ADDAFSIDT    XXSIDT
+     C                     Z-ADDAFQTY2    SVQTY2
+     C                     ENDIF
+      *
+     C                     ENDDO
+      * LAST BREAK
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  BREAK                                             *
+      *----------------------------------------------------*
+     C           #BRK1     BEGSR
+      *
+     C                     MOVE *OFF      *IN85
+      *
+     C           QTY1      IFGT 0
+      * GET DELIVERY CODE
+     C           K#DL06    CHAINABFDL06              99
+     C           *IN99     IFEQ *OFF
+     C                     MOVELQANONY    @@NONY  40
+     C                     ELSE
+     C                     Z-ADD0         @@NONY
+     C                     ENDIF
+      * ADJUST
+     C           @@NONY    IFEQ 5148
+     C                     Z-ADD5168      @@NONY
+     C                     ENDIF
+      * IGNORE
+     C           @@NONY    IFEQ 0
+     C           @@NONY    OREQ 5107
+     C           @@NONY    OREQ 5139
+     C           @@NONY    OREQ 5144
+     C           @@NONY    OREQ 5153
+     C           @@NONY    OREQ 5166
+     C                     GOTO RESET
+     C                     ENDIF
+      * GET IAF YTD SHIPPED
+     C                     EXSR #SHPD
+     C           SVQTY2    SUB  @SHPD     QTY2    70
+      * CHECK PP10
+     C                     Z-ADD0         OCNT    40
+     C                     MOVE *BLANK    XMSG   25
+     C                     MOVELSVDLDT    K#NOHZ
+     C                     MOVELSVIPAR    K#MHIN
+     C           K#PL13    SETLLAB#PL13
+     C                     DO   *HIVAL
+     C           K#PL13    READEAB#PL13                  97
+      *
+     C           *IN97     IFEQ *OFF
+     C           BASKJY    ANDEQ'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           *IN97     IFEQ *ON
+     C           OCNT      ANDEQ0
+     C                     Z-ADD0         BASRYO
+     C                     MOVE *BLANK    BAEDIK
+     C           QTY2      IFLE 0
+     C                     MOVELERR,4     XMSG
+     C                     ELSE
+     C                     MOVELERR,2     XMSG
+     C                     MOVE *ON       *IN85
+      *
+     C           QTY1      IFGT 10
+     C                     ADD  1         ECNT
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     C           $ERR      IFEQ 'Y'
+     C           *IN85     ANDEQ*ON
+     C           $ERR      OREQ 'N'
+     C                     EXSR #PRINT
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           *IN97     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ADD  1         OCNT
+     C           QTY1      IFNE BASRYO
+     C           QTY2      ANDNE0
+     C           QTY2      IFLT 0
+     C                     MOVELERR,5     XMSG
+     C                     ELSE
+     C                     MOVELERR,3     XMSG
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           $ERR      IFEQ 'Y'
+     C           *IN85     ANDEQ*ON
+     C           $ERR      OREQ 'N'
+     C                     EXSR #PRINT
+     C                     ENDIF
+      *
+     C                     ENDDO
+     C                     ENDIF
+      * RESET
+     C           RESET     TAG
+     C                     MOVELAFSTID    SVSTID
+     C                     MOVELAFDOCK    SVDOCK
+     C                     MOVELAFIPAR    SVIPAR
+     C                     Z-ADDAFSIDT    SVSIDT
+     C                     Z-ADDAFQTY2    SVQTY2
+     C                     MOVE *BLANK    SVPOR#
+     C                     MOVELAFDLDT    SVDLDT
+     C                     Z-ADD0         XXSIDT
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * GET IAF YTD SHIP QTY = @SHPD                       *
+      *----------------------------------------------------*
+     C           #SHPD     BEGSR
+      *
+     C                     Z-ADD0         @SHPD   80
+     C           @@NONY    SETLLAB#PL1J
+     C                     DO   *HIVAL
+     C           @@NONY    READEAB#PL1J                  96
+     C   96                LEAVE
+      * END?
+     C           BANOHZ    IFGT @TDATE
+     C           BASKJY    ORNE *BLANK
+     C           BAMHIN    ORNE SVIPAR
+     C           BANOYY    ORNE SYEAR
+     C**         BANUKE    ORNE SVDOCK
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ADD  BASRYO    @SHPD
+      *
+     C                     ENDDO
+      * ADJUST IAF YTD SHIPPED
+     C           @@NONY    IFEQ 5168
+     C                     EXSR #ADJ1
+     C                     ENDIF
+      *
+      * ADJUST YTD SHIPPED FOR 2020
+     C           SYEAR     IFEQ 2020
+     C                     EXSR #ADJ20
+     C                     ENDIF
+      * ADJUST YTD SHIPPED FOR 2021
+     C           SYEAR     IFEQ 2021
+     C                     EXSR #ADJ21
+     C                     ENDIF
+      * ADJUST YTD SHIPPED FOR 2022
+     C           SYEAR     IFEQ 2022
+     C                     EXSR #ADJ22
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  ADJUST 1 (5168)                                   *
+      *----------------------------------------------------*
+     C           #ADJ1     BEGSR
+      *
+     C                     Z-ADD5148      ##NONY  40
+      *
+     C           ##NONY    SETLLAB#PL1J
+     C                     DO   *HIVAL
+     C           ##NONY    READEAB#PL1J                  96
+     C   96                LEAVE
+      * END?
+     C           BANOHZ    IFGT @TDATE
+     C                     ITER
+     C                     ENDIF
+      *
+     C           BASKJY    IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+      *
+     C           BAMHIN    IFNE SVIPAR
+     C                     ITER
+     C                     ENDIF
+      *
+     C           BANOYY    IFNE SYEAR
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ADD  BASRYO    @SHPD
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  ADJUST FOR 2020 SALES                             *
+      *----------------------------------------------------*
+     C           #ADJ20    BEGSR
+      *
+      * 5117
+     C**         @@NONY    IFEQ 5117
+     C**         SVMHN1    ANDEQ'W5005'
+     C**         SVMHN2    ANDEQ'40S43'
+     C**         SVMHN3    ANDEQ'9    '
+     C**         SVDOCK    ANDEQ'WD  '
+     C**                   ADD  1800      @SHPD
+     C**                   ENDIF
+      * 5150
+     C**         @@NONY    IFEQ 5150
+     C**         SVMHN1    ANDEQ'W5002'
+     C**         SVMHN2    ANDEQ'23S43'
+     C**         SVMHN3    ANDEQ'9    '
+     C**         SVDOCK    ANDEQ'MP  '
+     C**                   ADD  8100      @SHPD
+     C**                   ENDIF
+      * 5150
+     C           @@NONY    IFEQ 5150
+     C           SVMHN1    ANDEQ'W7125'
+     C           SVMHN2    ANDEQ'11S43'
+     C           SVMHN3    ANDEQ'9    '
+     C           SVDOCK    ANDEQ'MP  '
+     C                     ADD  750       @SHPD
+     C                     ENDIF
+      * 5152
+     C           @@NONY    IFEQ 5152
+     C           SVMHN1    ANDEQ'W5054'
+     C           SVMHN2    ANDEQ'25S43'
+     C           SVMHN3    ANDEQ'9    '
+     C           SVDOCK    ANDEQ'OW  '
+     C                     ADD  1100      @SHPD
+     C                     ENDIF
+      * 5152
+     C           @@NONY    IFEQ 5152
+     C           SVMHN1    ANDEQ'W7125'
+     C           SVMHN2    ANDEQ'11S43'
+     C           SVMHN3    ANDEQ'9    '
+     C           SVDOCK    ANDEQ'OW  '
+     C                     ADD  6000      @SHPD
+     C                     ENDIF
+      * 5171
+     C           @@NONY    IFEQ 5171
+     C           SVMHN1    ANDEQ'W5002'
+     C           SVMHN2    ANDEQ'23S43'
+     C           SVMHN3    ANDEQ'7    '
+     C           SVDOCK    ANDEQ'LB  '
+     C                     ADD  8100      @SHPD
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  ADJUST FOR 2021 SALES                             *
+      *----------------------------------------------------*
+     C           #ADJ21    BEGSR
+      *
+      * 5152
+     C           @@NONY    IFEQ 5152
+     C           SVMHN1    ANDEQ'W7113'
+     C           SVMHN2    ANDEQ'90S45'
+     C           SVMHN3    ANDEQ'0B   '
+     C           SVDOCK    ANDEQ'OW  '
+     C                     ADD  59400     @SHPD
+     C                     ENDIF
+      * 5146
+     C           @@NONY    IFEQ 5146
+     C           SVMHN1    ANDEQ'W5002'
+     C           SVMHN2    ANDEQ'23S44'
+     C           SVMHN3    ANDEQ'2    '
+     C           SVDOCK    ANDEQ'XS  '
+     C                     ADD  2         @SHPD
+     C                     ENDIF
+      * 5146
+     C           @@NONY    IFEQ 5146
+     C           SVMHN1    ANDEQ'W7073'
+     C           SVMHN2    ANDEQ'98S43'
+     C           SVMHN3    ANDEQ'9    '
+     C           SVDOCK    ANDEQ'XS  '
+     C                     ADD  1         @SHPD
+     C                     ENDIF
+      * 5150
+     C           @@NONY    IFEQ 5150
+     C           SVMHN1    ANDEQ'W7112'
+     C           SVMHN2    ANDEQ'88S43'
+     C           SVMHN3    ANDEQ'7    '
+     C           SVDOCK    ANDEQ'MM  '
+     C                     ADD  2         @SHPD
+     C                     ENDIF
+      * 5119
+     C           @@NONY    IFEQ 5119
+     C           SVMHN1    ANDEQ'W7162'
+     C           SVMHN2    ANDEQ'05S43'
+     C           SVMHN3    ANDEQ'7    '
+     C           SVDOCK    ANDEQ'00  '
+     C                     ADD  964       @SHPD
+     C                     ENDIF
+      * 5192
+     C           @@NONY    IFEQ 5192
+     C           SVMHN1    ANDEQ'W5032'
+     C           SVMHN2    ANDEQ'96S43'
+     C           SVMHN3    ANDEQ'7    '
+     C           SVDOCK    ANDEQ'G   '
+     C                     ADD  8800      @SHPD
+     C                     ADD  8800      @SHPD
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  ADJUST FOR 2022 SALES                             *
+      *----------------------------------------------------*
+     C           #ADJ22    BEGSR
+      *
+      * 5152
+     C**         @@NONY    IFEQ 5150
+     C**         SVMHN1    ANDEQ'W7112'
+     C**         SVMHN2    ANDEQ'88S43'
+     C**         SVMHN3    ANDEQ'7    '
+     C**         SVDOCK    ANDEQ'MM  '
+     C**                   ADD  4         @SHPD
+     C**                   ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      * SKIP
+     C           QTY1      IFLE 10
+     C                     GOTO XPRINT
+     C                     ENDIF
+      * GET CUM QTY
+     C           K#AP01    KLIST
+     C                     KFLD           K#DOCK  5
+     C                     KFLD           K#DOC2  4
+     C                     KFLD           K#PART 12
+      *
+     C                     MOVELSVSTID    K#DOCK    P
+     C                     MOVELSVDOCK    K#DOC2    P
+     C                     MOVELSVIPAR    K#PART    P
+     C           K#AP01    CHAINABFAP01              99
+     C           *IN99     IFEQ *OFF
+     C                     Z-ADDCFCAMT    @CUM    80
+     C                     ELSE
+     C                     Z-ADD0         @CUM
+     C                     ENDIF
+      *
+     C**TEMP     @CUM      IFEQ SVQTY2
+     C**                   GOTO XPRINT
+     C**                   ENDIF
+      * GET CUSTOMER NAME
+     C                     MOVEL@@NONY    $DLV
+     C                     CALL 'UTLR62'
+     C                     PARM           $DLV    4
+     C                     PARM           $GRP    3
+     C                     PARM           $NAME1 15
+     C                     PARM           $NAME2 50
+     C                     PARM           $RTN    1
+     C                     MOVEL$NAME1    XNAME  15
+      *
+     C                     MOVELSVIPAR    XXIPAR 14
+      *
+     C           XMSG      IFEQ *BLANK
+     C                     MOVELERR,1     XMSG
+     C                     ENDIF
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C           XPRINT    ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $TDATE  8
+     C                     PARM           $ERR    1        Y=PRINT ERROR
+      *
+     C           K#PL13    KLIST
+     C                     KFLD           @@NONY
+     C                     KFLD           K#NOYY  40
+     C                     KFLD           K#NOMM  20
+     C                     KFLD           K#NODD  20
+     C                     KFLD           SVDOCK
+     C                     KFLD           K#MHN1  5
+     C                     KFLD           K#MHN2  5
+     C                     KFLD           K#MHN3  5
+     C                     KFLD           K#MHN4  5
+      *
+     C           K#PL1J    KLIST
+     C                     KFLD           @@NONY
+     C                     KFLD           K#NKOJ  1
+     C                     KFLD           SVDOCK
+     C                     KFLD           K#NOHZ
+      *
+     C           K#PL1X    KLIST
+     C                     KFLD           @@NONY
+     C                     KFLD           K#NKOJ
+     C                     KFLD           SVDOCK
+      *
+     C           K#DL06    KLIST
+     C                     KFLD           SVSTID
+     C                     KFLD           SVDOCK
+      *
+     C                     MOVEL$TDATE    @TDATE  80
+     C                     MOVEL$TDATE    SYEAR   40
+     C                     TIME           SDATE
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD0         ECNT    40
+      * GET DAY#
+     C                     MOVE *BLANK    XDAY    3
+     C                     MOVEL$TDATE    $DATE
+     C                     CALL 'UTLR02'
+     C                     PARM           $DATE   8
+     C                     PARM           $DAY    1
+     C                     PARM           $WEEK#  1
+     C                     PARM           $RTNX   1
+     C                     SELEC
+     C           $DAY      WHEQ '1'
+     C                     MOVEL'MON'     XDAY
+     C           $DAY      WHEQ '2'
+     C                     MOVEL'TUE'     XDAY
+     C           $DAY      WHEQ '3'
+     C                     MOVEL'WED'     XDAY
+     C           $DAY      WHEQ '4'
+     C                     MOVEL'THU'     XDAY
+     C           $DAY      WHEQ '5'
+     C                     MOVEL'FRI'     XDAY
+     C           $DAY      WHEQ '6'
+     C                     MOVEL'SAT'     XDAY
+     C           $DAY      WHEQ '7'
+     C                     MOVEL'SUN'     XDAY
+     C                     ENDSL
+      *
+     C           *LIKE     DEFN AFSTID    SVSTID
+     C           *LIKE     DEFN AFDOCK    SVDOCK
+     C           *LIKE     DEFN AFSIDT    SVSIDT
+     C           *LIKE     DEFN AFPOR#    SVPOR#
+     C           *LIKE     DEFN AFDLDT    SVDLDT
+     C           *LIKE     DEFN AFQTY2    SVQTY2
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   40 '** FORD ADD-ON ORDER'
+     O                                   60 ' CHECK LIST **  (SHI'
+     O                                   80 'P DATE:             '
+     O                         @TDATE    78 '    /  /  '
+     O                         XDAY      82
+     O                                   83 ')'
+     O                                  108 'DATE'
+     O                         TODAY    111 '    .  .  '
+     O                         NOW      121 '  :  :  '
+     O                                  125 'P.'
+     O                         PAGE  Z  129
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   11 'PLANT'
+     O                                   16 'DELV'
+     O                                   21 'DOCK'
+     O                                   32 'ISSUE DATE'
+     O                                   38 'PGMID'
+     O                                   45 'PART#'
+     O                                   64 '1.FORD_EDI'
+     O                                   79 '2.IAF_ORD'
+     O                                   93 '3.FORD_YTD'
+     O                                  104 '4.IAF_SHP'
+     O                                  117 '5.DIFF(3-4)'
+     O                                  129 '6.IAF_CUM_M'
+     O                                  139 'ERR MSG'
+     O                                  166 'SHP_DATE'
+     O                                  172 'NAME'
+     O        E 1              @DTL
+     O                         SEQ#  1 +000
+     O                         SVSTID  +001
+     O                         @@NONY  +001
+     O                         SVDOCK  +001
+     O                         XXSIDT  +001 '    /  /  '
+     O                         SVPOR#  +001
+     O                         XXIPAR  +001
+1.   O                         QTY1  1 +001
+2.   O                         BASRYO1 +001
+3.   O                         SVQTY21 +001
+4.   O                         @SHPD 1 +001
+5.   O                         QTY2  1 +003
+6.   O                         @CUM  1 +003
+     O                         BAEDIK  +001
+     O                         XMSG    +001
+     O                         SVDLDT  +001 '    /  /  '
+     O                         $NAME1  +001
+      *
+     O        E 1              @TTL1
+     O                                 +000 ' ** THERE IS NO ERRO'
+     O                                 +000 'R FOR THIS REPORT **'
+      *
+     O        E 1              @TTL2
+     O                                 +000 ' ** TOTAL ERROR'
+     O                         ECNT  1 +001
+     O                                 +001 '**'
+** ERR (25A) ......2....+
+ OK..                       1
+ ** !! ORDER NOT FOUND !!   2
+ OK WARN: UNMATCHED QTY     3
+ OK ALREADY UPLOADED..      4
+ OK WARN: OVER SHIP         5
+                            6

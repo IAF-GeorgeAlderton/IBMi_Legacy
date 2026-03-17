@@ -1,0 +1,162 @@
+     H            Y.
+     F** UTLR72D ***************************************************
+     F*  UTILITY- GET BIN# BY PO#                                  *
+     F*  WRITTEN: JW (SRA) 2024.09.25                              *
+     F*------------------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UTLR72D'
+     F*                    PARM           $NONY   4
+     F*                    PARM           $NKOJ   1
+     F*                    PARM           $NUKE   4
+     F*                    PARM           $NOHZ   8
+     F*                    PARM           $ODRN  10
+     F*                    PARM           $BIN    2
+     F*   IN  $NONY   4   DELIVERY#
+     F*       $NKOJ   1   FACTORY
+     F*       $NUKE   4   DOCK
+     F*       $NOHZ   8   SHIP DATE
+     F*       $ODRN  10   PO#
+     F*   OUT $BIN    2   CASE1: CORRECT BIN#
+     F*---<FUNCTION>------------------------------------------------------------
+     F* ASSIGN BIN# BY PO# (DO LOOP BY IX)
+     F*  ORDER EXIST(YES) --> CHECK PL# YES --------------------> NEXT BIN#
+     F*                                 NO  --> CHECK PO# YES --> IX ==> BIN#
+     F*                                                   NO  --> NEXT BIN#
+     F*        (NO)      ---------------------------------------> IX ==> BIN#
+     F**************************************************************************
+     FAB#PL1J IF  E           K        DISK
+     FAB#PL80 IF  E           K        DISK
+      *--------------------------------------------------------
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *--------------------------------------------------------
+      *                    MAIN PROCESS
+      *--------------------------------------------------------
+     C                     EXSR #INIT
+      *
+     C           1         DO   98        IX      20
+      * CHECK ORDER
+     C                     EXSR #ORD
+     C           ODFLG     IFEQ 'N'
+     C                     Z-ADDIX        @BIN
+     C                     LEAVE
+     C                     ENDIF
+      * CHECK PACKING LIST -------------------------------
+     C                     EXSR #PL
+     C           PLFLG     IFEQ 'Y'
+     C                     ITER
+     C                     ENDIF
+      * CHECK PO# ----------------------------------------
+     C                     EXSR #PO#
+     C           POFLG     IFEQ 'N'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           POFLG     IFEQ 'Y'
+     C                     Z-ADDIX        @BIN
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     MOVEL@BIN      $BIN
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *--------------------------------------------------------
+      * CHECK ORDER
+      *--------------------------------------------------------
+     C           #ORD      BEGSR
+      *
+     C                     MOVE 'N'       ODFLG
+     C           K#PL1J    SETLLAB#PL1J
+     C                     DO   *HIVAL
+     C           K#PL1J    READEAB#PL1J                  98
+     C   98                LEAVE
+      *
+     C           BASKJY    IFEQ 'D'
+     C           BANOBN    ORNE IX
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVE 'Y'       ODFLG
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *--------------------------------------------------------
+      * CHECK PACKING LIST
+      *--------------------------------------------------------
+     C           #PL       BEGSR
+      *
+     C                     MOVE 'N'       PLFLG
+     C           K#PL1J    SETLLAB#PL80
+     C                     DO   *HIVAL
+     C           K#PL1J    READEAB#PL80                  97
+     C   97                LEAVE
+      *
+     C           P8SKJY    IFNE *BLANK
+     C           P8BINN    ORNE IX
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVE 'Y'       PLFLG
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *--------------------------------------------------------
+      * CHECK PO#
+      *--------------------------------------------------------
+     C           #PO#      BEGSR
+      *
+     C                     MOVE 'N'       POFLG
+     C           K#PL1J    SETLLAB#PL1J
+     C                     DO   *HIVAL
+     C           K#PL1J    READEAB#PL1J                  96
+     C   96                LEAVE
+      *
+     C           BASKJY    IFEQ 'D'
+     C           BANOBN    ORNE IX
+     C           BAODRN    ORNE $ODRN
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVE 'Y'       POFLG
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *--------------------------------------------------------
+      * INITIAL SETTING
+      *--------------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $NONY   4
+     C                     PARM           $NKOJ   1
+     C                     PARM           $NUKE   4
+     C                     PARM           $NOHZ   8
+     C                     PARM           $ODRN  10
+     C                     PARM           $BIN    2
+      *
+     C           K#PL1J    KLIST
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#NKOJ  1
+     C                     KFLD           K#NUKE  4
+     C                     KFLD           K#NOHZ  80
+      *
+     C                     MOVEL$NONY     K#NONY
+     C                     MOVEL$NKOJ     K#NKOJ
+     C                     MOVEL$NUKE     K#NUKE
+     C                     MOVEL$NOHZ     K#NOHZ
+      *
+     C                     MOVEL'00'      $BIN
+     C                     MOVE 'N'       ODFLG   1        ORDER
+     C                     MOVE 'N'       PLFLG   1        PACKING LIST
+     C                     MOVE 'N'       POFLG   1        PO#
+     C                     Z-ADD0         @BIN    20
+      *
+     C                     ENDSR

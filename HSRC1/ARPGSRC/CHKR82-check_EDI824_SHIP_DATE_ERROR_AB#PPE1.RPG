@@ -1,0 +1,192 @@
+     H            Y.
+     F***CHKR82*****************************************************************
+     F*  PROGRAM    : CHECK EDI824 SHIP DATE ERROR                             *
+     F*             : RUN IN FCKC00 (10:10AM BY JOBSCDE)                       *
+     F*  WRITTEN    : JW (SRA) 2021.09.15                                      *
+     F**************************************************************************
+     FAB#PPE1 IF  E           K        DISK
+     FAB#PL75AIF  E           K        DISK
+     FAB#EP60SIF  E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+     F**************************************************************************
+     I            DS
+     I                                        1   80PUNOHZ
+     I                                        1   40PUNOYY
+     I                                        5   60PUNOMM
+     I                                        7   80PUNODD
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1  80 M6ADER
+     I                                       52  59 @MAN
+     I                                       61  73 @PART
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+     C           @DATE     SETLLAB#PPE1
+     C                     DO   *HIVAL
+     C                     READ AB#PPE1                  98
+     C   98                LEAVE
+      * IGNORE
+     C                     MOVELM6FSER    LTR8    8
+     C           M6RSUS    IFNE *BLANK
+     C           LTR8      ORNE 'SHIP DAT'
+     C           M6ACKC    ORNE 'IR'
+     C                     ITER
+     C                     ENDIF
+      * IGNORE
+     C           M6RSUS    IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+      * GET ACTUAL SHIP DATE
+     C                     EXSR #ACT
+      * GET PACKING LIST#
+     C                     EXSR #PACK
+      *
+     C                     EXSR #PRINT
+      *
+     C                     ENDDO
+      *
+     C           SEQ#      IFNE 0
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  GET ACTUAL DATE                                   *
+      *----------------------------------------------------*
+     C           #ACT      BEGSR
+      *
+     C                     MOVELM6SHID    $SHID
+     C                     MOVEL@MAN      $MAN#
+     C                     MOVEL@PART     $MHIN
+     C                     CALL 'UEXR45 '
+     C                     PARM           $SHID  10
+     C                     PARM           $MAN#  10
+     C                     PARM           $MHIN  20
+     C                     PARM           $SHPDT  8
+     C                     MOVEL$SHPDT    @ADATE  8
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  GET PACKING LIST#                                 *
+      *----------------------------------------------------*
+     C           #PACK     BEGSR
+      * GET NONY
+     C                     MOVE *BLANK    @PL#    9
+     C           $SHID     CHAINAB#EP60S             99
+     C           *IN99     IFEQ *ON
+     C                     GOTO XPACK
+     C                     ENDIF
+      * GET PACKING LIST#
+     C           K#L75A    KLIST
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#ODRN 10
+      *
+     C                     MOVELE1NONY    K#NONY
+     C                     MOVEL@MAN      K#ODRN
+     C           K#L75A    SETLLAB#PL75A
+     C                     DO   *HIVAL
+     C           K#L75A    READEAB#PL75A                 98
+     C   98                LEAVE
+      *
+     C           PUNOHZ    IFEQ E1NOHZ
+     C                     MOVELPUSERL    @PL#
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C           XPACK     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      * EDIT
+     C                     MOVELM6SHID    @SHID  10
+     C                     MOVELM6PTRN    @NAME   7
+     C                     MOVELM6DTER    @EDATE  6
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $RTN    1
+      *
+     C                     MOVE ' '       $RTN
+     C                     TIME           SDATE
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+      * 30 DAYS BACK
+     C                     MOVELTODAY     $DT8
+     C                     MOVE '-'       $SIGN
+     C                     MOVEL'0030'    $DAYS
+     C                     MOVE 'N'       $IAF
+     C                     CALL 'UTLR10'
+     C                     PARM           $DT8    8
+     C                     PARM           $SIGN   1
+     C                     PARM           $DAYS   4
+     C                     PARM           $IAF    1
+     C                     PARM           $TGT8   8
+     C                     PARM           $RTN    1
+     C                     MOVEL$TGT8     @DATE   80
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   40 '** EDI824 SHIP DATE '
+     O                                   60 'ERROR REPORT **     '
+     O                                   89 'DATE'
+     O                         TODAY     92 '    .  .  '
+     O                         NOW      102 '  :  :  '
+     O                                  106 'P.'
+     O                         PAGE  Z  110
+     O        E   02           @HDR
+     O                                   17 'USE: CALL UCLC03'
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   15 'RCV_DATE'
+     O                                   22 'TIME'
+     O                                   32 'ASN#'
+     O                                   48 'MANIFEST'
+     O                                   55 'PART#'
+     O                                   69 'NAME'
+     O                                   82 'ASN_DATE'
+     O                                   89 'TIME'
+     O                                  100 'ERR_DATE'
+     O                                  110 'ACT_DATE'
+     O                                  116 'P/L#'
+     O        E 1              @DTL
+     O                         SEQ#  1 +000
+     O                         M6CRDT  +002 '    /  /  '
+     O                         M6CRTM  +001 '0 :  :  '
+     O                         @SHID   +002
+     O                         @MAN    +002
+     O                         @PART   +002
+     O                         @NAME   +002
+     O                         M6ASND  +002 '    /  /  '
+     O                         M6ASNT  +001 '0 :  '
+     O                                 +002 '20'
+     O                         @EDATE  +000
+     O                         @ADATE  +002
+     O                         @PL#    +002

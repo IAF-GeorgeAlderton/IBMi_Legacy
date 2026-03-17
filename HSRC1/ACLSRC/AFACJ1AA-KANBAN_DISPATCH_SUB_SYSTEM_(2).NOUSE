@@ -1,0 +1,551 @@
+             PGM        PARM(&USER &WSID &OUTQ &CTIME)
+             /** AFACJ1 ********************************/
+             /*KANBAN DISPATCH SUB .SYSTEM . (2)..     */
+             /* ..JOBQ                                 */
+             /* I-HASADA                 89.07.24      */
+             /* N-HYOTO  2001.04.23 CHANGE ISSUE 8->12 */
+             /* UPDATE:K.OKACHI    2002.06.04    %0001 */
+             /******************************** AFACJ1 **/
+             DCL        VAR(&USER) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&OUTQ) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&CTIME) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&MTIME) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&DAY) TYPE(*CHAR) LEN(8)
+             DCL        VAR(&HH) TYPE(*CHAR) LEN(2)
+             DCL        VAR(&MM) TYPE(*CHAR) LEN(2)
+             DCL        VAR(&HMS) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&ZZ) TYPE(*DEC) LEN(2 0)
+             DCL        VAR(&WZZ) TYPE(*CHAR) LEN(2)
+             DCL        VAR(&FL0111) TYPE(*CHAR) LEN(9)
+             DCL        VAR(&FL9431) TYPE(*CHAR) LEN(9)
+             DCL        VAR(&PB0111) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&PI0111) TYPE(*CHAR) LEN(2)
+             DCL        VAR(&PB9431) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&PI9431) TYPE(*CHAR) LEN(2)
+             DCL        VAR(&MSG) TYPE(*CHAR) LEN(60)
+             DCL        VAR(&RPY) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&MBAN) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&KOTE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PSW1) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&CNT) TYPE(*DEC) LEN(2) VALUE(0)
+             DCL        VAR(&FIN) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PMSG) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&XTIME) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&XHH) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&XHH2) TYPE(*CHAR) LEN(2)
+             DCL        VAR(&XMM) TYPE(*CHAR) LEN(2)
+             DCL        VAR(&PHZKB) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PCONT) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTER) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRT) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&TYPE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PDEVT) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&PIGCD) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&WLIB)  TYPE(*CHAR) LEN(8)
+
+             CALL       PGM(AGAR01) PARM(&WSID &PDEVT &PIGCD)
+
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+
+             CALL       PGM(ALBC00) PARM(&USER &WLIB)
+
+             CHGVAR     VAR(&PB0111) VALUE('0111')
+             CHGVAR     VAR(&PI0111) VALUE('09')
+             CHGVAR     VAR(&PSW1) VALUE(' ')
+             CHGJOB     OUTQ(&OUTQ) RUNPTY(35)
+
+ @0A:        CHGJOB     SWS(00000000)
+
+             CHGVAR     VAR(&MTIME) VALUE('    ')
+
+             /*--------------------------------------*/
+             /*  NOT TRANSMITTED DATA CHECK FOR EACH FACTORY  */
+             /*--------------------------------------*/
+ @03XX:
+
+             IF         COND(&PB0111 *EQ '    ') THEN(DO)
+             ENDDO
+             ELSE       DO
+
+
+             /*--------------------------*/
+             /*  UNWORKING NIGHT  ATTENDANCE   DATA */
+             /*   BESIDES KUMAMOTO FACTORY. */
+             /*--------------------------*/
+ $03XX:      CHGVAR     VAR(&PRTER) VALUE(' ')
+             OVRPRTF    FILE(QPRINT) DEVTYPE(&PDEVT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(K6H1) +
+                          IGCDTA(&PIGCD)
+             CALL       PGM(AFAR32) PARM(&DAY &PB0111 &PI0111 &PRTER)
+             MONMSG     MSGID(CPF0000) EXEC(DO)
+             SNDUSRMSG  +
+                          MSG('ERROR AT PGM(AFAR32) +
+                          < RETRY-R +
+                          CANCEL-C >') VALUES('R' 'C') +
+                          MSGTYPE(*INQ) TOMSGQ(QSYSOPR) MSGRPY(&RPY)
+             IF         COND((&RPY *EQ 'R') *OR (&RPY *EQ 'r')) +
+                          THEN(GOTO CMDLBL($03XX))
+             RETURN
+             ENDDO
+
+             IF         (&PRTER *NE ' ') DO
+             SNDPGMMSG  +
+                          MSG('PLEASE HAND A-PICS TEMPORARY KANBAN DATA +
+                          ERROR LIST TO BOSS AT PRODUCTION ENGINEERING +
+                          SECTION.') TOMSGQ(QSYSOPR)
+             ENDDO
+
+             DLTOVR     FILE(QPRINT)
+             ENDDO
+
+             /*----------------------*/
+             /*   ONLY KUMAMOTO FACTORY   */
+             /*----------------------*/
+             IF         (&PB9431 *NE '    ') DO
+
+             CHKOBJ     OBJ(AFAWP33) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(CRTPF +
+                          FILE(&WLIB/AFAWP33) RCDLEN(250) +
+                          OPTION(*NOSRC *NOLIST) SIZE(*NOMAX) +
+                          AUT(*ALL))
+
+             /*--------------------------*/
+             /*     UNWORKING NIGHT ATTENDANCE    DATA   */
+             /*   ONLY KUMAMOTO FACTORY. */
+             /*--------------------------*/
+ $04XX:      CHGVAR     VAR(&PRTER) VALUE(' ')
+             OVRPRTF    FILE(QPRINT) DEVTYPE(&PDEVT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(K6H1) +
+                          IGCDTA(&PIGCD)
+             CLRPFM     FILE(AFAWP33)
+             CALL       PGM(AFAR33) PARM(&DAY &PB9431 &PI9431 &PRTER)
+             MONMSG     MSGID(CPF0000) EXEC(DO)
+             SNDUSRMSG  +
+                          MSG('ERROR AT PGM(AFAR33) +
+                          < RETRY-R +
+                          CANCEL-C >') VALUES('R' 'C') +
+                          MSGTYPE(*INQ) TOMSGQ(QSYSOPR) MSGRPY(&RPY)
+             IF         COND((&RPY *EQ 'R') *OR (&RPY *EQ 'r')) +
+                          THEN(GOTO CMDLBL($04XX))
+             RETURN
+             ENDDO
+
+             IF         (&PRTER *NE ' ') DO
+             SNDPGMMSG  +
+                          MSG('PLEASE HAND A-PICS TEMPORARY KANBAN DATA +
+                          ERROR LIST TO BOSS AT PRODUCTION ENGINEERING +
+                          SECTION.') TOMSGQ(QSYSOPR)
+             ENDDO
+             DLTOVR     FILE(QPRINT)
+
+             CHKOBJ     OBJ(AFAWP34) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(CRTPF +
+                          FILE(&WLIB/AFAWP34) RCDLEN(250) +
+                          OPTION(*NOSRC *NOLIST) SIZE(*NOMAX) +
+                          AUT(*ALL))
+
+             /*------------------------------------*/
+             /*   LEVELLED PRODUCTION DECISION ORDERING ACCUMULATION FILE   */
+             /* UNWORKING NIGHT  ATTENDANCE DATA */
+             /*   ONLY KUMAMOTO FACTORY.       */
+             /*------------------------------------*/
+ $05XX:      CLRPFM     FILE(AFAWP34)
+             CLRPFM     FILE(AFANP34)
+
+             CHGVAR     VAR(&PCONT) VALUE(' ')
+             CALL       PGM(AFAR34) PARM(&DAY &PB9431 &PI9431 &PCONT)
+             MONMSG     MSGID(CPF0000) EXEC(DO)
+             SNDUSRMSG  +
+                          MSG('ERROR AT PGM(AFAR34) +
+                          < RETRY-R +
+                          CANCEL-C >') VALUES('R' 'C') +
+                          MSGTYPE(*INQ) TOMSGQ(QSYSOPR) MSGRPY(&RPY)
+             IF         COND((&RPY *EQ 'R') *OR (&RPY *EQ 'r')) +
+                          THEN(GOTO CMDLBL($05XX))
+             RETURN
+             ENDDO
+
+             /*----------------------------------------*/
+             /*    A-PICS UNWORKING NIGHT ATTENDANCE DATA   */
+             /*   CONTAINER DATA  OF KUMAMOTO FACTORY DELETE.*/
+             /*----------------------------------------*/
+ $05XX1:     IF         (&PCONT *NE ' ') DO
+             CALL       PGM(AFAR29) PARM(&PCONT)
+             MONMSG     MSGID(CPF0000) EXEC(DO)
+             SNDUSRMSG  +
+                          MSG('ERROR AT PGM(AFAR29) +
+                          < RETRY-R +
+                          CANCEL-C >') VALUES('R' 'C') +
+                          MSGTYPE(*INQ) TOMSGQ(QSYSOPR) MSGRPY(&RPY)
+             IF         COND((&RPY *EQ 'R') *OR (&RPY *EQ 'r')) +
+                          THEN(GOTO CMDLBL($05XX1))
+             RETURN
+             ENDDO
+             ENDDO
+
+             CHKOBJ     OBJ(AFAWP35) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(CRTPF +
+                          FILE(&WLIB/AFAWP35) RCDLEN(250) +
+                          OPTION(*NOSRC *NOLIST) SIZE(*NOMAX) +
+                          AUT(*ALL))
+             CLRPFM     FILE(AFAWP35)
+
+             FMTDTA     INFILE((&WLIB/AFAWP34)) +
+                          OUTFILE(&WLIB/AFAWP35) SRCFILE(FMTSRC) +
+                          SRCMBR(AFAS35) OPTION(*NOPRT)
+
+             /*--------------------------------------------*/
+             /* LEVELLED PRODUCTION FIXED ORDERING ACCUMULATION DATA +
+                                    NUMBER OF SHEETS TOTAL */
+             /*--A-PICS-- ONLY KUMAMOTO FACTORY          */
+             /*--------------------------------------------*/
+ $051X:      CALL       PGM(AFAR35)
+             MONMSG     MSGID(CPF0000) EXEC(DO)
+             SNDUSRMSG  +
+                          MSG('ERROR AT PGM(AFAR35) +
+                          < RETRY-R +
+                          CANCEL-C >') VALUES('R' 'C') +
+                          MSGTYPE(*INQ) TOMSGQ(QSYSOPR) MSGRPY(&RPY)
+             IF         COND((&RPY *EQ 'R') *OR (&RPY *EQ 'r')) +
+                          THEN(GOTO CMDLBL($051X))
+             RETURN
+             ENDDO
+             ENDDO
+
+             CHKOBJ     OBJ(AFAWP13) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(CRTPF +
+                          FILE(&WLIB/AFAWP13) RCDLEN(250) +
+                          OPTION(*NOSRC *NOLIST) SIZE(*NOMAX) +
+                          AUT(*ALL))
+             CLRPFM     FILE(AFAWP13)
+
+             FMTDTA     INFILE((TWFILE1/AFAWP12)) +
+                          OUTFILE(&WLIB/AFAWP13) SRCFILE(FMTSRC) +
+                          SRCMBR(AFAS12) OPTION(*NOPRT)
+
+             CHKOBJ     OBJ(AFAWP14) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(CRTPF +
+                          FILE(&WLIB/AFAWP14) RCDLEN(250) +
+                          OPTION(*NOSRC *NOLIST) SIZE(*NOMAX) +
+                          AUT(*ALL))
+
+@05XX:       CLRPFM     FILE(AFAWP14)
+             CHGVAR     VAR(&PMSG) VALUE(' ')
+             OVRPRTF    FILE(ATAPR95) DEVTYPE(&PDEVT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(K6H1) +
+                          IGCDTA(&PIGCD)
+             CALL       PGM(AFAR13) PARM(&PMSG &USER)
+             MONMSG     MSGID(CPF0000) EXEC(DO)
+             SNDUSRMSG  +
+                          MSG('ERROR AT PGM(AFAR13) +
+                          < RETRY-R +
+                          CANCEL-C >') VALUES('R' 'C') +
+                          MSGTYPE(*INQ) TOMSGQ(QSYSOPR) MSGRPY(&RPY)
+             IF         COND((&RPY *EQ 'R') *OR (&RPY *EQ 'r')) +
+                          THEN(GOTO CMDLBL(@05XX))
+             RETURN
+             ENDDO
+
+             IF         (&PMSG *EQ '*') DO
+             SNDPGMMSG  +
+                          MSG('IT IS LOOPED DELIVERY DATE CALCULATION +
+                          FOR PRODUCT INSTRUCTION DATA. PLEASE HAND +
+                          DELIVERY DATE CALCULATION IMPOSSIBLE DETAILS +
+                          LIST TO BOSS AT PRODUCTION ENGINEERING SECTION.') +
+                          TOMSGQ(QSYSOPR)
+             ENDDO
+             DLTOVR     FILE(ATAPR95)
+
+             /*----------------------------------------*/
+             /* OUTF1  -> IAF FACTORY                 */
+             /* OUTF2  -> KUMAMOTO FACTORY            */
+             /*----------------------------------------*/
+             CHGVAR     VAR(&FL0111) VALUE('         ')
+             CHGVAR     VAR(&FL9431) VALUE('         ')
+
+             /*----------------------------------*/
+             /*.NO PURCHASING(0111) */
+             /*----------------------------------*/
+             IF         (&PB0111 *EQ '    ') DO
+
+             CHKOBJ     OBJ(AAA011199) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(CRTPF +
+                          FILE(AAA011199) RCDLEN(256) +
+                          OPTION(*NOSRC *NOLIST) SIZE(*NOMAX) +
+                          AUT(*ALL))
+             CLRPFM     FILE(AAA011199)
+             OVRDBF     FILE(OUTF1) TOFILE(AAA011199)
+             ENDDO
+
+             /*--------------------------------------*/
+             /* NO KUMAMOTO FACTORY(9431)*/
+             /*--------------------------------------*/
+             IF         (&PB9431 *EQ '    ') DO
+
+             CHKOBJ     OBJ(AAA943199) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(CRTPF +
+                          FILE(AAA943199) RCDLEN(256) +
+                          OPTION(*NOSRC *NOLIST) SIZE(*NOMAX) +
+                          AUT(*ALL))
+             CLRPFM     FILE(AAA943199)
+             OVRDBF     FILE(OUTF2) TOFILE(AAA943199)
+             ENDDO
+
+             /*------------------*/
+             /*   IAF FACTORY   */
+             /*------------------*/
+             IF         (&PB0111 *NE '    ') DO
+
+             CHGVAR     VAR(&FL0111) VALUE('AAA0222' *TCAT &PI0111)
+             CHKOBJ     OBJ(&FL0111) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(CRTPF +
+                          FILE(&FL0111) RCDLEN(256) +
+                          OPTION(*NOSRC *NOLIST) SIZE(*NOMAX) +
+                          AUT(*ALL))
+             CLRPFM     FILE(&FL0111)
+             OVRDBF     FILE(OUTF1) TOFILE(&FL0111)
+             ENDDO
+
+             /*------------------*/
+             /*   KUMAMOTO FACTORY   */
+             /*------------------*/
+             IF         (&PB9431 *NE '    ') DO
+
+             CHGVAR     VAR(&FL9431) VALUE('AAA9431' *TCAT &PI9431)
+             CHKOBJ     OBJ(&FL9431) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(CRTPF +
+                          FILE(&FL9431) RCDLEN(256) +
+                          OPTION(*NOSRC *NOLIST) SIZE(*NOMAX) +
+                          AUT(*ALL))
+             CLRPFM     FILE(&FL9431)
+             OVRDBF     FILE(OUTF2) TOFILE(&FL9431)
+             ENDDO
+
+             /*------------------*/
+             /*   IAF FACTORY   */
+             /*------------------*/
+             IF         (&PB0111 *NE '    ') DO
+
+             CHKOBJ     OBJ(AFAWP15) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(CRTPF +
+                          FILE(&WLIB/AFAWP15) RCDLEN(250) +
+                          OPTION(*NOSRC *NOLIST) SIZE(*NOMAX) +
+                          AUT(*ALL))
+
+             CHKOBJ     OBJ(AFAWP01111) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(CRTPF +
+                          FILE(&WLIB/AFAWP01111) RCDLEN(250) +
+                          OPTION(*NOSRC *NOLIST) SIZE(*NOMAX) +
+                          AUT(*ALL))
+
+             CHKOBJ     OBJ(AFAWP01112) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(CRTPF +
+                          FILE(&WLIB/AFAWP01112) RCDLEN(250) +
+                          OPTION(*NOSRC *NOLIST) SIZE(*NOMAX) +
+                          AUT(*ALL))
+
+             CHKOBJ     OBJ(AFAWP01113) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(CRTPF +
+                          FILE(&WLIB/AFAWP01113) RCDLEN(250) +
+                          OPTION(*NOSRC *NOLIST) SIZE(*NOMAX) +
+                          AUT(*ALL))
+
+             CHKOBJ     OBJ(AFAWP01114) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(CRTPF +
+                          FILE(&WLIB/AFAWP01114) RCDLEN(250) +
+                          OPTION(*NOSRC *NOLIST) SIZE(*NOMAX) +
+                          AUT(*ALL))
+
+             CHKOBJ     OBJ(AFAWP01115) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(CRTPF +
+                          FILE(&WLIB/AFAWP01115) RCDLEN(250) +
+                          OPTION(*NOSRC *NOLIST) SIZE(*NOMAX) +
+                          AUT(*ALL))
+
+             CHKOBJ     OBJ(AFAWP01116) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(CRTPF +
+                          FILE(&WLIB/AFAWP01116) RCDLEN(250) +
+                          OPTION(*NOSRC *NOLIST) SIZE(*NOMAX) +
+                          AUT(*ALL))
+
+             CLRPFM     FILE(AFAWP15)
+             CLRPFM     FILE(AFAWP01111)
+             CLRPFM     FILE(AFAWP01112)
+             CLRPFM     FILE(AFAWP01113)
+             CLRPFM     FILE(AFAWP01114)
+             CLRPFM     FILE(AFAWP01115)
+             CLRPFM     FILE(AFAWP01116)
+
+     /*      FMTDTA     INFILE((AFAWP14)) OUTFILE(AFAWP01111) +    */
+     /*             SRCFILE(FMTSRC) SRCMBR(AFASIA) OPTION(*NOPRT)  */
+/* %0001 */
+     /*      FMTDTA     INFILE((&WLIB/AFAWP14)) +
+                          OUTFILE(&WLIB/AFAWP01112) SRCFILE(FMTSRC) +
+                          SRCMBR(AFASIB) OPTION(*NOPRT)              */
+
+     /*      FMTDTA     INFILE((&WLIB/AFAWP14)) +
+                          OUTFILE(&WLIB/AFAWP01113) SRCFILE(FMTSRC) +
+                          SRCMBR(AFASIC) OPTION(*NOPRT)              */
+
+     /*      FMTDTA     INFILE((&WLIB/AFAWP14)) +
+                          OUTFILE(&WLIB/AFAWP01114) SRCFILE(FMTSRC) +
+                          SRCMBR(AFASID) OPTION(*NOPRT)              */
+             FMTDTA     INFILE((&WLIB/AFAWP14)) +
+                          OUTFILE(&WLIB/AFAWP01112) SRCFILE(FMTSRC) +
+                          SRCMBR(AFASIG) OPTION(*NOPRT)
+
+/* %0001 */
+             FMTDTA     INFILE((&WLIB/AFAWP14)) +
+                          OUTFILE(&WLIB/AFAWP01115) SRCFILE(FMTSRC) +
+                          SRCMBR(AFASIE) OPTION(*NOPRT)
+
+             FMTDTA     INFILE((&WLIB/AFAWP14)) +
+                          OUTFILE(&WLIB/AFAWP01116) SRCFILE(FMTSRC) +
+                          SRCMBR(AFASIF) OPTION(*NOPRT)
+
+             CPYF       FROMFILE(AFAWP01112) TOFILE(AFAWP15) +
+                          MBROPT(*ADD) FMTOPT(*NOCHK)
+
+/* %0001 */
+  /*         CPYF       FROMFILE(AFAWP01113) TOFILE(AFAWP15) +
+                          MBROPT(*ADD) FMTOPT(*NOCHK)          */
+
+  /*         CPYF       FROMFILE(AFAWP01114) TOFILE(AFAWP15) +
+                          MBROPT(*ADD) FMTOPT(*NOCHK)          */
+/* %0001 */
+
+             CPYF       FROMFILE(AFAWP01115) TOFILE(AFAWP15) +
+                          MBROPT(*ADD) FMTOPT(*NOCHK)
+
+             CPYF       FROMFILE(AFAWP01116) TOFILE(AFAWP15) +
+                          MBROPT(*ADD) FMTOPT(*NOCHK)
+
+             CHGVAR     VAR(&CNT) VALUE(0)
+             CALL       PGM(AFAR17) PARM(&CNT)
+             IF         COND(&CNT = 0) THEN(GOTO CMDLBL(@0602))
+
+ @0601XX:    CALL       PGM(AFAR14)
+             MONMSG     MSGID(CPF0000) EXEC(DO)
+             SNDUSRMSG  +
+                          MSG('ERROR PGM(AFAR14) HANDLING +
+                          IAF(0111) DATA. +
+                          < RETRY-R +
+                          CANCEL-C >') VALUES('R' 'C') +
+                          MSGTYPE(*INQ) TOMSGQ(QSYSOPR) MSGRPY(&RPY)
+             IF         COND((&RPY *EQ 'R') *OR (&RPY *EQ 'r')) +
+                          THEN(GOTO CMDLBL(@0601XX))
+             RETURN
+             ENDDO
+             ENDDO
+
+             /*------------------*/
+             /*   KUMAMOTO FACTORY   */
+             /*------------------*/
+ @0602:      IF         (&PB9431 *NE '    ') DO
+
+             CHKOBJ     OBJ(AFAWP15) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(CRTPF +
+                          FILE(&WLIB/AFAWP15) RCDLEN(250) +
+                          OPTION(*NOSRC *NOLIST) SIZE(*NOMAX) +
+                          AUT(*ALL))
+             CHKOBJ     OBJ(AFAWP94311) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(CRTPF +
+                          FILE(&WLIB/AFAWP94311) RCDLEN(250) +
+                          OPTION(*NOSRC *NOLIST) SIZE(*NOMAX) +
+                          AUT(*ALL))
+             CHKOBJ     OBJ(AFAWP94312) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(CRTPF +
+                          FILE(&WLIB/AFAWP94312) RCDLEN(250) +
+                          OPTION(*NOSRC *NOLIST) SIZE(*NOMAX) +
+                          AUT(*ALL))
+
+             CLRPFM     FILE(AFAWP15)
+             CLRPFM     FILE(AFAWP94311)
+             CLRPFM     FILE(AFAWP94312)
+
+             FMTDTA     INFILE((&WLIB/AFAWP14)) +
+                          OUTFILE(&WLIB/AFAWP94311) SRCFILE(FMTSRC) +
+                          SRCMBR(AFASMA) OPTION(*NOPRT)
+
+             FMTDTA     INFILE((&WLIB/AFAWP14)) +
+                          OUTFILE(&WLIB/AFAWP94312) SRCFILE(FMTSRC) +
+                          SRCMBR(AFASMB) OPTION(*NOPRT)
+
+             CPYF       FROMFILE(AFAWP94312) TOFILE(AFAWP94311) +
+                          MBROPT(*ADD) FMTOPT(*NOCHK)
+
+             FMTDTA     INFILE((&WLIB/AFAWP94311)) +
+                          OUTFILE(&WLIB/AFAWP15) SRCFILE(FMTSRC) +
+                          SRCMBR(AFAS28) OPTION(*NOPRT)
+
+             CHGVAR     VAR(&CNT) VALUE(0)
+             CALL       PGM(AFAR17) PARM(&CNT)
+             IF         COND(&CNT = 0) THEN(GOTO CMDLBL(@07))
+
+ @0602XX:    CALL       PGM(AFAR14)
+             MONMSG     MSGID(CPF0000) EXEC(DO)
+             SNDUSRMSG  +
+                          MSG('ERROR PGM(AFAR14) HANDLING +
+                          KUMAMOTO(9431) DATA. +
+                          < RETRY-R +
+                          CANCEL-C >') VALUES('R' 'C') +
+                          MSGTYPE(*INQ) TOMSGQ(QSYSOPR) MSGRPY(&RPY)
+             IF         COND((&RPY *EQ 'R') *OR (&RPY *EQ 'r')) +
+                          THEN(GOTO CMDLBL(@0602XX))
+             RETURN
+             ENDDO
+             ENDDO
+
+ @07:
+
+
+             /*----------------------------------------------*/
+             /* SETUP FILE UPDATE WITH ARRS FIXED ORDERING FILE */
+             /*----------------------------------------------*/
+ @08:        CALL       PGM(OBFR10)
+             MONMSG     MSGID(CPF0000) EXEC(DO)
+             SNDUSRMSG  MSG('ERROR AT PGM(OBFR10), +
+                          CONTACT YOU TO HAYAKAWA. ...+
+                          ERROR IGNORED--EXECUTION ') MSGTYPE(*INFO) +
+                          TOMSGQ(QSYSOPR)
+             ENDDO
+
+             DLTOVR     FILE(*ALL)
+             MONMSG     MSGID(CPF0000)
+
+             /*------------------------------------------*/
+             /*REORGANIZATION OF ACCUMULATION FILE FOR  ..A-PICS ORDERING   */
+             /*------------------------------------------*/
+ STEP99:
+   /*        IF         (&CTIME *EQ '0800') DO               */
+
+   /*        CLRPFM     FILE(AU#NP16)                        */
+   /*        CALL       PGM(AFAR16)                          */
+
+   /*        CLRPFM     FILE(AU#PP11)                        */
+   /*        CPYF       FROMFILE(AU#NP16) TOFILE(AU#PP11) +
+                          MBROPT(*REPLACE) FMTOPT(*MAP)      */
+   /*        MONMSG     MSGID(CPF2909 CPF2817)               */
+   /*        ENDDO                                           */
+
+             /*--------------------------------------*/
+             /*SET EXECUTION TIME FOR NEXT JOB*/
+             /*--------------------------------------*/
+             CHGVAR     VAR(&ZZ) VALUE(%SST(&CTIME 1 2))
+             CHGVAR     VAR(&ZZ) VALUE(&ZZ + 1)
+             IF         COND(&ZZ > 24) THEN(CHGVAR VAR(&ZZ) VALUE(01))
+             CHGVAR     VAR(%SST(&CTIME 1 2)) VALUE(&ZZ)
+             IF         (&ZZ *EQ 22) GOTO SEND
+
+             CHGVAR     VAR(&WZZ) VALUE(&ZZ)
+             CHGVAR     VAR(&FIN) VALUE(' ')
+
+
+
+
+ SEND:
+
+
+             ENDPGM

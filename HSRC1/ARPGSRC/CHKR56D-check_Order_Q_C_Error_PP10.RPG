@@ -1,0 +1,188 @@
+     H            Y.
+     F***CHKR56D****************************************************************
+     F*  PROGRAM    : CHECK ORDER Q/C ERROR                                    *
+     F*             : READ AB#PL1N                                             *
+     F*  WRITTEN    : 2020.05.29                                               *
+     F*  WRITTEN BY : JW (SRA)                                                 *
+     F**************************************************************************
+     FAB#PL1N UF  E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+     E                    MSG     1   3 15
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1   80K#YMD
+     I                                        1   40K#YY
+     I                                        5   60K#MM
+     I                                        7   80K#DD
+     I            DS
+     I                                        1   80BANOHZ
+     I                                        1   40BANOYY
+     I                                        5   60BANOMM
+     I                                        7   80BANODD
+     I            DS
+     I                                        1  12 BASHIN
+     I                                        1   5 BASHN1
+     I                                        6  10 BASHN2
+     I                                       11  12 BASHN3
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+     C           K#PP10    SETLLAB#PL1N
+     C                     DO   *HIVAL
+     C                     READ AB#PL1N                  98
+     C   98                LEAVE
+      *
+     C           BASKJY    IFEQ 'D'
+     C           BATOKU    OREQ 3411
+     C                     ITER
+     C                     ENDIF
+      * GET STANDARD QPC
+     C                     MOVELBASHIN    $SHIN
+     C                     MOVELBANOHZ    $DATE
+     C                     MOVE 'Y'       $SRV
+     C                     CALL 'UTLR35B'
+     C                     PARM           $SHIN  12
+     C                     PARM           $DATE   8
+     C                     PARM           $SRV    1
+     C                     PARM           $SYOS   6
+     C                     PARM           $RTN    1
+     C                     MOVEL$SYOS     @SYOS   60
+      *
+      * ERROR
+     C           BASYOS    IFEQ 0
+     C           @SYOS     OREQ 0
+     C           BASYOS    ORNE @SYOS
+     C           @SYOS     ANDNE0
+     C                     MOVELMSG,1     XMSG   15
+     C                     EXSR #PRINT
+      * UPDATE
+     C           $UPD      IFEQ 'Y'
+     C           @SYOS     IFNE 0
+     C           BASYOS    ANDEQ0
+     C                     Z-ADD@SYOS     BASYOS
+     C                     UPDATAB#PL1N1
+     C                     ITER
+     C                     ELSE
+     C           BASYOS    IFEQ 0
+     C           BAUSYS    ANDNE0
+     C                     Z-ADDBAUSYS    BASYOS
+     C                     UPDATAB#PL1N1
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C           SEQ#      IFNE 0
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      * GET CUSTOMER NAME
+     C                     MOVELBANONY    $DLV
+     C                     CALL 'UTLR62'
+     C                     PARM           $DLV    4
+     C                     PARM           $GRP    3
+     C                     PARM           $NAME1 15
+     C                     PARM           $NAME2 50
+     C                     PARM           $RTN    1
+     C                     MOVEL$NAME1    XNAME   5
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $UPD    1
+     C                     PARM           $RTN    1
+      *
+     C           K#PP10    KLIST
+     C                     KFLD           K#YY
+     C                     KFLD           K#MM
+     C                     KFLD           K#DD
+      *
+     C                     TIME           SDATE
+     C                     MOVELTODAY     K#YMD
+     C                     MOVE *BLANK    $RTN
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+     C                     MOVE 'Y'       FIRST   1
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   14 'UPD='
+     O                         $UPD      15
+     O                                   42 '** INVALID QPC ORDER'
+     O                                   62 ' LIST (PP10) **     '
+     O                                   90 '** CALL CHKR56D (/Y/'
+     O                                  110 ' //) **             '
+     O                                  109 'DATE'
+     O                         TODAY    112 '    .  .  '
+     O                         NOW      122 '  :  :  '
+     O                                  126 'P.'
+     O                         PAGE  Z  130
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   14 'SHP_DATE'
+     O                                   21 'BIN#'
+     O                                   30 'CUST'
+     O                                   35 'DELV'
+     O                                   58 'CUST_PART_______'
+     O                                   67 'ORDER#'
+     O                                   77 'NAME'
+     O                                   92 'BASRYO'
+     O                                  100 'BASYOS'
+     O                                  108 'BAUSYS'
+     O                                  116 'TO/BE'
+     O                                  132 '** ERROR MSG **'
+     O        E 1              @DTL
+     O                         SEQ#  1 +000
+     O                         BANOHZ  +001 '    /  /  '
+     O                         BANOBN  +002
+     O                         BAEDIK  +003
+     O                         BATOKU  +002
+     O                         BANONY  +001
+     O                         BANKOJ  +001
+     O                         BANUKE  +001
+     O                         BAMHN1  +000
+     O                         BAMHN2  +001
+     O                         BAMHN3  +001
+     O                         BAODRN  +002
+     O                         XNAME   +002
+     O                         BASRYO1 +001
+     O                         BASYOS1 +001
+     O                         BAUSYS1 +001
+     O                         @SYOS 1 +001
+     O                         XMSG    +001
+** MSG (15A) .+....2....+....3....+....4
+INVALID QPC !                            01
+                                         02
+                                         03

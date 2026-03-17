@@ -1,0 +1,92 @@
+     H            Y.
+     F** ABMR28 *********************************************
+     F*設定数自動処理　数量決定
+     F*  SAKAKI.            2019.11.07                      *
+     F*******************************************************
+     FABMWP21 UF  E                    DISK
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60WJFB
+     I                                        1   20WTITH
+     I                                        3   40WTITM
+     I                                        5   60WTITS
+     I                                        7  140WTIHZ
+     I                                        7  100WTIYY
+     I                                       11  120WTIMM
+     I                                       13  140WTIDD
+      *
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W$WSID
+     I                                      254 263 W$USER
+     I                                      264 269 W$JBNO
+      *
+      *----------------------------------------------------*
+      * PLIST                                              *
+      *----------------------------------------------------*
+     C                     TIME           WTIME
+     C           1         SETLLABMWP211
+     C                     READ ABMWP211                 21
+     C           *IN21     DOWEQ'0'
+     C           W2OMIT    IFEQ '0'
+     C           W2PAS     ANDEQ'0'
+     C                     EXSR #SB400
+     C                     ENDIF
+     C                     READ ABMWP211                 21
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *---------------------------*
+      *ＰＴ品／外注品の判定     *
+      *---------------------------*
+     CSR         #SB400    BEGSR
+      *
+     C                     MOVELW2SHN1    P@SHN1
+     C                     MOVELW2SHN2    P@SHN2
+     C                     MOVELW2SHN3    P@SHN3
+     C                     MOVEL'0'       P@PAS
+     C                     CALL 'ABMR1B'
+     C                     PARM           P@SHN1  5
+     C                     PARM           P@SHN2  5
+     C                     PARM           P@SHN3  2
+     C                     PARM           P@PAS   1
+     C           P@PAS     IFNE '0'
+     C                     EXSR #SB410
+     C                     ENDIF
+      *
+     CSR         ESB400    ENDSR
+      *--------------------------------*
+      *数量決定                      *
+      * PT, BPT PARTS   -> N, N+1. N+2 *
+      * OUTSOURCE PARTS -> N, N+1      *
+      *--------------------------------*
+     CSR         #SB410    BEGSR
+      *
+     C                     Z-ADDW2NSRY    W@NSRY  90
+     C                     Z-ADDW2NSRD    W@NSRD  90
+      * N
+     C           W2FSDN    IFGT W@NSRD
+     C                     Z-ADDW2FSMN    W@NSRY  90
+     C                     Z-ADDW2FSDN    W@NSRD  90
+     C                     ENDIF
+      * N+1
+     C           W2FSD1    IFGT W@NSRD
+     C                     Z-ADDW2FSM1    W@NSRY  90
+     C                     Z-ADDW2FSD1    W@NSRD  90
+     C                     ENDIF
+      * PT PARTS CHECK  N+2 FORECAST
+     C           P@PAS     IFNE '3'
+     C           W2FSD2    IFGT W@NSRD
+     C                     Z-ADDW2FSM2    W@NSRY  90
+     C                     Z-ADDW2FSD2    W@NSRD  90
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           W@NSRD    MULT 20        W2NSRY  90
+     C                     Z-ADDW@NSRD    W2NSRD  90
+      *
+     C                     UPDATABMWP211
+      *
+     CSR         ESB410    ENDSR

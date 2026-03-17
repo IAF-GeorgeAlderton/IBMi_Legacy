@@ -1,0 +1,328 @@
+     H            Y.
+      ** IZAR71 *******************************************************
+      *  RECEIVE WIRE INTO INVENTORY
+      *   LEC   2025.05.09
+      *   LEC   2025.05.27 - CHG CODE TO BYPASS SCREEN1, DFT LOCN=RECV
+      *****************************************************************
+     FIZAPW71 CF  E                    WORKSTN
+     FALBPL30 IF  E           K        DISK
+     FIZAPL02 IF  E           K        DISK
+     FCACPL02 IF  E           K        DISK
+     FIZAPP70 UF  E           K        DISK                      A
+     FIZAPP7L UF  E           K        DISK                      A
+      *
+     E                    WK1        20  1
+     E                    WK2        20  1
+     E                    ER      1   8 60
+      *
+      *
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60@SYSTM
+     I                                        7  140@SYSHZ
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           WKCD    6
+      * get worker name...
+     C                     MOVELWKCD      NUM6    60
+     C           NUM6      CHAINALBPL30              98
+     C           *IN98     IFEQ *OFF
+     C                     MOVELALWKNM    D2TMNM
+     C                     ELSE
+     C                     MOVEL*BLANK    D2TMNM
+     C                     ENDIF
+      *
+      * dummy read
+     C                     READ IZAPP7L             N    50
+     C                     CLEARIZAPP7L1
+      *----------------------------------------------------*
+      * MAINLINE                                           *
+      *----------------------------------------------------*
+     C                     MOVEL'02'      DSPSW   2
+      *
+     C           DSPSW     DOUEQ'99'
+      *
+     C                     SELEC
+     C           DSPSW     WHEQ '01'
+     C                     EXSR #SB100
+     C           DSPSW     WHEQ '02'
+     C                     EXSR #SB200
+     C                     ENDSL
+      *
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *
+      *----------------------------------------  ------------*
+      * LOCATION QR                                          *
+      *------------------------------------------------------*
+     C           #SB100    BEGSR
+      *
+     C                     EXFMTIZAPW711
+     C                     SETOF                     9931
+     C                     MOVEL*BLANKS   D9ERR
+      *
+     C                     SELEC
+     C           *IN01     WHEQ '1'
+     C                     MOVEL'99'      DSPSW
+     C                     GOTO ESB100
+      *
+     C           *IN02     WHEQ '1'
+     C           *IN03     OREQ '1'
+     C           *IN04     OREQ '1'
+     C           *IN05     OREQ '1'
+     C           *IN06     OREQ '1'
+     C           *IN07     OREQ '1'
+     C           *IN08     OREQ '1'
+     C           *IN09     OREQ '1'
+     C           *IN10     OREQ '1'
+     C           *IN11     OREQ '1'
+     C           *IN12     OREQ '1'
+     C                     GOTO ESB100
+     C                     OTHER
+     C                     ENDSL
+      *
+      * if LOCATION QR is not valid, display error.
+     C           D1BAR     IFNE 'RECV'
+     C                     SETON                     99
+     C                     MOVELER,1      D9ERR
+     C                     EXSR #SB990
+     C                     MOVEL*BLANK    D2BAR
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    D2BAR
+     C                     MOVEL'02'      DSPSW
+      *
+     C           ESB100    ENDSR
+      *----------------------------------------------------*
+      * WIRE KANBAN BARCODE                                  *
+      *------------------------------------------------------*
+     C           #SB200    BEGSR
+      *
+     C                     MOVEL'RECV'    D1BAR
+     C                     EXFMTIZAPW712
+     C                     SETOF                     9931
+     C                     MOVEL*BLANKS   D9ERR
+      *
+     C                     SELEC
+     C           *IN01     WHEQ '1'
+     C                     MOVEL'99'      DSPSW
+     C                     MOVEL*BLANKS   D1BAR
+     C                     MOVEL*BLANKS   D2BAR
+     C                     Z-ADD*ZERO     D2CNT
+     C                     GOTO ESB200
+      *
+     C           *IN02     WHEQ '1'
+     C           *IN03     OREQ '1'
+     C           *IN04     OREQ '1'
+     C           *IN05     OREQ '1'
+     C           *IN06     OREQ '1'
+     C           *IN07     OREQ '1'
+     C           *IN08     OREQ '1'
+     C           *IN09     OREQ '1'
+     C           *IN10     OREQ '1'
+     C           *IN11     OREQ '1'
+     C           *IN12     OREQ '1'
+     C                     GOTO ESB200
+     C                     OTHER
+     C                     ENDSL
+      *
+      * if WIRE KANBAN BAR is blank, display error.
+     C           D2BAR     IFEQ *BLANK
+     C                     SETON                     99
+     C                     MOVELER,3      D9ERR
+     C                     EXSR #SB990
+     C                     MOVEL*BLANK    D2BAR
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+     C                     EXSR #EDIT
+      *
+      * if WIRE KANBAN BAR is already in Inventory, display error...
+     C                     MOVELD2BAR     KEY70  20
+     C           KEY70     CHAINIZAPP70              55
+     C           *IN55     DOWEQ*OFF
+     C           WISKJY    IFEQ *BLANK
+     C                     LEAVE
+     C                     ENDIF
+     C           KEY70     READEIZAPP70                  55
+     C                     ENDDO
+      *
+     C           *IN55     IFEQ *OFF
+     C                     SETON                     99
+     C                     MOVELER,5      D9ERR
+     C                     EXSR #SB990
+     C                     MOVEL*BLANK    D2BAR
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+      * CHECK DIGIT - if check digit is not correct, display
+      * error screen.
+     C                     MOVELD2BAR     PMAREA    P
+     C                     MOVEL'016'     PMBYTE
+     C           1         SUBSTD2BAR:17  WKCHK   1
+     C                     EXSR #SB600
+     C           WKCHK     IFNE PMCHK
+     C                     SETON                     99
+     C                     MOVELER,2      D9ERR
+     C                     EXSR #SB990
+     C                     MOVEL*BLANK    D2BAR
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+      * check for part id in material master...
+     C           KEY1      KLIST
+     C                     KFLD           K@COCD           CONTROL CD
+     C                     KFLD           K@ZETI           ABSOLUTE #
+      *
+     C           1         SUBSTD2BAR:1   K@COCD  1        CONTROL CD
+     C           4         SUBSTD2BAR:2   K@ZETI  4        ABSOLUTE #
+     C           7         SUBSTD2BAR:6   ##MFG#  7        MFG#
+     C           3         SUBSTD2BAR:13  ##COIL  3        COIL#
+      *
+      *
+     C           KEY1      SETGTIZAPL02
+     C           KEY1      REDPEIZAPL02                  91
+      *
+     C  N91      ZCSKJY    IFEQ 'D'
+     C                     SETON                     91
+     C                     ENDIF
+     C  N91      ZCSTYY    IFNE 9999
+     C                     SETON                     91
+     C                     ENDIF
+     C           *IN91     IFEQ *ON
+     C                     SETON                     99
+     C                     MOVELER,4      D9ERR
+     C                     EXSR #SB990
+     C                     MOVEL*BLANK    D2BAR
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+     C                     MOVE ZCZAIK    W$ZAIK  5
+      *
+     C                     EXSR #SB500
+     C                     MOVEL*BLANK    D2BAR
+      *
+     C           ESB200    ENDSR
+      *----------------------------------------------------*
+      * WRITE WIRE KANBAN SCAN TO INVENTORY FILE
+      *----------------------------------------------------*
+     C           #SB500    BEGSR
+      *
+     C                     TIME           @TIME
+     C                     CLEARIZAPP701
+     C                     Z-ADD@SYSHZ    WICODT
+     C                     Z-ADD@SYSTM    WICOTM
+     C                     MOVELD2TMNM    WICOUS
+     C                     MOVELW#PGM     WIKOPG
+      *
+     C                     MOVELD2BAR     WIKBQR
+     C                     MOVELK@ZETI    WIZETI
+     C                     MOVELZCZAIS    WIMATN
+     C                     Z-ADDZCZAIK    WIDIAM
+     C                     MOVELZCKAKE    WISUPP
+      *
+     C           WIMATN    CHAINCACPL02              55
+     C           *IN55     IFEQ *OFF
+     C                     MOVELC1ZAIR    WIMATC
+     C                     ENDIF
+      *
+     C                     MOVEL##COIL    WICOIL
+     C                     MOVEL##MFG#    WIQA#
+     C                     MOVELD1BAR     WICLOC
+     C                     Z-ADD1         WIQTY
+      *
+     C                     WRITEIZAPP701
+     C                     EXSR #SB501
+      *
+     C                     ADD  1         D2CNT
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * WRITE WIRE KANBAN SCAN TO INVENTORY LOG FILE
+      *----------------------------------------------------*
+     C           #SB501    BEGSR
+      *
+     C                     CLEARIZAPP7L1
+     C                     Z-ADDWICODT    LGKODT
+     C                     Z-ADDWICOTM    LGKOTM
+     C                     MOVELWICOUS    LGKOUS
+     C                     MOVELW#PGM     LGKOPG
+      *
+     C                     MOVELWIKBQR    LGKBQR
+     C                     MOVELWIZETI    LGZETI
+     C                     MOVELWIMATN    LGMATN
+     C                     Z-ADDWIDIAM    LGDIAM
+     C                     MOVELWISUPP    LGSUPP
+     C                     MOVELWIMATC    LGMATC
+     C                     MOVELWIQA#     LGQA#
+     C                     MOVELWICOIL    LGCOIL
+     C                     MOVELWICLOC    LGCLOC
+     C                     Z-ADDWIQTY     LGQTY
+      *
+     C                     WRITEIZAPP7L1
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * Call Program to Get Check Digit
+      *----------------------------------------------------*
+     C           #SB600    BEGSR
+      *
+     C                     CALL 'ALBRCC'
+     C                     PARM           PMAREA100        INPUT DATA
+     C                     PARM           PMBYTE  3        LENGTH
+     C                     PARM           PMCHK   1        CHECKS DIGITS
+     C                     PARM           PMRTCD  1        RETRN CODE
+      *
+     C                     ENDSR
+      *
+      *------------------------------------------------------------*
+      * Edit Wire kanban barcode - remove dashes unless check digit
+      *------------------------------------------------------------*
+     C           #EDIT     BEGSR
+      *
+     C                     MOVEAD2BAR     WK1       P
+     C                     MOVEA*BLANK    WK2
+     C                     Z-ADD*ZERO     X       20
+     C                     Z-ADD*ZERO     Y       20
+      *
+     C           1         DO   20        X
+     C           WK1,X     IFNE '-'
+     C           WK1,X     ANDNE*BLANK
+     C           X         ORGT 15
+     C                     ADD  1         Y
+     C                     MOVE WK1,X     WK2,Y
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     MOVEAWK2       D2BAR     P
+      *
+     C                     ENDSR
+      *
+      *----------------------------------------------------*
+      * ERROR SCREEN - Display Error on Screen             *
+      *----------------------------------------------------*
+     C           #SB990    BEGSR
+      *
+     C                     WRITEIZAPW718
+     C                     EXFMTIZAPW719
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+**                      X
+INVALID LOCATION                                           1
+CHECK DIGIT ERROR                                          2
+SCAN WIRE KANBAN                                           3
+NOT FOUND IN MATERIAL MASTER                               4
+WIRE KANBAN ALREADY EXISTS                                 5
+                                                           6
+                                                           7
+                                                           8

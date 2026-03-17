@@ -1,0 +1,297 @@
+     H            Y/
+     F** ABFR81 **********************************************
+     F*  CREATE MONTHLY FC ORDER DATA(ABFPP80) (FORD)        *
+     F*  J.WATANABE 2018.07.10                               *
+     F********************************************************
+     FFGBPL01 IF  E           K        DISK
+     FABFPL17 IF  E           K        DISK
+     FAGDPL11 IF  E           K        DISK
+     FABFPP80 O   E           K        DISK
+      *------------------------------------------------------------
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1   80FBCE8
+     I                                        1   20FBCE20
+     I                                        1   60FBCEYM
+     I                                        3   80FBCEDT
+     I            DS
+     I                                        1   80FBDA8
+     I                                        1   20FBDA20
+     I                                        1   60FBDAYM
+     I                                        3   80FBDATE
+     I            DS
+     I                                        1   60TGTYM
+     I                                        1   40TGTYY
+     I                                        5   60TGTMM
+     I            DS
+     I                                        1   80@YMD1
+     I                                        1   40@YY1
+     I                                        5   60@MM1
+     I                                        7   80@DD1
+     I                                        3   80@YMD6
+     I            DS
+     I                                        1   80@YMD2
+     I                                        1   40@YY2
+     I                                        5   60@MM2
+     I                                        7   80@DD2
+     I            DS
+     I                                        1   80F8KA
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+     I                                        1   60F8KAYM
+     I            DS
+     I                                        1   80LSTYMD
+     I                                        1   60LSTYM
+     I                                        1   40LSTYY
+     I                                        5   60LSTMM
+     I                                        7   80LSTDD
+     I            DS
+     I                                        1  12 FBIPAR
+     I                                        1   5 FBIPA1
+     I                                        6  10 FBIPA2
+     I                                       11  12 FBIPA3
+     I            DS
+     I                                        1  12 @SHIN
+     I                                        1   5 @SHN1
+     I                                        6  10 @SHN2
+     I                                       11  12 @SHN3
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *==================================================
+      * MAIN ROUTINE
+      *==================================================
+     C                     EXSR #INT
+      * MAIN LOOP
+     C                     Z-ADD0         B2CODE  40
+     C                     DO   *HIVAL
+     C                     READ FGBPL01                  91
+     C   91                LEAVE
+      *
+     C                     Z-ADD0         @RCVDT  80
+     C                     EXSR #PROC1
+      *
+     C           @RCVDT    IFNE 0
+     C                     EXSR #PROC2
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     MOVEL*ON       *INLR
+     C                     RETRN
+      *==================================================
+      *  1ST PROCESS (GET LATEST RECEIVE DATE)
+      *==================================================
+     C           #PROC1    BEGSR
+      *
+     C                     Z-ADDLSTYMD    @YMD1
+     C                     SUB  1         @YY1
+     C           K#17      SETLLABFPL17
+     C                     DO   *HIVAL
+     C                     READ ABFPL17                  92
+     C   92                LEAVE
+      * END?
+     C           FBNONY    IFNE B2CODE
+     C                     LEAVE
+     C                     ENDIF
+      * END?
+     C           FBDAYM    IFGT LSTYM
+     C                     LEAVE
+     C                     ENDIF
+      * IGNORE
+     C           FBQTY2    IFLE 0
+     C                     ITER
+     C                     ENDIF
+      * IGNORE
+     C           FBCEYM    IFNE TGTYM
+     C                     ITER
+     C                     ENDIF
+      *
+     C           FBDA8     IFGT @RCVDT
+     C                     Z-ADDFBDA8     @RCVDT
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+     C*=====================================================
+      *  2ND PROCESS (   )
+     C*=====================================================
+     C           #PROC2    BEGSR
+      *
+     C           20000000  ADD  @RCVDT    @YMD1
+     C           K#17      SETLLABFPL17
+     C                     DO   *HIVAL
+     C           K#17      READEABFPL17                  93
+     C   93                LEAVE
+      *
+     C           FBQTY2    IFNE 0
+     C           FBCEYM    ANDLETGTYM
+     C                     EXSR #OUT
+     C                     ENDIF
+     C                     ENDDO
+      *
+      *
+     C                     ENDSR
+     C*=====================================================
+     C* OUTPUT DATA TO ABFPP80
+     C*=====================================================
+     C           #OUT      BEGSR
+      * GET SPLIT END DATE
+     C                     MOVELFBCE8     $DT8
+     C                     MOVE '+'       $SIGN
+     C                     MOVEL'0006'    $DAYS
+     C                     MOVEL'N'       $IAF
+     C                     CALL 'UTLR10'
+     C                     PARM           $DT8    8
+     C                     PARM           $SIGN   1
+     C                     PARM           $DAYS   4
+     C                     PARM           $IAF    1
+     C                     PARM           $TGT8   8
+     C                     PARM           $RTN1   1
+     C           $RTN1     IFEQ *BLANK
+     C                     MOVEL$TGT8     FBEDAT  80
+     C                     ELSE
+     C                     MOVELFBCE8     FBEDAT
+     C                     ENDIF
+      *
+      * GET SPLIT DAYS (DAYS=WORKING DAYS)
+     C                     MOVELFBCE8     $DT81
+     C                     MOVELFBEDAT    $DT82
+     C                     MOVEL'Y'       $IAF
+     C                     MOVEL'Y'       $INC
+     C                     CALL 'UTLR24'
+     C                     PARM           $DT81   8
+     C                     PARM           $DT82   8
+     C                     PARM           $IAF    1
+     C                     PARM           $INC    1
+     C                     PARM           $DAYS   4
+     C                     PARM           $RTN2   1
+     C           $RTN2     IFEQ *BLANK
+     C                     MOVEL$DAYS     @DAYS   40
+     C                     ELSE
+     C                     MOVEL'0001'    @DAYS
+     C                     ENDIF
+      *
+     C           @DAYS     IFEQ 0
+     C                     Z-ADD0         @SQTY  112
+     C                     ELSE
+     C           FBQTY2    DIV  @DAYS     @SQTY
+     C                     ENDIF
+      * OUT
+     C                     Z-ADD0         SEQ#    20
+     C                     Z-ADDFBCE8     @YMD2
+     C           K#11      SETLLAGDPL11
+     C                     DO   *HIVAL
+     C                     READ AGDPL11                  94
+     C   94                LEAVE
+     C           F8KA      IFGT FBEDAT
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           F8KAYM    IFNE TGTYM
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     CLEARABFPP801
+     C                     Z-ADD@RCVDT    B8RCDT
+     C                     MOVELTGTYM     B8FCYM
+     C                     Z-ADDFBNONY    B8NONY
+      * GET CUST# BY DELIV#
+     C                     MOVELFBNONY    PMNONY
+     C                     MOVE 'D'       PMOPT
+     C                     CALL 'UTLR16'
+     C                     PARM           PMNONY  4
+     C                     PARM           PMOPT   1
+     C                     PARM           PMNAME 20
+     C                     PARM           PTOKU   4
+     C                     PARM           PMRTN   1
+     C           PMRTN     IFEQ *BLANK
+     C                     MOVELPTOKU     B8TOKU
+     C                     ELSE
+     C                     MOVELFBNONY    B8TOKU
+     C                     ENDIF
+      *
+     C                     MOVELFBIPA1    B8MHN1
+     C                     MOVELFBIPA2    B8MHN2
+     C                     MOVELFBIPA3    B8MHN3
+      * GET IAF PART
+     C                     MOVELFBNONY    $NONY
+     C                     MOVE *BLANK    $NKOJ
+     C                     MOVE *BLANK    $NUKE
+     C                     MOVELFBIPAR    $MHIN1
+     C                     CALL 'UTLR61'
+     C                     PARM           $NONY   4
+     C                     PARM           $NKOJ   1
+     C                     PARM           $NUKE   4
+     C                     PARM           $MHIN1 20
+     C                     PARM           @TOKU   40
+     C                     PARM           @MHIN2 20
+     C                     PARM           @SHIN  12
+     C                     PARM           @RTN    1
+     C           @SHIN     IFEQ *BLANK
+     C                     MOVELFBIPA1    B8SHN1
+     C                     MOVELFBIPA2    B8SHN2
+     C                     MOVELFBIPA3    B8SHN3
+     C                     ELSE
+     C                     MOVEL@SHN1     B8SHN1
+     C                     MOVEL@SHN2     B8SHN2
+     C                     MOVEL@SHN3     B8SHN3
+     C                     ENDIF
+      *
+     C                     Z-ADDF8KA      B8SDTS
+     C                     Z-ADD@SQTY     B8SQTS
+     C                     Z-ADD@DAYS     B8SDTW
+     C                     ADD  1         SEQ#
+     C                     Z-ADDSEQ#      B8SDT#
+      *
+     C           SEQ#      IFEQ 1
+     C                     Z-ADDFBQTY2    B8SQTO
+     C                     ENDIF
+      *
+     C                     Z-ADDFBCE8     B8SDTO
+     C                     MOVEL'ABFPP10' B8SFLO
+     C                     Z-ADDTODAY     B8CRDT
+     C                     Z-ADDNOW       B8CRTM
+     C                     MOVEL#USER     B8CRUS
+     C                     MOVEL#PGM      B8CRPG
+     C                     WRITEABFPP801
+     C                     ENDDO
+      *
+     C                     ENDSR
+     C*=====================================================
+     C* Initial SET
+     C*=====================================================
+     C           #INT      BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $TGTYM  6
+      *
+     C           K#17      KLIST
+     C                     KFLD           B2CODE
+     C                     KFLD           @YMD6
+      *
+     C           K#11      KLIST
+     C                     KFLD           @YY2
+     C                     KFLD           @MM2
+     C                     KFLD           @DD2
+      * GET LAST YM
+     C                     MOVEL$TGTYM    TGTYM
+     C           TGTMM     IFEQ 01
+     C           TGTYY     SUB  1         LSTYM
+     C                     Z-ADD12        LSTMM
+     C                     ELSE
+     C                     Z-ADDTGTYY     LSTYY
+     C           TGTMM     SUB  1         LSTMM
+     C                     ENDIF
+     C*
+     C                     TIME           SDATE
+     C                     Z-ADD0         LSTDD
+     C                     Z-ADD20        FBCE20
+     C                     Z-ADD20        FBDA20
+     C*
+     C                     ENDSR

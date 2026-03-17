@@ -1,0 +1,58 @@
+             PGM        PARM(&AYM &BHIZ)
+             /** ABACJ2 ******************************************/
+             /* PRODUCT DEMAND FORECAST ACCUMULATION DATA CREATE */
+             /*                       OF USER KANBAN M/F CREATE. */
+             /*     JOBQ                                         */
+             /*                         K.YASUDA   1999.08.31    */
+             /****************************************** ABACJ2 **/
+             DCL        VAR(&ABADS1) TYPE(*CHAR) LEN(48)
+             DCL        VAR(&ABBDS1) TYPE(*CHAR) LEN(54)
+             DCL        VAR(&MBAN) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&KOTAE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&ANO) TYPE(*CHAR) LEN(2)
+             DCL        VAR(&AYM) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&BHIZ) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&REC2) TYPE(*DEC) LEN(2) VALUE(00)
+             DCL        VAR(&PSIGO) TYPE(*CHAR) LEN(1) VALUE('0')
+             RTVDTAARA  DTAARA(ABADS1) RTNVAR(&ABADS1)
+             RTVDTAARA  DTAARA(ABBDS1) RTNVAR(&ABBDS1)
+
+             IF         ((%SST(&ABADS1 1 6)) *GT &AYM) GOTO STP24
+             IF         (&BHIZ *EQ &AYM) GOTO STP1
+
+             CALL       PGM(ABAR31) PARM(&AYM)
+             CALL       PGM(ABBR03) PARM(&AYM)
+
+ STP1:       IF         ((%SST(&ABADS1 7 1)) *EQ '0') GOTO STP2
+             CHGVAR     VAR(&PSIGO) VALUE('1')
+
+STP2:        IF         ((%SST(&ABADS1 7 1)) *EQ '1') CHGVAR +
+                          VAR(&REC2) VALUE(&REC2+1)
+
+             IF         (&REC2 *NE 03) GOTO STP24
+             CHGVAR     VAR(%SST(&ABBDS1 27 1)) VALUE('Y')
+             CHGDTAARA  DTAARA(ABBDS1) VALUE(&ABBDS1)
+
+ STP24:      IF         ((%SST(&ABADS1 1 6)) *LE &AYM) GOTO STP25
+             CHGVAR     VAR(&PSIGO) VALUE('1')
+ STP25:      CHGJOB     SWS(00000000)
+
+             CALL       PGM(ABAR32) PARM(&PSIGO &AYM &BHIZ)
+             DLTF       FILE(ABAWP42)
+
+             CHGVAR     VAR(%SST(&ABADS1 1 6)) VALUE(&AYM)
+             CHGDTAARA  DTAARA(ABADS1) VALUE(&ABADS1)
+
+             IF         (%SWITCH(1XXXXXXX)) DO
+ STP26:      SNDPGMMSG  MSG('( G ) CALENDAR IS ABNORMALITY. PLEASE +
+                          CONTACT YOU TO EDP SECTION  < G-ENTER >') +
+                          TOMSGQ(QSYS/QSYSOPR) MSGTYPE(*INQ) +
+                          KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTAE)
+             IF         COND((&KOTAE *EQ 'G') *OR (&KOTAE *EQ 'g')) +
+                          THEN(GOTO CMDLBL(END))
+             GOTO       STP26
+             ENDDO
+
+ END:        ENDPGM

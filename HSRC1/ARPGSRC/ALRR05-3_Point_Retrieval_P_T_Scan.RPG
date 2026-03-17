@@ -1,0 +1,704 @@
+     H            Y.
+     F** ALRR05 *********************************************
+     F* 3 POINT P/T RETRIEVAL SCAN                          *
+     F*   LEC .................     2016.07.07              *
+%0001F*   T.SAKAKI ..   2017.03.27  CHECK DUPLICATED SCAN   *
+%0002F*   LEC           2018.06.28  CHECK DUP FOR RETVL KBN *
+     F* LEC 2023.08.07 CHECK/REMOVE PT BARCODE IN CV OVRFLOW*
+     F*******************************************************
+     FALRPW05 CF  E                    WORKSTN
+     FFCETL11 IF  E           K        DISK
+     FALRPL09 IF  E           K        DISK
+     FALRPL0A IF  E           K        DISK
+     FALRPP05 O   E                    DISK
+      *
+     E                    ER      1   8 60
+      *
+     I            DS
+     I                                        1  14 D2SHN
+     I                                        1   5 D2SHN1
+     I                                        6   6 D2SF1
+     I                                        7  11 D2SHN2
+     I                                       12  12 D2SF2
+     I                                       13  14 D2SHN3
+      *
+     I            DS
+     I                                        1   80A2GSHZ
+     I                                        1   40A2GSYY
+     I                                        5   60A2GSMM
+     I                                        7   80A2GSDD
+      *
+     I            DS
+     I                                        1   80A2TRHZ
+     I                                        1   40A2TRYY
+     I                                        5   60A2TRMM
+     I                                        7   80A2TRDD
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60HHMMSS
+     I                                        7  140WDATE
+     I                                        7  100WYY
+     I                                       11  120WMM
+     I                                       13  140WDD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           POPR    6
+     C                     PARM           PITANT 20
+      *
+     **==============================================================**
+     **  KEY
+     **==============================================================**
+     C           K#KEY1    KLIST
+     C                     KFLD           K1BAR  20
+     C                     KFLD           K1DATE  80
+     C                     KFLD           K1TIME  60
+      *----------------------------------------------------*
+      * MAINLINE                                           *
+      *----------------------------------------------------*
+     C                     MOVEL'01'      DSPSW   2
+      *
+     C           DSPSW     DOUEQ'99'
+      *
+     C                     SELEC
+     C           DSPSW     WHEQ '01'
+     C                     EXSR #SB100
+     C           DSPSW     WHEQ '02'
+     C                     EXSR #SB200
+     C           DSPSW     WHEQ '03'
+     C                     EXSR #SB300
+     C                     ENDSL
+      *
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *
+      *----------------------------------------------------*
+      * FIRST SCREEN - Display Screen for APICS Kanban     *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     EXFMTALRPW051
+     C                     SETOF                     9931
+     C                     TIME           WTIME
+      *
+     C           *IN01     IFEQ *ON
+     C                     MOVEL'99'      DSPSW
+     C                     MOVE *BLANKS   D1BAR1
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+     C           D1BAR1    IFEQ *BLANK
+     C                     SETON                     99
+     C                     MOVELER,4      D9ERR
+     C                     EXSR #SB290
+     C                     MOVEL*BLANK    D1BAR1
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+      * convert qr code to 1D barcode....
+     C                     MOVELD1BAR1    KTYPE   3
+      *
+     C           KTYPE     IFEQ 'B01'
+     C           KTYPE     OREQ 'C01'
+     C                     MOVELD1BAR1    P1QR1 256
+     C                     MOVEL*BLANKS   P1QR2 256
+     C                     MOVEL*BLANKS   P9BAR  20
+     C                     CALL 'UEXR13'
+     C                     PARM           P1QR1
+     C                     PARM           P1QR2
+     C                     PARM           P9BAR
+      *
+     C                     MOVELP9BAR     D1BAR1    P
+     C                     MOVEL*BLANKS   P9BAR
+     C                     ENDIF
+      *
+      * CHECK DIGIT - if check digit is not correct, display
+      * error screen.
+     C                     MOVELD1BAR1    PMAREA
+     C                     MOVEL'014'     PMBYTE
+     C           1         SUBSTD1BAR1:15 WKCHK   1
+     C                     EXSR GETCDG
+     C           WKCHK     IFNE PMCHK
+     C                     SETON                     99
+     C                     MOVELER,2      D9ERR
+     C                     EXSR #SB290
+     C                     MOVEL*BLANK    D1BAR1
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+      * %0001 CHECK DUPLICATED SCAN
+      *  GET DATE & TIME 3 HOURS AGO
+     C                     MOVE WDATE     PIYMD   8
+     C                     MOVE HHMMSS    PIJFB   6
+     C                     MOVEL*BLANK    POYMD   8
+     C                     MOVEL*BLANK    POJFB   6
+     C                     MOVEL'-'       PFUGO   1
+     C                     MOVEL'00180'   PFUN    5
+     C                     CALL 'DATR45'
+     C                     PARM           PIYMD
+     C                     PARM           PIJFB
+     C                     PARM           POYMD
+     C                     PARM           POJFB
+     C                     PARM           PFUGO
+     C                     PARM           PFUN
+      *
+     C                     MOVE POYMD     K1DATE
+     C                     MOVE POJFB     K1TIME
+     C                     MOVELD1BAR1    K1BAR
+      *
+     C           K#KEY1    SETLLALRPL091
+     C                     DO   *HIVAL
+     C           K1BAR     READEALRPL091                 84
+     C   84                LEAVE
+      *
+     C           PTSKJY    IFNE *BLANK
+     C           PTOKNG    OREQ 'NG'
+     C                     ITER
+     C                     ENDIF
+      *
+     C  N84                LEAVE
+     C                     ENDDO
+      *
+      * ALREADY SCANNED IN PAST 3 HOURS
+     C           *IN84     IFEQ *OFF
+     C                     SETON                     99
+     C                     MOVELER,8      D9ERR
+     C                     EXSR #SB290
+     C                     MOVEL*BLANK    D1BAR1
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    W1SHN1  5
+     C                     MOVEL*BLANK    W1SHN2  5
+     C                     MOVEL*BLANK    W1SHN3  2
+     C                     MOVEL*BLANK    W1TBN1  1
+     C                     MOVEL*BLANK    W1TBN2  2
+     C                     MOVEL*BLANK    W1TBN3  2
+     C                     MOVEL*BLANK    W1TBN4  1
+     C                     MOVEL*BLANK    W1ZETI  4
+     C                     MOVEL*BLANK    D1ZETI  4
+      * get item absolute (zeti)
+     C           4         SUBSTD1BAR1:2  D1ZETI
+      *
+      * get part information from PART INFORMATION M/F
+     C           D1ZETI    CHAINFCETL111             21
+     C           *IN21     IFEQ *OFF
+     C           A2GSKD    ANDEQ'D'
+     C           A2GSHZ    ANDLE*DATE
+     C                     SETON                     21
+     C                     ENDIF
+      *
+     C           *IN21     IFEQ *OFF
+     C                     MOVELA2BHB1    W1SHN1
+     C                     MOVELA2BHB2    W1SHN2
+     C                     MOVELA2BHB3    W1SHN3
+      *
+      *
+     C           A2TRHZ    IFGT WDATE
+      * old location code
+     C                     MOVELA2KTRK    W1TBN1  1
+     C                     MOVELA2KTRT    W1TBN2  2
+     C                     MOVELA2KTRR    W1TBN3  2
+     C                     MOVELA2KTRD    W1TBN4  1
+     C                     ELSE
+      * else new location code
+     C                     MOVELA2STRK    W1TBN1  1
+     C                     MOVELA2STRT    W1TBN2  2
+     C                     MOVELA2STRR    W1TBN3  2
+     C                     MOVELA2STRD    W1TBN4  1
+     C                     ENDIF
+      *
+     C                     ELSE
+     C                     SETON                     99
+     C                     MOVELER,3      D9ERR
+     C                     EXSR #SB290
+     C                     MOVEL*BLANK    D1BAR1
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    D2SHN
+     C                     MOVELW1SHN1    D2SHN1
+     C                     MOVEL'-'       D2SF1
+     C                     MOVELW1SHN2    D2SHN2
+     C           W1SHN3    IFNE *BLANK
+     C                     MOVEL'-'       D2SF2
+     C                     MOVELW1SHN3    D2SHN3
+     C                     ENDIF
+     C                     MOVEL'02'      DSPSW
+      *
+     CSR         ESB100    ENDSR
+      *----------------------------------------------------*
+      * SECOND SCREEN - Display Screen for Location Tag    *
+      *----------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C                     EXFMTALRPW052
+     C                     SETOF                     9931
+      *
+      *
+     C           *IN01     IFEQ *ON
+     C                     MOVEL'01'      DSPSW
+     C                     MOVEL*BLANKS   D2BAR1
+     C                     MOVEL*BLANKS   D1BAR1
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+     C           D2BAR1    IFEQ *BLANK
+     C                     SETON                     99
+     C                     MOVELER,1      D9ERR
+     C                     EXSR #SB290
+     C                     MOVEL*BLANK    D2BAR1
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    W2SHN1  5
+     C                     MOVEL*BLANK    W2SHN2  5
+     C                     MOVEL*BLANK    W2SHN3  2
+     C                     MOVEL*BLANK    W2TBN1  1
+     C                     MOVEL*BLANK    W2TBN2  2
+     C                     MOVEL*BLANK    W2TBN3  2
+     C                     MOVEL*BLANK    W2TBN4  1
+      *
+     C                     MOVEL*BLANKS   D2ZETI  4
+     C           4         SUBSTD2BAR1:1  D2ZETI
+      *
+      * check to make sure it's a match.
+     C           D2ZETI    IFNE D1ZETI
+     C                     SETON                     99
+     C                     MOVELER,5      D9ERR
+     C                     EXSR #SB290
+     C                     EXSR #SB291
+     C                     MOVEL'NG'      WKOKNG  2
+     C                     MOVE '05'      ERRCOD  2
+     C                     EXSR #SB500
+     C                     MOVEL*BLANK    D2BAR1
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+      * get part information from PART INFORMATION M/F
+      *
+     C           D2ZETI    CHAINFCETL111             21
+     C           *IN21     IFEQ *OFF
+     C           A2GSKD    ANDEQ'D'
+     C           A2GSHZ    ANDLE*DATE
+     C                     SETON                     21
+     C                     ENDIF
+      *
+     C           *IN21     IFEQ *OFF
+     C                     MOVELA2BHB1    W2SHN1
+     C                     MOVELA2BHB2    W2SHN2
+     C                     MOVELA2BHB3    W2SHN3
+     C                     ENDIF
+      *
+      * move info from location barcode
+     C           1         SUBSTD2BAR1:5  W2TBN1  1
+     C           2         SUBSTD2BAR1:6  W2TBN2  2
+     C           2         SUBSTD2BAR1:8  W2TBN3  2
+     C           1         SUBSTD2BAR1:10 W2TBN4  1
+      *
+     C                     MOVEL*BLANK    D2SHN
+     C                     MOVELW2SHN1    D2SHN1
+     C                     MOVEL'-'       D2SF1
+     C                     MOVELW2SHN2    D2SHN2
+     C           W2SHN3    IFNE *BLANK
+     C                     MOVEL'-'       D2SF2
+     C                     MOVELW2SHN3    D2SHN3
+     C                     ENDIF
+     C                     MOVEL'03'      DSPSW
+      *
+     CSR         ESB200    ENDSR
+      *------------------------------------------------------*
+      * SCREEN THREE  - Display Screen to Input P/T KANBAN   *
+      *------------------------------------------------------*
+     CSR         #SB300    BEGSR
+      *
+     C                     EXFMTALRPW053
+     C                     SETOF                     9931
+      *
+     C           *IN01     IFEQ *ON
+     C                     MOVEL'02'      DSPSW
+     C                     MOVEL*BLANK    D3BAR1
+     C                     MOVEL*BLANK    D2BAR1
+     C                     GOTO ESB300
+     C                     ENDIF
+      *
+      * if P/T KANBAN is blank, display error and start over.
+     C           D3BAR1    IFEQ *BLANK
+     C                     SETON                     99
+     C                     MOVELER,6      D9ERR
+     C                     EXSR #SB290
+     C                     MOVEL*BLANK    D3BAR1
+     C                     GOTO ESB300
+     C                     ENDIF
+      *
+      * CHECK DIGIT - call program to get check digit and compare
+      *  to make sure it's correct.
+      *
+     C                     MOVELD3BAR1    PMAREA
+     C                     MOVEL'016'     PMBYTE
+     C           1         SUBSTD3BAR1:17 WKCHK   1
+      *
+     C                     EXSR GETCDG
+      *
+      * if check digits don't match, display error, go back to screen3.
+     C           WKCHK     IFNE PMCHK
+     C                     SETON                     99
+     C                     MOVELER,2      D9ERR
+     C                     EXSR #SB290
+     C                     MOVEL*BLANK    D3BAR1
+     C                     GOTO ESB300
+     C                     ENDIF
+      *
+      **************************************************************
+      * %0002 CHECK DUPLICATED SCAN TO RETRIEVAL KANBAN
+      *  GET DATE & TIME 3 HOURS AGO
+     C                     MOVE WDATE     PIYMD
+     C                     MOVE HHMMSS    PIJFB
+     C                     MOVEL*BLANK    POYMD
+     C                     MOVEL*BLANK    POJFB
+     C                     MOVEL'-'       PFUGO
+     C                     MOVEL'00180'   PFUN
+     C                     CALL 'DATR45'
+     C                     PARM           PIYMD
+     C                     PARM           PIJFB
+     C                     PARM           POYMD
+     C                     PARM           POJFB
+     C                     PARM           PFUGO
+     C                     PARM           PFUN
+      *
+     C                     MOVE POYMD     K1DATE
+     C                     MOVE POJFB     K1TIME
+     C                     MOVELD3BAR1    K1BAR
+      *
+     C           K#KEY1    SETLLALRPL0A1
+     C                     DO   *HIVAL
+     C           K1BAR     READEALRPL0A1                 84
+     C   84                LEAVE
+      *
+     C           PTSKJY    IFNE *BLANK
+     C           PTOKNG    OREQ 'NG'
+     C                     ITER
+     C                     ENDIF
+      *
+     C  N84                LEAVE
+     C                     ENDDO
+      *
+      * ALREADY SCANNED IN PAST 3 HOURS
+     C           *IN84     IFEQ *OFF
+     C                     SETON                     99
+     C                     MOVELER,8      D9ERR
+     C                     EXSR #SB290
+     C                     MOVEL*BLANK    D3BAR1
+     C                     GOTO ESB300
+     C                     ENDIF
+      *
+      * %0002 END OF CHECK DUPLICATED SCAN TO RETRIEVAL KANBAN
+      **************************************************************
+      *
+     C                     MOVEL*BLANK    W3SHN1  5
+     C                     MOVEL*BLANK    W3SHN2  5
+     C                     MOVEL*BLANK    W3SHN3  2
+     C                     MOVEL*BLANK    W3ABN1  1
+     C                     MOVEL*BLANK    W3ABN2  2
+     C                     MOVEL*BLANK    W3ABN3  2
+     C                     MOVEL*BLANK    W3ABN4  1
+     C                     MOVEL*BLANK    D3ZETI  4
+      *
+      * get part information from PART INFORMATION M/F
+      *
+     C           4         SUBSTD3BAR1:2  D3ZETI
+     C           D3ZETI    CHAINFCETL111             21
+      *
+     C           *IN21     IFEQ *OFF
+     C           A2GSKD    ANDEQ'D'
+     C           A2GSHZ    ANDLE*DATE
+     C                     SETON                     21
+     C                     ENDIF
+      *
+      * part number found and not marked for delete.
+     C           *IN21     IFEQ *OFF
+     C                     MOVELA2BHB1    W3SHN1
+     C                     MOVELA2BHB2    W3SHN2
+     C                     MOVELA2BHB3    W3SHN3
+      *
+     C           A2TRHZ    IFGT WDATE
+      * old location code
+     C                     MOVELA2KTRK    W3ABN1  1
+     C                     MOVELA2KTRT    W3ABN2  2
+     C                     MOVELA2KTRR    W3ABN3  2
+     C                     MOVELA2KTRD    W3ABN4  1
+     C                     ELSE
+      * else new location code
+     C                     MOVELA2STRK    W3ABN1  1
+     C                     MOVELA2STRT    W3ABN2  2
+     C                     MOVELA2STRR    W3ABN3  2
+     C                     MOVELA2STRD    W3ABN4  1
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *-----------------------------------------
+     C* %0002  CHECK STORE IN/OUT STATUS
+      *-----------------------------------------
+  3  C           D3ZETI    IFEQ D1ZETI
+  |  C                     MOVEL*BLANK    @@BARA256
+  |  C                     MOVEL*BLANK    @@BARB256
+  |  C                     MOVEL*BLANK    WORK10 10
+  |  C                     MOVELPOPR      WORK10
+  |  C                     MOVEL*BLANK    TANT20 20
+  |  C                     MOVELPITANT    TANT20
+  |  C*
+  |  C                     CALL 'UEXR16'
+  |  C                     PARM           D3BAR1
+  |  C                     PARM           @@BARA
+  |  C                     PARM           @@BARB
+  |  C*
+  |  C                     PARM           W2TBN1
+  |  C                     PARM           W2TBN2
+  |  C                     PARM           W2TBN3
+  |  C                     PARM           W2TBN4
+  |  C                     PARM           W3SHN1
+  |  C                     PARM           W3SHN2
+  |  C                     PARM           W3SHN3
+  |  C*
+  |  C                     PARM           WORK10
+  |  C                     PARM           TANT20
+  |  C                     PARM           W#PGM
+  |  C                     PARM '2'       P9TYPE  1
+  |  C                     PARM ' '       P9RTN   1
+  |   *
+  |4 C           P9RTN     IFEQ 'N'
+  || C**                   SETON                     9961
+  || **** XXXXXXX                          #XX
+  || C**                   MOVELERR,XX    F4ERR
+  || C**                   MOVELERR,XX    F99ER1
+  || C**                   MOVE 'XX'      F4ERR
+  || C**                   MOVE 'XX'      F99ER1
+  || **** XXXXXXX                          #XX
+  || C**                   MOVELERR,XX    F99ER2
+  || C**                   MOVEL*ON       W@UNME
+  || C**                   MOVEL*ON       W@LOCK
+  |4 C                     ENDIF
+  |  C*
+  3  C                     ENDIF
+      *
+      * check to make sure it's a match.
+     C           D3ZETI    IFEQ D1ZETI
+     C                     MOVEL'OK'      WKOKNG  2
+     C                     MOVE *BLANKS   ERRCOD
+     C                     EXSR #SB500
+     C                     EXSR #SBSTA
+     C                     EXSR #SBUPT
+      * display ok screen...
+     C                     EXFMTALRPW095
+     C                     ELSE
+     C                     MOVEL'NG'      WKOKNG  2
+     C                     MOVE '07'      ERRCOD
+     C                     EXSR #SB500
+     C                     MOVEL*BLANK    D3BAR1
+     C                     SETON                     99
+     C                     MOVELER,7      D9ERR
+     C                     EXSR #SB295
+     C                     EXSR #SB291
+     C                     GOTO ESB300
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    D1BAR1
+     C                     MOVEL*BLANK    D2BAR1
+     C                     MOVEL*BLANK    D3BAR1
+     C                     MOVEL'01'      DSPSW
+      *
+     CSR         ESB300    ENDSR
+      *
+      *----------------------------------------------------*
+      * Call Program to Get Check Digit                    *
+      *----------------------------------------------------*
+     C           GETCDG    BEGSR
+      *
+     C                     CALL 'ALBRCC'
+     C                     PARM           PMAREA100        INPUT DATA
+     C                     PARM           PMBYTE  3        LENGTH
+     C                     PARM           PMCHK   1        CHECKS DIGITS
+     C                     PARM           PMRTCD  1        RETRN CODE
+      *
+     C                     ENDSR
+      *
+      *----------------------------------------------------*
+      * ERROR SCREEN - Display Error on Screen             *
+      *----------------------------------------------------*
+     C           #SB290    BEGSR
+      *
+     C                     WRITEALRPW098
+     C                     EXFMTALRPW099
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * BLANK OUT - Fields for Screen 3.                   *
+      *----------------------------------------------------*
+     C           #SB291    BEGSR
+      *
+     C                     MOVEL*BLANK    W3SHN1
+     C                     MOVEL*BLANK    W3SHN2
+     C                     MOVEL*BLANK    W3SHN3
+     C                     MOVEL*BLANK    W3ABN1
+     C                     MOVEL*BLANK    W3ABN2
+     C                     MOVEL*BLANK    W3ABN3
+     C                     MOVEL*BLANK    W3ABN4
+     C                     MOVEL*BLANK    D3ZETI
+     C                     MOVEL*BLANK    D3BAR1
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * Call Program to Lock Screen.                       *
+      *----------------------------------------------------*
+     C           #SB295    BEGSR
+      *
+     C* ERR CHECK  PASSWORD LOCK
+     C                     Z-ADD2         P1PGM
+     C                     MOVELD9ERR     P1ERR
+     C                     MOVELW#PGM     P1PID
+     C                     MOVELPOPR      P1KOME    P
+     C                     Z-ADD*ZERO     P1DTTM
+     C                     CALL 'AM#R09'
+     C                     PARM           P1PGM   20
+     C                     PARM           P1ERR  25
+     C                     PARM           P1PID  10
+     C                     PARM           P1KOME 10
+     C                     PARM           P1DTTM 140
+      *
+     C                     ENDSR
+      *-----------------------------------------------------------------------*
+      * ALRPP05 - Write Record to P/T Retrieval Scan File                     *
+      *-----------------------------------------------------------------------*
+     C           #SB500    BEGSR
+      *
+      * write to ALRPP05
+     C                     TIME           WTIME
+     C                     CLEARALRPP051
+     C                     Z-ADDWDATE     PTKODT
+     C                     Z-ADDHHMMSS    PTKOTM
+     C                     MOVELW#WSID    PTWSID
+     C                     MOVELW#USER    PTUSER
+     C                     MOVELW#JBNO    PTJOBN
+     C                     MOVELW#PGM     PTKOPG
+     C                     MOVELPOPR      PTWKCD
+     C                     Z-ADDWDATE     PTCODT
+     C                     Z-ADDHHMMSS    PTCOTM
+      *
+      * apics
+     C                     MOVELD1BAR1    PTABAR
+     C                     MOVELW1SHN1    PTAHN1
+     C                     MOVELW1SHN2    PTAHN2
+     C                     MOVELW1SHN3    PTAHN3
+     C                     MOVELD1ZETI    PTAZET
+     C           3         SUBSTD1BAR1:6  PTTEHA
+     C           2         SUBSTD1BAR1:9  PTPAGE
+     C                     MOVELW1TBN1    PTABN1
+     C                     MOVELW1TBN2    PTABN2
+     C                     MOVELW1TBN3    PTABN3
+     C                     MOVELW1TBN4    PTABN4
+      *
+      * location
+     C                     MOVELD2BAR1    PTLBAR
+     C                     MOVELD2ZETI    PTLZET
+     C                     MOVELW2SHN1    PTLHN1
+     C                     MOVELW2SHN2    PTLHN2
+     C                     MOVELW2SHN3    PTLHN3
+     C                     MOVELW2TBN1    PTTBN1
+     C                     MOVELW2TBN2    PTTBN2
+     C                     MOVELW2TBN3    PTTBN3
+     C                     MOVELW2TBN4    PTTBN4
+      *
+      * passthru
+     C                     MOVELD3BAR1    PTPBAR
+     C                     MOVELD3ZETI    PTPZET
+     C                     MOVELW3SHN1    PTPHN1
+     C                     MOVELW3SHN2    PTPHN2
+     C                     MOVELW3SHN3    PTPHN3
+     C                     MOVELW3ABN1    PTPBN1
+     C                     MOVELW3ABN2    PTPBN2
+     C                     MOVELW3ABN3    PTPBN3
+     C                     MOVELW3ABN4    PTPBN4
+      *
+     C           6         SUBSTD3BAR1:6  PTODER
+     C           1         SUBSTD3BAR1:12 PTPRCD
+     C           4         SUBSTD3BAR1:13 PTLOTN
+      *
+     C                     MOVELWKOKNG    PTOKNG
+     C                     MOVELERRCOD    PTERCD
+     C                     WRITEALRPP051
+      *
+     C                     ENDSR
+      *
+      *================================================================
+      * INTRA STOCK UPDATE SUB ROUTINE               *
+      *================================================================
+     C           #SBSTA    BEGSR
+      *
+     C                     MOVEL'0111'    P#BMON  4
+     C                     Z-ADD1         P#HKSU  50
+      *
+     C                     MOVELPTABAR    P#BAR1    P
+      *
+     C                     MOVEL*BLANK    P#QR11
+     C                     MOVEL*BLANK    P#QR12
+      *
+     C                     MOVELPTPBAR    P#BAR2    P
+      *
+     C                     MOVEL*BLANK    P#QR21
+     C                     MOVEL*BLANK    P#QR22
+      *
+     C                     CALL 'STAR00'
+     C                     PARM WDATE     P#TIHZ  80
+     C                     PARM HHMMSS    P#TITI  60
+     C                     PARM           P#BMON  4
+     C                     PARM W2SHN1    P#SHN1  5
+     C                     PARM W2SHN2    P#SHN2  5
+     C                     PARM W2SHN3    P#SHN3  2
+     C                     PARM W2TBN1    P#ATK1  1
+     C                     PARM W2TBN2    P#ATK2  2
+     C                     PARM W2TBN3    P#ATK3  2
+     C                     PARM W2TBN4    P#ATK4  1
+     C                     PARM '2'       P#SYOR  1
+     C                     PARM '2'       P#ZAIK  1        在庫減
+     C                     PARM           P#HKSU  50
+     C                     PARM POPR      P#TMCD 10
+     C                     PARM PITANT    P#TMNM 20
+     C                     PARM W#PGM     P#PGM  10
+     C                     PARM           P#BAR1 20
+     C                     PARM           P#QR11256
+     C                     PARM           P#QR12256
+     C                     PARM           P#BAR2 20
+     C                     PARM           P#QR21256
+     C                     PARM           P#QR22256
+      *
+     C                     ENDSR
+      *================================================================*********
+      * CHECK/REMOVE PT BARCODE IN CV OVRFLOW FILE
+      *================================================================
+     C           #SBUPT    BEGSR
+      *
+     C                     CALL 'ALCR9U'
+     C                     PARM           POPR
+     C                     PARM           P#PGM
+     C                     PARM           P#BAR2
+      *
+     C                     ENDSR
+      *================================================================*********
+      *----------------------------------------------------*
+**
+INPUT LOCATION BARCODE.
+CHECK DIGIT ERROR.
+PARTS MASTER ERROR.
+INPUT APICS KANBAN.
+INVALID LOCATION.
+INPUT P/T KANBAN.
+WRONG KANBAN.
+ALREADY SCANNED.

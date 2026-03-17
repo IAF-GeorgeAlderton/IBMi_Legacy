@@ -1,0 +1,3533 @@
+     ******************************************************************
+     **  プログラム名   :  KANBAN DATA ENTRY                       **
+     **  プログラムＩＤ :  MRHR31     <RPG>                        **
+     **  作成年月日     :  2014/01/29                              **
+     **  作成者         :  TR-ITS                                  **
+     **  プログラム概要 : 試作手配データの登録・再登録を行う     **
+     **--------------------------------------------------------------**
+     **   EDIT  : %0001 2018/10/11  ADD FCEPL03           T.SAKAKI   **
+     ******************************************************************
+     ** <<使用標識説明>>
+     **        03       :前画面・プログラム終了 <F03>
+     **        05       :更新 <F05>
+     **        28       : PAGEUP
+     **        29       : PAGEDOWN
+     **     31～54    :画面共通エラー標識（全画面共通）
+     **     61～68    :画面エラー標識・工程（横軸）
+     **     71～80    :画面エラー標識・工程（縦軸）
+     **     81～90    :画面表示標識・工程
+     **     91～93    :ファイル読込
+     **        96       :登録時オン
+     **        97       :再発行時オン
+     **        98       :ファイル読取異常
+     **        99       :代表エラー標識
+     ******************************************************************
+     H            Y/                                    1
+     **==============================================================**
+     **  ファイル
+     **==============================================================**
+     F*<<かんばんデータ登録>>
+     FMRHPW31 CF  E                    WORKSTN
+     F                                              KINFDS WSDS
+     F*<<試作手配データファイル>>
+     FMRHPL51 UF  E           K        DISK                      A
+     F*<<試作番地マスタ>>
+     FMRHPL11 UF  E           K        DISK
+     FMRHPL12 IF  E           K        DISK
+     F*<<部品情報マスタ>>
+     FMRHPL21 IF  E           K        DISK
+     F*<<工程マスタ>>
+     FMRHPL31 IF  E           K        DISK
+     F*<<細目コード管理マスタ>>
+     FFGBPL01 IF  E           K        DISK
+     F*<<カレンダーマスタ>>
+     FAGDPL12 IF  E           K        DISK
+     F*<<号口部品マスタ>>
+     FFCEPL01 IF  E           K        DISK
+     FFCEPL30 IF  E           K        DISK
+     F*<<工程コードマスタ>>
+%0001FFCETL03 IF  E           K        DISK
+     F*<<構成品工程マスタ>>
+     FAKDPL01 IF  E           K        DISK
+     F*<<焼入れかんばんマスタ>>
+     FADHTL06 IF  E           K        DISK
+     F*<<完成材かんばんマスタ>>
+     FIZAPL01 IF  E           K        DISK
+     F*<<MATERIALS COLOR JUDGMENT M/F>>
+     FCACPL01 IF  E           K        DISK
+     **==============================================================**
+     **  配列
+     **==============================================================**
+     E                    @BM     1   4  9               発行部署名
+     E                    @BN     1   2  2               番地2
+     E                    @AK     1   2  4               追加工程
+     E                    @MS     1  26 53                ERR MSG
+      *工程情報（画面）
+     E                    @D0        10  2 0             工程№
+     E                    @D1        10  4               工程コード
+     E                    @D2        10  4 0             加工工場コード
+     E                    @D3        10  8               加工工場名称
+     E                    @D4        10  3               機番
+     E                    @D5        10  1               箱色コード
+     E                    @D6        10  1               箱種コード
+     E                    @D7        10  6               箱色名称
+     E                    @D8        10  5               箱種名称
+     E                    @D9        10  6 0             工程納期MMDDYY
+     E                    @DA        10 27               工程備考
+      *工程情報（データベース）
+     E                    @K0        15  2 0             工程№
+     E                    @K1        15  4               工程コード
+     E                    @K2        15  4 0             加工工場コード
+     E                    @K3        15  8               加工工場名称
+     E                    @K4        15  3               機番
+     E                    @K5        15  1               箱色コード
+     E                    @K6        15  1               箱種コード
+     E                    @K7        15  6               箱色名称
+     E                    @K8        15  5               箱種名称
+     E                    @K9        15  8 0             工程納期YYYYMMDD
+     E                    @KA        15 27               工程備考
+     E                    @KB        15  8 0             ゲート入YYYYMMDD
+     E                    @KC        15 10               ゲート入作業者
+     E                    @KD        15  8 0             ゲート出YYYYMMDD
+     E                    @KE        15 10               ゲート出作業者
+      *工程情報（自動圧縮用）
+     E                    @W1        15  4               工程コード
+     E                    @W2        15  4 0             加工工場コード
+     E                    @W3        15  8               加工工場名称
+     E                    @W4        15  3               機番
+     E                    @W5        15  1               箱色コード
+     E                    @W6        15  1               箱種コード
+     E                    @W7        15  6               箱色名称
+     E                    @W8        15  5               箱種名称
+     E                    @W9        15  8 0             工程納期YYYYMMDD
+     E                    @WA        15 27               工程備考
+     E                    @WB        15  8 0             ゲート入YYYYMMDD
+     E                    @WC        15 10               ゲート入作業者
+     E                    @WD        15  8 0             ゲート出YYYYMMDD
+     E                    @WE        15 10               ゲート出作業者
+     **==============================================================**
+     **  ＤＳ
+     **==============================================================**
+     I*<<システム情報>>
+     I           SDS
+     I                                     *PROGRAM S@PGID
+     I                                      244 253 S@WSID
+     I                                      254 263 S@USID
+     I                                      264 269 S@JBID
+     I*<<システム日時>>
+     I            DS
+     I                                        1  140S@TIME
+     I                                        1   60S@HMS
+     I                                        1   20S@TMHH
+     I                                        3   40S@TMMM
+     I                                        5   60S@TMSS
+     I                                        7  140S@YYMD
+     I                                        7  100S@DYYY
+     I                                       11  120S@DYMM
+     I                                       13  140S@DYDD
+     I*<<カーソル制御>>
+     IWSDS        DS
+     I                                    B 370 3710S@CUR
+     I                                      370 370 S@LIN
+     I                                      371 371 S@COL
+     I                                    B 378 3790S@POS
+     **--------------------------------------------------------------**
+     I* <<共通>>
+     I            DS
+     I                                        1   80W@SYMD
+     I                                        1   20W@SMM
+     I                                        3   40W@SDD
+     I                                        5   80W@SYY4
+     I            DS
+     I                                        1   8 W@SEL
+     I                                        1   1 W@SEL1
+     I                                        2   2 W@HF
+     I                                        3   8 W@SEL2
+      *画面表示用(MMDDYYYY)
+     I            DS
+     I                                        1   80W@MMDY
+     I                                        1   20W@MMM
+     I                                        3   40W@MDD
+     I                                        5   80W@MYY
+      *画面表示用(MMDDYY)
+     I            DS
+     I                                        1   60W@MDY2
+     I                                        1   20W@MMM2
+     I                                        3   40W@MDD2
+     I                                        5   60W@MYY2
+      *画面表示用(YYYYMMDD)
+     I            DS
+     I                                        1   80W@YYMD
+     I                                        3   80W@YMD
+     I                                        1   40W@YYY
+     I                                        5   60W@YMM
+     I                                        7   80W@YDD
+      *画面表示用(YYMMDD)
+     I            DS
+     I                                        1   60W@YMD2
+     I                                        1   20W@YYY2
+     I                                        3   40W@YMM2
+     I                                        5   60W@YDD2
+      *スクラップ日付(YYYYMMDD)
+     I            DS
+     I                                        1   80W@CYMD
+     I                                        1   40W@CYY
+     I                                        5   60W@CMM
+     I                                        7   80W@CDD
+      *工程4->3桁
+     I            DS
+     I                                        1   4 W@KTCD
+     I                                        1   3 W@KTC1
+     I                                        4   4 W@KTC2
+     **--------------------------------------------------------------**
+     I* <<画面>>
+     I*工程№
+     I            DS
+     I                                        1  200@D0
+     I                                        1   20D4SEQ1
+     I                                        3   40D4SEQ2
+     I                                        5   60D4SEQ3
+     I                                        7   80D4SEQ4
+     I                                        9  100D4SEQ5
+     I                                       11  120D4SEQ6
+     I                                       13  140D4SEQ7
+     I                                       15  160D4SEQ8
+     I                                       17  180D4SEQ9
+     I                                       19  200D4SEQ0
+     I*工程
+     I            DS
+     I                                        1  40 @D1
+     I                                        1   4 D4KTE1
+     I                                        5   8 D4KTE2
+     I                                        9  12 D4KTE3
+     I                                       13  16 D4KTE4
+     I                                       17  20 D4KTE5
+     I                                       21  24 D4KTE6
+     I                                       25  28 D4KTE7
+     I                                       29  32 D4KTE8
+     I                                       33  36 D4KTE9
+     I                                       37  40 D4KTE0
+     I*加工工場コード
+     I            DS
+     I                                        1  400@D2
+     I                                        1   40D4KBM1
+     I                                        5   80D4KBM2
+     I                                        9  120D4KBM3
+     I                                       13  160D4KBM4
+     I                                       17  200D4KBM5
+     I                                       21  240D4KBM6
+     I                                       25  280D4KBM7
+     I                                       29  320D4KBM8
+     I                                       33  360D4KBM9
+     I                                       37  400D4KBM0
+     I*加工工場名
+     I            DS
+     I                                        1  80 @D3
+     I                                        1   8 D4KBN1
+     I                                        9  16 D4KBN2
+     I                                       17  24 D4KBN3
+     I                                       25  32 D4KBN4
+     I                                       33  40 D4KBN5
+     I                                       41  48 D4KBN6
+     I                                       49  56 D4KBN7
+     I                                       57  64 D4KBN8
+     I                                       65  72 D4KBN9
+     I                                       73  80 D4KBN0
+     I*機番
+     I            DS
+     I                                        1  30 @D4
+     I                                        1   3 D4MSN1
+     I                                        4   6 D4MSN2
+     I                                        7   9 D4MSN3
+     I                                       10  12 D4MSN4
+     I                                       13  15 D4MSN5
+     I                                       16  18 D4MSN6
+     I                                       19  21 D4MSN7
+     I                                       22  24 D4MSN8
+     I                                       25  27 D4MSN9
+     I                                       28  30 D4MSN0
+     I*箱色コード
+     I            DS
+     I                                        1  10 @D5
+     I                                        1   1 D4BCC1
+     I                                        2   2 D4BCC2
+     I                                        3   3 D4BCC3
+     I                                        4   4 D4BCC4
+     I                                        5   5 D4BCC5
+     I                                        6   6 D4BCC6
+     I                                        7   7 D4BCC7
+     I                                        8   8 D4BCC8
+     I                                        9   9 D4BCC9
+     I                                       10  10 D4BCC0
+     I*箱種コード
+     I            DS
+     I                                        1  10 @D6
+     I                                        1   1 D4BTC1
+     I                                        2   2 D4BTC2
+     I                                        3   3 D4BTC3
+     I                                        4   4 D4BTC4
+     I                                        5   5 D4BTC5
+     I                                        6   6 D4BTC6
+     I                                        7   7 D4BTC7
+     I                                        8   8 D4BTC8
+     I                                        9   9 D4BTC9
+     I                                       10  10 D4BTC0
+     I*箱色名称
+     I            DS
+     I                                        1  60 @D7
+     I                                        1   6 D4BCN1
+     I                                        7  12 D4BCN2
+     I                                       13  18 D4BCN3
+     I                                       19  24 D4BCN4
+     I                                       25  30 D4BCN5
+     I                                       31  36 D4BCN6
+     I                                       37  42 D4BCN7
+     I                                       43  48 D4BCN8
+     I                                       49  54 D4BCN9
+     I                                       55  60 D4BCN0
+     I*箱種名称
+     I            DS
+     I                                        1  50 @D8
+     I                                        1   5 D4BTN1
+     I                                        6  10 D4BTN2
+     I                                       11  15 D4BTN3
+     I                                       16  20 D4BTN4
+     I                                       21  25 D4BTN5
+     I                                       26  30 D4BTN6
+     I                                       31  35 D4BTN7
+     I                                       36  40 D4BTN8
+     I                                       41  45 D4BTN9
+     I                                       46  50 D4BTN0
+     I*工程納期MMDDYY
+     I            DS
+     I                                        1  600@D9
+     I                                        1   60D4KNH1
+     I                                        7  120D4KNH2
+     I                                       13  180D4KNH3
+     I                                       19  240D4KNH4
+     I                                       25  300D4KNH5
+     I                                       31  360D4KNH6
+     I                                       37  420D4KNH7
+     I                                       43  480D4KNH8
+     I                                       49  540D4KNH9
+     I                                       55  600D4KNH0
+     I*工程備考
+     I            DS
+     I                                        1 270 @DA
+     I                                        1  27 D4KVI1
+     I                                       28  54 D4KVI2
+     I                                       55  81 D4KVI3
+     I                                       82 108 D4KVI4
+     I                                      109 135 D4KVI5
+     I                                      136 162 D4KVI6
+     I                                      163 189 D4KVI7
+     I                                      190 216 D4KVI8
+     I                                      217 243 D4KVI9
+     I                                      244 270 D4KVI0
+      *手配番号
+     I            DS
+     I                                        1   8 D4THI
+     I                                        1   4 D4THI1
+     I                                        5   5 D4THS1
+     I                                        6   8 D4THI2
+      *番地
+     I            DS
+     I                                        1   9 D4BNC
+     I                                        1   1 D4BNC1
+     I                                        2   2 D4BNS1
+     I                                        3   4 D4BNC2
+     I                                        5   5 D4BNS2
+     I                                        6   7 D4BNC3
+     I                                        8   8 D4BNS3
+     I                                        9   9 D4BNC4
+      *社内品番
+     I            DS
+     I                                        1  14 D4SHN
+     I                                        1   5 D4SHN1
+     I                                        6   6 D4SHS1
+     I                                        7  11 D4SHN2
+     I                                       12  12 D4SHS2
+     I                                       13  14 D4SHN3
+      *ユーザー品番
+     I            DS
+     I                                        1  23 D4MHN
+     I                                        1   5 D4MHN1
+     I                                        6   6 D4MHS1
+     I                                        7  11 D4MHN2
+     I                                       12  12 D4MHS2
+     I                                       13  17 D4MHN3
+     I                                       18  18 D4MHS3
+     I                                       19  23 D4MHN4
+      *ブランク品番
+     I            DS
+     I                                        1  14 D4BHN
+     I                                        1   5 D4BHN1
+     I                                        6   6 D4BHS1
+     I                                        7  11 D4BHN2
+     I                                       12  12 D4BHS2
+     I                                       13  14 D4BHN3
+      *構成品1
+     I            DS
+     I                                        1  15 D4KH1
+     I                                        1   5 D4KH11
+     I                                        6   6 D4KS11
+     I                                        7  11 D4KH12
+     I                                       12  12 D4KS12
+     I                                       13  14 D4KH13
+     I                                       15  15 D4KS13
+      *構成品番地1
+     I            DS
+     I                                        1   9 D4KB1
+     I                                        1   1 D4KB11
+     I                                        2   2 D4K111
+     I                                        3   4 D4KB12
+     I                                        5   5 D4K112
+     I                                        6   7 D4KB13
+     I                                        8   8 D4K113
+     I                                        9   9 D4KB14
+      *構成品2
+     I            DS
+     I                                        1  15 D4KH2
+     I                                        1   5 D4KH21
+     I                                        6   6 D4KS21
+     I                                        7  11 D4KH22
+     I                                       12  12 D4KS22
+     I                                       13  14 D4KH23
+     I                                       15  15 D4KS23
+      *構成品番地2
+     I            DS
+     I                                        1   9 D4KB2
+     I                                        1   1 D4KB21
+     I                                        2   2 D4K121
+     I                                        3   4 D4KB22
+     I                                        5   5 D4K122
+     I                                        6   7 D4KB23
+     I                                        8   8 D4K123
+     I                                        9   9 D4KB24
+      *構成品3
+     I            DS
+     I                                        1  15 D4KH3
+     I                                        1   5 D4KH31
+     I                                        6   6 D4KS31
+     I                                        7  11 D4KH32
+     I                                       12  12 D4KS32
+     I                                       13  14 D4KH33
+     I                                       15  15 D4KS33
+      *構成品番地3
+     I            DS
+     I                                        1   9 D4KB3
+     I                                        1   1 D4KB31
+     I                                        2   2 D4K131
+     I                                        3   4 D4KB32
+     I                                        5   5 D4K132
+     I                                        6   7 D4KB33
+     I                                        8   8 D4K133
+     I                                        9   9 D4KB34
+      *構成品4
+     I            DS
+     I                                        1  15 D4KH4
+     I                                        1   5 D4KH41
+     I                                        6   6 D4KS41
+     I                                        7  11 D4KH42
+     I                                       12  12 D4KS42
+     I                                       13  14 D4KH43
+     I                                       15  15 D4KS43
+      *構成品番地4
+     I            DS
+     I                                        1   9 D4KB4
+     I                                        1   1 D4KB41
+     I                                        2   2 D4K141
+     I                                        3   4 D4KB42
+     I                                        5   5 D4K142
+     I                                        6   7 D4KB43
+     I                                        8   8 D4K143
+     I                                        9   9 D4KB44
+      *手配番号
+     I            DS
+     I                                        1   8 D5THI
+     I                                        1   4 D5THI1
+     I                                        5   5 D5THS1
+     I                                        6   8 D5THI2
+      *番地
+     I            DS
+     I                                        1   9 D5BAN
+     I                                        1   1 D5BAN1
+     I                                        2   2 D5BNS1
+     I                                        3   4 D5BAN2
+     I                                        5   5 D5BNS2
+     I                                        6   7 D5BAN3
+     I                                        8   8 D5BNS3
+     I                                        9   9 D5BAN4
+     **--------------------------------------------------------------**
+     I* <<ファイル・削除年月日>>
+      *細目コード管理マスタ(FGBPL01)
+     I            DS
+     I                                        1   80B2SKHZ
+     I                                        1   40B2SKYY
+     I                                        5   60B2SKMM
+     I                                        7   80B2SKDD
+      *完成材かんばんマスタ(IZAPL01)
+     I            DS
+     I                                        1   80ZCSKHZ
+     I                                        1   40ZCSKYY
+     I                                        5   60ZCSKMM
+     I                                        7   80ZCSKDD
+      *完成材かんばんマスタ(IZAPL01)
+     I            DS
+     I                                        1   80ZCSTHZ
+     I                                        1   40ZCSTYY
+     I                                        5   60ZCSTMM
+     I                                        7   80ZCSTDD
+      *号口部品マスタ(FCEPL01)
+     I            DS
+     I                                        1   80A2GSHZ
+     I                                        1   40A2GSYY
+     I                                        5   60A2GSMM
+     I                                        7   80A2GSDD
+      *
+     I            DS
+     I                                        1  12 D2SHN
+     I                                        1   5 D2SHN1
+     I                                        6  10 D2SHN2
+     I                                       11  12 D2SHN3
+      *
+     I            DS
+     I                                        1   80J6STHZ
+     I                                        1   40J6STYY
+     I                                        5   60J6STMM
+     I                                        7   80J6STDD
+     **==============================================================**
+     **  パラメータ
+     **==============================================================**
+     C* <<日付変換　6桁⇒8桁(DATR00) >>
+     C           P1DA00    PLIST
+     C                     PARM           P1ZYMD  6        *日付6桁YYMMDD
+     C                     PARM           P1KYMD  8        *日付8桁YYYYMMD
+     C* <<箱色・名称獲得サブルーチン(MRHR39) >>
+     C           P2MR39    PLIST
+     C                     PARM           P2SKBN  1        *処理区分
+     C                     PARM           P2BKNO  20       *前工程№
+     C                     PARM           P2BKTI  3        *前工程
+     C                     PARM           P2JKTI  3        *自工程
+     C                     PARM           P2JBMN  4        *自工程部門
+     C                     PARM           P2AKTI  3        *次工程
+     C                     PARM           P2AKKB  3        *後工程機番
+     C                     PARM           P2BCCD  1        *箱色コード
+     C                     PARM           P2BCNM  6        *箱色名称
+     C                     PARM           P2RTCD  1        *リターンコード
+     C* <<箱色・名称獲得サブルーチン(MRHR39) >>
+     C           P2MR37    PLIST
+     C                     PARM           P2SKBN  1        *処理区分
+     C                     PARM           P2BKNO  20       *前工程№
+     C                     PARM           P2BKTI  3        *前工程
+     C                     PARM           P2JKTI  3        *自工程
+     C                     PARM           P2JBMN  4        *自工程部門
+     C                     PARM           P2AKTI  3        *次工程
+     C                     PARM           P2CKTI  3        *次々工程
+     C                     PARM           P2AKKB  3        *後工程機番
+     C                     PARM           P2BCCD  1        *箱色コード
+     C                     PARM           P2BCNM  6        *箱色名称
+     C                     PARM           P2RTCD  1        *リターンコード
+     C* <<手配番号獲得サブルーチン(MRHR38) >>
+     C           P3MR38    PLIST
+     C                     PARM           P3SHN1  5        *社内品番1
+     C                     PARM           P3SHN2  5        *社内品番2
+     C                     PARM           P3SHN3  2        *社内品番3
+     C                     PARM           P3THI1  4        *手配番号1
+     C                     PARM           P3THI2  3        *手配番号2
+     C                     PARM           P3LPHZ  80       *前回手配発行日
+     C                     PARM           P3RTCD  1        *リターンコード
+     **==============================================================**
+     **  ＫＥＹ
+     **==============================================================**
+     C* <<試作手配データファイル(MRHPL51) >>
+     C           STKEY1    KLIST
+     C                     KFLD           STTHI1           *手配№　絶対番号
+     C                     KFLD           STTHI2           *手配№　連番
+     C*
+     C           STKEY2    KLIST
+     C                     KFLD           STTHI1           *手配№　絶対番号
+     C                     KFLD           STTHI2           *手配№　連番
+     C                     KFLD           STGRHZ           *登録作業　年月日
+     C                     KFLD           STGRTM           *登録作業　時分秒
+     C* <<試作番地マスタ(MRHPL11) >>
+     C           SAKEY1    KLIST
+     C                     KFLD           SBBAN1           *番地 1
+     C                     KFLD           SBBAN2           *番地 2
+     C                     KFLD           SBBAN3           *番地 3
+     C                     KFLD           SBBAN4           *番地 4
+     C* <<試作番地マスタ(MRHPL12) >>
+     C           SAKEY2    KLIST
+     C                     KFLD           SBHIN1           *品番1
+     C                     KFLD           SBHIN2           *品番2
+     C                     KFLD           SBHIN3           *品番3
+     C* <<部品情報マスタ(MRHPL21) >>
+     C           EAKEY     KLIST
+     C                     KFLD           EASHN1           *社内品番１
+     C                     KFLD           EASHN2           *社内品番２
+     C                     KFLD           EASHN3           *社内品番３
+     C                     KFLD           EASEHI           *製品区分
+     C                     KFLD           EATEHI           *手配区分
+     C* <<工程マスタ(MRHPL31) >>
+     C           EBKEY     KLIST
+     C                     KFLD           EBJHN1           *完成品番１
+     C                     KFLD           EBJHN2           *完成品番２
+     C                     KFLD           EBJHN3           *完成品番３
+     C                     KFLD           EBSEHI           *製品区分
+     C                     KFLD           EBTEHI           *手配区分
+     C* <<細目コード管理マスタ(FGBPL01) >>
+     C           B2KEY     KLIST
+     C                     KFLD           B2CODE           *細目コード
+     C* <<カレンダーマスタ(AGDPL12) >>
+     C           F8KEY     KLIST
+     C                     KFLD           F8KAYY           *年
+     C                     KFLD           F8KAMM           *月
+     C                     KFLD           F8KADD           *日
+     C* <<号口部品マスタ(FCEPL01) >>
+     C           A2KEY     KLIST
+     C                     KFLD           A2BHB1           *社内品番１
+     C                     KFLD           A2BHB2           *社内品番２
+     C                     KFLD           A2BHB3           *社内品番３
+     C* <<構成品工程マスタ(AKDPL01) >>
+     C           M2KEY     KLIST
+     C                     KFLD           M2JHN1           *構成品品番１
+     C                     KFLD           M2JHN2           *構成品品番２
+     C                     KFLD           M2JHN3           *構成品品番３
+     C* <<完成材かんばんマスタ(IZAPL01) >>
+     C           ZCKEY     KLIST
+     C                     KFLD           ZCZAIS           *材質
+     C                     KFLD           ZCZAIK           *材経
+     C* <<材質色コード判断マスタ(CACPL01) >>
+     C           C1KEY     KLIST
+     C                     KFLD           C1ZACD           *材質コード
+     **==============================================================**
+     **  メインルーチン
+     **==============================================================**
+      *
+      *---<初期処理>---*
+     C                     EXSR #INIT
+      *
+      *---<主処理>---*
+     C           W@NEXT    DOUEQ'END  '                    ¬DO_01
+      * G1
+     C           W@NEXT    CASEQ'SET10'   #SET10           ~¬CAS
+     C           W@NEXT    CASEQ'PNL10'   #PNL10            |
+     C           W@NEXT    CASEQ'CHK10'   #CHK10            |
+      * G2
+     C           W@NEXT    CASEQ'SET20'   #SET20            |
+     C           W@NEXT    CASEQ'PNL20'   #PNL20            |
+     C           W@NEXT    CASEQ'CHK20'   #CHK20            |
+      * G3
+     C           W@NEXT    CASEQ'SET30'   #SET30            |
+     C           W@NEXT    CASEQ'PNL30'   #PNL30            |
+     C           W@NEXT    CASEQ'CHK30'   #CHK30            |
+      * G4
+     C           W@NEXT    CASEQ'INZ40'   #INZ40            |
+     C           W@NEXT    CASEQ'SET40'   #SET40            |
+     C           W@NEXT    CASEQ'PNL40'   #PNL40            |
+     C           W@NEXT    CASEQ'CHK40'   #CHK40            |
+      * DBOUT
+     C           W@NEXT    CASEQ'DBOUT'   #DBOUT            |
+      * G5
+     C           W@NEXT    CASEQ'SET50'   #SET50            |
+     C           W@NEXT    CASEQ'PNL50'   #PNL50            |
+     C                     END                             _｢CAS
+      *
+     C                     END                             ｢DO_01
+      *
+      *---<終了処理>---*
+     C                     SETON                     LR
+     C                     RETRN
+      *
+      **************************************************************************
+      *         Ｓ　Ｕ　Ｂ　－　Ｒ　Ｏ　Ｕ　Ｔ　Ｉ　Ｎ　Ｅ
+      **************************************************************************
+      *-------------------------------------------------------------------------
+      *          #INIT    初期処理
+      *-------------------------------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C                     TIME           S@TIME
+     C                     Z-ADDS@DYMM    W@SMM
+     C                     Z-ADDS@DYDD    W@SDD
+     C                     Z-ADDS@DYYY    W@SYY4
+     C                     Z-ADDW@SYMD    D1SYMD           * SYSTEM DATE
+      *
+     C                     MOVEL'S'       W@SEHI  1        *製品区分
+     C                     MOVEL'S'       W@TEHI  1        *手配区分
+      *
+     C                     MOVEL*BLANK    D1SELC           *更新区分
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'SET10'   W@NEXT  5
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #SET10   第一画面(G1) 項目セット処理
+      *-------------------------------------------------------------------------
+     C           #SET10    BEGSR
+      *
+     C                     SETOF                     9697
+     C                     SETOF                     31
+     C                     SETOF                     99
+      *
+     C                     MOVEL*BLANK    D4INSP           *データ要否
+     C                     MOVEL*BLANK    D4HNL1           *HN L1
+     C                     MOVEL*BLANK    D4HNL2           *HN L2
+     C                     MOVEL*BLANK    D4HNL3           *HN L3
+     C                     MOVEL*BLANK    D4HNL4           *HN L4
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'PNL10'   W@NEXT           G1-PNL
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #PNL10   第一画面(G1) 表示処理
+      *-------------------------------------------------------------------------
+     C           #PNL10    BEGSR
+      *
+     C                     MOVEL*BLANK    D4INSP           *データ要否
+     C                     MOVEL*BLANK    D4HNL1           * HN LOC1
+     C                     MOVEL*BLANK    D4HNL2           * HN LOC2
+     C                     MOVEL*BLANK    D4HNL3           * HN LOC3
+     C                     MOVEL*BLANK    D4HNL4           * HN LOC4
+     C                     EXFMTMRHPW311
+      *
+     C                     SETOF                     9697
+     C                     SETOF                     31
+     C                     SETOF                     99
+     C                     MOVEL*BLANK    D1EMSG           * ERR MSG
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'CHK10'   W@NEXT
+      * CF03
+     C           *IN01     IFEQ '1'                        ¬IF_01
+     C                     MOVEL'END  '   W@NEXT
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CHK10   第一画面(G1) チェック処理
+      *-------------------------------------------------------------------------
+     C           #CHK10    BEGSR
+      *
+     C                     MOVEL*BLANK    W@THI1  4        *手配番号1
+     C                     MOVEL*BLANK    W@THI2  3        *手配番号2
+     C                     Z-ADD*ZERO     W@TGHZ  80       *手配番号登録日
+     C                     Z-ADD*ZERO     W@TGTM  60       *手配番号登録時間
+      *<更新区分>
+     C           D1SELC    IFNE 'A'                        ¬IF_01
+     C           D1SELC    ANDNE'B'
+     C  N99                MOVEL@MS,01    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     3199
+      *
+     C                     ELSE                            +ELSE_01
+     C                     SELEC                           ~¬SELEC_01
+     C           D1SELC    WHEQ 'A'                        -+WHEN_01
+     C                     SETON                     96    * NEW ISSUE
+     C           D1SELC    WHEQ 'B'                        -+WHEN_01
+     C                     SETON                     97    * REPEAT ISSUE
+     C                     END                             _｢SELEC_01
+     C                     END                             ｢IF_01
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'PNL10'   W@NEXT
+     C           *IN99     IFEQ '0'                        ¬IF_01
+     C                     SELEC                           ~¬SELEC_01
+     C           D1SELC    WHEQ 'A'                        -+WHEN_01
+     C                     MOVEL'SET20'   W@NEXT
+     C           D1SELC    WHEQ 'B'                        -+WHEN_01
+     C                     MOVEL'SET30'   W@NEXT
+     C                     END                             _｢SELEC_01
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #SET20   第二画面(G2) 項目セット処理
+      *-------------------------------------------------------------------------
+     C           #SET20    BEGSR
+      *
+     C                     Z-ADDW@SYMD    D2SYMD           * SYSTEM DATE
+      *
+     C                     SETOF                     323334
+     C                     SETOF                     353637
+     C                     SETOF                     383940
+     C                     SETOF                     4155
+      *
+     C                     MOVEL*BLANK    D2DVKB           *発行部署
+     C                     MOVEL*BLANK    D2DPNM           *発行依頼者
+     C                     Z-ADD*ZERO     D2TOKU           *ユーザーコード
+     C                     MOVEL*BLANK    D2TKNM           * CUSTOMER NAME
+     C                     MOVEL*BLANK    D2SHN1           *社内品番1
+     C                     MOVEL*BLANK    D2SHN2           *社内品番2
+     C                     MOVEL*BLANK    D2SHN3           *社内品番3
+     C                     MOVEL*BLANK    D2MHN1           *ユーザー品番1
+     C                     MOVEL*BLANK    D2MHN2           *ユーザー品番2
+     C                     MOVEL*BLANK    D2MHN3           *ユーザー品番3
+     C                     MOVEL*BLANK    D2MHN4           *ユーザー品番4
+     C                     Z-ADD*ZERO     D2SISU           *生産数量
+     C                     Z-ADD*ZERO     D2THSU           *手配数量
+     C                     Z-ADD*ZERO     D2NOHZ           *納期
+     C                     MOVEL*BLANK    D2BHN1           *ブランク品番1
+     C                     MOVEL*BLANK    D2BHN2           *ブランク品番2
+     C                     MOVEL*BLANK    D2BHN3           *ブランク品番3
+     C                     MOVEL*BLANK    D2THMK           *手配目的
+     C                     MOVEL*BLANK    D2VIKO           *備考
+     C                     MOVEL*BLANK    D4INSP           *データ要否
+     C                     MOVEL*BLANK    D4HNL1           *HN L1
+     C                     MOVEL*BLANK    D4HNL2           *HN L2
+     C                     MOVEL*BLANK    D4HNL3           *HN L3
+     C                     MOVEL*BLANK    D4HNL4           *HN L4
+     C                     MOVEL*BLANK    SVSHN  12
+      * NEXT-CONTROL
+     C                     MOVEL'PNL20'   W@NEXT           G2-PNL
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #PNL20   第二画面(G2) 表示処理
+      *-------------------------------------------------------------------------
+     C           #PNL20    BEGSR
+      *
+     C                     EXFMTMRHPW312
+      *
+     C                     SETOF                     323334
+     C                     SETOF                     353637
+     C                     SETOF                     383940
+     C                     SETOF                     4155
+     C                     SETOF                     99
+     C                     MOVEL*BLANK    D2EMSG           * ERR MSG
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'CHK20'   W@NEXT
+      * CF03
+     C           *IN03     IFEQ '1'                        ¬IF_01
+     C                     MOVEL'PNL10'   W@NEXT
+     C                     END                             ｢IF_01
+      * CF10
+     C           *IN10     IFEQ '1'                        ¬IF_01
+     C**                   CALL 'FGBR30'
+JW   C                     CALL 'INQC17'
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CHK20   第二画面(G2) チェック処理
+      *-------------------------------------------------------------------------
+     C           #CHK20    BEGSR
+      *<発行部署>
+     C           D2DVKB    IFEQ *BLANK                     ¬IF_01
+     C  N99                MOVEL@MS,02    D2EMSG    P      * ERR MSG
+     C  N99                SETON                     3299
+     C                     ELSE                            +ELSE_01
+     C           D2DVKB    IFNE '1'                        ~¬IF_02
+     C           D2DVKB    ANDNE'2'
+     C           D2DVKB    ANDNE'3'
+     C           D2DVKB    ANDNE'4'
+     C  N99                MOVEL@MS,03    D2EMSG    P      * ERR MSG
+     C  N99                SETON                     3299
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *<発行依頼者> *ノーチェック
+      *
+      *<ユーザーコード>
+     C           D2TOKU    IFEQ *ZERO                      ¬IF_01
+     C  N99                MOVEL@MS,02    D2EMSG    P      * ERR MSG
+     C  N99                SETON                     3399
+     C                     ELSE                            +ELSE_01
+      *細目コード管理マスタ(FGBPL01)
+     C                     Z-ADDD2TOKU    B2CODE           *細目コード
+     C           B2KEY     CHAINFGBPL011             92
+     C           *IN92     IFEQ '1'                        ~¬IF_02
+     C  N99                MOVEL@MS,04    D2EMSG    P      * ERR MSG
+     C  N99                SETON                     3399
+      *
+     C                     ELSE                            -+ELSE_02
+      *削除済み
+     C           B2SKJY    IFEQ 'D'                        ~~¬IF_03
+     C           B2SKHZ    ANDLES@YYMD
+     C  N99                MOVEL@MS,05    D2EMSG    P      * ERR MSG
+     C  N99                SETON                     3399
+     C                     END                             __｢IF_03
+     C                     MOVELB2SMEI    D2TKNM           *
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *<社内品番>
+     C           D2SHN1    IFEQ *BLANK                     ¬IF_01
+     C           D2SHN2    ANDEQ*BLANK
+     C           D2SHN3    ANDEQ*BLANK
+     C  N99                MOVEL@MS,02    D2EMSG    P      * ERR MSG
+     C  N99                SETON                     3499
+     C                     ELSE                            +ELSE_01
+      *部品情報マスタ(MRHPL21)
+     C                     MOVELD2SHN1    EASHN1           *社内品番１
+     C                     MOVELD2SHN2    EASHN2           *社内品番２
+     C                     MOVELD2SHN3    EASHN3           *社内品番３
+     C                     MOVELW@SEHI    EASEHI           *製品区分
+     C                     MOVELW@TEHI    EATEHI           *手配区分
+     C           EAKEY     CHAINMRHPL211             92
+     C           *IN92     IFEQ '1'                        ~¬IF_02
+     C  N99                MOVEL@MS,04    D2EMSG    P      * ERR MSG
+     C  N99                SETON                     3499
+     C                     ELSE                            -+ELSE_02
+      *削除済み
+     C           EAGSJY    IFEQ 'D'                        ~~¬IF_03
+     C           EAGSHZ    ANDLES@YYMD
+     C  N99                MOVEL@MS,06    D2EMSG    P      * ERR MSG
+     C  N99                SETON                     3499
+     C                     END                             __｢IF_03
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *<生産数量>
+     C           D2SISU    IFEQ *ZERO                      ¬IF_01
+     C  N99                MOVEL@MS,02    D2EMSG    P      * ERR MSG
+     C  N99                SETON                     3699
+     C                     ELSE                            +ELSE_01
+      *箱数=総生産数/収容数（切上）
+     C                     Z-ADD*ZERO     W@SHKS           *箱数（総生産数）
+     C                     Z-ADD*ZERO     W@MVR            *余り
+     C           EASSYS    IFNE *ZERO                      ¬IF_01
+     C           D2SISU    DIV  EASSYS    W@SHKS           *箱数（総生産数）
+     C                     MVR            W@MVR            *余り
+     C           W@MVR     IFNE *ZERO                      ~¬IF_02
+     C                     ADD  1         W@SHKS           *箱数（総生産数）
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *
+     C           W@SHKS    IFGT 16                         ~¬IF_02
+     C  N99                MOVEL@MS,07    D2EMSG    P      * ERR MSG
+     C  N99                SETON                     3699
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *<手配数量>
+     C           D2THSU    IFEQ *ZERO                      ¬IF_01
+     C  N99                MOVEL@MS,02    D2EMSG    P      * ERR MSG
+     C  N99                SETON                     3799
+     C                     ELSE                            +ELSE_01
+     C           D2THSU    IFGT D2SISU                     ~¬IF_02
+     C  N99                MOVEL@MS,08    D2EMSG    P      * ERR MSG
+     C  N99                SETON                     3799
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *<納期>
+     C                     Z-ADDD2NOHZ    W@YYMD
+     C*                    Z-ADDD2NOHZ    W@MMDY
+     C*                    EXSR #CMTY                      *日付変換MDY->YMD
+      *ゼロエラー
+     C           D2NOHZ    IFEQ *ZERO                      ¬IF_01
+     C  N99                MOVEL@MS,02    D2EMSG    P      * ERR MSG
+     C  N99                SETON                     3899
+     C                     ELSE                            +ELSE_01
+      *カレンダーマスタ(AGDPL12)
+     C                     Z-ADDW@YYY     F8KAYY           *年
+     C                     Z-ADDW@YMM     F8KAMM           *月
+     C                     Z-ADDW@YDD     F8KADD           *日
+     C           F8KEY     CHAINAGDPL121             92
+     C           *IN92     IFEQ '1'                        ~¬IF_02
+     C  N99                MOVEL@MS,09    D2EMSG    P      * ERR MSG
+     C  N99                SETON                     3899
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *<備考>
+     C           D2THMK    IFEQ *BLANK                     ¬IF_01
+     C  N99                MOVEL@MS,02    D2EMSG    P      * ERR MSG
+     C  N99                SETON                     4099
+     C                     END                             +ELSE_01
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'PNL20'   W@NEXT
+     C           *IN99     IFEQ '0'                        ¬IF_01
+     C                     MOVEL'INZ40'   W@NEXT
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #SET30   第三画面(G3) 項目セット処理
+      *-------------------------------------------------------------------------
+     C           #SET30    BEGSR
+      *
+     C                     Z-ADDW@SYMD    D3SYMD           * SYSTEM DATE
+      *
+     C                     SETOF                     42
+      *
+     C                     MOVEL*BLANK    D3THI1           *手配番号1
+     C                     MOVEL*BLANK    D3THI2           *手配番号2
+     C                     MOVEL*BLANK    D2SHN1           *社内品番1
+     C                     MOVEL*BLANK    D2SHN2           *社内品番2
+     C                     MOVEL*BLANK    D2SHN3           *社内品番3
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'PNL30'   W@NEXT           G3-PNL
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #PNL30   第三画面(G3) 表示処理
+      *-------------------------------------------------------------------------
+     C           #PNL30    BEGSR
+      *
+     C*                    MOVEL*BLANK    D4INSP           *データ要否
+     C                     MOVEL*BLANK    D4HNL1           *HN L1
+     C                     MOVEL*BLANK    D4HNL2           *HN L2
+     C                     MOVEL*BLANK    D4HNL3           *HN L3
+     C                     MOVEL*BLANK    D4HNL4           *HN L4
+     C                     EXFMTMRHPW313
+      *
+     C                     SETOF                     42
+     C                     SETOF                     99
+     C                     MOVEL*BLANK    D3EMSG           * ERR MSG
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'CHK30'   W@NEXT
+      * CF03
+     C           *IN03     IFEQ '1'                        ¬IF_01
+     C                     MOVEL'PNL10'   W@NEXT
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CHK30   第二画面(G3) チェック処理
+      *-------------------------------------------------------------------------
+     C           #CHK30    BEGSR
+      *
+     C                     MOVEL*BLANK    W@THI1           *手配番号1
+     C                     MOVEL*BLANK    W@THI2           *手配番号2
+     C                     Z-ADD*ZERO     W@TGHZ           *手配番号登録日
+     C                     Z-ADD*ZERO     W@TGTM           *手配番号登録時間
+      *<手配番号>
+     C           D3THI1    IFEQ *BLANK                     ¬IF_01
+     C           D3THI2    ANDEQ*BLANK
+     C  N99                MOVEL@MS,02    D3EMSG    P      * ERR MSG
+     C  N99                SETON                     4299
+     C                     ELSE                            +ELSE_01
+     C*試作手配データファイル(MRHPL51)
+     C                     MOVELD3THI1    STTHI1           *手配№　絶対番号
+     C                     MOVELD3THI2    STTHI2           *手配№　連番
+     C           STKEY1    SETGTMRHPL511
+     C           STKEY1    REDPEMRHPL511            N    91
+     C           *IN91     IFEQ '1'                        ~¬IF_02
+     C  N99                MOVEL@MS,04    D3EMSG    P      * ERR MSG
+     C  N99                SETON                     4299
+      *
+     C                     ELSE                            -+ELSE_02
+     C           STGSJY    IFEQ 'D'                        ~~¬IF_03
+     C           STGSHZ    ANDLES@YYMD
+     C  N99                MOVEL@MS,04    D3EMSG    P      * ERR MSG
+     C  N99                SETON                     4299
+      *
+     C                     ELSE                            --+ELSE_03
+     C                     MOVELSTTHI1    W@THI1           *手配番号1
+     C                     MOVELSTTHI2    W@THI2           *手配番号2
+     C                     Z-ADDSTGRHZ    W@TGHZ           *手配番号登録日
+     C                     Z-ADDSTGRTM    W@TGTM           *手配番号登録時間
+     C                     END                             __｢IF_03
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'PNL30'   W@NEXT
+     C           *IN99     IFEQ '0'                        ¬IF_01
+     C                     MOVEL'INZ40'   W@NEXT
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #INZ40   第四画面(G4) 項目　初期処理
+      *-------------------------------------------------------------------------
+     C           #INZ40    BEGSR
+      *
+     C                     Z-ADDW@SYMD    D4SYMD           * SYSTEM DATE
+      *
+     C                     MOVEL*BLANK    W@ZAIS 15        *材質
+     C                     Z-ADD*ZERO     W@ZAIK  52       *材経
+      *
+     C                     Z-ADD*ZERO     W@SSYS  70       *部品・収容数
+      *
+     C                     MOVEL*BLANK    W@GBN1  1        *号口番地1
+     C                     MOVEL*BLANK    W@GBN2  2        *号口番地2
+     C                     MOVEL*BLANK    W@GBN3  2        *号口番地3
+     C                     MOVEL*BLANK    W@GBN4  1        *号口番地4
+      *
+     C                     MOVEL*BLANK    W@SBN1  1        *サービス番地1
+     C                     MOVEL*BLANK    W@SBN2  2        *サービス番地2
+     C                     MOVEL*BLANK    W@SBN3  2        *サービス番地3
+     C                     MOVEL*BLANK    W@SBN4  1        *サービス番地4
+      *<画面項目初期化>
+     C                     SETOF                     434445
+     C                     SETOF                     464748
+     C                     SETOF                     4956
+     C                     SETOF                     515253*構成品ER-FLG
+     C                     SETOF                     54
+     C                     SETOF                     5058
+     C                     SETOF                     616263*工程ER-FLG
+     C                     SETOF                     646566
+     C                     SETOF                     676869
+     C                     SETOF                     717273*工程ER-FLG
+     C                     SETOF                     747576
+     C                     SETOF                     777879
+     C                     SETOF                     80
+     C                     SETOF                     818283*工程表示FLG
+     C                     SETOF                     848586
+     C                     SETOF                     878889
+     C                     SETOF                     90
+      *
+     C                     MOVEL*BLANK    D4DVKB           *発行部署
+     C                     MOVEL*BLANK    D4DVNM           *発行部署名
+     C                     MOVEL*BLANK    D4DPNM           *発行依頼者
+     C                     MOVEL*BLANK    D4BAN1           *番地1
+     C                     MOVEL*BLANK    D4BAN2           *番地2
+     C                     MOVEL*BLANK    D4BAN3           *番地3
+     C                     MOVEL*BLANK    D4BAN4           *番地4
+     C                     MOVEL*BLANK    D4THI            *手配番号
+     C                     MOVEL*BLANK    D4BNC            *番地
+     C                     MOVEL*BLANK    D4SHN            *社内品番
+     C                     MOVEL*BLANK    D4MHN            *ユーザー品番
+     C                     Z-ADD*ZERO     D4TOKU           *ユーザーコード
+     C                     MOVEL*BLANK    D4TKNM           *ユーザー名称
+     C                     MOVEL*BLANK    D4BHN            *ブランク品番
+     C                     Z-ADD*ZERO     D4SISU           *総生産数量
+     C                     Z-ADD*ZERO     D4THSU           *手配数量
+     C                     Z-ADD*ZERO     D4NOHZ           *納期
+     C                     MOVEL*BLANK    D4THMK           *手配目的
+     C*                    MOVEL*BLANK    D4INSP           *データ要否
+     C                     MOVEL*BLANK    D4HNL1           * HN LOC1
+     C                     MOVEL*BLANK    D4HNL2           * HN LOC2
+     C                     MOVEL*BLANK    D4HNL3           * HN LOC3
+     C                     MOVEL*BLANK    D4HNL4           * HN LOC4
+     C                     MOVEL*BLANK    D4KH1            *構成品1
+     C                     MOVEL*BLANK    D4KB1            *構成品番地1
+     C                     Z-ADD*ZERO     D4WHZ1           *構成品納期1
+     C                     MOVEL*BLANK    D4KH2            *構成品2
+     C                     MOVEL*BLANK    D4KB2            *構成品番地2
+     C                     Z-ADD*ZERO     D4WHZ2           *構成品納期2
+     C                     MOVEL*BLANK    D4KH3            *構成品3
+     C                     MOVEL*BLANK    D4KB3            *構成品番地3
+     C                     Z-ADD*ZERO     D4WHZ3           *構成品納期3
+     C                     MOVEL*BLANK    D4KH4            *構成品4
+     C                     MOVEL*BLANK    D4KB4            *構成品番地4
+     C                     Z-ADD*ZERO     D4WHZ4           *構成品納期4
+     C                     Z-ADD*ZERO     D4KTHZ           *型納期
+     C                     Z-ADD*ZERO     D4ZRHZ           *材料納期
+     C                     Z-ADD*ZERO     D4BOXQ           *手配箱
+     C                     Z-ADD*ZERO     D4CONQ           *収容数
+      *ハイド
+     C                     MOVEL*BLANK    H4BAN1           *番地1
+     C                     MOVEL*BLANK    H4BAN2           *番地2
+     C                     MOVEL*BLANK    H4BAN3           *番地3
+     C                     MOVEL*BLANK    H4BAN4           *番地4
+     C                     Z-ADD*ZERO     H4WHZ1           *構成品納期1
+     C                     Z-ADD*ZERO     H4WHZ2           *構成品納期2
+     C                     Z-ADD*ZERO     H4WHZ3           *構成品納期3
+     C                     Z-ADD*ZERO     H4WHZ4           *構成品納期4
+     C                     Z-ADD*ZERO     H4KTHZ           *型納期
+     C                     Z-ADD*ZERO     H4ZRHZ           *材料納期
+     C                     MOVEL*BLANK    H4VIKO           *備考
+     C                     Z-ADD*ZERO     H4BRHZ           *中断日
+     C                     MOVEL*BLANK    H4BRMK           *中断理由
+     C                     Z-ADD*ZERO     H4NKHZ           *入庫日
+     C                     MOVEL*BLANK    H4FFLG           *完了フラグ
+     C                     Z-ADD*ZERO     H4PCHZ           * PCCS戻り日
+     C                     MOVEL*BLANK    H4ZBN1           *材料番地1
+     C                     MOVEL*BLANK    H4ZBN2           *材料番地2
+     C                     MOVEL*BLANK    H4ZBN3           *材料番地3
+     C                     MOVEL*BLANK    H4ZBN4           *材料番地4
+      *ハイフン
+      *手配番号
+     C           *IN97     IFEQ '1'                        ¬IF_01
+     C                     MOVEL'-'       D4THS1           *手配番号線1
+      **番地
+     C                     MOVEL'-'       D4BNS1           *番地線1
+     C                     MOVEL'-'       D4BNS2           *番地線2
+     C                     MOVEL'-'       D4BNS3           *番地線3
+     C                     END                             ｢IF_01
+      **社内品番
+     C                     MOVEL'-'       D4SHS1           *社内品番線1
+     C                     MOVEL'-'       D4SHS2           *社内品番線2
+      **ユーザー品番
+     C                     MOVEL'-'       D4MHS1           *ユーザー品番線1
+     C                     MOVEL'-'       D4MHS2           *ユーザー品番線2
+     C                     MOVEL'-'       D4MHS3           *ユーザー品番線3
+      **ブランク品番
+     C                     MOVEL'-'       D4BHS1           *ブランク品番
+     C                     MOVEL'-'       D4BHS2           *ブランク品番
+      **構成品番地
+     C                     MOVEL'-'       D4K111           *構成品番地線
+     C                     MOVEL'-'       D4K112           *構成品番地線
+     C                     MOVEL'-'       D4K113           *構成品番地線
+     C                     MOVEL'-'       D4K121           *構成品番地線
+     C                     MOVEL'-'       D4K122           *構成品番地線
+     C                     MOVEL'-'       D4K123           *構成品番地線
+     C                     MOVEL'-'       D4K131           *構成品番地線
+     C                     MOVEL'-'       D4K132           *構成品番地線
+     C                     MOVEL'-'       D4K133           *構成品番地線
+     C                     MOVEL'-'       D4K141           *構成品番地線
+     C                     MOVEL'-'       D4K142           *構成品番地線
+     C                     MOVEL'-'       D4K143           *構成品番地線
+      **構成品
+     C                     MOVEL'-'       D4KS11           *構成品1線1
+     C                     MOVEL'-'       D4KS12           *構成品1線2
+     C                     MOVEL':'       D4KS13           *構成品1 ':'
+     C                     MOVEL'-'       D4KS21           *構成品2線1
+     C                     MOVEL'-'       D4KS22           *構成品2線2
+     C                     MOVEL':'       D4KS23           *構成品2 ':'
+     C                     MOVEL'-'       D4KS31           *構成品3線1
+     C                     MOVEL'-'       D4KS32           *構成品3線2
+     C                     MOVEL':'       D4KS33           *構成品3 ':'
+     C                     MOVEL'-'       D4KS41           *構成品4線1
+     C                     MOVEL'-'       D4KS42           *構成品4線2
+     C                     MOVEL':'       D4KS43           *構成品4 ':'
+      *
+     C           D2SHN     IFNE SVSHN
+     C           D2SHN     OREQ *BLANK
+      *工程情報
+     C                     CLEAR@D0                        *工程№
+     C                     CLEAR@D1                        *工程コード
+     C                     CLEAR@D2                        *加工工場コード
+     C                     CLEAR@D3                        *加工工場名称
+     C                     CLEAR@D4                        *機番
+     C                     CLEAR@D5                        *箱色コード
+     C                     CLEAR@D6                        *箱種コード
+     C                     CLEAR@D7                        *箱色名称
+     C                     CLEAR@D8                        *箱種名称
+     C                     CLEAR@D9                        *工程納期MMDDYY
+     C                     CLEAR@DA                        *工程備考
+      *
+     C                     CLEAR@K0                        *工程№
+     C                     CLEAR@K1                        *工程コード
+     C                     CLEAR@K2                        *加工工場コード
+     C                     CLEAR@K3                        *加工工場名称
+     C                     CLEAR@K4                        *機番
+     C                     CLEAR@K5                        *箱色コード
+     C                     CLEAR@K6                        *箱種コード
+     C                     CLEAR@K7                        *箱色名称
+     C                     CLEAR@K8                        *箱種名称
+     C                     CLEAR@K9                        *工程納期YYYYMMDD
+     C                     CLEAR@KA                        *工程備考
+      *
+     C                     ENDIF
+      *<項目獲得>
+      * NEW ISSUE
+     C           *IN96     IFEQ '1'                        ¬IF_01
+     C                     EXSR #INZ41                     * NEW ISSUE INIT-SET
+     C                     END                             ｢IF_01
+      * RE-ISSUE
+     C           *IN97     IFEQ '1'                        ¬IF_01
+     C                     EXSR #INZ42                     * RE-ISSUE INIT-SET
+     C                     END                             ｢IF_01
+      *
+      *共通（マスタ最新値獲得）
+      **構成品番地1
+     C           D4KH11    IFNE *BLANK                     ¬IF_01
+     C           D4KH12    ORNE *BLANK
+     C           D4KH13    ORNE *BLANK
+     C*構成品工程マスタ(AKDPL01)
+     C                     MOVELD4KH11    M2JHN1           *構成品品番１
+     C                     MOVELD4KH12    M2JHN2           *構成品品番２
+     C                     MOVELD4KH13    M2JHN3           *構成品品番３
+     C           M2KEY     SETGTAKDPL011
+     C           M2KEY     REDPEAKDPL011                 92
+     C           *IN92     IFEQ '0'                        ~¬IF_02
+     C                     MOVELM2MBN1    D4KB11           *構成品番地1-1
+     C                     MOVELM2MBN2    D4KB12           *構成品番地1-2
+     C                     MOVELM2MBN3    D4KB13           *構成品番地1-3
+     C                     MOVELM2MBN4    D4KB14           *構成品番地1-4
+     C                     ELSE
+     C           M2KEY     SETGTADHTL011
+     C           M2KEY     REDPEADHTL011                 92
+     C           *IN92     IFEQ '0'                        ~~¬IF_03
+     C           J6SKJY    ANDEQ*BLANK                     ~~¬IF_03
+     C           J6STHZ    ANDEQ99999999                   ~~¬IF_03
+     C                     MOVELJ6ATK1    D4KB11           *構成品番地1-1
+     C                     MOVELJ6ATK2    D4KB12           *構成品番地1-2
+     C                     MOVELJ6ATK3    D4KB13           *構成品番地1-3
+     C                     MOVELJ6ATK4    D4KB14           *構成品番地1-4
+     C                     END                             __｢IF_03
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      **構成品番地2
+     C           D4KH21    IFNE *BLANK                     ¬IF_01
+     C           D4KH22    ORNE *BLANK
+     C           D4KH23    ORNE *BLANK
+     C*構成品工程マスタ(AKDPL01)
+     C                     MOVELD4KH21    M2JHN1           *構成品品番１
+     C                     MOVELD4KH22    M2JHN2           *構成品品番２
+     C                     MOVELD4KH23    M2JHN3           *構成品品番３
+     C           M2KEY     SETGTAKDPL011
+     C           M2KEY     REDPEAKDPL011                 92
+     C           *IN92     IFEQ '0'                        ~¬IF_02
+     C                     MOVELM2MBN1    D4KB21           *構成品番地2-1
+     C                     MOVELM2MBN2    D4KB22           *構成品番地2-2
+     C                     MOVELM2MBN3    D4KB23           *構成品番地2-3
+     C                     MOVELM2MBN4    D4KB24           *構成品番地2-4
+     C                     ELSE
+     C           M2KEY     SETGTADHTL011
+     C           M2KEY     REDPEADHTL011                 92
+     C           *IN92     IFEQ '0'                        ~~¬IF_03
+     C           J6SKJY    ANDEQ*BLANK                     ~~¬IF_03
+     C           J6STHZ    ANDEQ99999999                   ~~¬IF_03
+     C                     MOVELJ6ATK1    D4KB21           *構成品番地1-1
+     C                     MOVELJ6ATK2    D4KB22           *構成品番地1-2
+     C                     MOVELJ6ATK3    D4KB23           *構成品番地1-3
+     C                     MOVELJ6ATK4    D4KB24           *構成品番地1-4
+     C                     END                             __｢IF_03
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      **構成品番地3
+     C           D4KH31    IFNE *BLANK                     ¬IF_01
+     C           D4KH32    ORNE *BLANK
+     C           D4KH33    ORNE *BLANK
+     C*構成品工程マスタ(AKDPL01)
+     C                     MOVELD4KH31    M2JHN1           *構成品品番１
+     C                     MOVELD4KH32    M2JHN2           *構成品品番２
+     C                     MOVELD4KH33    M2JHN3           *構成品品番３
+     C           M2KEY     SETGTAKDPL011
+     C           M2KEY     REDPEAKDPL011                 92
+     C           *IN92     IFEQ '0'                        ~¬IF_02
+     C                     MOVELM2MBN1    D4KB31           *構成品番地3-1
+     C                     MOVELM2MBN2    D4KB32           *構成品番地3-2
+     C                     MOVELM2MBN3    D4KB33           *構成品番地3-3
+     C                     MOVELM2MBN4    D4KB34           *構成品番地3-4
+     C                     ELSE
+     C           M2KEY     SETGTADHTL011
+     C           M2KEY     REDPEADHTL011                 92
+     C           *IN92     IFEQ '0'                        ~~¬IF_03
+     C           J6SKJY    ANDEQ*BLANK                     ~~¬IF_03
+     C           J6STHZ    ANDEQ99999999                   ~~¬IF_03
+     C                     MOVELJ6ATK1    D4KB31           *構成品番地3-1
+     C                     MOVELJ6ATK2    D4KB32           *構成品番地3-2
+     C                     MOVELJ6ATK3    D4KB33           *構成品番地3-3
+     C                     MOVELJ6ATK4    D4KB34           *構成品番地3-4
+     C                     END                             __｢IF_03
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      **構成品番地4
+     C           D4KH41    IFNE *BLANK                     ¬IF_01
+     C           D4KH42    ORNE *BLANK
+     C           D4KH43    ORNE *BLANK
+     C*構成品工程マスタ(AKDPL01)
+     C                     MOVELD4KH41    M2JHN1           *構成品品番１
+     C                     MOVELD4KH42    M2JHN2           *構成品品番２
+     C                     MOVELD4KH43    M2JHN3           *構成品品番３
+     C           M2KEY     SETGTAKDPL011
+     C           M2KEY     REDPEAKDPL011                 92
+     C           *IN92     IFEQ '0'                        ~¬IF_02
+     C                     MOVELM2MBN1    D4KB41           *構成品番地4-1
+     C                     MOVELM2MBN2    D4KB42           *構成品番地4-2
+     C                     MOVELM2MBN3    D4KB43           *構成品番地4-3
+     C                     MOVELM2MBN4    D4KB44           *構成品番地4-4
+     C                     ELSE
+     C           M2KEY     SETGTADHTL011
+     C           M2KEY     REDPEADHTL011                 92
+     C           *IN92     IFEQ '0'                        ~~¬IF_03
+     C           J6SKJY    ANDEQ*BLANK                     ~~¬IF_03
+     C           J6STHZ    ANDEQ99999999                   ~~¬IF_03
+     C                     MOVELJ6ATK1    D4KB41           *構成品番地3-1
+     C                     MOVELJ6ATK2    D4KB42           *構成品番地3-2
+     C                     MOVELJ6ATK3    D4KB43           *構成品番地3-3
+     C                     MOVELJ6ATK4    D4KB44           *構成品番地3-4
+     C                     END                             __｢IF_03
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      **材料番地
+     C           W@ZAIS    IFNE *BLANK                     ¬IF_01
+     C           W@ZAIK    ORNE *ZERO
+     C*完成材かんばんマスタ(IZAPL01)
+     C                     MOVELW@ZAIS    ZCZAIS           *材質
+     C                     Z-ADDW@ZAIK    ZCZAIK           *材経
+     C           ZCKEY     SETGTIZAPL011
+     C           ZCKEY     REDPEIZAPL011                 92
+     C           *IN92     DOWEQ'0'                        ~¬IF_02
+     C*          ZCSKJY    IFEQ 'D'                        ~~¬IF_03
+     C*          ZCSKHZ    ANDLES@YYMD
+     C           ZCSTHZ    IFLE S@YYMD
+      ** （処理無し）
+     C                     ELSE                            --+ELSE_03
+     C                     MOVELZCADR1    H4ZBN1           *材料番地1
+     C                     MOVELZCADR2    H4ZBN2           *材料番地2
+     C                     MOVELZCADR3    H4ZBN3           *材料番地3
+     C                     MOVELZCADR4    H4ZBN4           *材料番地4
+     C                     LEAVE
+     C                     END                             __｢IF_03
+     C           ZCKEY     REDPEIZAPL011                 92
+     C                     ENDDO                           _｢IF_02
+     C                     END                             ｢IF_01
+      *<工程表示用>
+     C                     Z-ADD1         W@PAGE  20       *ページ数
+     C*
+      * NEXT-CONTROL
+     C                     MOVEL'SET40'   W@NEXT
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #INZ41   第四画面(G4) 項目　初期処理 NEW ISSUE時
+      *-------------------------------------------------------------------------
+     C           #INZ41    BEGSR
+      *<画面項目>
+     C                     MOVELD2DVKB    D4DVKB           *発行部署
+     C                     MOVELD2DPNM    D4DPNM           *発行依頼者
+      *
+     C                     SELEC                           ¬SELEC_01
+     C           D4DVKB    WHEQ '1'                        +WHEN_01
+     C                     MOVEL@BM,1     D4DVNM           *発行部署名
+     C           D4DVKB    WHEQ '2'                        +WHEN_01
+     C                     MOVEL@BM,2     D4DVNM           *発行部署名
+     C*                    MOVEL@BN,1     D4BAN2           *番地2
+     C           D4DVKB    WHEQ '3'                        +WHEN_01
+     C                     MOVEL@BM,3     D4DVNM           *発行部署名
+     C*                    MOVEL@BN,2     D4BAN2           *番地2
+     C           D4DVKB    WHEQ '4'                        +WHEN_01
+     C                     MOVEL@BM,4     D4DVNM           *発行部署名
+     C                     ENDSL                           ｢SELEC_01
+      *号口部品マスタ(FCEPL01)
+     C                     MOVELD2SHN1    A2BHB1           *社内品番１
+     C                     MOVELD2SHN2    A2BHB2           *社内品番２
+     C                     MOVELD2SHN3    A2BHB3           *社内品番３
+     C           A2KEY     CHAINFCEPL011             92
+     C           *IN92     IFEQ '0'                        ~¬IF_01
+     C           A2GSKD    IFEQ 'D'                        ~~¬IF_02
+     C           A2GSHZ    ANDLES@YYMD
+      ** （処理無し）
+     C                     ELSE                            --+ELSE_02
+     C                     MOVELA2STRK    D4BAN1           *番地1
+     C                     MOVELA2STRT    D4BAN2           *番地2
+     C                     MOVELA2STRR    D4BAN3           *番地3
+     C                     MOVELA2STRD    D4BAN4           *番地4
+     C                     MOVELD4BAN1    W@GBN1           *号口番地1
+     C                     MOVELD4BAN2    W@GBN2           *号口番地2
+     C                     MOVELD4BAN3    W@GBN3           *号口番地3
+     C                     MOVELD4BAN4    W@GBN4           *号口番地4
+     C*入力補助解除
+     C                     MOVEL*BLANK    D4BAN1           *番地1
+     C                     MOVEL*BLANK    D4BAN2           *番地2
+     C                     MOVEL*BLANK    D4BAN3           *番地3
+     C                     MOVEL*BLANK    D4BAN4           *番地4
+     C                     END                             __｢IF_02
+     C                     END                             _｢IF_01
+      *サービス番地
+     C           A2KEY     CHAINFCEPP301             92
+     C           *IN92     IFEQ '0'                        ~¬IF_01
+     C           F3GSKD    IFEQ 'D'                        ~~¬IF_02
+     C           F3GSDT    ANDLES@YYMD
+      ** （処理無し）
+     C                     ELSE                            --+ELSE_02
+     C                     MOVELF3STRK    D4BAN1           *番地1
+     C                     MOVELF3STRT    D4BAN2           *番地2
+     C                     MOVELF3STRR    D4BAN3           *番地3
+     C                     MOVELF3STRD    D4BAN4           *番地4
+     C                     MOVELD4BAN1    W@SBN1           *サービス番地1
+     C                     MOVELD4BAN2    W@SBN2           *サービス番地2
+     C                     MOVELD4BAN3    W@SBN3           *サービス番地3
+     C                     MOVELD4BAN4    W@SBN4           *サービス番地4
+     C*入力補助解除
+     C                     MOVEL*BLANK    D4BAN1           *番地1
+     C                     MOVEL*BLANK    D4BAN2           *番地2
+     C                     MOVEL*BLANK    D4BAN3           *番地3
+     C                     MOVEL*BLANK    D4BAN4           *番地4
+     C                     ENDIF                           __｢IF_02
+     C                     ENDIF                           _｢IF_01
+      *
+      *
+     C                     MOVELD2SHN1    D4SHN1           *社内品番1
+     C                     MOVELD2SHN2    D4SHN2           *社内品番2
+     C                     MOVELD2SHN3    D4SHN3           *社内品番3
+      *
+     C                     MOVELD2MHN1    D4MHN1           *ユーザー品番1
+     C                     MOVELD2MHN2    D4MHN2           *ユーザー品番2
+     C                     MOVELD2MHN3    D4MHN3           *ユーザー品番3
+     C                     MOVELD2MHN4    D4MHN4           *ユーザー品番4
+      *
+     C                     Z-ADDD2TOKU    D4TOKU           *ユーザーコード
+      *細目コード管理マスタ(FGBPL01)
+     C                     Z-ADDD2TOKU    B2CODE           *細目コード
+     C           B2KEY     CHAINFGBPL011             92
+     C           *IN92     IFEQ '0'                        ¬IF_01
+     C           B2SKJY    IFEQ 'D'                        ~¬IF_02
+     C           B2SKHZ    ANDLES@YYMD
+      ** （処理無し）
+     C                     ELSE                            -+ELSE_02
+     C                     MOVELB2SMEI    D4TKNM           *ユーザー名称
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *
+     C                     MOVELD2BHN1    D4BHN1           *ブランク品番
+     C                     MOVELD2BHN2    D4BHN2           *ブランク品番
+     C                     MOVELD2BHN3    D4BHN3           *ブランク品番
+      *
+     C                     Z-ADDD2SISU    D4SISU           *総生産数量
+     C                     Z-ADDD2THSU    D4THSU           *手配数量
+     C                     Z-ADDD2NOHZ    D4NOHZ           *納期
+     C                     MOVELD2THMK    D4THMK           *手配目的
+      *
+      *部品情報マスタ(MRHPL21)
+     C                     MOVELD4SHN1    EASHN1           *社内品番１
+     C                     MOVELD4SHN2    EASHN2           *社内品番２
+     C                     MOVELD4SHN3    EASHN3           *社内品番３
+     C                     MOVELW@SEHI    EASEHI           *製品区分
+     C                     MOVELW@TEHI    EATEHI           *手配区分
+     C           EAKEY     CHAINMRHPL211             92
+     C           *IN92     IFEQ '0'                        ¬IF_01
+     C           EAGSJY    IFEQ 'D'                        ~¬IF_02
+     C           EAGSHZ    ANDLES@YYMD
+      ** （処理無し）
+     C                     ELSE                            -+ELSE_02
+      **構成品1
+     C                     MOVELEAKH11    D4KH11           *構成品1-1
+     C                     MOVELEAKH12    D4KH12           *構成品1-2
+     C                     MOVELEAKH13    D4KH13           *構成品1-3
+      **構成品2
+     C                     MOVELEAKH21    D4KH21           *構成品2-1
+     C                     MOVELEAKH22    D4KH22           *構成品2-2
+     C                     MOVELEAKH23    D4KH23           *構成品2-3
+      **構成品3
+     C                     MOVELEAKH31    D4KH31           *構成品3-1
+     C                     MOVELEAKH32    D4KH32           *構成品3-2
+     C                     MOVELEAKH33    D4KH33           *構成品3-3
+      **構成品4
+     C                     MOVELEAKH41    D4KH41           *構成品4-1
+     C                     MOVELEAKH42    D4KH42           *構成品4-2
+     C                     MOVELEAKH43    D4KH43           *構成品4-3
+      **材料情報
+     C                     MOVELEAZANM    W@ZAIS           *材質
+     C                     Z-ADDEAKAZI    W@ZAIK           *材経
+     C                     Z-ADDEASSYS    W@SSYS           *部品・収容数
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+     C           W@SSYS    IFNE *ZERO                      ¬IF_01
+     C           D4SISU    DIV  W@SSYS    D4BOXQ           *箱数（総生産数）
+     C                     MVR            ABC     50
+     C           ABC       IFNE 0
+     C                     ADD  1         D4BOXQ
+     C                     ENDIF
+     C                     ENDIF
+     C                     Z-ADDW@SSYS    D4CONQ           *収容数
+      *<ハイド項目>
+     C                     MOVELD4BAN1    H4BAN1           *番地1
+     C                     MOVELD4BAN2    H4BAN2           *番地2
+     C                     MOVELD4BAN3    H4BAN3           *番地3
+     C                     MOVELD4BAN4    H4BAN4           *番地4
+     C                     MOVELD2VIKO    H4VIKO           *備考
+      *
+     C           D2SHN     IFEQ SVSHN
+     C                     GOTO EINZ41
+     C                     ENDIF
+      *<工程情報>
+     C                     Z-ADD*ZERO     IX      20       *自工程
+     C                     Z-ADD*ZERO     IA      20       *後工程
+     C                     Z-ADD*ZERO     IB      20       *前工程
+     C                     Z-ADD*ZERO     IC      20       *後々工程
+     C                     Z-ADD*ZERO     IT      20       *追加工程セット用
+     C                     Z-ADD*ZERO     W@KMX1  20       *最終工程№
+     C                     Z-ADD*ZERO     W@KMX2  20       *最終工程№追加含
+     C           D4SHN1    IFNE *BLANK                     ¬IF_01
+     C           D4SHN2    ORNE *BLANK
+     C           D4SHN3    ORNE *BLANK
+      *工程マスタ(MRHPL31)
+     C                     MOVELD4SHN1    EBJHN1           *社内品番１
+     C                     MOVELD4SHN2    EBJHN2           *社内品番２
+     C                     MOVELD4SHN3    EBJHN3           *社内品番３
+     C                     MOVELW@SEHI    EBSEHI           *製品区分
+     C                     MOVELW@TEHI    EBTEHI           *手配区分
+     C           EBKEY     SETLLMRHPL311
+     C           EBKEY     READEMRHPL311                 93
+      *
+     C           *IN93     DOWEQ'0'                        ~¬DO_01
+     C           IX        ANDLT15
+     C           EBGSKD    IFEQ 'D'                        ~~¬IF_02
+     C           EBGSHZ    ANDLES@YYMD
+      ** （処理無し）
+     C                     ELSE                            --+ELSE_02
+     C                     ADD  1         IX               *自工程
+     C                     MOVELEBMKTE    @K1,IX           *工程コード
+     C                     Z-ADDEBMBMN    @K2,IX           *加工工場コード
+      *細目コード管理マスタ(FGBPL01)
+     C                     Z-ADDEBMBMN    B2CODE           *細目コード
+     C           B2KEY     CHAINFGBPL011             92
+     C           *IN92     IFEQ '0'                        ~~~¬IF_03
+     C           B2SKJY    IFEQ 'D'                        ~~~~¬IF_04
+     C           B2SKHZ    ANDLES@YYMD
+      ** （処理無し）
+     C                     ELSE                            ----+ELSE_04
+     C                     MOVELB2SMEI    @K3,IX           *加工工場名称
+     C                     END                             ____｢IF_04
+     C                     END                             ___｢IF_03
+      *
+     C                     MOVELEBMSNO    @K4,IX           *機番
+      *
+     C                     MOVEL*BLANK    @K5,IX           *箱色コード
+     C                     MOVEL'C'       @K6,IX           *箱種コード
+     C                     MOVEL*BLANK    @K7,IX           *箱色名称
+     C                     MOVEL'BOX'     @K8,IX           *箱種名称
+     C                     Z-ADD*ZERO     @K9,IX           *工程納期YYYYMMDD
+     C                     MOVEL*BLANK    @KA,IX           *備考
+     C                     Z-ADDEBKSEQ    W@KMX1           最終工程№
+     C                     END                             __｢IF_02
+     C           EBKEY     READEMRHPL311                 93
+     C                     END                             _｢DO_01
+     C                     END                             ｢IF_01
+      *
+      **最終工程追加(INSP/SORT)
+     C           IX        DOWLT15                         ¬DO_01
+     C           IT        ANDLT2
+     C                     ADD  1         IX               *自工程
+     C                     ADD  1         IT               *追加工程セット用
+     C                     MOVEL@AK,IT    @K1,IX           *工程コード
+     C                     Z-ADD111       @K2,IX           *加工工場コード
+     C                     MOVEL*BLANK    @K3,IX           *加工工場名称
+     C                     MOVEL*BLANK    @K4,IX           *機番
+     C                     MOVEL*BLANK    @K5,IX           *箱色コード
+     C                     MOVEL'C'       @K6,IX           *箱種コード
+     C                     MOVEL*BLANK    @K7,IX           *箱色名称
+     C                     MOVEL'BOX'     @K8,IX           *箱種名称
+     C                     Z-ADD*ZERO     @K9,IX           *工程納期YYYYMMDD
+     C                     MOVEL*BLANK    @KA,IX           *備考
+     C                     Z-ADD*ZERO     @KB,IX           *ゲート入YYYYMMDD
+     C                     MOVEL*BLANK    @KC,IX           *ゲート入作業者
+     C                     Z-ADD*ZERO     @KD,IX           *ゲート出YYYYMMDD
+     C                     MOVEL*BLANK    @KE,IX           *ゲート出作業者
+     C                     Z-ADDIX        W@KMX2           *最終工程№追加含
+     C                     END                             ｢DO_01
+      **箱情報セット
+     C                     Z-ADD*ZERO     IX               *自工程
+      *
+     C           IX        DOWLTW@KMX1                     ¬DO_01
+     C                     ADD  1         IX               *自工程
+     C           IX        ADD  1         IA               *後工程
+     C           IX        SUB  1         IB               *前工程
+     C           IX        ADD  2         IC               *後々工程
+      *
+      *箱色・名称獲得サブルーチン(MRHR39)
+      **箱色ロジックは三桁のため、四桁の場合は送付対象としない
+     C                     MOVEL*BLANK    P2SKBN           *処理区分
+      *
+     C                     Z-ADDIB        P2BKNO           *前工程№
+     C                     MOVEL*BLANK    W@KTCD           *前工程コード
+     C           IB        IFGE 1                          ~¬IF_01
+     C                     MOVEL@K1,IB    W@KTCD           *前工程コード
+     C           W@KTC2    IFNE *BLANK                     ~~¬IF_02
+     C                     MOVEL*BLANK    W@KTCD           *前工程コード
+     C                     END                             __｢IF_02
+     C                     END                             _｢IF_01
+     C                     MOVELW@KTC1    P2BKTI           *前工程コード
+      *
+     C                     MOVEL*BLANK    W@KTCD           *自工程コード
+     C                     MOVEL*BLANK    W@JBMN  4        *自工程コード
+     C           IX        IFGE 1                          ~¬IF_01
+     C                     MOVEL@K1,IX    W@KTCD           *自工程コード
+     C                     MOVEL@K2,IX    W@JBMN           *自工程コード
+     C           W@KTC2    IFNE *BLANK                     ~~¬IF_02
+     C                     MOVEL*BLANK    W@KTCD           *自工程コード
+     C                     MOVEL*BLANK    W@JBMN           *自工程コード
+     C                     END                             __｢IF_02
+     C                     END                             _｢IF_01
+     C                     MOVELW@KTC1    P2JKTI           *自工程
+     C                     MOVELW@JBMN    P2JBMN           *自工程
+      *
+     C                     MOVEL*BLANK    W@KTCD           *後工程コード
+     C                     MOVEL*BLANK    W@AKKB  3        *後工程機番
+     C           IA        IFLE 15                         ~¬IF_01
+     C                     MOVEL@K1,IA    W@KTCD           *後工程コード
+     C                     MOVEL@K4,IA    W@AKKB           *後工程機番
+     C           W@KTC2    IFNE *BLANK                     ~~¬IF_02
+     C                     MOVEL*BLANK    W@KTCD           *後工程コード
+     C                     END                             __｢IF_02
+     C                     END                             _｢IF_01
+     C                     MOVELW@KTC1    P2AKTI           *次工程
+     C                     MOVELW@AKKB    P2AKKB           *後工程機番
+      *
+     C                     MOVEL*BLANK    W@KTCD           *後工程コード
+     C           IC        IFLE 15                         ~¬IF_01
+     C                     MOVEL@K1,IC    W@KTCD           *後工程コード
+     C           W@KTC2    IFNE *BLANK                     ~~¬IF_02
+     C                     MOVEL*BLANK    W@KTCD           *後工程コード
+     C                     END                             __｢IF_02
+     C                     END                             _｢IF_01
+     C                     MOVELW@KTC1    P2CKTI           *次工程
+      *
+     C                     MOVEL*BLANK    P2BCCD           *箱色コード
+     C                     MOVEL*BLANK    P2BCNM           *箱色名称
+     C                     MOVEL*BLANK    P2RTCD           *リターンコード
+     C                     CALL 'MRHR37'  P2MR37
+      *
+     C           P2RTCD    IFEQ *BLANK                     ~¬IF_01
+     C                     MOVELP2BCCD    @K5,IX           *箱色コード
+     C                     MOVELP2BCNM    @K7,IX           *箱色名称
+     C                     END                             _｢IF_01
+      *
+     C           @K1,IX    IFEQ 'JC '
+     C           @K2,IX    ANDEQ111
+     C           @K2,IA    ANDNE111                        ~¬IF_01
+     C                     MOVEL'O'       @K5,IX           *箱色コード
+     C                     MOVEL'ORANGE'  @K7,IX           *箱色名称
+     C                     END                             _｢IF_01
+      *
+     C                     END                             ｢DO_01
+      *
+     C           EINZ41    ENDSR
+      *-------------------------------------------------------------------------
+      *          #INZ42   第四画面(G4) 項目　初期処理 REPEAT ISSUE時
+      *-------------------------------------------------------------------------
+     C           #INZ42    BEGSR
+      *
+      *試作手配データファイル(MRHPL51)
+     C                     MOVELW@THI1    STTHI1           *手配№　絶対番号
+     C                     MOVELW@THI2    STTHI2           *手配№　連番
+     C                     Z-ADDW@TGHZ    STGRHZ           *登録作業　年月日
+     C                     Z-ADDW@TGTM    STGRTM           *登録作業　時分秒
+     C           STKEY2    SETLLMRHPL511
+     C                     EXSR #RED10
+      *
+     C           *IN91     IFEQ '0'                        ¬IF_01
+      *<画面項目>
+     C                     MOVELSTDVKB    D4DVKB           *発行部署
+     C                     MOVELSTDVNM    D4DVNM           *発行部署名
+     C                     MOVELSTDPNM    D4DPNM           *発行依頼者
+      *
+      *手配番号採番
+     C                     MOVEL*BLANK    D4THI1           *手配番号1
+     C                     MOVEL*BLANK    D4THI2           *手配番号2
+     C                     MOVELSTSHN1    P3SHN1           *社内品番1
+     C                     MOVELSTSHN2    P3SHN2           *社内品番2
+     C                     MOVELSTSHN3    P3SHN3           *社内品番3
+     C                     CALL 'MRHR38'  P3MR38
+     C           P3RTCD    IFEQ *BLANK                     ~¬IF_02
+     C                     MOVELP3THI1    D4THI1           *手配番号1
+     C                     MOVELP3THI2    D4THI2           *手配番号2
+     C                     END                             _｢IF_02
+      *
+     C                     MOVELSTBAN1    D4BNC1           *番地1
+     C                     MOVELSTBAN2    D4BNC2           *番地2
+     C                     MOVELSTBAN3    D4BNC3           *番地3
+     C                     MOVELSTBAN4    D4BNC4           *番地4
+      *
+     C                     MOVELSTSHN1    D4SHN1           *社内品番1
+     C                     MOVELSTSHN2    D4SHN2           *社内品番2
+     C                     MOVELSTSHN3    D4SHN3           *社内品番3
+      *
+     C                     MOVELSTMHN1    D4MHN1           *ユーザー品番1
+     C                     MOVELSTMHN2    D4MHN2           *ユーザー品番2
+     C                     MOVELSTMHN3    D4MHN3           *ユーザー品番3
+     C                     MOVELSTMHN4    D4MHN4           *ユーザー品番4
+      *
+     C                     Z-ADDSTTOKU    D4TOKU           *ユーザーコード
+     C                     MOVELSTTKNM    D4TKNM           *ユーザー名称
+      *
+     C                     MOVELSTBHN1    D4BHN1           *ブランク品番
+     C                     MOVELSTBHN2    D4BHN2           *ブランク品番
+     C                     MOVELSTBHN3    D4BHN3           *ブランク品番
+      *
+     C                     Z-ADDSTSISU    D4SISU           *総生産数量
+     C                     Z-ADDSTTHSU    D4THSU           *手配数量
+      *
+     C                     Z-ADDSTNOHZ    W@YYMD
+     C*                    EXSR #CYTM                      *日付変換YMD->MDY
+     C*                    Z-ADDW@MMDY    D4NOHZ           *納期MDYY
+     C                     Z-ADDW@YYMD    D4NOHZ           * YYYMMDD
+      *
+     C                     MOVELSTTHMK    D4THMK           *手配目的
+      **構成品1
+     C                     MOVELSTKH11    D4KH11           *構成品1-1
+     C                     MOVELSTKH12    D4KH12           *構成品1-2
+     C                     MOVELSTKH13    D4KH13           *構成品1-3
+      **構成品2
+     C                     MOVELSTKH21    D4KH21           *構成品2-1
+     C                     MOVELSTKH22    D4KH22           *構成品2-2
+     C                     MOVELSTKH23    D4KH23           *構成品2-3
+      **構成品3
+     C                     MOVELSTKH31    D4KH31           *構成品3-1
+     C                     MOVELSTKH32    D4KH32           *構成品3-2
+     C                     MOVELSTKH33    D4KH33           *構成品3-3
+      **構成品4
+     C                     MOVELSTKH41    D4KH41           *構成品4-1
+     C                     MOVELSTKH42    D4KH42           *構成品4-2
+     C                     MOVELSTKH43    D4KH43           *構成品4-3
+      *
+     C                     Z-ADDSTWHZ1    W@YYMD
+     C                     EXSR #CYTM                      *日付変換YMD->MDY
+     C                     Z-ADDW@YYMD    D4WHZ1           *構成品納期1 MDY
+     C*                    Z-ADDW@MDY2    D4WHZ1           *構成品納期1 MDY
+     C                     Z-ADDSTWHZ1    H4WHZ1           *構成品納期1 YYMD
+      *
+     C                     Z-ADDSTWHZ2    W@YYMD
+     C                     EXSR #CYTM                      *日付変換YMD->MDY
+     C                     Z-ADDW@YYMD    D4WHZ2           *構成品納期2 MDY
+     C*                    Z-ADDW@MDY2    D4WHZ2           *構成品納期2 MDY
+     C                     Z-ADDSTWHZ2    H4WHZ2           *構成品納期2 YYMD
+      *
+     C                     Z-ADDSTWHZ3    W@YYMD
+     C                     EXSR #CYTM                      *日付変換YMD->MDY
+     C                     Z-ADDW@YYMD    D4WHZ3           *構成品納期3 MDY
+     C*                    Z-ADDW@MDY2    D4WHZ3           *構成品納期3 MDY
+     C                     Z-ADDSTWHZ3    H4WHZ3           *構成品納期3 YYMD
+      *
+     C                     Z-ADDSTWHZ4    W@YYMD
+     C                     EXSR #CYTM                      *日付変換YMD->MDY
+     C                     Z-ADDW@YYMD    D4WHZ4           *構成品納期4 MDY
+     C*                    Z-ADDW@MDY2    D4WHZ4           *構成品納期4 MDY
+     C                     Z-ADDSTWHZ4    H4WHZ4           *構成品納期4 YYMD
+      *
+     C                     Z-ADDSTKTHZ    W@YYMD
+     C                     EXSR #CYTM                      *日付変換YMD->MDY
+     C                     Z-ADDW@YYMD    D4KTHZ           *型納期MDY
+     C*                    Z-ADDW@MDY2    D4KTHZ           *型納期MDY
+     C                     Z-ADDSTKTHZ    H4KTHZ           *型納期YYMD
+      *
+     C                     Z-ADDSTZRHZ    W@YYMD
+     C                     EXSR #CYTM                      *日付変換YMD->MDY
+     C                     Z-ADDW@YYMD    D4ZRHZ           *材料納期MDY
+     C*                    Z-ADDW@MDY2    D4ZRHZ           *材料納期MDY
+     C                     Z-ADDSTZRHZ    H4ZRHZ           *材料納期YYMD
+      *
+     C                     MOVELSTINSP    D4INSP           *データ要否
+     C                     MOVELSTHNL1    D4HNL1           *HN LOC1
+     C                     MOVELSTHNL2    D4HNL2           *HN LOC1
+     C                     MOVELSTHNL3    D4HNL3           *HN LOC1
+     C                     MOVELSTHNL4    D4HNL4           *HN LOC1
+      *<ハイド項目>
+     C                     MOVELD4BNC1    H4BAN1           *番地1
+     C                     MOVELD4BNC2    H4BAN2           *番地2
+     C                     MOVELD4BNC3    H4BAN3           *番地3
+     C                     MOVELD4BNC4    H4BAN4           *番地4
+     C                     MOVELSTVIKO    H4VIKO           *備考
+      **材料情報
+      *部品情報マスタ(MRHPL21)
+     C                     MOVELD4SHN1    EASHN1           *社内品番１
+     C                     MOVELD4SHN2    EASHN2           *社内品番２
+     C                     MOVELD4SHN3    EASHN3           *社内品番３
+     C                     MOVELW@SEHI    EASEHI           *製品区分
+     C                     MOVELW@TEHI    EATEHI           *手配区分
+     C           EAKEY     CHAINMRHPL211             92
+     C           *IN92     IFEQ '0'                        ~¬IF_02
+     C           EAGSJY    IFEQ 'D'                        ~~¬IF_03
+     C           EAGSHZ    ANDLES@YYMD
+      ** （処理無し）
+     C                     ELSE                            --+ELSE_03
+     C                     MOVELEAZANM    W@ZAIS           *材質
+     C                     Z-ADDEAKAZI    W@ZAIK           *材経
+     C                     Z-ADDEASSYS    W@SSYS           *部品・収容数
+     C                     END                             __｢IF_03
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *
+     C           W@SSYS    IFNE *ZERO                      ¬IF_01
+     C           D4SISU    DIV  W@SSYS    D4BOXQ           *箱数（総生産数）
+     C                     MVR            ABC     50
+     C           ABC       IFNE 0
+     C                     ADD  1         D4BOXQ
+     C                     ENDIF
+     C                     ENDIF
+     C                     Z-ADDW@SSYS    D4CONQ           *収容数
+      *
+      *<工程情報>
+     C                     Z-ADD*ZERO     IX               *自工程
+     C                     Z-ADD*ZERO     IA               *後工程
+     C                     Z-ADD*ZERO     IB               *前工程
+     C                     Z-ADD*ZERO     W@KMX3  20       *最終工程№再発行時
+      *
+     C           *IN91     DOWEQ'0'                        ¬DO_01
+     C           IX        ANDLT15
+     C                     ADD  1         IX               *自工程
+      *
+     C                     Z-ADDSTKTNO    @K0,IX           *工程№
+     C                     MOVELSTKTEI    @K1,IX           *工程コード
+     C                     Z-ADDSTKBMN    @K2,IX           *加工工場コード
+     C                     MOVELSTKBNM    @K3,IX           *加工工場名称
+     C                     MOVELSTMSNO    @K4,IX           *機番
+     C                     MOVELSTBCCD    @K5,IX           *箱色コード
+     C                     MOVELSTBTCD    @K6,IX           *箱種コード
+     C                     MOVELSTBCNM    @K7,IX           *箱色名称
+     C                     MOVELSTBTNM    @K8,IX           *箱種名称
+     C                     Z-ADDSTKNHZ    @K9,IX           *工程納期YYYYMMDD
+     C                     MOVELSTKVIK    @KA,IX           *備考
+     C                     Z-ADDSTCIHZ    @KB,IX           *ゲート入YYYYMMDD
+     C                     MOVELSTCINM    @KC,IX           *ゲート入作業者
+     C                     Z-ADDSTCOHZ    @KD,IX           *ゲート出YYYYMMDD
+     C                     MOVELSTCONM    @KE,IX           *ゲート出作業者
+     C                     Z-ADDSTKTNO    W@KMX3           最終工程№
+      *
+      *試作手配データファイル(MRHPL51)
+     C                     EXSR #RED10
+     C                     END                             ｢DO_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #RED10   試作かんばん情報ファイル　読込
+      *-------------------------------------------------------------------------
+     C           #RED10    BEGSR
+      *
+     C                     DO   *HIVAL                     ¬DO_01
+     C           STKEY2    READEMRHPL511            N  9891
+      *
+     C   91                LEAVE
+     C   98                ITER
+      *<対象範囲データ抽出>
+      *削除データ
+     C           STGSJY    IFEQ 'D'                        ~¬IF_01
+     C           STGSHZ    ANDLES@YYMD
+     C                     ITER
+     C                     END                             _｢IF_01
+      *
+     C                     LEAVE
+     C                     ENDDO                           ｢DO_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #RED11   試作かんばん情報ファイル　読込　※削除更新用
+      *-------------------------------------------------------------------------
+     C           #RED11    BEGSR
+      *
+     C                     DO   *HIVAL                     ¬DO_01
+     C           STKEY2    READEMRHPL511               9891
+      *
+     C   91                LEAVE
+     C   98                ITER
+      *<対象範囲データ抽出>
+      *削除データ
+     C           STGSJY    IFEQ 'D'                        ~¬IF_01
+     C           STGSHZ    ANDLES@YYMD
+     C                     ITER
+     C                     END                             _｢IF_01
+      *
+     C                     LEAVE
+     C                     ENDDO                           ｢DO_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #SET40   第四画面(G4) 工程表示　項目セット処理
+      *-------------------------------------------------------------------------
+     C           #SET40    BEGSR
+      *配列⇒工程表示　セット処理
+     C                     EXSR #SET41
+      * NEXT-CONTROL
+     C                     MOVEL'PNL40'   W@NEXT           G4-PNL
+     C                     MOVELD2SHN     SVSHN
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #SET41   第四画面(G4) 配列⇒工程表示　セット処理
+      *-------------------------------------------------------------------------
+     C           #SET41    BEGSR
+      *
+     C                     Z-ADD*ZERO     IY      20       *表示行数
+     C                     Z-ADD80        ID      20       *表示フラグ用
+      *
+     C                     SETOF                     818283*工程表示FLG
+     C                     SETOF                     848586
+     C                     SETOF                     878889
+     C                     SETOF                     90
+      *工程情報
+     C                     CLEAR@D0                        *工程№
+     C                     CLEAR@D1                        *工程コード
+     C                     CLEAR@D2                        *加工工場コード
+     C                     CLEAR@D3                        *加工工場名称
+     C                     CLEAR@D4                        *機番
+     C                     CLEAR@D5                        *箱色コード
+     C                     CLEAR@D6                        *箱種コード
+     C                     CLEAR@D7                        *箱色名称
+     C                     CLEAR@D8                        *箱種名称
+     C                     CLEAR@D9                        *工程納期MMDDYY
+     C                     CLEAR@DA                        *工程備考
+      *
+     C                     SELEC                           ¬SELEC_01
+     C           W@PAGE    WHEQ 1                          +WHEN_01
+     C                     Z-ADD*ZERO     IX               *自工程
+     C           W@PAGE    WHEQ 2                          +WHEN_01
+     C                     Z-ADD10        IX               *自工程
+     C                     END                             ｢SELEC_01
+      *
+     C           IY        DOWLT10                         ¬DO_01
+     C           IX        ANDLT15
+     C                     ADD  1         IX               *自工程
+     C                     ADD  1         IY               *表示行数
+     C                     ADD  1         ID               *表示フラグ用
+      *
+     C           *IN97     IFEQ '1'                        ~¬IF_01
+     C           @K0,IX    IFEQ *ZERO                      ~~¬IF_02
+     C                     LEAVE
+     C                     END                             __｢IF_02
+     C                     END                             _｢IF_01
+      *
+     C                     Z-ADDIX        @D0,IY           *工程№
+     C                     MOVEL@K1,IX    @D1,IY           *工程コード
+     C                     Z-ADD@K2,IX    @D2,IY           *加工工場コード
+     C                     MOVEL@K3,IX    @D3,IY           *加工工場名称
+     C                     MOVEL@K4,IX    @D4,IY           *機番
+     C                     MOVEL@K5,IX    @D5,IY           *箱色コード
+     C                     MOVEL@K6,IX    @D6,IY           *箱種コード
+     C                     MOVEL@K7,IX    @D7,IY           *箱色名称
+     C                     MOVEL@K8,IX    @D8,IY           *箱種名称
+     C                     Z-ADD@K9,IX    W@YYMD
+     C                     EXSR #CYTM                      *日付変換YMD->MDY
+     C                     Z-ADDW@YYMD    @D9,IY           *工程納期MMDDYY
+     C*                    Z-ADDW@MDY2    @D9,IY           *工程納期MMDDYY
+     C                     MOVEL@KA,IX    @DA,IY           *工程備考
+     C                     MOVEL'1'       *IN,ID    P      *工程表示フラグ
+     C                     END                             ｢DO_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #SET42   第四画面(G4) 工程表示⇒配列　戻し処理
+      *-------------------------------------------------------------------------
+     C           #SET42    BEGSR
+      *
+     C                     Z-ADD*ZERO     IY      20       *表示行数
+     C                     MOVEL*BLANK    W@HCNM  6        *箱色名CHK用
+     C                     MOVEL*BLANK    W@HTNM  5        *箱種名CHK用
+      *
+     C                     SELEC                           ¬SELEC_01
+     C           W@PAGE    WHEQ 1                          +WHEN_01
+     C                     Z-ADD*ZERO     IX               *自工程
+     C           W@PAGE    WHEQ 2                          +WHEN_01
+     C                     Z-ADD10        IX               *自工程
+     C                     END                             ｢SELEC_01
+      *
+     C           IY        DOWLT10                         ¬DO_01
+     C           IX        ANDLT15
+     C                     ADD  1         IX               *自工程
+     C                     ADD  1         IY               *表示行数
+      *
+     C                     MOVEL@D1,IY    @K1,IX           *工程コード
+     C                     Z-ADD@D2,IY    @K2,IX           *加工工場コード
+     C                     MOVEL@D3,IY    @K3,IX           *加工工場名称
+     C                     MOVEL@D4,IY    @K4,IX           *機番
+     C                     MOVEL@D5,IY    @K5,IX           *箱色コード
+     C                     MOVEL@D6,IY    @K6,IX           *箱種コード
+      *
+     C                     MOVEL@K7,IX    W@HCNM           *箱色名CHK用
+     C           @D7,IY    IFNE W@HCNM                     ~¬IF_01
+     C                     MOVEL*BLANK    @K7,IX           *箱色名称
+     C                     MOVEL@D7,IY    @K7,IX           *箱色名称
+     C                     END                             _｢IF_01
+      *
+     C                     MOVEL@K8,IX    W@HTNM           *箱種名CHK用
+     C           @D8,IY    IFNE W@HTNM                     ~¬IF_01
+     C                     MOVEL*BLANK    @K8,IX           *箱種名称
+     C                     MOVEL@D8,IY    @K8,IX           *箱種名称
+     C                     END                             _｢IF_01
+      *
+     C                     Z-ADD@D9,IY    W@YMD2
+     C                     EXSR #CMTY2                     *日付変換MDY->YMD
+     C                     Z-ADDW@YYMD    @K9,IX           *工程納期YYYYMMDD
+     C                     MOVEL@DA,IY    @KA,IX           *工程備考
+     C                     END                             ｢DO_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #DSP40   テーブル　自動圧縮処理
+      *-------------------------------------------------------------------------
+     C           #DSP40    BEGSR
+      *<自動圧縮用WKクリア>
+     C                     CLEAR@W1                        *工程コード
+     C                     CLEAR@W2                        *加工工場コード
+     C                     CLEAR@W3                        *加工工場名称
+     C                     CLEAR@W4                        *機番
+     C                     CLEAR@W5                        *箱色コード
+     C                     CLEAR@W6                        *箱種コード
+     C                     CLEAR@W7                        *箱色名称
+     C                     CLEAR@W8                        *箱種名称
+     C                     CLEAR@W9                        *工程納期YYYYMMDD
+     C                     CLEAR@WA                        *工程備考
+     C                     CLEAR@WB                        *ゲート入YYYYMMDD
+     C                     CLEAR@WC                        *ゲート入作業者
+     C                     CLEAR@WD                        *ゲート出YYYYMMDD
+     C                     CLEAR@WE                        *ゲート出作業者
+      *
+     C                     Z-ADD*ZERO     IX
+     C                     Z-ADD*ZERO     IZ      20
+      *
+     C           IX        DOWLT15                         ¬DO_01
+     C           IZ        ANDLT15
+     C                     ADD  1         IX
+      *入力あり
+     C           @K1,IX    IFNE *BLANK                     ~¬IF_01
+     C           @K2,IX    ORNE *ZERO
+     C           @K4,IX    ORNE *BLANK
+     C           @K5,IX    ORNE *BLANK
+     C           @K6,IX    ORNE *BLANK
+     C           @K7,IX    ORNE *BLANK
+     C           @K8,IX    ORNE *BLANK
+     C           @K9,IX    ORNE *ZERO
+     C           @KA,IX    ORNE *BLANK
+     C                     ADD  1         IZ
+     C                     MOVEL@K1,IX    @W1,IZ           *工程コード
+     C                     Z-ADD@K2,IX    @W2,IZ           *加工工場コード
+     C                     MOVEL@K3,IX    @W3,IZ           *加工工場名称
+     C                     MOVEL@K4,IX    @W4,IZ           *機番
+     C                     MOVEL@K5,IX    @W5,IZ           *箱色コード
+     C                     MOVEL@K6,IX    @W6,IZ           *箱種コード
+     C                     MOVEL@K7,IX    @W7,IZ           *箱色名称
+     C                     MOVEL@K8,IX    @W8,IZ           *箱種名称
+     C                     MOVEL@K9,IX    @W9,IZ           *工程納期YYYYMMDD
+     C                     MOVEL@KA,IX    @WA,IZ           *工程備考
+     C                     Z-ADD@KB,IX    @WB,IZ           *ゲート入YYYYMMDD
+     C                     MOVEL@KC,IX    @WC,IZ           *ゲート入作業者
+     C                     Z-ADD@KD,IX    @WD,IZ           *ゲート出YYYYMMDD
+     C                     MOVEL@KE,IX    @WE,IZ           *ゲート出作業者
+     C                     END                             _｢IF_01
+     C                     END                             ｢DO_01
+      *再セット
+     C                     CLEAR@K1                        *工程コード
+     C                     CLEAR@K2                        *加工工場コード
+     C                     CLEAR@K3                        *加工工場名称
+     C                     CLEAR@K4                        *機番
+     C                     CLEAR@K5                        *箱色コード
+     C                     CLEAR@K6                        *箱種コード
+     C                     CLEAR@K7                        *箱色名称
+     C                     CLEAR@K8                        *箱種名称
+     C                     CLEAR@K9                        *工程納期YYYYMMDD
+     C                     CLEAR@KA                        *工程備考
+     C                     CLEAR@KB                        *ゲート入YYYYMMDD
+     C                     CLEAR@KC                        *ゲート入作業者
+     C                     CLEAR@KD                        *ゲート出YYYYMMDD
+     C                     CLEAR@KE                        *ゲート出作業者
+      *
+     C                     Z-ADD*ZERO     IX
+      *
+     C           IX        DOWLT15                         ¬DO_01
+     C                     ADD  1         IX
+     C                     MOVEL@W1,IX    @K1,IX           *工程コード
+     C                     Z-ADD@W2,IX    @K2,IX           *加工工場コード
+     C                     MOVEL@W3,IX    @K3,IX           *加工工場名称
+     C                     MOVEL@W4,IX    @K4,IX           *機番
+     C                     MOVEL@W5,IX    @K5,IX           *箱色コード
+     C                     MOVEL@W6,IX    @K6,IX           *箱種コード
+     C                     MOVEL@W7,IX    @K7,IX           *箱色名称
+     C                     MOVEL@W8,IX    @K8,IX           *箱種名称
+     C                     MOVEL@W9,IX    @K9,IX           *工程納期YYYYMMDD
+     C                     MOVEL@WA,IX    @KA,IX           *工程備考
+     C                     Z-ADD@WB,IX    @KB,IX           *ゲート入YYYYMMDD
+     C                     MOVEL@WC,IX    @KC,IX           *ゲート入作業者
+     C                     Z-ADD@WD,IX    @KD,IX           *ゲート出YYYYMMDD
+     C                     MOVEL@WE,IX    @KE,IX           *ゲート出作業者
+     C                     END                             ｢DO_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #PNL40   第四画面(G4) 表示処理
+      *-------------------------------------------------------------------------
+     C           #PNL40    BEGSR
+      *
+     C                     EXFMTMRHPW314
+      *
+     C                     SETOF                     434445
+     C                     SETOF                     464748
+     C                     SETOF                     49
+     C                     SETOF                     515253*構成品ER-FLG
+     C                     SETOF                     54  56
+     C                     SETOF                     5058
+     C                     SETOF                     616263*工程ER-FLG
+     C                     SETOF                     646566
+     C                     SETOF                     676869
+     C                     SETOF                     717273*工程ER-FLG
+     C                     SETOF                     747576
+     C                     SETOF                     777879
+     C                     SETOF                     80
+     C                     SETOF                     99
+     C                     MOVEL*BLANK    D4EMSG           * ERR MSG
+      *
+      * NEXT-CONTROL
+     C                     SELEC                           ¬SELEC_01
+     C           *IN11     WHEQ '1'
+     C                     CALL 'MRHR84'
+     C                     MOVEL'PNL40'   W@NEXT
+      *
+     C           *IN12     WHEQ '1'
+     C                     CALL 'MRHR12'
+     C                     PARM           D4BAN1  1
+     C                     PARM           D4BAN2  2
+     C                     PARM           D4BAN3  2
+     C                     PARM           D4BAN4  1
+     C                     MOVEL'PNL40'   W@NEXT
+      * PAGE-UP(IN28)/DOWN(IN29)
+     C           *IN28     WHEQ '1'                        +WHEN_01
+     C           *IN29     OREQ '1'
+      ** UP/DOWN無効
+     C           *IN28     IFEQ '1'                        ~¬IF_01
+     C           W@PAGE    ANDEQ1
+     C  N99                MOVEL@MS,18    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     99
+     C                     END                             _｢IF_01
+     C           *IN29     IFEQ '1'                        ~¬IF_01
+     C           W@PAGE    IFEQ 2                          ~~¬IF_02
+     C  N99                MOVEL@MS,19    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     99
+     C                     END                             __｢IF_02
+     C           *IN97     IFEQ '1'                        ~~¬IF_02
+     C           W@KMX3    ANDLE10
+     C  N99                MOVEL@MS,19    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     99
+     C                     END                             __｢IF_02
+     C                     END                             _｢IF_01
+      *
+     C           *IN99     IFEQ '1'                        ~¬IF_01
+     C                     MOVEL'PNL40'   W@NEXT
+     C                     ELSE                            -+ELSE_01
+      ** UP/DOWN有効
+     C                     EXSR #SET42                     *表示⇒配列
+     C           W@PAGE    IFEQ 1                          ~~¬IF_02
+     C                     Z-ADD2         W@PAGE           *ページ数
+     C                     ELSE                            --+ELSE_02
+     C                     Z-ADD1         W@PAGE           *ページ数
+     C                     END                             __｢IF_02
+     C                     MOVEL'SET40'   W@NEXT
+     C                     END                             _｢IF_01
+      * CF03
+     C           *IN03     WHEQ '1'                        +WHEN_01
+     C           *IN96     IFEQ '1'                        ~¬IF_01
+     C                     MOVEL'PNL20'   W@NEXT
+     C                     END                             _｢IF_01
+     C           *IN97     IFEQ '1'                        ~¬IF_01
+     C                     MOVEL'PNL30'   W@NEXT
+     C                     END                             _｢IF_01
+      *その他
+     C                     OTHER                           +WHEN_01
+     C                     EXSR #SET42                     *工程表示⇒配列
+     C           *IN96     IFEQ '1'                        ~¬IF_01
+     C                     EXSR #DSP40                     *空白工程自動圧縮
+     C                     END                             _｢IF_01
+     C                     EXSR #SET41                     *配列⇒工程表示
+     C                     MOVEL'CHK40'   W@NEXT
+     C                     END                             ｢SELEC_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CHK40   第四画面(G4) チェック処理
+      *-------------------------------------------------------------------------
+     C           #CHK40    BEGSR
+      *
+     C                     MOVEL*BLANK    W@CHK1  1        *入力チェック
+      *箱数=総生産数/収容数（切上）
+     C                     Z-ADD*ZERO     W@SHKS  80       *箱数（総生産数）
+     C                     Z-ADD*ZERO     W@MVR   80       *余り
+     C           W@SSYS    IFNE *ZERO                      ¬IF_01
+     C           D4SISU    DIV  W@SSYS    W@SHKS           *箱数（総生産数）
+     C                     MVR            W@MVR            *余り
+     C           W@MVR     IFNE *ZERO                      ~¬IF_02
+     C                     ADD  1         W@SHKS           *箱数（総生産数）
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+     C                     Z-ADDW@SHKS    D4BOXQ
+      *<発行依頼者> *ノーチェック
+      *
+      *<番地> *新規のみチェック
+     C           *IN96     IFEQ '1'                        ¬IF_01
+      **ハイド番地初期化
+     C                     MOVELD4BAN1    H4BAN1           *番地1
+     C                     MOVELD4BAN2    H4BAN2           *番地2
+     C                     MOVELD4BAN3    H4BAN3           *番地3
+     C                     MOVELD4BAN4    H4BAN4           *番地4
+      **ユーザー入力がブランクの場合
+     C           D4BAN1    IFEQ *BLANK                     ~¬IF_02
+     C           D4BAN2    ANDEQ*BLANK
+     C           D4BAN3    ANDEQ*BLANK
+     C           D4BAN4    ANDEQ*BLANK
+      *** PC/QDの場合
+     C           D4DVKB    IFEQ '2'                        ~~¬IF_03
+     C           D4DVKB    OREQ '3'
+      *試作番地マスタ(MRHPL12)
+     C                     MOVELD4SHN1    SBHIN1           *品番1
+     C                     MOVELD4SHN2    SBHIN2           *品番2
+     C                     MOVELD4SHN3    SBHIN3           *品番3
+     C           SAKEY2    SETLLMRHPL121
+     C                     EXSR #RED20
+     C           *IN92     IFEQ '0'                        ~~~¬IF_04
+     C                     MOVELSBBAN1    H4BAN1           *番地1
+     C                     MOVELSBBAN2    H4BAN2           *番地2
+     C                     MOVELSBBAN3    H4BAN3           *番地3
+     C                     MOVELSBBAN4    H4BAN4           *番地4
+     C                     END                             ___｢IF_04
+     C                     END                             __｢IF_03
+      **ブランクの場合
+     C           H4BAN1    IFEQ *BLANK                     ~~¬IF_03
+     C           H4BAN2    ANDEQ*BLANK
+     C           H4BAN3    ANDEQ*BLANK
+     C           H4BAN4    ANDEQ*BLANK
+      *試作番地マスタ(MRHPL11)
+     C           *LOVAL    SETLLMRHPL111
+     C                     EXSR #RED21
+     C           *IN92     IFEQ '0'                        ~~~¬IF_04
+     C                     MOVELSBBAN1    H4BAN1           *番地1
+     C                     MOVELSBBAN2    H4BAN2           *番地2
+     C                     MOVELSBBAN3    H4BAN3           *番地3
+     C                     MOVELSBBAN4    H4BAN4           *番地4
+     C                     END                             ___｢IF_04
+     C                     END                             __｢IF_03
+      **自動引当できない場合
+     C           H4BAN1    IFEQ *BLANK                     ~~¬IF_03
+     C           H4BAN2    ANDEQ*BLANK
+     C           H4BAN3    ANDEQ*BLANK
+     C           H4BAN4    ANDEQ*BLANK
+     C  N99                MOVEL@MS,10    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     4399
+     C                     END                             __｢IF_03
+      *
+     C                     ELSE                            -+ELSE_02
+      **ユーザー入力がブランク以外の場合
+      *** PC/QDでダミー番地の場合、ノーチェック
+     C                     MOVEL*BLANK    W@DMYF  1        *ダミーフラグ
+     C           D4DVKB    IFEQ '2'                        ~~¬IF_03
+     C           D4BAN1    IFEQ *BLANK                     ~~~¬IF_04
+     C           D4BAN2    ANDEQ@BN,1
+     C           D4BAN3    ANDEQ*BLANK
+     C           D4BAN4    ANDEQ*BLANK
+     C                     MOVEL'1'       W@DMYF           *ダミーフラグ
+     C                     END                             ___｢IF_04
+     C                     END                             __｢IF_03
+     C           D4DVKB    IFEQ '3'                        ~~¬IF_03
+     C           D4BAN1    IFEQ *BLANK                     ~~~¬IF_04
+     C           D4BAN2    ANDEQ@BN,2
+     C           D4BAN3    ANDEQ*BLANK
+     C           D4BAN4    ANDEQ*BLANK
+     C                     MOVEL'1'       W@DMYF           *ダミーフラグ
+     C                     END                             ___｢IF_04
+     C                     END                             __｢IF_03
+      *** 号口番地の場合、ノーチェック
+     C*          D4DVKB    IFEQ '4'                        ~~¬IF_03
+     C           D4BAN1    IFEQ W@GBN1                     ~~~¬IF_04
+     C           D4BAN2    ANDEQW@GBN2
+     C           D4BAN3    ANDEQW@GBN3
+     C           D4BAN4    ANDEQW@GBN4
+     C                     MOVEL'1'       W@DMYF           *ダミーフラグ
+     C                     END                             ___｢IF_04
+     C*                    END                             __｢IF_03
+      *
+      *** サービス番地の場合、ノーチェック
+     C*          D4DVKB    IFEQ '4'                        ~~¬IF_03
+     C           D4BAN1    IFEQ W@SBN1                     ~~~¬IF_04
+     C           D4BAN2    ANDEQW@SBN2
+     C           D4BAN3    ANDEQW@SBN3
+     C           D4BAN4    ANDEQW@SBN4
+     C                     MOVEL'1'       W@DMYF           *ダミーフラグ
+     C                     END                             ___｢IF_04
+     C*                    END                             __｢IF_03
+      *
+     C           W@DMYF    IFEQ *BLANK                     ~~¬IF_03
+      *試作番地マスタ(MRHPL11)
+     C                     MOVELD4BAN1    SBBAN1           *番地 1
+     C                     MOVELD4BAN2    SBBAN2           *番地 2
+     C                     MOVELD4BAN3    SBBAN3           *番地 3
+     C                     MOVELD4BAN4    SBBAN4           *番地 4
+     C           SAKEY1    CHAINMRHPL111            N92
+      ***読み取れない
+     C           *IN92     IFEQ '1'                        ~~~¬IF_04
+     C  N99                MOVEL@MS,11    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     4399
+     C                     ELSE                            ---+ELSE_04
+      ***削除データ
+     C           SBGSJY    IFEQ 'D'                        ~~~~¬IF_05
+     C           SBGSHZ    ANDLES@YYMD
+     C  N99                MOVEL@MS,12    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     4399
+     C                     ELSE                            ----+ELSE_05
+      ***品番登録済み
+     C           SBHIN1    IFNE *BLANK                     ~~~~~¬IF_06
+     C           SBHIN2    ORNE *BLANK
+     C           SBHIN3    ORNE *BLANK
+     C           SBHIN1    IFNE D4SHN1                     ~~~~~~¬IF_07
+     C           SBHIN2    ORNE D4SHN2
+     C           SBHIN3    ORNE D4SHN3
+     C  N99                MOVEL@MS,13    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     4399
+     C                     END                             ______｢IF_07
+     C                     END                             _____｢IF_06
+      ***収容箱数＜箱数（総生産数）
+     C           SBHAKO    IFLT W@SHKS                     ~~~~~¬IF_06
+     C  N99                MOVEL@MS,14    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     4399
+     C                     END                             _____｢IF_06
+     C                     END                             ____｢IF_05
+     C                     END                             ___｢IF_04
+     C                     END                             __｢IF_03
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *
+      *<生産数量> *再発行のみチェック
+     C           *IN97     IFEQ '1'                        ¬IF_01
+     C           D4SISU    IFEQ *ZERO                      ~¬IF_02
+     C  N99                MOVEL@MS,02    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     4499
+     C                     END                             _｢IF_02
+      *<手配数量> *再発行のみチェック
+     C           D4THSU    IFEQ *ZERO                      ~¬IF_02
+     C  N99                MOVEL@MS,02    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     4599
+     C                     ELSE                            -+ELSE_02
+     C           D4THSU    IFGT D4SISU                     ~~¬IF_03
+     C  N99                MOVEL@MS,08    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     4599
+     C                     END                             __｢IF_03
+     C                     END                             _｢IF_02
+      *<納期>  *再発行のみチェック
+     C                     Z-ADDD4NOHZ    W@YYMD
+     C*                    Z-ADDD4NOHZ    W@MMDY
+     C*                    EXSR #CMTY                      *日付変換MDY->YMD
+      *ゼロエラー
+     C           D4NOHZ    IFEQ *ZERO                      ~¬IF_02
+     C  N99                MOVEL@MS,02    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     4699
+     C                     ELSE                            -+ELSE_02
+      *カレンダーマスタ(AGDPL12)
+     C                     Z-ADDW@YYY     F8KAYY           *年
+     C                     Z-ADDW@YMM     F8KAMM           *月
+     C                     Z-ADDW@YDD     F8KADD           *日
+     C           F8KEY     CHAINAGDPL121             92
+     C           *IN92     IFEQ '1'                        ~~¬IF_03
+     C  N99                MOVEL@MS,09    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     4699
+     C                     END                             __｢IF_03
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *<手配目的> *ノーチェック
+      *
+      *<データ要否> *
+     C           D4INSP    IFNE 'Y'                        ~¬IF_02
+     C           D4INSP    ANDNE'N'                          &
+     C  N99                MOVEL@MS,25    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     5899
+     C                     END                             _｢IF_02
+      *
+      *< HN LOCATION> *
+      *  CHECK HN-0111 EXIST
+     C                     Z-ADD1         J
+     C           'HN  '    LOKUP@K1,J                    27
+     C           *IN27     IFEQ '1'                        ~~¬IF_01
+     C           @K2,J     ANDEQ0111
+     C           D4HNL1    IFEQ *BLANK                     ~¬IF_02
+     C           D4HNL2    OREQ *BLANK
+     C           D4HNL3    OREQ *BLANK
+     C           D4HNL4    OREQ *BLANK
+     C  N99                MOVEL@MS,21    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     5099
+     C                     ENDIF                           _｢IF_02
+     C                     ENDIF                           _｢IF_01
+      *---------------------------------*
+      *<<工程>> *全工程をチェックする
+      *  @K1:工程コード
+      *  @K2:加工工場コード
+      *  @K3:加工工場名称
+      *  @K4:機番
+      *  @K5:箱色コード
+      *  @K6:箱種コード
+      *  @K7:箱色名称
+      *  @K8:箱種名称
+      *  @K9:工程納期YYYYMMDD
+      *  @KA:備考
+      *---------------------------------*
+     C                     Z-ADD*ZERO     IX               *自工程
+     C                     Z-ADD*ZERO     W@IX    20       *エラー工程
+     C                     Z-ADD*ZERO     W@IJ    20       * ERR-FLG NO.
+     C                     Z-ADD*ZERO     W@BKTN  80       *前工程納期
+      *
+     C           IX        DOWLT15                         ¬DO_01
+     C                     ADD  1         IX               *自工程
+      *
+     C           @K1,IX    IFNE *BLANK                     ~¬IF_01
+     C           @K2,IX    ORNE *ZERO
+     C           @K3,IX    ORNE *BLANK
+     C           @K4,IX    ORNE *BLANK
+     C           @K5,IX    ORNE *BLANK
+     C           @K6,IX    ORNE *BLANK
+     C           @K7,IX    ORNE *BLANK
+     C           @K8,IX    ORNE *BLANK
+     C           @K9,IX    ORNE *ZERO
+     C                     MOVEL'1'       W@CHK1           *入力チェック
+      *
+%0001 *<工程> * CHECK FCEPL03
+     C           @K1,IX    IFNE *ZERO                      ~~~¬IF_03
+     C           @K1,IX    ANDNE'INSP'
+     C           @K1,IX    ANDNE'SORT'
+      * PROCESS NAME M/F
+     C                     MOVEL@K1,IX    KPCODE  3
+     C           KPCODE    CHAINFCETL03              92
+     C           *IN92     IFEQ '0'                        ~~~~¬IF_04
+     C           A6GSKD    IFEQ 'D'                        ~~~~¬IF_04
+     C  N99                MOVEL@MS,26    D4EMSG    P      * ERR MSG
+     C  N99                Z-ADDIX        W@IX             *エラー工程
+     C  N99                Z-ADD61        W@IJ             * ERR-FLG NO.
+     C  N99                SETON                     99
+     C                     ENDIF                           ____｢IF_04
+     C                     ELSE                            ____｢IF_04
+     C  N99                MOVEL@MS,26    D4EMSG    P      * ERR MSG
+     C  N99                Z-ADDIX        W@IX             *エラー工程
+     C  N99                Z-ADD61        W@IJ             * ERR-FLG NO.
+     C  N99                SETON                     99
+     C                     ENDIF                           ____｢IF_04
+     C                     ENDIF                           ____｢IF_03
+      *
+      *<加工工場> *新規のみチェック
+     C           *IN96     IFEQ '1'                        ~~¬IF_02
+     C                     MOVEL*BLANK    @K3,IX           *加工工場名称
+     C           @K2,IX    IFNE *ZERO                      ~~~¬IF_03
+      *細目コード管理マスタ(FGBPL01)
+     C                     Z-ADD@K2,IX    B2CODE           *細目コード
+     C           B2KEY     CHAINFGBPL011             92
+     C           *IN92     IFEQ '1'                        ~~~~¬IF_04
+     C  N99                MOVEL@MS,15    D4EMSG    P      * ERR MSG
+     C  N99                Z-ADDIX        W@IX             *エラー工程
+     C  N99                Z-ADD62        W@IJ             * ERR-FLG NO.
+     C  N99                SETON                     99
+     C                     ELSE                            ----+ELSE_04
+     C           B2SKJY    IFEQ 'D'                        ~~~~~¬IF_05
+     C           B2SKHZ    ANDLES@YYMD
+     C  N99                MOVEL@MS,15    D4EMSG    P      * ERR MSG
+     C  N99                Z-ADDIX        W@IX             *エラー工程
+     C  N99                Z-ADD62        W@IJ             * ERR-FLG NO.
+     C  N99                SETON                     99
+     C                     ELSE                            -----+ELSE_05
+     C                     MOVELB2SMEI    @K3,IX           *加工工場名称
+     C                     END                             _____｢IF_05
+     C                     END                             ____｢IF_04
+     C                     END                             ___｢IF_03
+     C                     END                             __｢IF_02
+      *
+      *<機番> *ノーチェック
+      *
+      *<箱色> *新規のみチェック
+     C           *IN96     IFEQ '1'                        ~~¬IF_02
+      **ブランク以外の場合
+     C           @K5,IX    IFNE *BLANK                     ~~~¬IF_03
+      *箱色・名称獲得サブルーチン(MRHR39)
+     C                     MOVEL'1'       P2SKBN           *処理区分
+     C                     Z-ADD*ZERO     P2BKNO           *前工程№
+     C                     MOVEL*BLANK    P2BKTI           *前工程
+     C                     MOVEL*BLANK    P2JKTI           *自工程
+     C                     MOVEL*BLANK    P2JBMN           *自工程
+     C                     MOVEL*BLANK    P2AKTI           *次工程
+     C                     MOVEL*BLANK    P2AKKB           *後工程機番
+     C                     MOVEL@K5,IX    P2BCCD           *箱色コード
+     C                     MOVEL*BLANK    P2BCNM           *箱色名称
+     C                     MOVEL*BLANK    P2RTCD           *リターンコード
+     C                     CALL 'MRHR39'  P2MR39
+     C           P2RTCD    IFNE *BLANK                     ~~~~¬IF_04
+     C  N99                MOVEL@MS,15    D4EMSG    P      * ERR MSG
+     C  N99                Z-ADDIX        W@IX             *エラー工程
+     C  N99                Z-ADD64        W@IJ             * ERR-FLG NO.
+     C  N99                SETON                     99
+     C                     ELSE                            ----+ELSE_04
+     C           @K7,IX    IFEQ *BLANK                     ~~~~~¬IF_05
+     C                     MOVELP2BCNM    @K7,IX           *箱色名称
+     C                     END                             _____｢IF_05
+      *
+     C           @K1,IX    IFEQ 'JC '                      ‾‾‾‾‾¬IF_05
+     C           @K2,IX    ANDEQ111
+     C           @K2,IA    ANDNE111
+     C                     MOVEL'O'       @K5,IX           *箱色コード
+     C                     MOVEL'ORANGE'  @K7,IX           *箱色名称
+     C                     END                             _____｢IF_05
+     C                     END                             ____｢IF_04
+     C                     END                             ___｢IF_03
+     C                     END                             __｢IF_02
+      *
+      *<箱種> *ノーチェック
+      *
+      *<箱色名称> *新規のみチェック
+     C*****      *IN96     IFEQ '1'
+      **ブランク以外の場合
+      **かつ、箱色コード無し
+     C*****      @K7,IX    IFNE *BLANK
+     C*****      @K5,IX    ANDEQ*BLANK
+     C**N99                MOVEL@MS,16    D4EMSG    P      * ERR MSG
+     C**N99                Z-ADDIX        W@IX             *エラー工程
+     C**N99                Z-ADD66        W@IJ             * ERR-FLG NO.
+     C**N99                SETON                     99
+     C*****                END
+     C*****                END
+      *
+      *<箱種名称> *新規のみチェック
+     C*****      *IN96     IFEQ '1'
+      **ブランク以外の場合
+      **かつ、箱色コード無し
+     C           @K8,IX    IFEQ *BLANK
+     C           @K6,IX    ANDNE*BLANK
+     C                     SELEC
+     C           @K6,IX    WHEQ 'C'
+     C                     MOVEL'BOX'     @K8,IX
+     C           @K6,IX    WHEQ 'G'
+     C                     MOVEL'CARTN'   @K8,IX
+     C                     ENDSL
+     C                     ENDIF
+      *
+      *<工程納期> *新規・再発行ともにチェック
+      **ゼロエラー
+     C           @K9,IX    IFEQ *ZERO                      ~~¬IF_02
+     C  N99                MOVEL@MS,02    D4EMSG    P      * ERR MSG
+     C  N99                Z-ADDIX        W@IX             *エラー工程
+     C  N99                Z-ADD68        W@IJ             * ERR-FLG NO.
+     C  N99                SETON                     99
+     C                     ELSE                            --+ELSE_02
+      *カレンダーマスタ(AGDPL12)
+     C                     Z-ADD@K9,IX    W@YYMD           * TO日付YYYYMMDD
+     C                     Z-ADDW@YYY     F8KAYY           *年
+     C                     Z-ADDW@YMM     F8KAMM           *月
+     C                     Z-ADDW@YDD     F8KADD           *日
+     C           F8KEY     CHAINAGDPL121             92
+     C           *IN92     IFEQ '1'                        ~~~¬IF_03
+     C  N99                MOVEL@MS,09    D4EMSG    P      * ERR MSG
+     C  N99                Z-ADDIX        W@IX             *エラー工程
+     C  N99                Z-ADD68        W@IJ             * ERR-FLG NO.
+     C  N99                SETON                     99
+     C                     END                             ___｢IF_03
+      **前工程より小さい
+     C           IX        IFNE 1                          ~~~¬IF_03
+     C           @K9,IX    IFLT W@BKTN                     ~~~~¬IF_04
+     C  N99                MOVEL@MS,09    D4EMSG    P      * ERR MSG
+     C  N99                Z-ADDIX        W@IX             *エラー工程
+     C  N99                Z-ADD68        W@IJ             * ERR-FLG NO.
+     C  N99                SETON                     99
+     C                     END                             ____｢IF_04
+     C                     END                             ___｢IF_03
+     C                     Z-ADD@K9,IX    W@BKTN           *前工程納期
+     C                     END                             __｢IF_02
+      *
+      *<備考> *ノーチェック
+      *
+     C                     END                             _｢IF_01
+     C                     END                             ｢DO_01
+      *
+      *<エラーフラグおよび画面表示切替>
+     C           W@IX      IFNE *ZERO                      ¬IF_01
+     C           W@IJ      ANDNE*ZERO
+     C                     EXSR #CHK41
+     C                     ELSE                            +ELSE_01
+      *配列⇒工程表示　セット処理
+     C                     EXSR #SET41                     *同一頁で再表示
+     C                     END                             ｢IF_01
+      *
+      *<<構成品・型・材料>>
+      *<構成品納期1> *新規・再発行ともにチェック
+     C                     Z-ADD*ZERO     H4WHZ1           *構成品納期1
+     C           D4WHZ1    IFNE *ZERO                      ¬IF_01
+     C           D4KH11    IFEQ *BLANK                     ~¬IF_02
+     C           D4KH12    ANDEQ*BLANK
+     C           D4KH13    ANDEQ*BLANK
+     C  N99                MOVEL@MS,02    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     5199
+     C                     END                             _｢IF_02
+      *
+     C                     Z-ADDD4WHZ1    W@MDY2
+     C                     Z-ADDD4WHZ1    W@YMD2
+     C                     EXSR #CHK42
+     C                     Z-ADDW@YYMD    H4WHZ1           *構成品納期1
+     C           W@KSEF    IFNE *BLANK                     ~¬IF_02
+     C  N99                MOVEL@MS,09    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     5199
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *<構成品納期2> *新規・再発行ともにチェック
+     C                     Z-ADD*ZERO     H4WHZ2           *構成品納期2
+     C           D4WHZ2    IFNE *ZERO                      ¬IF_01
+     C           D4KH21    IFEQ *BLANK                     ~¬IF_02
+     C           D4KH22    ANDEQ*BLANK
+     C           D4KH23    ANDEQ*BLANK
+     C  N99                MOVEL@MS,02    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     5299
+     C                     END                             _｢IF_02
+      *
+     C                     Z-ADDD4WHZ2    W@MDY2
+     C                     Z-ADDD4WHZ2    W@YMD2
+     C                     EXSR #CHK42
+     C                     Z-ADDW@YYMD    H4WHZ2           *構成品納期2
+     C           W@KSEF    IFNE *BLANK                     ~¬IF_02
+     C  N99                MOVEL@MS,09    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     5299
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *<構成品納期3> *新規・再発行ともにチェック
+     C                     Z-ADD*ZERO     H4WHZ3           *構成品納期3
+     C           D4WHZ3    IFNE *ZERO                      ¬IF_01
+     C           D4KH31    IFEQ *BLANK                     ~¬IF_02
+     C           D4KH32    ANDEQ*BLANK
+     C           D4KH33    ANDEQ*BLANK
+     C  N99                MOVEL@MS,02    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     5399
+     C                     END                             _｢IF_02
+      *
+     C                     Z-ADDD4WHZ3    W@MDY2
+     C                     Z-ADDD4WHZ3    W@YMD2
+     C                     EXSR #CHK42
+     C                     Z-ADDW@YYMD    H4WHZ3           *構成品納期3
+     C           W@KSEF    IFNE *BLANK                     ~¬IF_02
+     C  N99                MOVEL@MS,09    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     5399
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *<構成品納期4> *新規・再発行ともにチェック
+     C                     Z-ADD*ZERO     H4WHZ4           *構成品納期4
+     C           D4WHZ4    IFNE *ZERO                      ¬IF_01
+     C           D4KH41    IFEQ *BLANK                     ~¬IF_02
+     C           D4KH42    ANDEQ*BLANK
+     C           D4KH43    ANDEQ*BLANK
+     C  N99                MOVEL@MS,02    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     5499
+     C                     END                             _｢IF_02
+      *
+     C                     Z-ADDD4WHZ4    W@MDY2
+     C                     Z-ADDD4WHZ4    W@YMD2
+     C                     EXSR #CHK42
+     C                     Z-ADDW@YYMD    H4WHZ4           *構成品納期4
+     C           W@KSEF    IFNE *BLANK                     ~¬IF_02
+     C  N99                MOVEL@MS,09    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     5499
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *<型納期> *新規・再発行ともにチェック
+     C                     Z-ADD*ZERO     H4KTHZ           *型納期
+     C           D4KTHZ    IFNE *ZERO                      ¬IF_01
+     C                     Z-ADDD4KTHZ    W@MDY2
+     C                     Z-ADDD4KTHZ    W@YMD2
+     C                     EXSR #CHK42
+     C                     Z-ADDW@YYMD    H4KTHZ           *型納期
+     C           W@KSEF    IFNE *BLANK                     ~¬IF_02
+     C  N99                MOVEL@MS,09    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     4899
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *<材料納期> *新規・再発行ともにチェック
+     C                     Z-ADD*ZERO     H4ZRHZ           *材料納期
+     C           D4ZRHZ    IFNE *ZERO                      ¬IF_01
+     C                     Z-ADDD4ZRHZ    W@MDY2
+     C                     Z-ADDD4ZRHZ    W@YMD2
+     C                     EXSR #CHK42
+     C                     Z-ADDW@YYMD    H4ZRHZ           *材料納期
+     C           W@KSEF    IFNE *BLANK                     ~¬IF_02
+     C  N99                MOVEL@MS,09    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     4999
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *<その他> *新規時、一件も工程に入力がない場合はエラー
+     C           *IN96     IFEQ '1'                        ¬IF_01
+     C           W@CHK1    IFEQ *BLANK                     ~¬IF_02
+     C  N99                MOVEL@MS,24    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     99
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *<その他> *再発行のみ、プロテクト項目のマスタ存在チェックを行う
+     C           *IN97     IFEQ '1'                        ¬IF_01
+      **番地
+      *** PC/QDでダミー番地の場合、ノーチェック
+     C                     MOVEL*BLANK    W@DMYF           *ダミーフラグ
+     C           D4DVKB    IFEQ '2'                        ~¬IF_02
+     C           H4BAN1    IFEQ *BLANK                     ~~¬IF_03
+     C           H4BAN2    ANDEQ@BN,1
+     C           H4BAN3    ANDEQ*BLANK
+     C           H4BAN4    ANDEQ*BLANK
+     C                     MOVEL'1'       W@DMYF           *ダミーフラグ
+     C                     END                             __｢IF_03
+     C                     END                             _｢IF_02
+     C           D4DVKB    IFEQ '3'                        ~¬IF_02
+     C           H4BAN1    IFEQ *BLANK                     ~~¬IF_03
+     C           H4BAN2    ANDEQ@BN,2
+     C           H4BAN3    ANDEQ*BLANK
+     C           H4BAN4    ANDEQ*BLANK
+     C                     MOVEL'1'       W@DMYF           *ダミーフラグ
+     C                     END                             __｢IF_03
+     C                     END                             _｢IF_02
+      ** APICS2の場合、号口の番地と比較
+     C           D4DVKB    IFEQ '4'                        ~¬IF_02
+      *号口部品マスタ(FCEPL01)
+     C                     MOVELD4SHN1    A2BHB1           *社内品番１
+     C                     MOVELD4SHN2    A2BHB2           *社内品番２
+     C                     MOVELD4SHN3    A2BHB3           *社内品番３
+     C           A2KEY     CHAINFCEPL011             92
+     C           *IN92     IFEQ '0'                        ~~¬IF_03
+     C           A2GSKD    IFEQ 'D'                        ~~~¬IF_04
+     C           A2GSHZ    ANDLES@YYMD
+      ** （処理無し）
+     C                     ELSE                            ---+ELSE_04
+     C           H4BAN1    IFEQ A2STRK                     ~~~~¬IF_05
+     C           H4BAN2    ANDEQA2STRT
+     C           H4BAN3    ANDEQA2STRR
+     C           H4BAN4    ANDEQA2STRD
+     C                     MOVEL'1'       W@DMYF           *ダミーフラグ
+     C                     END                             ____｢IF_05
+     C                     END                             ___｢IF_04
+     C                     END                             __｢IF_03
+     C                     END                             _｢IF_02
+      *
+     C           W@DMYF    IFEQ *BLANK                     ~¬IF_02
+      *試作番地マスタ(MRHPL11)
+     C                     MOVELH4BAN1    SBBAN1           *番地 1
+     C                     MOVELH4BAN2    SBBAN2           *番地 2
+     C                     MOVELH4BAN3    SBBAN3           *番地 3
+     C                     MOVELH4BAN4    SBBAN4           *番地 4
+     C           SAKEY1    CHAINMRHPL111            N92
+      ***読み取れない
+     C           *IN92     IFEQ '1'                        ~~¬IF_03
+     C* N99                MOVEL@MS,11    D4EMSG    P      * ERR MSG
+     C* N99                SETON                     99
+     C                     ELSE                            --+ELSE_03
+      ***削除データ
+     C           SBGSJY    IFEQ 'D'                        ~~~¬IF_04
+     C           SBGSHZ    ANDLES@YYMD
+     C* N99                MOVEL@MS,12    D4EMSG    P      * ERR MSG
+     C* N99                SETON                     99
+     C                     ELSE                            ---+ELSE_04
+      ***収容箱数＜箱数（総生産数）
+     C           SBHAKO    IFLT W@SHKS                     ~~~~¬IF_05
+     C  N99                MOVEL@MS,14    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     99
+     C                     END                             ____｢IF_05
+     C                     END                             ___｢IF_04
+     C                     END                             __｢IF_03
+     C                     END                             _｢IF_02
+      **社内品番
+      *部品情報マスタ(MRHPL21)
+     C                     MOVELD4SHN1    EASHN1           *社内品番１
+     C                     MOVELD4SHN2    EASHN2           *社内品番２
+     C                     MOVELD4SHN3    EASHN3           *社内品番３
+     C                     MOVELW@SEHI    EASEHI           *製品区分
+     C                     MOVELW@TEHI    EATEHI           *手配区分
+     C           EAKEY     CHAINMRHPL211             92
+     C           *IN92     IFEQ '1'                        ~¬IF_02
+     C  N99                MOVEL@MS,20    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     99
+     C                     ELSE                            -+ELSE_02
+      *削除済み
+     C           EAGSJY    IFEQ 'D'                        ~~¬IF_03
+     C           EAGSHZ    ANDLES@YYMD
+     C  N99                MOVEL@MS,20    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     99
+     C                     END                             __｢IF_03
+     C                     END                             _｢IF_02
+      **ユーザーコード
+      *細目コード管理マスタ(FGBPL01)
+     C                     Z-ADDD4TOKU    B2CODE           *細目コード
+     C           B2KEY     CHAINFGBPL011             92
+     C           *IN92     IFEQ '1'                        ~¬IF_02
+     C  N99                MOVEL@MS,22    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     99
+      *
+     C                     ELSE                            -+ELSE_02
+      *削除済み
+     C           B2SKJY    IFEQ 'D'                        ~~¬IF_03
+     C           B2SKHZ    ANDLES@YYMD
+     C  N99                MOVEL@MS,22    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     99
+     C                     END                             __｢IF_03
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *
+      ****
+      * NEXT-CONTROL
+     C                     MOVEL'PNL40'   W@NEXT
+     C           *IN99     IFEQ '0'                        ¬IF_01
+     C           *IN05     ANDEQ'1'
+     C                     MOVEL'DBOUT'   W@NEXT
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CHK41   表示工程情報　エラーフラグおよび画面表示切替
+      *                             IN : W@PAGE 2S0 画面表示ページ
+      *                                  W@IX   2S0 エラー工程
+      *                                  W@IJ   2S0  ERR-FLG NO.
+      *-------------------------------------------------------------------------
+     C           #CHK41    BEGSR
+      *
+     C                     Z-ADDW@IJ      IJ      20       *フラグ№（横）
+     C                     Z-ADD*ZERO     IK      20       *フラグ№（縦）
+      *エラー工程01-10
+     C           W@IX      IFGE 1                          ¬IF_01
+     C           W@IX      ANDLE10
+     C           W@PAGE    IFEQ 2                          ~¬IF_02
+     C                     Z-ADD1         W@PAGE           *ページ番号
+     C                     END                             _｢IF_02
+     C           70        ADD  W@IX      IK               *フラグ№（縦）
+     C                     END                             ｢IF_01
+      *エラー工程11-15
+     C           W@IX      IFGE 11                         ¬IF_01
+     C           W@IX      ANDLE15
+     C           W@PAGE    IFEQ 1                          ~¬IF_02
+     C                     Z-ADD2         W@PAGE           *ページ番号
+     C                     END                             _｢IF_02
+     C           60        ADD  W@IX      IK               *フラグ№（縦）
+     C                     END                             ｢IF_01
+      *
+      *配列⇒工程表示　セット処理
+     C                     EXSR #SET41
+      *
+     C                     MOVEL'1'       *IN,IJ    P      *フラグ№（横）
+     C                     MOVEL'1'       *IN,IK    P      *フラグ№（縦）
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CHK42   構成品納期　チェック
+      *                             IN : W@MDY2 6S0  MMDDYY
+      *                             OUT: W@KSEF 1   構成品納期エラーフラグ
+      *                                  W@YYMD 8S0  YYYYMMDD
+      *-------------------------------------------------------------------------
+     C           #CHK42    BEGSR
+      *
+     C                     MOVEL*BLANK    W@KSEF  1        *構成品納期ERR-FLG
+      *
+     C                     EXSR #CMTY2                     *日付変換MDY->YMD
+      *カレンダーマスタ(AGDPL12)
+     C                     Z-ADDW@YYY     F8KAYY           *年
+     C                     Z-ADDW@YMM     F8KAMM           *月
+     C                     Z-ADDW@YDD     F8KADD           *日
+     C           F8KEY     CHAINAGDPL121             92
+     C           *IN92     IFEQ '1'                        ¬IF_01
+     C                     MOVEL'1'       W@KSEF  1        *構成品納期ERR-FLG
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #RED20   試作番地マスタ　読込（キー：品番　自動番地取得）
+      *-------------------------------------------------------------------------
+     C           #RED20    BEGSR
+      *
+     C                     DO   *HIVAL                     ¬DO_01
+     C           SAKEY2    READEMRHPL121               9892
+     C   92                LEAVE
+     C   98                ITER
+      *
+      *<対象範囲データ抽出>
+      *削除データ
+     C           SBGSJY    IFEQ 'D'                        ~¬IF_01
+     C           SBGSHZ    ANDLES@YYMD
+     C                     ITER
+     C                     END                             _｢IF_01
+      *収容箱数＜箱数（総生産数）
+     C           SBHAKO    IFLT W@SHKS                     ~¬IF_01
+     C                     ITER
+     C                     END                             _｢IF_01
+      *スクラップ後一ヶ月自動引当不可
+     C           SBSCHZ    IFNE *ZERO                      ~¬IF_01
+     C                     Z-ADDSBSCHZ    W@CYMD           *スクラップ日付
+     C                     ADD  1         W@CMM            *スクラップ月
+     C           W@SMM     IFGE 13                         ~~¬IF_02
+     C                     ADD  1         W@CYY            *スクラップ年
+     C                     Z-ADD1         W@CMM            *スクラップ月
+     C                     END                             __｢IF_02
+     C           W@CYMD    IFGT S@YYMD                     ~~¬IF_02
+     C                     ITER
+     C                     END                             __｢IF_02
+     C                     END                             _｢IF_01
+      *
+     C                     LEAVE
+     C                     ENDDO                           ｢DO_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #RED21   試作番地マスタ　読込（番地順　自動空き番地取得）
+      *-------------------------------------------------------------------------
+     C           #RED21    BEGSR
+      *
+     C                     DO   *HIVAL                     ¬DO_01
+     C                     READ MRHPL111            N  9892
+     C   92                LEAVE
+     C   98                ITER
+      *
+      *<対象範囲データ抽出>
+      *削除データ
+     C           SBGSJY    IFEQ 'D'                        ~¬IF_01
+     C           SBGSHZ    ANDLES@YYMD
+     C                     ITER
+     C                     END                             _｢IF_01
+      *品番登録済み
+     C           SBHIN1    IFNE *BLANK                     ~¬IF_01
+     C           SBHIN2    ORNE *BLANK
+     C           SBHIN3    ORNE *BLANK
+     C                     ITER
+     C                     END                             _｢IF_01
+      *収容箱数＜箱数（総生産数）
+     C           SBHAKO    IFLT W@SHKS                     ~¬IF_01
+     C                     ITER
+     C                     END                             _｢IF_01
+      *スクラップ後一ヶ月自動引当不可
+     C           SBSCHZ    IFNE *ZERO                      ~¬IF_01
+     C                     Z-ADDSBSCHZ    W@CYMD           *スクラップ日付
+     C                     ADD  1         W@CMM            *スクラップ月
+     C           W@SMM     IFGE 13                         ~~¬IF_02
+     C                     ADD  1         W@CYY            *スクラップ年
+     C                     Z-ADD1         W@CMM            *スクラップ月
+     C                     END                             __｢IF_02
+     C           W@CYMD    IFGT S@YYMD                     ~~¬IF_02
+     C                     ITER
+     C                     END                             __｢IF_02
+     C                     END                             _｢IF_01
+      *
+     C                     LEAVE
+     C                     ENDDO                           ｢DO_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #DBOUT   Ｄ．Ｂ　アクセス処理
+      *-------------------------------------------------------------------------
+     C           #DBOUT    BEGSR
+      *
+     C                     TIME           S@TIME
+      *
+     C                     SETOF                     99
+     C                     MOVEL*BLANK    D4EMSG           * ERR MSG
+      *
+      *<手配番号採番>
+     C                     MOVELD4SHN1    P3SHN1           *社内品番1
+     C                     MOVELD4SHN2    P3SHN2           *社内品番2
+     C                     MOVELD4SHN3    P3SHN3           *社内品番3
+     C                     CALL 'MRHR38'  P3MR38
+      **採番できず
+     C           P3RTCD    IFNE *BLANK                     ¬IF_01
+     C  N99                MOVEL@MS,17    D4EMSG    P      * ERR MSG
+     C  N99                SETON                     99
+     C           *IN97     IFEQ '1'                        ~¬IF_02
+     C                     MOVEL*BLANK    D4THI1           *手配番号1
+     C                     MOVEL*BLANK    D4THI2           *手配番号2
+     C                     END                             _｢IF_02
+     C                     ELSE                            +ELSE_01
+      *部品情報マスタ(MRHPL21)
+      *手配番号獲得の際には読取エラーは起こらない
+     C                     MOVELD4SHN1    EASHN1           *社内品番１
+     C                     MOVELD4SHN2    EASHN2           *社内品番２
+     C                     MOVELD4SHN3    EASHN3           *社内品番３
+     C                     MOVELW@SEHI    EASEHI           *製品区分
+     C                     MOVELW@TEHI    EATEHI           *手配区分
+     C           EAKEY     CHAINMRHPL211             92
+     C           *IN92     IFEQ '0'                        ~¬IF_02
+     C           EAGSJY    IFEQ 'D'                        ~~¬IF_03
+     C           EAGSHZ    ANDLES@YYMD
+      ** （処理無し）
+     C                     ELSE                            --+ELSE_03
+      *
+      *<旧試作手配データ消去>
+      *再発行時（同時に他の端変更で変更した場合、
+      *          登録日・時間が変更されている可能性がおきるため、
+      *          最新の手配番号の登録日・時間と取り直す）
+      *
+     C*          *IN97     IFEQ '1'                        ~~~¬IF_04
+      *試作手配データファイル(MRHPL51)
+     C*                    MOVELW@THI1    STTHI1           *手配№　絶対番号
+     C*                    MOVELW@THI2    STTHI2           *手配№　連番
+     C*          STKEY1    SETGTMRHPL511
+     C*          STKEY1    REDPEMRHPL511            N    91
+     C*          *IN91     IFEQ '0'                        ~~~~¬IF_05
+     C*          STGSJY    IFEQ 'D'                        ~~~~~¬IF_06
+     C*          STGSHZ    ANDLES@YYMD
+      **他端末で削除・再発行の場合、エラー
+     C* N99                MOVEL@MS,23    D4EMSG    P      * ERR MSG
+     C* N99                SETON                     99
+     C*                    ELSE                            -----+ELSE_06
+     C*          STGRHZ    IFNE W@TGHZ                     ~~~~~~¬IF_07
+     C*          STGRTM    ORNE W@TGTM
+     C*                    Z-ADDSTGRHZ    W@TGHZ           *手配番号登録日
+     C*                    Z-ADDSTGRTM    W@TGTM           *手配番号登録時間
+     C*                    END                             ______｢IF_07
+      *
+     C*                    MOVELW@THI1    STTHI1           *手配№　絶対番号
+     C*                    MOVELW@THI2    STTHI2           *手配№　連番
+     C*                    Z-ADDW@TGHZ    STGRHZ           *登録作業　年月日
+     C*                    Z-ADDW@TGTM    STGRTM           *登録作業　時分秒
+     C*          STKEY2    SETLLMRHPL511
+     C*                    EXSR #RED11
+      *
+     C*          *IN91     DOWEQ'0'                        ~~~~~~¬DO_01
+     C*                    EXSR #UPD10                     *削除更新UPDAT
+      *
+     C*                    EXSR #RED11
+     C*                    END                             ______｢DO_01
+     C*                    END                             _____｢IF_06
+     C*                    END                             ____｢IF_05
+     C*                    END                             ___｢IF_04
+      *
+      *<新試作手配データ出力>
+     C           *IN99     IFEQ '0'                        ~~~¬IF_04
+      **必須項目・納期が存在する工程を出力する
+     C                     EXSR #MOV10                     *出力用共通SET
+      *
+     C                     Z-ADD1         J       20
+     C                     Z-ADD*ZERO     @CHK    10
+     C*          1         DO   15        J
+     C           'LOQ '    LOKUP@K1,J                    88
+     C           *IN88     IFEQ '1'                        ~~¬IF_03
+     C                     Z-ADD2         @CHK             * LOQ FLG
+     C                     END                             __｢IF_03
+     C                     Z-ADD1         J       20
+     C           'OQ  '    LOKUP@K1,J                    88
+     C           *IN88     IFEQ '1'                        ~~¬IF_03
+     C                     Z-ADD1         @CHK             * OQ FLG
+     C                     END                             __｢IF_03
+     C*                    ENDDO
+      *
+     C                     SELEC
+     C           @CHK      WHEQ 1                          *工程
+     C                     MOVE '1'       STBFLG
+     C           @CHK      WHEQ 2                          *工程
+     C                     MOVE '2'       STBFLG
+     C                     OTHER
+     C                     MOVE *BLANK    STBFLG
+     C                     ENDSL
+      *
+     C                     Z-ADD*ZERO     IX               *自工程
+     C           IX        DOWLT15                         ~~~~¬DO_01
+     C                     ADD  1         IX               *自工程
+     C           @K9,IX    IFEQ *ZERO                      ~~~~~¬IF_05
+     C                     LEAVE
+     C                     END                             _____｢IF_05
+      *
+     C                     EXSR #MOV11                     *出力用工程SET
+     C                     WRITEMRHPL511
+     C                     END                             ____｢DO_01
+      *
+      *<試作番地マスタ更新>
+      **ユーザー入力がブランク以外の場合
+      *** PC/QDでダミー番地の場合、更新しない
+     C                     MOVEL*BLANK    W@DMYF           *ダミーフラグ
+     C           D4DVKB    IFEQ '2'                        ~~~~¬IF_05
+     C           D4BAN1    IFEQ *BLANK                     ~~~~~¬IF_06
+     C           D4BAN2    ANDEQ@BN,1
+     C           D4BAN3    ANDEQ*BLANK
+     C           D4BAN4    ANDEQ*BLANK
+     C                     MOVEL'1'       W@DMYF           *ダミーフラグ
+     C                     END                             _____｢IF_06
+     C                     END                             ____｢IF_05
+     C           D4DVKB    IFEQ '3'                        ~~~~¬IF_05
+     C           D4BAN1    IFEQ *BLANK                     ~~~~~¬IF_06
+     C           D4BAN2    ANDEQ@BN,2
+     C           D4BAN3    ANDEQ*BLANK
+     C           D4BAN4    ANDEQ*BLANK
+     C                     MOVEL'1'       W@DMYF           *ダミーフラグ
+     C                     END                             _____｢IF_06
+     C                     END                             ____｢IF_05
+      *
+     C           W@DMYF    IFEQ *BLANK                     ~~~~¬IF_05
+      *試作番地マスタ(MRHPL11)
+     C                     MOVELH4BAN1    SBBAN1           *番地 1
+     C                     MOVELH4BAN2    SBBAN2           *番地 2
+     C                     MOVELH4BAN3    SBBAN3           *番地 3
+     C                     MOVELH4BAN4    SBBAN4           *番地 4
+     C           SAKEY1    CHAINMRHPL111             92
+     C           *IN92     IFEQ '0'                        ~~~~~¬IF_06
+     C           SBGSJY    IFEQ 'D'                        ~~~~~~¬IF_07
+     C           SBGSHZ    ANDLES@YYMD
+      *
+     C                     ELSE                            ------+ELSE_07
+     C                     EXSR #UPD20                     *番地更新UPDAT
+     C                     END                             ______｢IF_07
+     C                     END                             _____｢IF_06
+     C                     END                             ____｢IF_05
+     C                     END                             ___｢IF_04
+      *
+     C                     END                             __｢IF_03
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      * NEXT-CONTROL
+     C                     MOVEL'SET50'   W@NEXT
+      *エラー時
+     C           *IN99     IFEQ '1'                        ¬IF_01
+     C                     MOVEL'PNL40'   W@NEXT
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #SET50   第五画面(G5) 項目セット処理
+      *-------------------------------------------------------------------------
+     C           #SET50    BEGSR
+      *
+     C                     MOVEL*BLANK    D5THI            *手配番号
+     C                     MOVELP3THI1    D5THI1           *手配番号1
+     C                     MOVEL'-'       D5THS1           *手配番号線1
+     C                     MOVELP3THI2    D5THI2           *手配番号2
+      *
+     C                     MOVEL*BLANK    D5BAN            *番地
+     C                     MOVELH4BAN1    D5BAN1           *番地1
+     C                     MOVEL'-'       D5BNS1           *番地線1
+     C                     MOVELH4BAN2    D5BAN2           *番地2
+     C                     MOVEL'-'       D5BNS2           *番地線2
+     C                     MOVELH4BAN3    D5BAN3           *番地3
+     C                     MOVEL'-'       D5BNS3           *番地線3
+     C                     MOVELH4BAN4    D5BAN4           *番地4
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'PNL50'   W@NEXT           G5-PNL
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #PNL50   第五画面(G5) 表示処理
+      *-------------------------------------------------------------------------
+     C           #PNL50    BEGSR
+      *
+     C                     WRITEMRHPW314
+     C                     EXFMTMRHPW315
+      *
+     C                     SETOF                     99
+     C                     MOVEL*BLANK    D4EMSG           * ERR MSG
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'PNL50'   W@NEXT
+      *エラー時
+     C           *IN05     IFEQ '1'                        ¬IF_01
+     C                     MOVEL'SET10'   W@NEXT
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #UPD10   試作手配データ　削除更新　処理
+      *-------------------------------------------------------------------------
+     C           #UPD10    BEGSR
+      *
+     C                     MOVEL'D'       STGSJY           *削除コード
+     C                     Z-ADDS@YYMD    STGSHZ           *削除予定　年月日
+     C                     MOVELS@USID    STGSNM           *削除作業者
+     C                     Z-ADDS@YYMD    STGKHZ           *更新作業　年月日
+     C                     Z-ADDS@HMS     STGKTM           *更新作業　時分秒
+     C                     MOVELS@PGID    STGKPG           *更新ﾎﾟﾜhﾞ[w
+     C                     MOVELS@USID    STGKNM           *更新作業者
+      *
+     C                     UPDATMRHPL511
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #UPD20   試作番地マスタ　更新　処理
+      *-------------------------------------------------------------------------
+     C           #UPD20    BEGSR
+      *
+     C                     MOVEL*BLANK    SBGSJY           *削除コード
+     C                     Z-ADD*ZERO     SBGSHZ           *削除予定　年月日
+     C                     MOVEL*BLANK    SBGSNM           *削除作業者
+     C                     Z-ADDS@YYMD    SBGKHZ           *更新作業　年月日
+     C                     Z-ADDS@HMS     SBGKTM           *更新作業　時分秒
+     C                     MOVELS@PGID    SBGKPG           *更新ﾎﾟﾜhﾞ[w
+     C                     MOVELS@USID    SBGKNM           *更新作業者
+      *
+     C                     MOVELD4SHN1    SBHIN1           *品番1
+     C                     MOVELD4SHN2    SBHIN2           *品番2
+     C                     MOVELD4SHN3    SBHIN3           *品番3
+     C                     MOVELP3THI1    SBLNO1           *手配番号　絶対番号
+     C                     MOVELP3THI2    SBLNO2           *手配番号　連番
+     C                     Z-ADD*ZERO     SBSCHZ           *スクラップ　年月日
+      *
+     C                     UPDATMRHPL111
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #MOV10   試作手配データ　項目セット処理（共通セット・出力用）
+      *-------------------------------------------------------------------------
+     C           #MOV10    BEGSR
+      *
+     C                     CLEARMRHPL511
+      *
+     C                     MOVEL*BLANK    STGSJY           *削除コード
+     C                     Z-ADD*ZERO     STGSHZ           *削除予定　年月日
+     C                     MOVEL*BLANK    STGSNM           *削除作業者
+      *
+     C                     Z-ADDS@YYMD    STGKHZ           *更新作業　年月日
+     C                     Z-ADDS@HMS     STGKTM           *更新作業　時分秒
+     C                     MOVELS@PGID    STGKPG           *更新ﾎﾟﾜhﾞ[w
+     C                     MOVELS@USID    STGKNM           *更新作業者
+      *
+     C                     MOVELD4DVKB    STDVKB           *発行部署
+     C                     MOVELD4DVNM    STDVNM           *発行部署名
+     C                     MOVELD4DPNM    STDPNM           *発行依頼者
+     C                     MOVELD4SHN1    STSHN1           *社内品番１
+     C                     MOVELD4SHN2    STSHN2           *社内品番２
+     C                     MOVELD4SHN3    STSHN3           *社内品番３
+     C                     MOVELW@SEHI    STSEHI           *製品区分
+     C                     MOVELW@TEHI    STTEHI           *手配区分
+      *
+     C                     MOVELEABDAI    STBDAI           *大分類
+     C                     MOVELEABTIU    STBTIU           *中分類
+     C                     MOVELEABHIN    STBHIN           *小分類
+     C                     MOVELEASMEI    STSMEI           *品名
+     C                     MOVELEATMEI    STTMEI           *中名称
+     C                     MOVELEADMEI    STDMEI           *大名称
+      *
+     C                     Z-ADDD4TOKU    STTOKU           *ユーザーコード
+     C                     MOVELD4TKNM    STTKNM           *ユーザー名称
+     C                     MOVELD4MHN1    STMHN1           *ユーザー品番１
+     C                     MOVELD4MHN2    STMHN2           *ユーザー品番２
+     C                     MOVELD4MHN3    STMHN3           *ユーザー品番３
+     C                     MOVELD4MHN4    STMHN4           *ユーザー品番４
+     C                     MOVELD4BHN1    STBHN1           *ブランク品番１
+     C                     MOVELD4BHN2    STBHN2           *ブランク品番２
+     C                     MOVELD4BHN3    STBHN3           *ブランク品番３
+      *
+     C                     Z-ADDD4NOHZ    W@YYMD
+     C*                    Z-ADDD4NOHZ    W@MMDY
+     C*                    EXSR #CMTY                      *日付変換MDY->YMD
+     C                     Z-ADDW@YYMD    STNOHZ           *納期　年月日
+     C                     Z-ADDD4THSU    STTHSU           *手配数量
+     C                     Z-ADDD4SISU    STSISU           *総生産数量
+      *箱数=総生産数/収容数（切上）
+     C                     Z-ADD*ZERO     W@SHKS           *箱数（総生産数）
+     C                     Z-ADD*ZERO     W@MVR            *余り
+     C           W@SSYS    IFNE *ZERO                      ¬IF_01
+     C           D4SISU    DIV  W@SSYS    W@SHKS           *箱数（総生産数）
+     C                     MVR            W@MVR            *余り
+     C           W@MVR     IFNE *ZERO                      ~¬IF_02
+     C                     ADD  1         W@SHKS           *箱数（総生産数）
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+     C                     MOVELW@SHKS    STHKSU           *箱数
+      *重量（箱）＝K単重×収容数
+     C           EAKASI    MULT EASSYS    STHKJU           *重量（箱）
+     C           STHKJU    DIV  1000      STHKJU           *重量（箱）
+      *
+     C                     MOVELD4THMK    STTHMK           *手配目的
+     C                     MOVELH4VIKO    STVIKO           *備考
+      *
+     C                     MOVELD4INSP    STINSP           *データ要否
+     C                     MOVELD4HNL1    STHNL1           * HN LOC1
+     C                     MOVELD4HNL2    STHNL2           * HN LOC2
+     C                     MOVELD4HNL3    STHNL3           * HN LOC3
+     C                     MOVELD4HNL4    STHNL4           * HN LOC4
+      *
+     C                     MOVELH4BRHZ    STBRHZ           *中断日
+     C                     MOVELH4BRMK    STBRMK           *中断理由
+     C                     MOVELH4NKHZ    STNKHZ           *入庫日
+     C                     MOVELH4FFLG    STFFLG           *終了フラグ
+     C                     MOVELH4PCHZ    STPCHZ           * PCCS戻り日
+      *
+     C                     MOVELH4BAN1    STBAN1           *番地1
+     C                     MOVELH4BAN2    STBAN2           *番地2
+     C                     MOVELH4BAN3    STBAN3           *番地3
+     C                     MOVELH4BAN4    STBAN4           *番地4
+      *
+     C                     MOVELP3THI1    STTHI1           *手配№　絶対番号
+     C                     MOVELP3THI2    STTHI2           *手配№　連番
+      *
+     C                     Z-ADDEAKUBI    STKUBI           *首下長さ
+     C                     Z-ADDEASOZI    STSOZI           *Ｓ単重
+     C                     MOVELEASOZT    STSOZT           *Ｓ単重　単位
+     C                     Z-ADDEAKASI    STKASI           *Ｋ単重
+     C                     MOVELEAKAST    STKASK           *Ｋ単重　単位
+     C                     MOVELEAZANM    STZANM           *材質名
+      *
+     C                     MOVELEAZAIC    C1ZACD           *MATERIAL CODE
+     C           C1KEY     CHAINCACPL011             92
+     C           *IN92     IFEQ '0'                        ¬IF_01
+     C           C1SKJY    IFEQ 'D'                        ~¬IF_02
+     C           C1SKHZ    ANDLES@YYMD
+      ** （処理無し）
+     C                     ELSE                            -+ELSE_02
+     C                     MOVELC1ZAIR    STZAIR           *材質色コード
+     C                     END                             _｢IF_02
+     C                     ELSE
+     C                     MOVEL'Z'       STZAIR           * ERR MSG
+     C                     END                             ｢IF_01
+      *
+     C                     Z-ADDEAKAZI    STKAZI           *材径
+      *
+     C                     MOVELH4ZBN1    STZBN1           *材料番地１
+     C                     MOVELH4ZBN2    STZBN2           *材料番地２
+     C                     MOVELH4ZBN3    STZBN3           *材料番地３
+     C                     MOVELH4ZBN4    STZBN4           *材料番地４
+      *
+     C                     MOVELEAMEK1    STMEK1           *表面処理コード１
+     C                     MOVELEAMEK2    STMEK2           *表面処理コード２
+     C                     MOVELEAMEK3    STMEK3           *表面処理コード３
+     C                     MOVELEAMMEI    STMMEI           *表面処理名
+     C                     Z-ADDEAMKSU    STMKSU           *メッキ係数
+     C                     Z-ADDEABLSU    STBLSU           *バレル数
+     C                     MOVELEASETR    STSETR           *二次処理名
+     C                     MOVELEASECD    STSECD           *二次処理名称コード
+     C                     Z-ADDEATUSZ    STTUSZ           *ネジサイズ
+     C                     Z-ADDEAKIKI    STKIKI           *強度
+     C                     Z-ADDEAOQTP    STOQTP           *焼入れ温度
+     C                     Z-ADDEAKPTM    STKPTM           *焼入れ時間
+     C                     Z-ADDEATMTP    STTMTP           *焼戻し温度
+     C                     Z-ADDEACO2     STCO2            *二酸化炭素濃度
+     C                     Z-ADDEAOQLT    STOQLT           * OQロット
+     C                     Z-ADDEALATP    STLATP           * LAN/AOQ温度
+     C                     Z-ADDEALATM    STLATM           * LAN/AOQ処理時間
+     C                     Z-ADDEABSK1    STBSK1           *バスケット1
+     C                     Z-ADDEABSK2    STBSK2           *バスケット2
+     C                     Z-ADDEABSK3    STBSK3           *バスケット3
+     C                     Z-ADDEABSK4    STBSK4           *バスケット4
+     C                     Z-ADDEASSYS    STSSYS           *収容数
+     C                     MOVELEASSYT    STSSYT           *箱種
+      *
+     C                     Z-ADDH4KTHZ    STKTHZ           *型納期　年月日
+     C                     Z-ADDH4ZRHZ    STZRHZ           *材料納期　年月日
+      *構成品納期は最大数を獲得
+     C                     Z-ADDH4WHZ1    STWAHZ           *構成品納期　年月日
+     C           H4WHZ2    IFGT STWAHZ                     ¬IF_01
+     C                     Z-ADDH4WHZ2    STWAHZ           *構成品納期　年月日
+     C                     END                             ｢IF_01
+     C           H4WHZ3    IFGT STWAHZ                     ¬IF_01
+     C                     Z-ADDH4WHZ3    STWAHZ           *構成品納期　年月日
+     C                     END                             ｢IF_01
+     C           H4WHZ4    IFGT STWAHZ                     ¬IF_01
+     C                     Z-ADDH4WHZ4    STWAHZ           *構成品納期　年月日
+     C                     END                             ｢IF_01
+      *<構成品1>
+     C                     MOVELD4KH11    STKH11           *構成品番1-1
+     C                     MOVELD4KH12    STKH12           *構成品番1-2
+     C                     MOVELD4KH13    STKH13           *構成品番1-3
+     C                     MOVELD4KB11    STKB11           *構成品番地 1-1
+     C                     MOVELD4KB12    STKB12           *構成品番地 1-2
+     C                     MOVELD4KB13    STKB13           *構成品番地 1-3
+     C                     MOVELD4KB14    STKB14           *構成品番地 1-4
+     C                     Z-ADDEASKS1    STSKS1           *使用個数1
+     C                     MOVELEAKOT1    STKOT1           *組付け工程1
+     C                     Z-ADDEAKBM1    STKBM1           *持込先1
+     C                     Z-ADDH4WHZ1    STWHZ1           *構成品納期　年月日
+      *<構成品2>
+     C                     MOVELD4KH21    STKH21           *構成品番2-1
+     C                     MOVELD4KH22    STKH22           *構成品番2-2
+     C                     MOVELD4KH23    STKH23           *構成品番2-3
+     C                     MOVELD4KB21    STKB21           *構成品番地 2-1
+     C                     MOVELD4KB22    STKB22           *構成品番地 2-2
+     C                     MOVELD4KB23    STKB23           *構成品番地 2-3
+     C                     MOVELD4KB24    STKB24           *構成品番地 2-4
+     C                     Z-ADDEASKS2    STSKS2           *使用個数2
+     C                     MOVELEAKOT2    STKOT2           *組付け工程2
+     C                     Z-ADDEAKBM2    STKBM2           *持込先2
+     C                     Z-ADDH4WHZ2    STWHZ2           *構成品納期　年月日
+      *<構成品3>
+     C                     MOVELD4KH31    STKH31           *構成品番3-1
+     C                     MOVELD4KH32    STKH32           *構成品番3-2
+     C                     MOVELD4KH33    STKH33           *構成品番3-3
+     C                     MOVELD4KB31    STKB31           *構成品番地 3-1
+     C                     MOVELD4KB32    STKB32           *構成品番地 3-2
+     C                     MOVELD4KB33    STKB33           *構成品番地 3-3
+     C                     MOVELD4KB34    STKB34           *構成品番地 3-4
+     C                     Z-ADDEASKS3    STSKS3           *使用個数3
+     C                     MOVELEAKOT3    STKOT3           *組付け工程3
+     C                     Z-ADDEAKBM3    STKBM3           *持込先3
+     C                     Z-ADDH4WHZ3    STWHZ3           *構成品納期　年月日
+      *<構成品4>
+     C                     MOVELD4KH41    STKH41           *構成品番4-1
+     C                     MOVELD4KH42    STKH42           *構成品番4-2
+     C                     MOVELD4KH43    STKH43           *構成品番4-3
+     C                     MOVELD4KB41    STKB41           *構成品番地 4-1
+     C                     MOVELD4KB42    STKB42           *構成品番地 4-2
+     C                     MOVELD4KB43    STKB43           *構成品番地 4-3
+     C                     MOVELD4KB44    STKB44           *構成品番地 4-4
+     C                     Z-ADDEASKS4    STSKS4           *使用個数4
+     C                     MOVELEAKOT4    STKOT4           *組付け工程4
+     C                     Z-ADDEAKBM4    STKBM4           *持込先4
+     C                     Z-ADDH4WHZ4    STWHZ4           *構成品納期　年月日
+      *
+     C                     Z-ADD*ZERO     STCIHZ           *ゲート入　年月日
+     C                     MOVEL*BLANK    STCINM           *ゲート入作業者
+     C                     Z-ADD*ZERO     STCOHZ           *ゲート出　年月日
+     C                     MOVEL*BLANK    STCONM           *ゲート出作業者
+     C                     Z-ADD*ZERO     STHKHZ           *かんばん発行日
+     C                     Z-ADD*ZERO     STHKTM           *かんばん発行時間
+     C                     Z-ADDP3LPHZ    STLPHZ           *前回手配発行日
+      *
+     C                     MOVELS@YYMD    STGRHZ           *登録作業　年月日
+     C                     MOVELS@HMS     STGRTM           *登録作業　時分秒
+     C                     MOVELS@PGID    STGRPG           *登録ﾎﾟﾜhﾞ[w
+     C                     MOVELS@USID    STGRNM           *登録作業者
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #MOV11   試作手配データ　項目セット処理（工程情報・出力用）
+      *-------------------------------------------------------------------------
+     C           #MOV11    BEGSR
+      *
+     C                     Z-ADDIX        STKTNO           *工程№
+     C                     MOVEL@K1,IX    STKTEI           *工程
+     C                     Z-ADD@K2,IX    STKBMN           *加工工場
+     C                     MOVEL@K3,IX    STKBNM           *加工工場名
+     C                     MOVEL@K4,IX    STMSNO           *機番
+     C                     MOVEL@K5,IX    STBCCD           *箱色コード
+     C                     MOVEL@K7,IX    STBCNM           *箱色名
+     C                     MOVEL@K6,IX    STBTCD           *箱種
+     C                     MOVEL@K8,IX    STBTNM           *箱種　名称
+     C                     Z-ADD@K9,IX    STKNHZ           *加工納期　年月日
+     C                     MOVEL@KA,IX    STKVIK           *工程ごとの備考
+      **再発行は仕切りなおしのため、
+      **ゲート情報はセットしない(2014/2/12)
+      *ゲート情報
+     C****       *IN97     IFEQ '1'
+     C****                 Z-ADD@KB,IX    STCIHZ           *ゲート入　年月日
+     C****                 MOVEL@KC,IX    STCINM           *ゲート入作業者
+     C****                 Z-ADD@KD,IX    STCOHZ           *ゲート出　年月日
+     C****                 MOVEL@KE,IX    STCONM           *ゲート出作業者
+     C****                 END
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CYTM    日付変換FROM YYYYMMDD TO MMDDYYYY
+      *                             IN : W@YYMD 8S0  YYYYMMDD
+      *                             OUT: W@MMDY 8S0  MMDDYYYY
+      *                                  W@MDY2 6S0  MMDDYY
+      *-------------------------------------------------------------------------
+     C           #CYTM     BEGSR
+      *
+     C                     Z-ADD*ZERO     W@MMDY           * TO日付MMDDYYYY
+     C                     Z-ADDW@YYY     W@MYY            * TO日付YYYY
+     C                     Z-ADDW@YMM     W@MMM            * TO日付MM
+     C                     Z-ADDW@YDD     W@MDD            * TO日付DD
+      *
+     C                     Z-ADD*ZERO     W@MDY2           * TO日付MMDDYY
+     C                     Z-ADDW@YYY     W@MYY2           * TO日付YY
+     C                     Z-ADDW@YMM     W@MMM2           * TO日付MM
+     C                     Z-ADDW@YDD     W@MDD2           * TO日付DD
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CMTY    日付変換FROM MMDDYYYY TO YYYYMMDD
+      *                             IN : W@MMDY 8S0  MMDDYYYY
+      *                             OUT: W@YYMD 8S0  YYYYMMDD
+      *-------------------------------------------------------------------------
+     C           #CMTY     BEGSR
+      *
+     C                     Z-ADD*ZERO     W@YYMD           * TO日付YYYYMMDD
+     C                     Z-ADDW@MYY     W@YYY            * TO日付YYYY
+     C                     Z-ADDW@MMM     W@YMM            * TO日付MM
+     C                     Z-ADDW@MDD     W@YDD            * TO日付DD
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CMTY2   日付変換FROM MMDDYY TO YYYYMMDD
+      *                             IN : W@MDY2 6S0  MMDDYY
+      *                             OUT: W@YYMD 8S0  YYYYMMDD
+      *-------------------------------------------------------------------------
+     C           #CMTY2    BEGSR
+      *
+     C                     Z-ADD*ZERO     W@YYMD           * TO日付YYYYMMDD
+      *
+     C*                    Z-ADD*ZERO     W@YMD2           * TO日付YYYYMMDD
+     C*                    Z-ADDW@MYY2    W@YYY2           * WK日付YY
+     C*                    Z-ADDW@MMM2    W@YMM2           * WK日付MM
+     C*                    Z-ADDW@MDD2    W@YDD2           * WK日付DD
+      *
+     C* <<日付変換　6桁⇒8桁(DATR00) >>
+     C           W@YMD2    IFNE *ZERO                      ¬IF_01
+     C                     MOVE W@YMD2    P1ZYMD           *日付6桁YYMMDD
+     C                     MOVE *ZERO     P1KYMD           *日付8桁YYYYMMD
+     C                     CALL 'DATR00'  P1DA00
+      *
+     C                     MOVE P1KYMD    W@YYMD           * TO日付YYYYMMDD
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *----------------------------------------------------------------
+**  @BM  (発行部書名)
+SALES
+PC
+QD
+OTHER
+**  @BN  (番地2 )
+PC
+QD
+**  @AK  (追加工程)
+INSP
+SORT
+**  @MS  ( ERR MSG )
+ER01 SELECT "A" OR "B"
+ER02 ERROR!!
+ER03 SELECT "1" OR "2" OR "3" OR "4"
+ER04 NOT FOUND
+ER05 INPUT CORRECT FACTORY CODE
+ER06 PART MASTER ALREADY DELETED
+ER07 PRODUCT QTY SHOULD NOT EXCEED 16 BOXES
+ER08 DERIVERY QTY SHOULD NOT EXCEED PRODUCT QTY
+ER09 INCORRECT DATE
+ER10 NOT EXIST PILOT LOCATION CODE
+ER11 NOT EXIST IN PILOT LOCATION CODE MASTER
+ER12 LOCATION CODE ALREADY DELETED
+ER13 EXIST IN PILOT DATA
+ER14 ASSIGN LARGER PILOT LOCATION CODE
+ER15 NOT FOUND
+ER16 CANNOT ENTER A NAME
+ER17 CANNOT BE ASSIGNED LOT NUMBER
+ER18 FIRST PAGE
+ER19 LAST PAGE
+ER20 NOT EXIST IN PART MASTER
+ER21 INPUT HN LOCATION
+ER22 INPUT CORRECT FACTORY CODE
+ER23 LOT NUMBER ALREADY DELETED
+ER24 INPUT PROCESS CODE / FACTORY CODE
+ER25 INPUT INSP DATA (Y OR N)
+ER26 INCORRECT PROCESS CODE

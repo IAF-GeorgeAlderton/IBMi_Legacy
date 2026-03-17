@@ -1,0 +1,420 @@
+     H            Y.
+     F** AIAR02 ******************************************
+     F* .. APICS SEND&RECEIVE CONTROL PROGRAM || *.
+     F* I-HASADA                           89.07.03      *
+     F****************************************** AIAR02 **
+     FAIABSCF CF  E                    WORKSTN      KINFDS INFDS
+     F                                              KINFSR INFSR
+     FINPUT   IF  F     256            DISK                           UC
+     FAZZPPDF UF  E           K        DISK                      A
+     FAI#PP01 O   E                    DISK                      A
+     IINPUT   AA  90
+     I                                        1 256 IDATA
+     IINFDS       DS
+     I                                     *STATUS  ERRCD1
+     I           SDS
+     I                                     *STATUS  ERRCD2
+     I           UDS
+     I                                        1   50UJOBN
+     I                                        6   7 URECD
+     I                                        8  110UBMON
+     I                                       12  13 UGRUP
+     I                                       14  190UTIME
+     I                                       14  150UHH
+     I                                       20  270UNOHZ
+     I                                       28  290UNBIN
+     I                                       30  30 UKUBN
+     I                                       31  40 UFILE
+     I                                       41  42 UMESG
+     I                                       43  45 UBLKA
+     I                                       43  44 UBLOK
+     I                                       45  45 UKANB
+     I                                       46  47 U0111
+     I            DS
+     I                                        1 256 ADATA
+     I                                        1   2 ARECD
+     I                                        3   60ABMON
+     I                                        7   8 AGRUP
+     I                                        9   9 AKUBN
+     I                                       10  11 AMESG
+     I                                       18  250ANOHZ
+     I                                       26  270ANBIN
+     I                                       28  29 ABLOK
+     I                                       30  30 AKANB
+     I                                       28  30 ABLKA
+     I            DS
+     I                                        1 256 IDATA
+     I                                        1   2 IRECD
+     I                                        3   6 IREBN
+     I                                        9   9 IKUBN
+     I                                       10  10 IMES1
+     I                                       11  11 IMES2
+     I                                       28  30 IBLKA
+     I                                        3   5 IBLKB
+     I            DS
+     I                                        1   3 WBLKB
+     I                                        1   2 WBLOK
+     I                                        3   3 WKANB
+     I            DS
+     I                                        1 256 WDATA
+     I                                        1   2 WRECD
+     I                                        3   60WKENS
+     I            DS
+     I                                        1   60DATIME
+     I                                        1   20DATUHH
+     I                                        3   40DATUFF
+     I                                        5   60DATUSS
+     I            DS
+     I                                        1   80DATUHZ
+     I                                        1   40DATUYY
+     I                                        5   60DATUMM
+     I                                        7   80DATUDD
+     I            DS
+     I                                        1   60ZZTIME
+     I                                        1   20ZZHORS
+     I                                        3   40ZZMINS
+     I                                        5   60ZZSECS
+      *
+     C                     Z-ADD0         WKENS
+     C           UGRUP     IFEQ '0A'
+     C                     SETON                     04
+     C                     MOVEL'AIANP04' WFILE  10
+     C           CTP1      TAG
+     C                     SETOF                     03
+     C           WFILE     CHAINAZZPPDF1             03
+     C           *IN03     IFEQ '1'
+     C                     MOVE WFILE     ZZFILE
+     C                     Z-ADD0         ZZTIME
+     C                     WRITEAZZPPDF1
+     C                     GOTO CTP1
+     C                     END
+     C                     END
+     C                     SETOF                     99
+     C   99                READ AIARV01                  03
+      *
+     C*-----------------------------------------------------------*
+     C*  ＲＱレコード                                           *
+     C*  ブロック№・かんばん種類（大）に　指定されている場合   *
+     C*  データをチェック                                       *
+     C*-----------------------------------------------------------*
+     C           UGRUP     IFNE '0A'
+     C           UBLOK     IFNE *BLANK
+     C                     OPEN INPUT
+     C                     DO   *HIVAL
+     C                     SETOF                     03
+     C                     READ INPUT                    03
+     C           *IN03     IFEQ '1'
+     C                     EXSR SHD
+     C                     WRITEAI#PP011
+      *
+     C*--------------------------------------*
+     C*           （ＨＤの場合）           *
+     C*  通信装置ファイル　ヘ　ＷＲＩＴＥ  *
+     C*--------------------------------------*
+     C                     WRITEAIASD01
+     C                     SETON                     LR
+     C                     RETRN
+     C                     END
+      *
+     C                     MOVELIRECD     WAE
+     C                     EXSR SUBAE
+     C                     MOVELWAE       WRECD
+     C           WRECD     IFEQ 'BK'
+     C                     MOVELIBLKB     WAE
+     C                     EXSR SUBAE
+     C                     MOVELWAE       WBLKB
+     C           UBLOK     IFEQ WBLOK
+     C           UKANB     ANDEQWKANB
+     C                     GOTO STP1
+     C                     END
+     C                     END
+     C                     END
+     C           STP1      TAG
+     C                     CLOSEINPUT
+     C                     END
+     C                     END
+      *
+     C*-----------------------------------------------------------*
+     C*  全データをチェックして　東芝Ｑ６００・Ｑ５００に送信   *
+     C*-----------------------------------------------------------*
+     C                     OPEN INPUT
+     C                     DO   *HIVAL
+     C                     SETOF                     03
+     C                     READ INPUT                    03
+      *
+     C*--------------------------*
+     C*  ファイルは、終りか？  *
+     C*--------------------------*
+     C           *IN03     IFEQ '1'
+     C                     CLOSEINPUT
+     C*----------------------------*
+     C*  データ件数は、０件か？  *
+     C*----------------------------*
+     C           WKENS     IFEQ 0
+     C                     EXSR SHD
+     C                     WRITEAI#PP011
+      *
+     C*--------------------------------------*
+     C*           （ＨＤの場合）           *
+     C*  通信装置ファイル　ヘ　ＷＲＩＴＥ  *
+     C*--------------------------------------*
+     C                     WRITEAIASD01
+     C                     END
+     C                     SETON                     LR
+     C                     RETRN
+     C                     END
+     C                     MOVELIRECD     WAE    30
+     C                     EXSR SUBAE
+     C                     MOVELWAE       WRECD
+     C           WRECD     IFNE CRECD
+     C                     MOVE WRECD     CRECD   2
+     C                     EXSR SRE
+     C                     END
+      *
+     C*------------------------------*
+     C*  レコード種別は、ＥＥか？  *
+     C*------------------------------*
+     C           WRECD     IFEQ 'EE'
+     C*-----------------------------------------*
+     C*           （ＥＥの場合）              *
+     C*  ＪＯＢＬＯＧファイル　へ　ＷＲＩＴＥ *
+     C*       エラーコード　＝　＇００＇      *
+     C*-----------------------------------------*
+     C                     MOVE '1'       *IN01
+     C                     MOVELWKENS     WEA
+     C                     EXSR SUBEA
+     C                     MOVELWEA       IREBN
+     C                     MOVE IDATA     SDATA
+     C                     MOVE WRECD     URECD
+     C                     TIME           UTIME
+     C                     MOVE WDATA     DADATA
+     C                     Z-ADDUBMON     DABUCD
+     C                     Z-ADDUJOBN     DAJBNO
+     C                     Z-ADD*DATE     DATUHZ
+     C                     TIME           DATIME
+     C                     MOVE '00'      DAERCD
+     C                     MOVE *BLANK    DARETN
+     C                     WRITEAI#PP011
+      *
+     C*--------------------------------------*
+     C*         （ＥＥの場合）             *
+     C*  通信装置ファイル　ヘ　ＷＲＩＴＥ  *
+     C*--------------------------------------*
+     C                     WRITEAIASD01
+     C                     CLOSEINPUT
+     C           UGRUP     IFEQ '0A'
+     C                     MOVEL'AIAR02'  ZZPROG
+     C                     TIME           ZZTIME
+     C                     UPDATAZZPPDF1
+     C                     END
+     C                     SETON                     LR
+     C                     RETRN
+     C                     END
+      *
+     C*-------------------------------------------*
+     C*  ローカルデータエリアの変更             *
+     C*   レコード種別　　＝　ＨＤ・ＢＫ・ＤＴ  *
+     C*-------------------------------------------*
+     C                     MOVE WRECD     URECD
+     C                     TIME           UTIME
+     C*------------------------------------*
+     C*  レコード種別は、ＢＫ・ＤＴか？  *
+     C*------------------------------------*
+     C           WRECD     IFNE 'HD'
+     C           WRECD     IFEQ 'BK'
+     C*--------------------------*
+     C*  レコード種別は、ＢＫ  *
+     C*--------------------------*
+     C                     SETOF                     04
+     C           UBLOK     IFEQ *BLANK
+     C                     SETON                     04
+     C                     ELSE
+     C                     MOVELIBLKB     WAE
+     C                     EXSR SUBAE
+     C                     MOVELWAE       WBLKB
+     C           UBLOK     IFEQ WBLOK
+     C           UKANB     ANDEQWKANB
+     C                     SETON                     04
+     C                     ELSE
+     C                     GOTO END
+     C                     END
+     C                     END
+     C                     Z-ADD0         WREBN   40
+     C                     ELSE
+      *
+     C*--------------------------*
+     C*  レコード種別は、ＤＴ  *
+     C*--------------------------*
+     C           *IN04     IFEQ '0'
+     C                     GOTO END
+     C                     END
+     C                     ADD  1         WREBN   40
+     C                     MOVELWREBN     WEA
+     C                     EXSR SUBEA
+     C                     MOVELWEA       IREBN
+     C                     END
+     C                     ADD  1         WKENS
+     C                     MOVE IDATA     SDATA
+      *
+     C*--------------------------------------*
+     C*          （ＢＫ・ＤＴの時）        *
+     C*  通信装置ファイル　ヘ　ＷＲＩＴＥ  *
+     C*--------------------------------------*
+     C                     WRITEAIASD01
+     C                     ELSE
+      *
+     C*-----------------------------------------*
+     C*              （ＨＤの時）             *
+     C*  ＪＯＢＬＯＧファイル　へ　ＷＲＩＴＥ *
+     C*       エラーコード　＝　＇００＇      *
+     C*-----------------------------------------*
+     C           UMESG     IFNE '00'
+     C                     BITOF'01234567'IMES1
+     C                     BITON'23'      IMES1
+     C                     BITOF'01234567'IMES2
+     C                     BITON'234'     IMES2
+     C                     END
+     C                     MOVELUKUBN     WEA
+     C                     EXSR SUBEA
+     C                     MOVELWEA       IKUBN
+     C                     MOVELUBLKA     WEA
+     C                     EXSR SUBEA
+     C                     MOVELWEA       IBLKA
+     C                     MOVE IDATA     SDATA
+     C                     MOVELIDATA     WAE
+     C                     EXSR SUBAE
+     C                     MOVE *BLANK    DADATA
+     C                     MOVELWAE       WAEH   28
+     C                     MOVELWAEH      DADATA
+     C                     Z-ADDUBMON     DABUCD
+     C                     Z-ADDUJOBN     DAJBNO
+     C                     Z-ADD*DATE     DATUHZ
+     C                     TIME           DATIME
+     C                     MOVE '00'      DAERCD
+     C                     MOVE *BLANK    DARETN
+     C                     WRITEAI#PP011
+      *
+     C*--------------------------------------*
+     C*              （ＨＤの時）          *
+     C*  通信装置ファイル　ヘ　ＷＲＩＴＥ  *
+     C*--------------------------------------*
+     C                     WRITEAIASD01
+     C                     END
+     C           END       TAG
+     C                     END
+      *
+     C*---------------------------------------*
+     C*  サブルーチン                       *
+     C*           （ＨＤの場合）            *
+     C*  ＨＤレコード項目のセット           *
+     C*     メッセージコード　＝　＇２３＇  *
+     C*---------------------------------------*
+     C           SHD       BEGSR
+     C                     MOVE '1'       *IN01
+     C                     MOVE 'HD'      ARECD
+     C                     Z-ADDUBMON     ABMON
+     C                     MOVE UGRUP     AGRUP
+     C                     MOVE UKUBN     AKUBN
+     C                     MOVE '23'      AMESG
+     C                     Z-ADDUNOHZ     ANOHZ
+     C                     Z-ADDUNBIN     ANBIN
+     C                     MOVE UBLOK     ABLOK
+     C                     MOVE UKANB     AKANB
+     C                     MOVE *BLANK    SDATA
+     C                     MOVELADATA     WEA    30
+     C                     EXSR SUBEA
+     C                     MOVELWEA       SDATA
+      *
+     C*---------------------------------*
+     C*        （ＨＤの場合）         *
+     C*  ローカルデータエリアの変更   *
+     C*     レコード種別　　＝　ＡＴ  *
+     C*---------------------------------*
+     C                     MOVE 'AT'      URECD
+     C                     MOVE 'AT'      WRECD
+     C                     EXSR SRE
+     C                     TIME           UTIME
+      *
+     C*-----------------------------------------*
+     C*           （ＨＤの場合）              *
+     C*  ＪＯＢＬＯＧファイル　へ　ＷＲＩＴＥ *
+     C*          エラーコード　＝　＇２３＇   *
+     C*-----------------------------------------*
+     C                     MOVE ADATA     DADATA
+     C                     Z-ADDABMON     DABUCD
+     C                     Z-ADDUJOBN     DAJBNO
+     C                     Z-ADD*DATE     DATUHZ
+     C                     TIME           DATIME
+     C                     MOVE '23'      DAERCD
+     C                     MOVE *BLANK    DARETN
+     C                     ENDSR
+      *
+     C*----------------------------------------------------*
+     C*  サブルーチン　　ＨＤ・ＢＫ・ＤＴ・ＥＥ          *
+     C*  ローカルデータエリア　工場別レコード区分変更    *
+     C*----------------------------------------------------*
+     C           SRE       BEGSR
+     C           UBMON     IFEQ 0111
+     C                     MOVE WRECD     U0111
+     C                     END
+     C                     ENDSR
+      *
+     C*------------------------------------------------*
+     C*   ＥＢＣＤＩＣ　から　ＡＳＣＩＩ　へ　変換   *
+     C*------------------------------------------------*
+     C           SUBEA     BEGSR
+     C                     CALL 'AZZR11'
+     C                     PARM           WEA
+     C                     ENDSR
+      *
+     C*------------------------------------------------*
+     C*   ＡＳＣＩＩ　から　ＥＢＣＤＩＣ　へ　変換   *
+     C*------------------------------------------------*
+     C           SUBAE     BEGSR
+     C                     CALL 'AZZR12'
+     C                     PARM           WAE
+     C                     ENDSR
+      *
+     C*----------------------------------*
+     C* ERROR SUBROUTINE                 *
+     C*----------------------------------*
+     C           INFSR     BEGSR
+     C           SW        IFNE '1'
+     C                     CALL 'AIAC01'
+     C                     TIME           HHMMSS  60
+     C                     MOVE *DATE     DATUHZ
+     C                     MOVE HHMMSS    DATIME
+     C                     MOVE ERRCD1    DARETN
+     C                     MOVE *BLANK    DADATA
+     C                     MOVEL'**AB_OPE'TXT1   16
+     C                     MOVE ' EXIT  *'TXT1
+     C                     MOVELTXT1      DADATA
+     C                     WRITEAI#PP011
+     C                     ELSE
+     C                     SETON                     H1
+     C                     RETRN
+     C                     END
+     C                     MOVE '0'       SW      1
+     C                     ENDSR'*CANCL'
+      *
+     C*----------------------------------*
+     C* ERROR SUBROUTINE                 *
+     C*----------------------------------*
+     C           *PSSR     BEGSR
+     C           SW        IFNE '1'
+     C                     CALL 'AIAC01'
+     C                     TIME           HHMMSS  60
+     C                     MOVE *DATE     DATUHZ
+     C                     MOVE HHMMSS    DATIME
+     C                     MOVE ERRCD2    DARETN
+     C                     MOVE *BLANK    DADATA
+     C                     MOVEL'**AB_OPE'TXT1   16
+     C                     MOVE ' EXIT  *'TXT1
+     C                     MOVELTXT1      DADATA
+     C                     WRITEAI#PP011
+     C                     ELSE
+     C                     SETON                     H1
+     C                     RETRN
+     C                     END
+     C                     MOVE '0'       SW      1
+     C                     ENDSR'*CANCL'

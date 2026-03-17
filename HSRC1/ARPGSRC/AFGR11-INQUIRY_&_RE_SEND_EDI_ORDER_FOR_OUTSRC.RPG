@@ -1,0 +1,205 @@
+     H            Y.
+     F** AFGR11 *********************************************
+     F* INQUIRY & RE-SEND EDI ORDER FOR OUTSOURCE           *
+     F*             T.SAKAKI       2016.11.20               *
+     F*  %0001      KIRI           2018.06.08  FREEWAY      *
+     F*******************************************************
+     FAFGPL03 IF  E           K        DISK
+     FAFGPL04 IF  E           K        DISK
+     FAFGWP01 UF  E           K        DISK                      A
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60WJFB
+     I                                        1   20TIMHH
+     I                                        3   40TIMMM
+     I                                        5   60TIMSS
+     I                                        7  140WTIHZ
+     I                                        7  100WTIYY
+     I                                       11  120WTIMM
+     I                                       13  140WTIDD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+     I            DS
+     I                                        1   5 W1PAR1
+     I                                        1   2 W1PX2
+     I                                        1   3 W1PX3
+     I                                        1   4 W1PX4
+      *
+     I              '0123456789'          C         WKCKSU
+      *----------------------------------------------------*
+      *  ENTRY LIST                                        *
+      *----------------------------------------------------*
+     C           *ENTRY    PLIST
+     C                     PARM           P1SUPP  4
+     C                     PARM           P1SDAT  80
+     C                     PARM           P1EDAT  80
+     C                     PARM           P1GPPO 17
+      *----------------------------------------------------*
+      *   KEY LIST                                         *
+      *----------------------------------------------------*
+     C           KEY1      KLIST
+     C                     KFLD           P1SUPP
+     C                     KFLD           P1SDAT
+      *----------------------------------------------------*
+      *   MAIN ROUTINE                                     *
+      *----------------------------------------------------*
+     C                     TIME           WTIME
+     C*
+     C* GPS P.O.NUMBER
+     C           P1GPPO    IFNE *BLANK
+     C           P1GPPO    CHAINAFGPL03              80
+     C           *IN80     IFEQ '0'
+     C           AGSKJY    IFEQ 'D'
+     C           AGSKDT    ANDLEWTIHZ
+     C                     ELSE
+      *  WRITE
+      * %0001  FREEWAY
+     C           P1SUPP    IFEQ '2323'
+     C                     EXSR #SB510
+     C                     ELSE
+      * OTHERS
+     C                     EXSR #SB500
+     C                     ENDIF
+      *
+     C*
+     C                     ENDIF
+     C                     ENDIF
+     C*
+     C                     ELSE
+     C*
+     C           KEY1      SETLLAFGPL041
+     C                     DO   *HIVAL
+     C                     READ AFGPL041                 81
+     C   81                LEAVE
+      * DELETE DATA
+     C           AGSKJY    IFEQ 'D'
+     C           AGSKDT    ANDLEWTIHZ
+     C                     ITER
+     C                     ENDIF
+      * CHECK END DATE
+     C           AGORSD    IFGT P1EDAT
+     C                     LEAVE
+     C                     ENDIF
+      * CHECK UPDATE STATUS
+     C           AGUPID    IFEQ '1'
+     C                     LEAVE
+     C                     ENDIF
+      *  WRITE
+      * %0001  FREEWAY
+     C           P1SUPP    IFEQ '2323'
+     C                     EXSR #SB510
+     C                     ELSE
+      * OTHERS
+     C                     EXSR #SB500
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      * WRITE AFGWP01                                    *
+      *----------------------------------------------------*
+     CSR         #SB500    BEGSR
+      *
+     C                     CLEARAFGWP011
+     C                     MOVELAGDKBN    W1DKBN
+     C                     MOVELP1SUPP    W1SUPP
+     C                     Z-ADDAGODNO    W1ODNO
+     C                     Z-ADDAGSUMD    W1SUMD
+     C                     Z-ADDAGSUMT    W1SUMT
+     C                     MOVELAGZETI    W1ZETI
+     C                     MOVELAGPAR1    W1PAR1
+     C                     MOVELAGPAR2    W1PAR2
+     C                     MOVELAGPAR3    W1PAR3
+     C                     Z-ADDAGIQTY    W1IQTY
+     C                     Z-ADDAGRQTY    W1RQTY
+     C                     Z-ADDAGIWGT    W1IWGT
+     C                     Z-ADDAGRWGT    W1RWGT
+     C                     MOVELAGUPID    W1UPID
+     C                     Z-ADDAGORSD    W1ORSD
+     C                     Z-ADDAGORST    W1ORST
+     C                     Z-ADDAGROSD    W1ROSD
+     C                     Z-ADDAGROST    W1ROST
+     C                     Z-ADDAGREVD    W1REVD
+     C                     Z-ADDAGREVT    W1REVT
+     C                     MOVELAGGPPO    W1GPPO
+     C                     MOVELAGREVN    W1REVN
+     C                     WRITEAFGWP011
+      *
+     CSR         ESB500    ENDSR
+      *----------------------------------------------------*
+%0001 * UPDATE AFGWP01  MASTER PO PER ODER (2323 FREEWAY ) *
+      *----------------------------------------------------*
+     CSR         #SB510    BEGSR
+     C           KEY2      KLIST
+     C                     KFLD           AGDKBN
+     C                     KFLD           P1SUPP
+     C                     KFLD           AGODNO
+      *
+     C           KEY2      CHAINAFGWP011             82
+     C           *IN82     IFEQ *OFF
+     C                     ADD  1         WK#PA
+     C                     MOVE *BLANK    W1PAR1
+     C                     MOVE WK#PA     W1PAR1
+     C*        左づめ
+     C                     SELEC
+     C           W1PX4     WHEQ ' 000'
+     C                     MOVE W1PAR1    WK$1    1
+     C                     MOVELWK$1      W1PAR1    P
+     C           W1PX3     WHEQ ' 00'
+     C                     MOVE W1PAR1    WK$2    2
+     C                     MOVELWK$2      W1PAR1    P
+     C           W1PX2     WHEQ ' 0'
+     C                     MOVE W1PAR1    WK$3    3
+     C                     MOVELWK$3      W1PAR1    P
+     C                     OTHER
+     C                     MOVE W1PAR1    WK$4    4
+     C                     MOVELWK$4      W1PAR1    P
+     C                     ENDSL
+     C*
+     C                     MOVEL'PARTS'   W1PAR2
+     C                     MOVEL*BLANK    W1PAR3
+     C                     ADD  AGIQTY    W1IQTY
+     C                     ADD  AGRQTY    W1RQTY
+     C                     ADD  AGIWGT    W1IWGT
+     C                     ADD  AGRWGT    W1RWGT
+     C                     ADD  AGHAKO    W1HAKO
+     C                     UPDATAFGWP011
+     C                     ELSE
+     C                     Z-ADD1         WK#PA   40
+     C                     CLEARAFGWP011
+     C                     MOVELAGDKBN    W1DKBN
+     C                     MOVELP1SUPP    W1SUPP
+     C                     Z-ADDAGODNO    W1ODNO
+     C                     Z-ADDAGSUMD    W1SUMD
+     C                     Z-ADDAGSUMT    W1SUMT
+     C                     MOVELAGZETI    W1ZETI
+     C                     MOVELAGPAR1    W1PAR1
+     C                     MOVELAGPAR2    W1PAR2
+     C                     MOVELAGPAR3    W1PAR3
+     C                     Z-ADDAGIQTY    W1IQTY
+     C                     Z-ADDAGRQTY    W1RQTY
+     C                     Z-ADDAGIWGT    W1IWGT
+     C                     Z-ADDAGRWGT    W1RWGT
+     C                     Z-ADDAGHAKO    W1HAKO
+     C                     MOVELAGUPID    W1UPID
+     C                     Z-ADDAGORSD    W1ORSD
+     C                     Z-ADDAGORST    W1ORST
+     C                     Z-ADDAGROSD    W1ROSD
+     C                     Z-ADDAGROST    W1ROST
+     C                     Z-ADDAGREVD    W1REVD
+     C                     Z-ADDAGREVT    W1REVT
+     C                     MOVELAGGPPO    W1GPPO
+     C                     MOVELAGREVN    W1REVN
+     C                     WRITEAFGWP011
+     C                     ENDIF
+      *
+     CSR         ESB510    ENDSR

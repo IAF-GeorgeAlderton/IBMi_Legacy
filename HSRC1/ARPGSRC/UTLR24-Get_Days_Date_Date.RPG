@@ -1,0 +1,181 @@
+     H            Y.
+     F** UTLR24 ********************************************
+     F*  PROGRAM: *DATE* TARGET = DATE1 - DATE2            *
+     F*  WRITTEN: JW (SRA)                                 *
+     F*           07/09/2018                               *
+     F*----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UTLR24'
+     F*                    PARM           $DT81   8
+     F*                    PARM           $DT82   8
+     F*                    PARM           $IAF    1
+     F*                    PARM           $INC    1
+     F*                    PARM           $DAYS   4
+     F*                    PARM           $RTN    1
+     F*  IN   $DT81 :  8A DATE1 (YYYYMMDD)
+     F*       $DT82 :  8A DATE2 (YYYYMMDD)
+     F*       $IAF  :  1A Y=IAF CALENADER, N=REGULAR CALENDAR
+     F*       $INC  :  1A Y=INCLUDE BEGINING DAY, N=DOES NOT INCLIDE
+     F*  OUT  $DAYS :  4A DAYS (DATE2 - DATE1)
+     F*       $RTN  :  1A RETURN FLAG (BLANK=OK, 1=ERROR)
+     F******************************************************
+     FAGDPL12 IF  E           K        DISK
+     FA$DPL11 IF  E           K        DISK
+      *--------------------------------------------------------
+     I            DS
+     I                                        1   80K@DT
+     I                                        1   40K@DTYY
+     I                                        5   60K@DTMM
+     I                                        7   80K@DTDD
+     I            DS
+     I                                        1   80F8KA
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+      *--------------------------------------------------------
+      *                    MAIN PROCESS
+      *--------------------------------------------------------
+      *
+     C                     EXSR #INIT
+      * CHECK DATE1
+     C                     EXSR #CHK
+      *
+     C           *IN85     IFEQ *OFF
+     C                     EXSR #CALC
+     C                     ELSE
+     C                     GOTO ENDP
+     C                     ENDIF
+      * SET PARAMETER
+     C                     MOVELCNT       $DAYS
+      *
+     C           ENDP      TAG
+     C                     SETON                     LR
+     C                     RETRN
+      *=============================================================
+      *          CHECK PARAMETERS
+      *=============================================================
+     C           #CHK      BEGSR
+     C                     MOVE *OFF      *IN85
+      * CHECK DATE1
+     C                     MOVEL$DT81     $SRC
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN1   1
+     C           $RTN1     IFNE *BLANK
+     C                     MOVE '1'       $RTN
+     C                     SETON                     85
+     C                     GOTO XCHK
+     C                     ELSE
+     C                     MOVEL$TRUE     $DT81
+     C                     MOVEL$TRUE     @DT81   80
+     C                     ENDIF
+      * CHECK DATE2
+     C                     MOVEL$DT82     $SRC
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN1   1
+     C           $RTN1     IFNE *BLANK
+     C                     MOVE '2'       $RTN
+     C                     SETON                     85
+     C                     GOTO XCHK
+     C                     ELSE
+     C                     MOVEL$TRUE     $DT82
+     C                     MOVEL$TRUE     @DT82   80
+     C                     ENDIF
+      * CHECK DATE1 > DATE2 ERROR
+     C           @DT81     IFGT @DT82
+     C                     MOVE '3'       $RTN
+     C                     SETON                     85
+     C                     GOTO XCHK
+     C                     ENDIF
+      * CHECK IAF(Y/N)
+     C           $IAF      IFNE 'Y'
+     C           $IAF      ANDNE'N'
+     C                     MOVE '4'       $RTN
+     C                     SETON                     85
+     C                     GOTO XCHK
+     C                     ENDIF
+      * CHECK INC(Y/N)
+     C           $INC      IFNE 'Y'
+     C           $INC      ANDNE'N'
+     C                     MOVE '5'       $RTN
+     C                     SETON                     85
+     C                     GOTO XCHK
+     C                     ENDIF
+      *
+     C           XCHK      TAG
+     C                     ENDSR
+      *=============================================================
+      *          CALCULATE DATE1 - DATE2
+      *=============================================================
+     C           #CALC     BEGSR
+      *
+     C                     Z-ADD0         CNT
+     C                     MOVEL$DT81     K@DT
+      *
+     C           $IAF      IFEQ 'Y'
+     C           KEY       SETLLAGDPL12
+     C                     ELSE
+     C           KEY       SETLLA$DPL11
+     C                     ENDIF
+      *
+     C                     MOVE *OFF      *IN98
+     C           *IN98     DOWEQ*OFF
+      *
+     C           $IAF      IFEQ 'Y'
+     C                     READ AGDPL12                  98
+     C                     ELSE
+     C                     READ A$DPL11                  98
+     C                     ENDIF
+      *
+     C           *IN98     IFEQ *OFF
+      * END?
+     C           F8KA      IFGT @DT82
+     C                     MOVE *ON       *IN98
+     C                     LEAVE
+     C                     ENDIF
+      * IGNORE HIRU
+     C           F8HIRU    IFEQ '*'
+     C                     ITER
+     C                     ENDIF
+      * IGNORE YORU
+     C           F8YORU    IFEQ '*'
+     C                     ITER
+     C                     ENDIF
+      * COUNT
+     C           F8KA      IFEQ @DT81
+     C           $INC      ANDEQ'N'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ADD  1         CNT
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *=============================================================
+      *                    INITIAL PROCESS
+      *=============================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $DT81   8        IN
+     C                     PARM           $DT82   8        "
+     C                     PARM           $IAF    1        "
+     C                     PARM           $INC    1        "
+     C                     PARM           $DAYS   4        OUT
+     C                     PARM           $RTN    1        "
+      *
+     C           KEY       KLIST
+     C                     KFLD           K@DTYY  40
+     C                     KFLD           K@DTMM  20
+     C                     KFLD           K@DTDD  20
+      *
+     C                     MOVEL'0000'    $DAYS
+     C                     MOVEL' '       $RTN
+     C                     Z-ADD0         CNT     40
+      *
+     C                     ENDSR

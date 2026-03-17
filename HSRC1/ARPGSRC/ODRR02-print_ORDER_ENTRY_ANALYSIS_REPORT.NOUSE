@@ -1,0 +1,209 @@
+     H            Y.
+     F***ODRR02*****************************************************************
+     F*  PROGRAM    : PRINT ORDER ENTRY ANALYSIS REPORT                        *
+     F*  WRITTEN    : 2019.08.06                                               *
+     F*  WRITTEN BY : JW (SRA)                                                 *
+     F**************************************************************************
+     FODRPP01 IF  E           K        DISK
+     FQPRINT  O   F     198     OF     PRINTER
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+     C           K#PP01    SETLLODRPP01
+     C                     DO   *HIVAL
+     C           K#PP01    READEODRPP01                  98
+     C   98                LEAVE
+      * FIRST
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELO1ODUS    SVODUS 10
+     C                     Z-ADDO1TOKU    SVTOKU  40
+     C                     ENDIF
+      * BREAK ?
+     C           O1ODUS    IFNE SVODUS
+     C           O1TOKU    ORNE SVTOKU
+     C                     EXSR #BRK1
+     C                     ENDIF
+     C           O1ODUS    IFNE SVODUS
+     C                     EXSR #BRK2
+     C                     ENDIF
+      * DETAIL PROCESS
+     C                     ADD  O1REC     @REC
+     C                     ADD  O1REC     @TTL
+     C                     ADD  O1REC     @GTL
+     C                     ENDDO
+      * FINAL BREAK
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     EXSR #BRK2
+     C                     ENDIF
+      * PRINT GRAND TOTAL
+     C                     EXSR #PRT3
+      *
+     C           SEQ#      IFNE 0
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      * BREAK CUSTOMER                                     *
+      *----------------------------------------------------*
+     C           #BRK1     BEGSR
+      *
+     C                     EXSR #PRT1
+      *
+     C                     Z-ADDO1TOKU    SVTOKU
+     C                     Z-ADD0         @REC
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * BREAK USER                                         *
+      *----------------------------------------------------*
+     C           #BRK2     BEGSR
+      *
+     C                     EXSR #PRT2
+      *
+     C                     MOVELO1ODUS    SVODUS
+     C                     Z-ADD0         @TTL
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT DETAIL LINE                                 *
+      *----------------------------------------------------*
+     C           #PRT1     BEGSR
+      * GET USER NAME
+     C                     MOVELSVODUS    @USER   6
+     C                     MOVELSVODUS    $USER
+     C                     CALL 'UTLR31'
+     C                     PARM           $USER  10
+     C                     PARM           $NAME  15
+      * GET CUSTOMER NAME
+     C                     MOVELSVTOKU    $DLV
+     C                     CALL 'UTLR62'
+     C                     PARM           $DLV    4
+     C                     PARM           $GRP    3
+     C                     PARM           $NAME1 15
+     C                     PARM           $NAME2 50
+     C                     PARM           $RTN    1
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT#HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT#DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT SUB TOTAL LINE                              *
+      *----------------------------------------------------*
+     C           #PRT2     BEGSR
+      *
+     C           LIN#      IFGE 64
+     C                     EXCPT#HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT#TTL
+     C                     ADD  3         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT GRAND TOTAL LINE                            *
+      *----------------------------------------------------*
+     C           #PRT3     BEGSR
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT#HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      *
+     C                     EXCPT#GTL
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $YYMM   6
+     C                     PARM           $RTN    1
+      *
+     C           K#PP01    KLIST
+     C                     KFLD           K1ODHZ  60
+     C                     KFLD           K1TYPE  1
+      *
+     C                     MOVEL$YYMM     @YYMM   60
+     C                     MOVEL$YYMM     K1ODHZ
+     C                     MOVEL'M'       K1TYPE
+     C                     MOVE *BLANK    $RTN
+     C                     MOVEL'Y'       FIRST   1
+     C                     TIME           SDATE
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD0         @REC    50
+     C                     Z-ADD0         @TTL    60
+     C                     Z-ADD0         @GTL    60
+     C                     Z-ADD88        LIN#    30
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           #HDR
+     O                         #PGM      10
+     O                                   40 '** ORDER ENTRY ANALY'
+     O                                   60 'SIS REPORT **       '
+     O                         TODAY     81 '    .  .  '
+     O                         NOW       91 '  :  :  '
+     O                                   95 'P.'
+     O                         PAGE  Z   99
+     O        E   03           #HDR
+     O                                    5 'SEQ#'
+     O                                   10 'TYPE'
+     O                                   19 'CREATED'
+     O                                   25 'USER'
+     O                                   49 'CUST#'
+     O                                   74 'RECORD'
+      *
+     O        E 1              #DTL
+     O                         SEQ#  4 +001
+     O                         K1TYPE  +002
+     O                         K1ODHZ  +004 '    /  '
+     O                         @USER   +002
+     O                         $NAME   +000
+     O                         SVTOKU  +002
+     O                         $NAME1  +001
+     O                         @REC  1 +004
+      *
+     O        E 1              #TTL
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O        E 1              #TTL
+     O                                   65 'USER TOTAL:'
+     O                         @TTL  1   74
+     O        E 1              #TTL
+     O                                    1 ' '
+      *
+     O        E 1              #GTL
+     O                                   20 '********************'
+     O                                   40 '********************'
+     O                                   60 '********************'
+     O                                   80 '********************'
+     O                                  100 '********************'
+     O        E 1              #GTL
+     O                                   65 'GRAND TOTAL:'
+     O                         @GTL  1   74

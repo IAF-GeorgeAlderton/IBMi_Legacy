@@ -1,0 +1,346 @@
+     H            Y.
+      ** JCMR18 ********************************************************
+      *  FORD J-COM DATA INQUIRY                                       *
+      *  JW     2016/06/16                                             *
+      *  JW     2018/05/23  CHG "X" PRINT JCOM                         *
+JW1   *  JW     2021/11/01  ADD FUNCTION (SEND OR CENCEL)              *
+      ******************************************************************
+     FJCMPW18 CF  E                    WORKSTN
+     F                                        RRN   KSFILE SFL01
+     FJCMPL12 IF  E           K        DISK
+      *---------------------------------------------------
+     E**                  MSG     1  12 50
+JW1  E                    MSG     1  15 50
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************
+      *  MAIN
+      *************************************************************
+      * INITIALIZE
+     C                     EXSR #INIT
+      * DISPLAY
+     C           W@ID      DOWEQ'01'
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVE *OFF      *IN85
+     C                     MOVE *OFF      *IN41
+     C                     MOVE *OFF      *IN42
+      * F1/3 END
+     C           *INKA     IFEQ *ON
+     C           *INKC     OREQ *ON
+     C           *INKL     OREQ *ON
+     C                     MOVE '99'      W@ID
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     EXSR #CHK1
+      * NO ERROR & F5
+     C           *IN85     IFEQ *OFF
+     C           *INKE     ANDEQ*ON
+     C                     EXSR #INQ
+     C           RC@CNT    IFEQ 0
+     C                     MOVELMSG,8     XMSG
+     C                     ENDIF
+      * END JOB
+     C***        XASN      IFNE *BLANK
+     C***                  MOVE '99'      W@ID
+     C***                  ENDIF
+     C                     ENDIF
+      * NO ERROR & NOT F5
+     C           *IN85     IFEQ *OFF
+     C           *INKE     ANDEQ*OFF
+     C                     MOVELMSG,5     XMSG
+     C                     ENDIF
+      *
+     C                     ENDDO
+      * FOOT
+     C           XASN      IFNE *BLANK
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *-----------------------------------------------------------
+      *          CHECK DATA
+      *-----------------------------------------------------------
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE *OFF      *IN85
+      *
+     C           XFROM     IFEQ *BLANK
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,1     XMSG
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      * VALIDATE DATE FROM
+     C                     MOVELXFROM     $SRC
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ *BLANK
+     C                     MOVEL$TRUE     XFROM
+     C                     MOVEL$TRUE     #FROM   80
+     C                     ELSE
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,2     XMSG
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      *
+     C           XTO       IFEQ *BLANK
+     C                     MOVE *ON       *IN42
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,3     XMSG
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      * VALIDATE DATE TO
+     C           XTO       IFEQ '99999999'
+     C                     MOVELMSG,7     XTO
+     C                     ELSE
+     C                     MOVELXTO       $SRC
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ *BLANK
+     C                     MOVEL$TRUE     XTO
+     C                     MOVEL$TRUE     #TO     80
+     C                     ELSE
+     C                     MOVE *ON       *IN42
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,4     XMSG
+     C                     GOTO E#CHK1
+     C                     ENDIF
+     C                     ENDIF
+      * COMPARE
+     C           XFROM     IFGT XTO
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN42
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,6     XMSG
+     C                     GOTO E#CHK1
+     C                     ENDIF
+      *
+     C           E#CHK1    ENDSR
+      *-----------------------------------------------------------
+      *                    ASN INQUIRY
+      *-----------------------------------------------------------
+     C           #INQ      BEGSR
+      * SET DATA
+     C                     EXSR #SET
+     C                     MOVE *OFF      *INKL
+     C                     MOVELMSG,9     XMSG
+      *
+     C           RC@CNT    IFEQ 0
+     C                     GOTO EINQ
+     C                     ENDIF
+      *
+     C                     DO   *HIVAL
+      * DISPLAY SFL
+     C                     WRITEDSP99
+     C                     MOVE *ON       *IN70
+     C                     EXFMTSFLCTL
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVE *OFF      *IN99
+     C                     MOVE *OFF      *IN70
+      *
+     C                     SELEC
+      * F10 PRINT
+     C           *INKJ     WHEQ *ON
+     C                     EXSR #CHK2
+     C           *IN86     IFEQ *ON
+     C                     MOVELMSG,10    XMSG
+     C                     ELSE
+     C                     EXSR #ASN
+     C                     ENDIF
+      * F12
+     C           *INKL     WHEQ *ON
+     C                     LEAVE
+      * ENTR
+     C                     OTHER
+     C                     EXSR #CHK2
+     C           *IN86     IFEQ *ON
+     C                     MOVELMSG,10    XMSG
+     C                     ENDIF
+     C           *IN86     IFEQ *OFF
+     C           X@CNT     ANDNE0
+     C                     MOVELMSG,12    XMSG
+     C                     ENDIF
+      *
+     C                     ENDSL
+     C                     ENDDO
+      *
+     C           EINQ      ENDSR
+      *-----------------------------------------------------------
+      *                    SET INQUIRY DATA
+      *-----------------------------------------------------------
+     C           #SET      BEGSR
+      * CLEAR SUBFILE
+     C           RRN       IFEQ 0
+     C                     Z-ADD1         RRN
+     C                     WRITESFL01
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *IN71
+     C                     WRITESFLCTL
+     C                     MOVE *OFF      *IN71
+      * GET DATA
+     C                     Z-ADD0         RRN
+     C                     Z-ADD1800      MAX#    40
+     C                     MOVE *OFF      *IN51   1
+     C           #FROM     SETLLJCMPL12
+     C           *IN51     DOWEQ*OFF
+     C                     READ JCMPL12                  51
+     C           *IN51     IFEQ *OFF
+      * END?
+     C           J1NOHZ    IFGT #TO
+     C                     MOVE *ON       *IN51
+     C                     LEAVE
+     C                     ENDIF
+      * END?
+     C           RRN       IFGE MAX#
+     C                     MOVE *ON       *IN51
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ADD  1         RRN
+     C                     MOVE *OFF      *IN44
+     C                     MOVE *BLANK    H@SEL
+     C                     MOVE *BLANK    S@SEL
+     C                     Z-ADDJ1DATE    S@ISSU
+     C                     Z-ADDJ1TIME    S@TIME
+     C                     Z-ADDJ1NOHZ    S@SHDT
+     C                     MOVELJ1NONY    S@NONY
+     C                     MOVELJ1BIN     S@BIN
+     C                     MOVELJ1ASN#    S@ASN
+     C                     MOVELJ1NKOJ    S@FACT
+     C                     MOVELJ1NUKE    S@DOCK
+     C                     MOVELJ1PSCC    S@SCAC
+     C                     MOVELJ1SMEI    S@NAME
+      *
+     C                     WRITESFL01
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     Z-ADDRRN       RC@CNT  60
+      *
+     C                     ENDSR
+      *-----------------------------------------------------------
+      *                    SET INQUIRY DATA
+      *-----------------------------------------------------------
+     C           #CHK2     BEGSR
+      *
+     C                     Z-ADD0         X@CNT   40
+     C                     MOVE *BLANK    XASN    8
+     C                     MOVE *OFF      *IN86
+      *
+     C           1         DO   RC@CNT    RRN
+     C           RRN       CHAINSFL01                50
+     C           *IN50     IFEQ *OFF
+     C           S@SEL     IFNE 'X'
+     C           S@SEL     ANDNE*BLANK
+     C                     MOVE 'H'       H@SEL
+     C                     MOVE *ON       *IN44
+     C                     MOVE *ON       *IN86
+     C                     ELSE
+     C                     MOVE ' '       H@SEL
+     C                     MOVE *OFF      *IN44
+     C           S@SEL     IFEQ 'X'
+     C                     ADD  1         X@CNT
+     C                     ENDIF
+     C                     ENDIF
+     C                     UPDATSFL01
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *-----------------------------------------------------------
+      *          PRINT ASN
+      *-----------------------------------------------------------
+     C           #ASN      BEGSR
+      *
+     C           1         DO   RC@CNT    RRN
+     C           RRN       CHAINSFL01                50
+     C           *IN50     IFEQ *OFF
+     C           S@SEL     ANDEQ'X'
+     C                     MOVE ' '       H@SEL
+     C                     MOVE ' '       S@SEL
+     C                     MOVE *OFF      *IN44
+     C                     UPDATSFL01
+      *
+     C                     MOVELS@ASN     $ASN
+     C                     CALL 'JCMR19'
+     C                     PARM           $ASN    8
+JW1  C                     PARM           $FLG1   1
+     C                     PARM           $RTN    1
+      *
+JW1  C           $FLG1     IFEQ 'C'
+ :   C                     MOVELMSG,15    XMSG
+ :   C                     ELSE
+ :   C                     MOVELMSG,11    XMSG
+JW1  C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *-----------------------------------------------------------
+      *          INITIALIZE
+      *-----------------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $FROM   8
+     C                     PARM           $TO     8
+     C                     PARM           $ASN    8        ASN#
+JW1  C                     PARM           $FLG1   1        SEND/CANCEL
+     C                     PARM           $RTN    1
+      *
+     C                     MOVE *BLANK    $RTN
+     C                     Z-ADD0         RRN     50
+     C                     MOVE '01'      W@ID    2
+     C                     Z-ADD*DATE     @DATE   80
+     C                     TIME           @TIME   60
+      *
+     C           $FROM     IFEQ *BLANK
+     C                     MOVEL@DATE     XFROM
+     C                     ELSE
+     C                     MOVEL$FROM     XFROM
+     C                     ENDIF
+      *
+     C           $TO       IFEQ *BLANK
+     C                     MOVEL@DATE     XTO
+     C                     ELSE
+     C                     MOVEL$TO       XTO
+     C                     ENDIF
+JW1   * FUNCTION
+ :   C                     MOVE *BLANK    XFNAM
+ :   C           $FLG1     IFEQ 'C'
+ :   C                     MOVELMSG,14    XFNAM
+ :   C                     ELSE
+ :   C                     MOVELMSG,13    XFNAM
+JW1  C                     ENDIF
+      *
+     C                     ENDSR
+** MSG(50A) .......2.........3.........4.........5
+ENTER DATE(FROM)!                                   01
+DATE(FROM) NOT FOND IN CALENDAR MASTER!             02
+ENTER DATE(TO)!                                     03
+DATE(TO) NOT FOND IN CALENDAR MASTER!               04
+PRESS F5 TO RUN...                                  05
+DATE(FROM) IS GREATER THAN DATE(TO)!                06
+9999/99/99                                          07
+NO RECORD!                                          08
+ENTER "X" FOR SELECTING ASN...                      09
+ENTER "X" OR BLANK!                                 10
+J-COM DATA CREATED FOR SENDING ASN...               11
+PRESS F10 TO PRINT J-COM...                         12
+SEND ASN                                            13
+CANCEL ASN                                          14
+J-COM DATA CREATED FOR CANCELING ASN...             15

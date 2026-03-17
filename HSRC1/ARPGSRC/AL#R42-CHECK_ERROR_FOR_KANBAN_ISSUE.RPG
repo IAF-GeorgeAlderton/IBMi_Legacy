@@ -1,0 +1,125 @@
+     H            Y.
+     F** AL#R42  *******************************************
+     F*かんばん発行時のエラーチェック                    *
+     F*      ITS.        2015.06.12                        *
+     F******************************************************
+     FAL#WP49 IF  E           K        DISK
+     E                    SR        999  9
+      *
+     I            DS
+     I                                        1   80WKHZ
+     I                                        1   40WKYY
+     I                                        5   60WKMM
+     I                                        7   80WKDD
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60WJFB
+     I                                        1   40WJFF
+     I                                        1   20TIMHH
+     I                                        3   40TIMMM
+     I                                        5   60TIMSS
+     I                                        7  140WTIHZ
+     I                                        7  100WTIYY
+     I                                       11  120WTIMM
+     I                                       13  140WTIDD
+      *
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W$WSID
+     I                                      254 263 @@USER
+     I                                      264 269 W$JBNO
+      *----------------------------------------------------*
+      * PLIST                                              *
+      *----------------------------------------------------*
+     C           *ENTRY    PLIST
+     C                     PARM           P9ERR   1
+      * 0 :エラーなし
+      * 1 :トラック便を２つ以上選択
+      * 3 :選択されたトラック便と同じ物が選択されていない
+      *----------------------------------------------------*
+      *   K  E  Y   L I  S  T                              *
+      *----------------------------------------------------*
+      *
+     C                     CLEARSR
+     C                     Z-ADD0         SS      40
+     C                     MOVEL'0'       P9ERR            エラーなし
+     C                     Z-ADD0         CNT     50
+     C                     Z-ADD0         CNT2    50
+     C                     MOVEL*BLANK    SVSURT  9
+     C                     Z-ADD0         WKREG   30
+      *
+     C                     READ AL#WP491                 22
+     C           *IN22     DOWEQ'0'
+     C           W9SEL     IFEQ '1'
+     C                     EXSR #SB400
+     C                     ELSE
+     C                     EXSR #SB430
+     C                     ENDIF
+     C                     READ AL#WP491                 22
+     C                     ENDDO
+      *
+     C           CNT       IFEQ 0
+     C                     MOVEL'4'       P9ERR
+     C                     ENDIF
+      *
+     C           CNT2      IFNE 0
+     C                     MOVEL'3'       P9ERR
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *-----------------------------------------------------
+      *チェック
+      *-----------------------------------------------------
+     CSR         #SB400    BEGSR
+      *
+     C           CNT       IFEQ 0
+     C                     EXSR #SB410
+     C                     ELSE
+     C                     EXSR #SB420
+     C                     ENDIF
+      *選択されなかったトラック便にあるか
+     C           W9SURT    LOKUPSR                       69
+     C           *IN69     IFEQ '1'
+     C                     MOVEL'3'       P9ERR
+     C                     ENDIF
+      *
+     CSR         ESB400    ENDSR
+      *-----------------------------------------------------
+      *最初に選択された値を退避
+      *-----------------------------------------------------
+     CSR         #SB410    BEGSR
+      *
+     C                     MOVELW9SURT    SVSURT
+     C                     ADD  1         CNT
+      *
+     CSR         ESB410    ENDSR
+      *-----------------------------------------------------
+      *チェック
+      *-----------------------------------------------------
+     CSR         #SB420    BEGSR
+      *２つ以上選択
+     C           W9SURT    IFNE SVSURT
+     C                     MOVEL'1'       P9ERR
+     C                     ENDIF
+      *
+     CSR         ESB420    ENDSR
+      *-----------------------------------------------------
+      *選択されなかったデータのチェック
+      *-----------------------------------------------------
+     CSR         #SB430    BEGSR
+      *選択された稼働日と同じ
+     C           SVSURT    IFNE *BLANK
+     C           W9SURT    IFEQ SVSURT
+     C                     ADD  1         CNT2
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           W9SURT    LOKUPSR                       69
+     C           *IN69     IFEQ '0'
+     C                     ADD  1         SS
+     C                     MOVELW9SURT    SR,SS
+     C                     ENDIF
+      *
+     CSR         ESB430    ENDSR

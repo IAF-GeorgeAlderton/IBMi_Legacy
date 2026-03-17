@@ -1,0 +1,218 @@
+     H            Y.
+     F** UTLR37 ****************************************************
+     F*  PROGRAM: GET NEAREST DATE FROM DESIGNATED DAY OF THE WEEK *
+     F*           (SELECT 1 DATE FROM 2 ARGET DAYS)                *
+     F*           (CHECK SIMILER PROGRAM: UTLR70)                  *
+     F*  WRITTEN: JW (SRA)                                         *
+     F*           2019.05.13                                       *
+     F*------------------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UTLR37'
+     F*                    PARM           $DT8    8
+     F*                    PARM           $SIGN   1
+     F*                    PARM           $DAY1   3
+     F*                    PARM           $DAY2   3
+     F*                    PARM           $MAX    1
+     F*                    PARM           $LT     2
+     F*                    PARM           $TGT8   8
+     F*                    PARM           $RTN    1
+     F*   IN  $DT8  :  8A BASE DATE  (YYYYMMDD)
+     F*       $SIGN :  1A + OR -
+     F*       $DAY1 :  3A DAY OF THE WEEK (MON, TUE, WED, THU, FRI, SAT OR SUN)
+     F*       $DAY2 :  3A DAY OF THE WEEK (MON, TUE, WED, THU, FRI, SAT OR SUN)
+     F*       $MAX  :  1A (Y/N) (Y:MAX 7 DAYS, N=MAX 6 DAYS)
+     F*       $LT   :  2A LEAD TIME
+     F*   OUT $TGT8 :  8A TARGET DATE
+     F*       $RTN  :  1A RETURN FLAG (BLANK=OK, *=ERROR)
+     F*   -------------------------------------------------
+     F*   EX.
+     F*   IN  $DT8  :  8A "20200227" (THU)
+     F*       $SIGN :  1A "-"
+     F*       $DAY1 :  3A "TUE"
+     F*       $DAY2 :  3A "THU"
+     F*       $MAX  :  1A "Y"   MAX 7 DAYS
+     F*       $LT   :  2A "03"
+     F*   OUT $TGT8 :  8A "20200220"  <-- (2/27 - 3) => 2/24(MON) => 2/20(THU)
+     F*       $RTN  :  1A " "
+     F*
+     F******************************************************
+     FAGDPL12 IF  E           K        DISK
+      *--------------------------------------------------------
+     I            DS
+     I                                        1   80K@DT
+     I                                        1   40K@DTYY
+     I                                        5   60K@DTMM
+     I                                        7   80K@DTDD
+     I            DS
+     I                                        1   80F8KA
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+      *--------------------------------------------------------
+      *                    MAIN PROCESS
+      *--------------------------------------------------------
+      *
+     C                     EXSR #INIT
+      *
+     C           $RTN      IFEQ '*'
+     C                     GOTO @END
+     C                     ENDIF
+      *
+     C           $RTN      IFEQ *BLANK
+     C                     SELEC
+     C           $SIGN     WHEQ '+'
+     C                     EXSR #ADD
+     C           $SIGN     WHEQ '-'
+     C                     EXSR #SUB
+     C                     OTHER
+     C                     MOVE '*'       $RTN
+     C                     ENDSL
+     C                     ENDIF
+      * SET PARAMETER
+     C           $RTN      IFEQ *BLANK
+     C           $MAX      IFNE 'Y'
+     C           CNT       ANDGE7
+     C                     MOVEL$DT8      $TGT8
+     C                     ELSE
+     C                     MOVEL@TGT8     $TGT8
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           @END      TAG
+     C                     SETON                     LR
+     C                     RETRN
+      *=============================================================
+      *                    ADD DAYS
+      *=============================================================
+     C           #ADD      BEGSR
+      *
+     C           KEY       SETLLAGDPL12
+     C                     MOVE *OFF      *IN98
+     C           *IN98     DOWEQ*OFF
+     C                     READ AGDPL12                  98
+     C           *IN98     IFEQ *OFF
+      * COUNT
+     C                     ADD  1         CNT
+      * END
+     C           F8YOBI    IFEQ @YOB1
+     C           F8YOBI    OREQ @YOB2
+     C                     Z-ADDF8KA      @TGT8
+     C                     MOVE *ON       *IN98
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *=============================================================
+      *                    SUBTRACT DAYS
+      *=============================================================
+     C           #SUB      BEGSR
+      *
+     C           KEY       SETGTAGDPL12
+     C                     MOVE *OFF      *IN98
+     C           *IN98     DOWEQ*OFF
+     C                     READPAGDPL12                  98
+     C           *IN98     IFEQ *OFF
+      * COUNT
+     C                     ADD  1         CNT
+      * END
+     C           F8YOBI    IFEQ @YOB1
+     C           F8YOBI    OREQ @YOB2
+     C                     Z-ADDF8KA      @TGT8
+     C                     MOVE *ON       *IN98
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *=============================================================
+      *                    INITIAL PROCESS
+      *=============================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $DT8    8
+     C                     PARM           $SIGN   1
+     C                     PARM           $DAY1   3
+     C                     PARM           $DAY2   3
+     C                     PARM           $MAX    1
+     C                     PARM           $LT     2
+     C                     PARM           $TGT8   8
+     C                     PARM           $RTN    1
+      *
+     C           KEY       KLIST
+     C                     KFLD           K@DTYY  40
+     C                     KFLD           K@DTMM  20
+     C                     KFLD           K@DTDD  20
+      *
+     C                     MOVEL'00000000'$TGT8
+     C                     MOVE *BLANK    $RTN
+     C                     Z-ADD0         @TGT8   80
+     C                     Z-ADD0         CNT     40
+      * CALCULATE DATE WITH LEAD TIME
+     C                     MOVEL$DT8      #DATE8
+     C                     MOVE '-'       #SIGN
+     C                     MOVEL'0000'    #DAYS
+     C                     MOVE $LT       #DAYS
+     C                     MOVE 'Y'       #IAF
+     C                     CALL 'UTLR10'
+     C                     PARM           #DATE8  8
+     C                     PARM           #SIGN   1
+     C                     PARM           #DAYS   4
+     C                     PARM           #IAF    1
+     C                     PARM           #TGT8   8
+     C                     PARM           #RTN    1
+     C                     MOVEL#TGT8     @DT8    80
+     C                     Z-ADD@DT8      K@DT
+      * SET @YOB1
+     C                     Z-ADD0         @YOB1   10
+     C                     SELEC
+     C           $DAY1     WHEQ 'MON'
+     C                     Z-ADD1         @YOB1
+     C           $DAY1     WHEQ 'TUE'
+     C                     Z-ADD2         @YOB1
+     C           $DAY1     WHEQ 'WED'
+     C                     Z-ADD3         @YOB1
+     C           $DAY1     WHEQ 'THU'
+     C                     Z-ADD4         @YOB1
+     C           $DAY1     WHEQ 'FRI'
+     C                     Z-ADD5         @YOB1
+     C           $DAY1     WHEQ 'SAT'
+     C                     Z-ADD6         @YOB1
+     C           $DAY1     WHEQ 'SUN'
+     C                     Z-ADD7         @YOB1
+     C                     OTHER
+     C                     Z-ADD0         @YOB1
+     C                     ENDSL
+      * SET @YOB2
+     C                     Z-ADD0         @YOB2   10
+     C                     SELEC
+     C           $DAY2     WHEQ 'MON'
+     C                     Z-ADD1         @YOB2
+     C           $DAY2     WHEQ 'TUE'
+     C                     Z-ADD2         @YOB2
+     C           $DAY2     WHEQ 'WED'
+     C                     Z-ADD3         @YOB2
+     C           $DAY2     WHEQ 'THU'
+     C                     Z-ADD4         @YOB2
+     C           $DAY2     WHEQ 'FRI'
+     C                     Z-ADD5         @YOB2
+     C           $DAY2     WHEQ 'SAT'
+     C                     Z-ADD6         @YOB2
+     C           $DAY2     WHEQ 'SUN'
+     C                     Z-ADD7         @YOB2
+     C                     OTHER
+     C                     Z-ADD0         @YOB2
+     C                     ENDSL
+      *
+     C           @YOB1     IFEQ 0
+     C           @YOB2     ANDEQ0
+     C                     MOVEL$DT8      $TGT8
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     ENDSR

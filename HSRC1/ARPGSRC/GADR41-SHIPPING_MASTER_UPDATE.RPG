@@ -1,0 +1,931 @@
+     H            Y.
+      ** GADR41 *******************************************************
+      * .SHIPMENT M/F UPDATE
+      *  KIRI                                            2017.07.07
+      *****************************************************************
+     FGADPW41 CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFREC1
+     F                                              KINFDS INFDS
+      *
+      *        SHIPMENT M/F
+     FGADPL11 UF  E           K        DISK                      A
+      *
+      *  EXTENTED BIN MASTER (FOR SHIPMENT M/F)
+     FGADPL41 UF  E           K        DISK                      A
+      *
+      *   WORK TIME M/F                            *
+     FBTMPL20 IF  E           K        DISK
+      *
+      * TRANSPORTATION M/F                         *
+     FGAHPL30 IF  E           K        DISK
+      *
+      * CARRIER M/F                                *
+     FGAHPL35 IF  E           K        DISK
+      * ROUTE M/F                                  *
+     FGAHPL37 IF  E           K        DISK
+      *
+     FFGBPL01 IF  E           K        DISK
+      *===============================================================
+     E                    ER      1  41 60
+      *===============================================================
+     IINFDS       DS
+     I                                    B 378 3790$$RRN
+     I****************************
+      *プログラム状況データ構造*
+     I****************************
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W$WSID
+     I                                      254 263 W$USER
+     I                                      264 269 W$JBNO
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60@SYSTM
+     I                                        7  140@SYSHZ
+      *(GADPL11)SHIPMENT M/F
+     I            DS
+     I                                        1   80B5SKHZ
+     I                                        1   40B5SKYY
+     I                                        5   60B5SKMM
+     I                                        7   80B5SKDD
+     I            DS
+     I                                        1   80B5KOHZ
+     I                                        1   40B5KOYY
+     I                                        5   60B5KOMM
+     I                                        7   80B5KODD
+     I            DS
+     I                                        1   60B5KOTM
+     I                                        1   20B5KOHH
+     I                                        3   40B5KOSS
+      *(FGBPL01)
+     I            DS
+     I                                        1   80B2SKHZ
+     I                                        1   40B2SKYY
+     I                                        5   60B2SKMM
+     I                                        7   80B2SKDD
+     I            DS
+     I                                        1   8 D3CYCL
+     I                                        1   20D2HIZK
+     I                                        3   3 D2HF1
+     I                                        4   50D2KAIS
+     I                                        6   6 D2HF2
+     I                                        7   80D2NBIN
+     C*===============================================================
+     C*
+     C*===============================================================
+     C                     MOVE '#INIT   '@STEP   8
+     C*
+     C           @STEP     DOUEQ'#END    '
+     C           @STEP     CASEQ'#INIT   '#INIT            初期処理
+     C           @STEP     CASEQ'#DSP1   '#DSP1
+     C           @STEP     CASEQ'#CHK1   '#CHK1
+     C           @STEP     CASEQ'#DSP2   '#DSP2
+     C           @STEP     CASEQ'#CHK2   '#CHK2
+     C           @STEP     CASEQ'#DSP3   '#DSP3
+     C           @STEP     CASEQ'#CHK3   '#CHK3
+     C           @STEP     CASEQ'#CHK3 F5'#CHK3
+     C           @STEP     CASEQ'#UPDAT  '#UPDAT
+     C                     ENDCS
+     C                     ENDDO
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+     C*===============================================================
+      * 初期ﾈｮmb
+     C*===============================================================
+     C           #INIT     BEGSR
+     C                     MOVEA*ALL'0'   *IN
+     C                     TIME           @TIME
+      *
+     C                     MOVE *BLANK    D1KKBN           更新区分
+     C                     MOVE *BLANK    D1TOKU           CUSTOMER CODE
+     C                     MOVE *BLANK    D1NONY           DELIVERY POINT CODE
+     C                     MOVE *BLANK    D1NKOJ           FACTORY CODE
+     C                     MOVE *BLANK    D1NUKE           RECEIVING
+     C                     MOVE *BLANK    D1ERR            d[ｰxｮﾈｰﾆﾞ
+     C                     MOVE *BLANK    D2KKBN           更新区分
+     C                     MOVE *BLANK    D2TOKU           CUSTOMER CODE
+     C                     MOVE *BLANK    D2NONY           DELIVERY POINT CODE
+     C                     MOVE *BLANK    D2NKOJ           FACTORY CODE
+     C                     MOVE *BLANK    D2NUKE           RECEIVING
+      *
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDSR
+     C*===============================================================
+      *画面１*
+     C*===============================================================
+     C           #DSP1     BEGSR
+     C*
+     C                     EXFMTGADPW411
+     C                     MOVEA'00000000'*IN,21
+     C                     SETOF                     99
+     C                     MOVE '#CHK1   '@STEP
+      *-------*
+      * (F1)  *
+      *-------*
+     C   KA                MOVE '#END    '@STEP
+      *-------*
+      * (F24) * DOWNLOAD
+      *-------*
+     C           *INKY     IFEQ *ON
+     C                     CALL 'GADC42'
+     C                     MOVE '#END    '@STEP
+     C                     ENDIF
+     C*
+     C                     ENDSR
+     C*===============================================================
+      *画面１チェック
+     C*===============================================================
+     C           #CHK1     BEGSR
+      *----------------------*
+      * UPDATE更新区分
+      *----------------------*
+S1   C                     SELEC
+ 1   C           D1KKBN    WHEQ '0'                        :取消
+     C                     MOVEL'0-CANCEL'D2KKBN
+     C                     SETON                     29    (PR)
+ 1   C           D1KKBN    WHEQ '1'                        :変更
+     C                     MOVEL'1-CHANGE'D2KKBN
+     C                     SETOF                     29    (CS)
+ 1   C           D1KKBN    WHEQ '2'                        :追加
+     C                     MOVEL'2-ADD   'D2KKBN
+     C                     SETOF                     29    (CS)
+ 1   C                     OTHER
+     C                     SETON                     2199
+     C                     MOVELER,1      D1ERR
+     C                     GOTO $CHK1Z
+E1   C                     ENDSL
+      *----------------------*
+      * CUSTOMER CODE (22)
+      *----------------------*
+     C           D1TOKU    IFEQ *BLANK
+     C                     SETON                     2299
+     C                     MOVELER,2      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C*
+     C                     MOVE D1TOKU    $$TOKU  40
+     C           $$TOKU    CHAINFGBPL01              91
+     C  N91      B2SKJY    IFEQ 'D'
+     C           B2SKHZ    ANDLE@SYSHZ
+     C                     SETON                     91
+     C                     ENDIF
+     C           *IN91     IFEQ *ON
+     C                     SETON                     2299
+     C                     MOVELER,3      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+      *----------------------*
+      * DELIVERY POINT CODE (23)
+      *----------------------*
+     C           D1NONY    IFEQ *BLANK
+     C                     SETON                     2399
+     C                     MOVELER,4      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C*
+     C                     MOVE D1NONY    $$NONY  40
+     C           $$NONY    CHAINFGBPL01              91
+     C  N91      B2SKJY    IFEQ 'D'
+     C           B2SKHZ    ANDLE@SYSHZ
+     C                     SETON                     91
+     C                     ENDIF
+     C           *IN91     IFEQ *ON
+     C                     SETON                     2399
+     C                     MOVELER,5      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+      *----------------------*
+      * FACTORY CODE (24)
+      *----------------------*
+     C           D1NKOJ    IFEQ *BLANK
+     C                     SETON                     2499
+     C                     MOVELER,6      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+      *----------------------*
+      * RECEIVING (25)
+      *----------------------*
+     C           D1NUKE    IFEQ *BLANK
+     C                     SETON                     2599
+     C                     MOVELER,7      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+      *----------------------*
+      *----------------------*
+     C           KEY01     KLIST
+     C                     KFLD           $$TOKU           CUSTOMER CODE
+     C                     KFLD           $$NONY           DELIVERY POINT CODE
+     C                     KFLD           D1NKOJ           FACTORY CODE
+     C                     KFLD           D1NUKE           RECEIVING
+     C           KEY01     CHAINGADPL11             N90
+      **
+S1   C                     SELEC
+-1   C           D1KKBN    WHEQ '0'                        :取消
+     C           *IN90     IFEQ *ON
+     C                     MOVEA'11111'   *IN,21           : 21-25
+     C                     SETON                     99
+     C                     MOVELER,8      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C           B5SKJY    IFEQ 'D'
+     C           B5SKHZ    ANDLE@SYSHZ
+     C                     MOVEA'11111'   *IN,21           : 21-25
+     C                     SETON                     99
+     C                     MOVELER,9      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C*
+-1   C           D1KKBN    WHEQ '1'                        :変更
+     C           *IN90     IFEQ *ON
+     C                     MOVEA'11111'   *IN,21           : 21-25
+     C                     SETON                     99
+     C                     MOVELER,10     D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C           B5SKJY    IFEQ 'D'
+     C           B5SKHZ    ANDLE@SYSHZ
+     C                     MOVEA'11111'   *IN,21           : 21-25
+     C                     SETON                     99
+     C                     MOVELER,11     D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C*
+-1   C           D1KKBN    WHEQ '2'                        :追加
+     C           *IN90     IFEQ *OFF
+     C           B5SKJY    ANDNE'D'
+     C                     MOVEA'11111'   *IN,21           : 21-25
+     C                     SETON                     99
+     C                     MOVELER,12     D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+E1   C                     ENDSL
+     C*
+      *----------------------*
+      *----------------------*
+     C                     MOVEA'00000000'*IN,31           31-38
+     C                     MOVEA'00000000'*IN,39           39-46
+     C                     MOVELD1TOKU    D2TOKU           CUSTOMER CODE
+     C                     MOVELD1NONY    D2NONY           DELIVERY POINT CODE
+     C                     MOVELD1NKOJ    D2NKOJ           FACTORY CODE
+     C                     MOVELD1NUKE    D2NUKE           RECEIVING
+     C                     MOVEL*BLANK    D2KMEI           FACTORY NAME (KANA)
+     C                     Z-ADD0         D2HIZK           CYCLE (DAY)
+     C                     Z-ADD0         D2KAIS           TIME
+     C                     Z-ADD0         D2NBIN           BIN
+     C                     MOVEL*BLANK    D2YOB1           MONDAY
+     C                     MOVEL*BLANK    D2YOB2           TUESDAY
+     C                     MOVEL*BLANK    D2YOB3           WEDNESDAY
+     C                     MOVEL*BLANK    D2YOB4           THURSDAY
+     C                     MOVEL*BLANK    D2YOB5           FRIDAY
+     C                     MOVEL*BLANK    D2YOB6           SATURDAY
+     C                     MOVEL*BLANK    D2YOB7           SUNDAY
+     C                     MOVEL*BLANK    D2SIRE           SUPPLIER CODE
+     C                     MOVEL*BLANK    D2SMEI           FACTORY CODE
+     C                     MOVEL*BLANK    D2SKYU           PROVISION POINT CODE
+     C                     MOVEL*BLANK    D2CSUC           CARRIER SET UP CALLED
+     C                     MOVEL*BLANK    D2ERR
+     C*
+S1   C           D1KKBN    IFEQ '0'                        :削除
+ 1   C           D1KKBN    OREQ '1'                        :変更
+     C                     MOVELB5KMEI    D2KMEI           FACTORY NAME (KANA)
+     C                     Z-ADDB5HIZK    D2HIZK           CYCLE (DAY)
+     C                     Z-ADDB5KAIS    D2KAIS           TIME
+     C                     Z-ADDB5NBIN    D2NBIN           BIN
+     C                     MOVELB5YOB1    D2YOB1           MONDAY
+     C                     MOVELB5YOB2    D2YOB2           TUESDAY
+     C                     MOVELB5YOB3    D2YOB3           WEDNESDAY
+     C                     MOVELB5YOB4    D2YOB4           THURSDAY
+     C                     MOVELB5YOB5    D2YOB5           FRIDAY
+     C                     MOVELB5YOB6    D2YOB6           SATURDAY
+     C                     MOVELB5YOB7    D2YOB7           SUNDAY
+     C                     MOVELB5SIRE    D2SIRE           SUPPLIER CODE
+     C                     MOVELB5SMEI    D2SMEI           FACTORY CODE
+     C                     MOVELB5SKYU    D2SKYU           PROVISION POINT CODE
+     C                     MOVELB5CSUC    D2CSUC           CARRIER SET UP CALLED
+E1   C                     ENDIF
+     C*
+      *----------------------*
+     C           $CHK1Z    TAG
+      *----------------------*
+     C           *IN99     IFEQ *ON
+     C                     MOVE '#DSP1   '@STEP
+     C                     ELSE
+     C                     MOVE '#DSP2   '@STEP
+     C                     ENDIF
+      *----------------------*
+     C                     ENDSR
+      *===============================================================
+      *画面２表示
+      *===============================================================
+     C           #DSP2     BEGSR
+     C                     EXFMTGADPW412
+     C                     MOVEA'0'       *IN,99
+     C                     MOVEA'00000000'*IN,31           31-38
+     C                     MOVEA'00000000'*IN,39           39-46
+     C                     MOVEL*BLANK    D2ERR
+     C                     MOVE '#CHK2   '@STEP
+      *----*
+      * F3 *
+      *----*
+     C           *INKC     IFEQ *ON
+     C                     MOVEA'00000000'*IN,21           : 21-28
+     C                     SETOF                         99
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDIF
+      *----*
+     C                     ENDSR
+     C*===============================================================
+      *画面２チェック
+     C*===============================================================
+     C           #CHK2     BEGSR
+     C*
+      *
+      *  追加・変更のみチェック
+S1   C           D1KKBN    IFEQ '0'                        :CANCEL
+     C                     GOTO $CHK2Z
+E1   C                     ENDIF
+     C*-------------------------
+      *----------------------*
+      * FACTORY NAME (31)
+      *----------------------*
+     C           D2KMEI    IFEQ *BLANK                     FACTORY NAME (KANA)
+     C                     SETON                     3199
+     C                     MOVELER,14     D2ERR
+     C                     GOTO $CHK2Z
+     C                     ENDIF
+      *----------------------*
+      * CYCLE (DAY)  (32)
+      *----------------------*
+     C           D2HIZK    IFEQ 0                          CYCLE (DAY)
+     C                     SETON                     3299
+     C                     MOVELER,15     D2ERR
+     C                     GOTO $CHK2Z
+     C                     ENDIF
+      *----------------------*
+      * TIME         (33)
+      *----------------------*
+     C           D2KAIS    IFEQ 0                          TIME
+     C                     SETON                     3399
+     C                     MOVELER,16     D2ERR
+     C                     GOTO $CHK2Z
+     C                     ENDIF
+      *----------------------*
+      * BIN          (34)
+      *----------------------*
+     C           D2NBIN    IFEQ 0                          BIN
+     C                     SETON                     3499
+     C                     MOVELER,17     D2ERR
+     C                     GOTO $CHK2Z
+     C                     ENDIF
+      *----------------------*
+      * MONDAY      (35)
+      *----------------------*
+     C                     MOVELD2YOB1    $$YOBI  1        MONDAY
+     C                     EXSR ##YOBI
+     C   99                SETON                     35
+     C   99                GOTO $CHK2Z
+      *----------------------*
+      * TUESDAY     (36)
+      *----------------------*
+     C                     MOVELD2YOB2    $$YOBI           TUESDAY
+     C                     EXSR ##YOBI
+     C   99                SETON                     36
+     C   99                GOTO $CHK2Z
+      *----------------------*
+      * WEDNESDAY   (37)
+      *----------------------*
+     C                     MOVELD2YOB3    $$YOBI           WEDNESDAY
+     C                     EXSR ##YOBI
+     C   99                SETON                     37
+     C   99                GOTO $CHK2Z
+      *----------------------*
+      * THURSDAY    (38)
+      *----------------------*
+     C                     MOVELD2YOB4    $$YOBI           THURSDAY
+     C                     EXSR ##YOBI
+     C   99                SETON                     38
+     C   99                GOTO $CHK2Z
+      *----------------------*
+      * FRIDAY      (39)
+      *----------------------*
+     C                     MOVELD2YOB5    $$YOBI           FRIDAY
+     C                     EXSR ##YOBI
+     C   99                SETON                     39
+     C   99                GOTO $CHK2Z
+      *----------------------*
+      * SATURDAY    (40)
+      *----------------------*
+     C                     MOVELD2YOB6    $$YOBI           SATURDAY
+     C                     EXSR ##YOBI
+     C   99                SETON                     40
+     C   99                GOTO $CHK2Z
+      *----------------------*
+      * SUNDAY      (41)
+      *----------------------*
+     C                     MOVELD2YOB7    $$YOBI           SUNDAY
+     C                     EXSR ##YOBI
+     C   99                SETON                     41
+     C   99                GOTO $CHK2Z
+      *----------------------*
+      * SUPPLIER CODE (42)
+      *----------------------*
+     C           D2SIRE    IFEQ *BLANK                     SUPPLIER CODE
+     C                     SETON                     4299
+     C                     MOVELER,19     D2ERR
+     C                     GOTO $CHK2Z
+     C                     ENDIF
+      *----------------------*
+      * FACTORY CODE (43)
+      *----------------------*
+     C           D2SMEI    IFEQ *BLANK                     FACTORY CODE
+     C                     MOVE '0'       D2SMEI           FACTORY CODE
+     C                     ENDIF
+      *----------------------*
+      * PROVISION POINT CODE (44)
+      *----------------------*
+     C           D2SKYU    IFEQ *BLANK                     PROVISION POINT CODE
+     C                     SETON                     4499
+     C                     MOVELER,20     D2ERR
+     C                     GOTO $CHK2Z
+     C                     ENDIF
+      *----------------------*
+      * CARRIER SET UP CALLED (45)
+      *----------------------*
+     C           D2CSUC    IFNE '0'                        DAY OF'
+     C           D2CSUC    ANDNE'1'                        1 DAY BEFORE
+     C           D2CSUC    ANDNE'2'                        2 DAY BEFORE
+     C           D2CSUC    ANDNE'3'                        OTHER(SPECIFY)
+     C           D2CSUC    ANDNE'4'                        MILKRUN AUTOMATIC
+     C           D2CSUC    ANDNE'5'                        IAF CALLS
+     C                     SETON                     4599
+     C                     MOVELER,21     D2ERR
+     C                     GOTO $CHK2Z
+     C                     ENDIF
+      *----------------------*
+     C           $CHK2Z    TAG
+      *----------------------*
+S1   C           *IN99     IFEQ *OFF
+     C                     EXSR #SFSET                     GADPP41-SFL
+     C                     Z-ADD1         DSPRRN
+     C                     MOVE '#DSP3   '@STEP
+     C                     ELSE
+     C                     MOVE '#DSP2   '@STEP
+E1   C                     ENDIF
+     C                     ENDSR
+      *================================================================
+      *** E-18 DAY IN A WEEK IS ERROR <BLANK A / B / C / D>
+      *================================================================
+     C           ##YOBI    BEGSR
+     C           $$YOBI    IFNE ' '
+     C           $$YOBI    ANDNE'A'
+     C           $$YOBI    ANDNE'B'
+     C           $$YOBI    ANDNE'C'
+     C           $$YOBI    ANDNE'D'
+     C                     SETON                       99
+     C                     MOVELER,18     D2ERR
+     C                     ENDIF
+     C                     ENDSR
+      *===============================================================
+      *サブファイル作成GADPP41
+      *===============================================================
+     C           #SFSET    BEGSR
+     C*<SFLCLR>
+     C                     SETON                     73
+     C                     WRITESFCTL1
+     C                     SETOF                     73
+     C                     Z-ADD0         RRN1    40
+      *サイクル編集
+     C                     MOVE '-'       D2HF1
+     C                     MOVE '-'       D2HF2
+     C           KEY02     KLIST
+     C                     KFLD           $$TOKU           CUSTOMER CODE
+     C                     KFLD           $$NONY           DELIVERY POINT CODE
+     C                     KFLD           D1NKOJ           FACTORY CODE
+     C                     KFLD           D1NUKE           RECEIVING
+     C                     KFLD           S1BIN   20
+      *サブファイルの件数
+     C                     Z-ADDD2KAIS    ENDRRN  40
+      *
+     C                     Z-ADD0         $$BIN   20
+     C                     MOVEA'00000000'*IN,51            51-58
+      *-------------------------
+      *-------------------------
+S1   C                     DO   ENDRRN
+     C*                *** CLEARSFREC1
+     C                     ADD  1         $$BIN   20
+     C                     Z-ADD$$BIN     S1BIN
+     C           KEY02     CHAINGADPL41              91
+ S2  C  N91      B4SKJY    IFEQ 'D'
+     C                     SETON                     91
+ E2  C                     ENDIF
+     C*
+ S2  C           *IN91     IFEQ *OFF
+  S3 C           D1KKBN    IFEQ '0'                        :削除
+     C                     Z-ADDB4NSPD    S1NSPD           N SHIPMENT ADJ. DAY
+     C                     MOVELB4NSHP    S1NSHP           N SHIPPING #
+     C                     MOVELB4NCAR    S1NCAR           N CARRIER
+     C                     MOVELB4NRUT    S1NRUT           N ROUTE
+     C                     Z-ADDB4NBIN    S1NBIN           N BIN #
+     C                     Z-ADDB4OSPD    S1OSPD           O SHIPMENT ADJ. DAY
+     C                     MOVELB4OSHP    S1OSHP           O SHIPPING #
+     C                     MOVELB4OCAR    S1OCAR           O CARRIER
+     C                     MOVELB4ORUT    S1ORUT           O ROUTE
+     C                     Z-ADDB4OBIN    S1OBIN           O BIN #
+  X3 C                     ELSE
+     C                     Z-ADD0         S1NSPD           N SHIPMENT ADJ. DAY
+     C                     MOVEL*BLANK    S1NSHP           N SHIPPING #
+     C                     MOVEL*BLANK    S1NCAR           N CARRIER
+     C                     MOVEL*BLANK    S1NRUT           N ROUTE
+     C                     Z-ADD0         S1NBIN           N BIN #
+     C                     Z-ADDB4NSPD    S1OSPD           O SHIPMENT ADJ. DAY
+     C                     MOVELB4NSHP    S1OSHP           O SHIPPING #
+     C                     MOVELB4NCAR    S1OCAR           O CARRIER
+     C                     MOVELB4NRUT    S1ORUT           O ROUTE
+     C                     Z-ADDB4NBIN    S1OBIN           O BIN #
+  E3 C                     ENDIF
+ X2  C                     ELSE
+     C                     Z-ADD0         S1NSPD           N SHIPMENT ADJ. DAY
+     C                     MOVEL*BLANK    S1NSHP           N SHIPPING #
+     C                     MOVEL*BLANK    S1NCAR           N CARRIER
+     C                     MOVEL*BLANK    S1NRUT           N ROUTE
+     C                     Z-ADD0         S1NBIN           N BIN #
+     C                     Z-ADD0         S1OSPD           O SHIPMENT ADJ. DAY
+     C                     MOVEL*BLANK    S1OSHP           O SHIPPING #
+     C                     MOVEL*BLANK    S1OCAR           O CARRIER
+     C                     MOVEL*BLANK    S1ORUT           O ROUTE
+     C                     Z-ADD0         S1OBIN           O BIN #
+ E2  C                     ENDIF
+     C*
+     C                     ADD  1         RRN1
+     C                     WRITESFREC1
+E1   C                     ENDDO
+      *-------------------------
+      * CHANGE OVER DATE
+     C           D1KKBN    IFEQ '0'                        :削除
+     C           D1KKBN    OREQ '1'                        :削除
+     C                     Z-ADDB4CHDT    D3CHDT            CHANGE OVER DATE
+     C                     ELSE
+     C                     Z-ADD@SYSHZ    D3CHDT            CHANGE OVER DATE
+     C                     ENDIF
+     C*
+     C                     ENDSR
+      *===============================================================
+      *画面３表示
+      *===============================================================
+     C           #DSP3     BEGSR
+     C                     WRITEGADPW413
+     C                     SETON                     7172   SFLDSPCTL
+     C                     EXFMTSFCTL1
+     C                     SETOF                     7172
+     C                     MOVEA'00000000'*IN,51            51-58
+     C                     SETOF                     99
+     C                     Z-ADD$$RRN     TOPRRN  40
+     C                     Z-ADD$$RRN     DSPRRN
+      *
+     C                     MOVE '#CHK3   '@STEP
+      *-------*
+      * ROLLUP(75)
+      * ROLLDOWN(76)
+      *-------*
+     C           *IN75     IFEQ *ON
+     C           *IN76     OREQ *ON
+     C                     MOVE '#DSP3   '@STEP
+     C                     ENDIF
+      *-------*
+      * (F3)  *
+      *-------*
+     C           *INKC     IFEQ *ON
+     C                     MOVEA'00000000'*IN,31           31-38
+     C                     MOVEA'00000000'*IN,39           39-46
+     C                     SETOF                         99
+     C                     MOVE '#DSP2   '@STEP
+     C                     ENDIF
+      *-------*
+      * (F5)  *
+      *-------*
+     C           *INKE     IFEQ *ON
+     C                     MOVE '#CHK3 F5'@STEP
+     C                     ENDIF
+      *-------*
+     C                     ENDSR
+      *===============================================================
+      *サブファイルチェックGADPP41
+     C*===============================================================
+     C           #CHK3     BEGSR
+      *
+      *  追加・変更のみチェック
+S1   C           D1KKBN    IFEQ '0'                        :CANCEL
+     C                     GOTO $CHK3Z
+E1   C                     ENDIF
+      *
+     C                     MOVEA'00000000'*IN,51            51-58
+      *-------------------------
+     C                     DO   ENDRRN    RRN1
+     C           RRN1      CHAINSFREC1               95
+     C   95                LEAVE
+     C                     EXSR #SFCHK
+     C*
+     C                     UPDATSFREC1
+     C   99                Z-ADDRRN1      DSPRRN
+     C  N99                ENDDO
+      *-------------------------
+      * CHANGE OVER DATE (58)
+      *-------------------------
+     C  N99      D3CHDT    IFEQ 0
+     C                     SETON                     5899
+     C                     MOVELER,40     D3ERR
+     C                     ELSE
+     C*PRTN='1':NG
+     C                     MOVELD3CHDT    P1DATE
+     C                     CALL 'DATR10'
+     C                     PARM           P1DATE  8
+     C                     PARM           P1RTN   1
+     C           P1RTN     IFEQ '1'
+     C                     SETON                     5899
+     C                     MOVELER,41     D3ERR
+     C                     ENDIF
+     C                     ENDIF
+     C*-------------------------
+     C           $CHK3Z    TAG
+     C*-------------------------
+     C           *IN99     IFEQ *OFF
+     C           @STEP     ANDEQ'#CHK3 F5'
+     C                     MOVE '#UPDAT  '@STEP
+     C                     ELSE
+     C                     MOVE '#DSP3   '@STEP
+     C                     ENDIF
+     C                     ENDSR
+      *===============================================================
+      *サブファイルチェック
+      *===============================================================
+     C           #SFCHK    BEGSR
+     C                     MOVEA'00000000'*IN,51            51-58
+      *
+      * N SHIPMENT ADJ. DAY (51)
+      *
+     C           S1NSPD    IFEQ 0                          N SHIPMENT ADJ. DAY
+     C                     SETON                     5199
+     C                     MOVELER,31     D3ERR
+     C                     GOTO $SFCH9
+     C                     ENDIF
+      *
+      * N SHIPPING # (52)
+      *
+     C           S1NSHP    IFEQ *BLANK                     N SHIPPING #
+     C                     SETON                     5299
+     C                     MOVELER,32     D3ERR
+     C                     GOTO $SFCH9
+     C                     ELSE
+     C*   << WORK TIME M/F >>
+     C           S1NSHP    CHAINBTMPL20              96
+     C  N96      B2SKJY    IFEQ 'D'
+     C           B2SKHZ    ANDEQ@SYSHZ
+     C                     SETON                     96
+     C                     ENDIF
+     C   96                SETON                     5299
+     C   96                MOVELER,33     D3ERR
+     C   96                GOTO $SFCH9
+     C                     ENDIF
+      *
+      * N CARRIER (53)
+      *
+     C           S1NCAR    IFEQ *BLANK                     N CARRIER
+     C                     SETON                     5399
+     C                     MOVELER,34     D3ERR
+     C                     GOTO $SFCH9
+     C                     ELSE
+     C* CARRIER M/F                                *
+     C           S1NCAR    CHAINGAHPL35              96    N CARRIER
+     C  N96      G5SKJY    IFEQ 'D'
+     C           G5SKHZ    ANDEQ@SYSHZ
+     C                     SETON                     96
+     C                     ENDIF
+     C   96                SETON                     5399
+     C   96                MOVELER,35     D3ERR
+     C   96                GOTO $SFCH9
+     C                     ENDIF
+      *
+      *  N ROUTE (54)
+      *
+     C           S1NRUT    IFEQ *BLANK                     N ROUTE
+     C                     SETON                     5499
+     C                     MOVELER,36     D3ERR
+     C                     GOTO $SFCH9
+     C                     ELSE
+     C* ROUTE M/F                                  *
+     C           S1NRUT    CHAINGAHPL37              96    N CARRIER
+     C  N96      G7SKJY    IFEQ 'D'
+     C           G7SKHZ    ANDEQ@SYSHZ
+     C                     SETON                     96
+     C                     ENDIF
+     C   96                SETON                     5499
+     C   96                MOVELER,37     D3ERR
+     C   96                GOTO $SFCH9
+     C                     ENDIF
+      *
+      * N BIN # (55)
+      *
+     C           S1NBIN    IFEQ 0                          N BIN #
+     C   96                SETON                     5599
+     C   96                MOVELER,38     D3ERR
+     C   96                GOTO $SFCH9
+     C                     ENDIF
+      *
+      * TRANSPORTATION M/F                         *
+      *
+     C           KEY03     KLIST
+     C                     KFLD           S1NCAR           CARRIER
+     C                     KFLD           S1NRUT           ROUTE
+     C                     KFLD           S1NBIN           BIN #
+     C*
+     C           KEY03     CHAINGAHPL30              96
+     C  N96      G3SKJY    IFEQ 'D'
+     C           G3SKHZ    ANDEQ@SYSHZ
+     C                     SETON                     96
+     C                     ENDIF
+     C   96                SETON                     535455
+     C   96                SETON                     99
+     C   96                MOVELER,39     D3ERR
+     C   96                GOTO $SFCH9
+     C*-------------------------
+     C           $SFCH9    TAG
+     C*-------------------------
+     C                     ENDSR
+     C*===============================================================
+      *ファイル更新処理
+     C*===============================================================
+     C           #UPDAT    BEGSR
+      ******************************************************
+      *        SHIPMENT M/F                                *
+      ******************************************************
+     C           KEY01     CHAINGADPL11              90
+     C   90                CLEARGADPL111
+     C*
+S1   C                     SELEC
+-1   C           D1KKBN    WHEQ '0'                        :削除
+     C                     MOVEL'D'       B5SKJY           DELETE CODE D
+     C                     Z-ADD@SYSHZ    B5SKHZ           DELETE DATE
+     C                     MOVELW$USER    B5SKME           DELETED MEMBER
+-1   C                     OTHER                           :ADD CHANGE
+     C                     MOVEL' '       B5SKJY           DELETE CODE D
+     C                     Z-ADD0         B5SKHZ           DELETE DATE
+     C                     MOVEL*BLANK    B5SKME           DELETED MEMBER
+     C                     Z-ADD@SYSHZ    B5KOHZ           UPDATE DATE
+     C                     Z-ADD@SYSTM    B5KOTM           UPDATE TIME
+     C                     MOVELW$USER    B5KOME           UPDATED MEMBER
+     C                     Z-ADD$$TOKU    B5TOKU           CUSTOMER CODE
+     C                     Z-ADD$$NONY    B5NONY           DELIVERY POINT CODE
+     C                     MOVELD1NKOJ    B5NKOJ           FACTORY CODE
+     C                     MOVELD1NUKE    B5NUKE           RECEIVING
+     C                     MOVELD2KMEI    B5KMEI           FACTORY NAME (KANA)
+     C                     Z-ADDD2HIZK    B5HIZK           CYCLE (DAY)
+     C                     Z-ADDD2KAIS    B5KAIS           TIME
+     C                     Z-ADDD2NBIN    B5NBIN           BIN
+     C                     MOVELD2YOB1    B5YOB1           MONDAY
+     C                     MOVELD2YOB2    B5YOB2           TUESDAY
+     C                     MOVELD2YOB3    B5YOB3           WEDNESDAY
+     C                     MOVELD2YOB4    B5YOB4           THURSDAY
+     C                     MOVELD2YOB5    B5YOB5           FRIDAY
+     C                     MOVELD2YOB6    B5YOB6           SATURDAY
+     C                     MOVELD2YOB7    B5YOB7           SUNDAY
+     C                     MOVELD2SIRE    B5SIRE           SUPPLIER CODE
+     C                     MOVELD2SMEI    B5SMEI           FACTORY CODE
+     C                     MOVELD2SKYU    B5SKYU           PROVISION POINT CODE
+     C                     MOVELD2CSUC    B5CSUC           CARRIER SET UP CALLED
+E1   C                     ENDSL
+      *
+     C   90                WRITEGADPL111
+     C  N90                UPDATGADPL111
+      *
+      ******************************************************
+      *  EXTENTED BIN MASTER (FOR SHIPMENT M/F)            *
+      ******************************************************
+      *削除（登録・変更も一旦削除する）
+     C           KEY01     SETLLGADPL41
+      *-------------------------
+     C                     DO   *HIVAL
+     C           KEY01     READEGADPL41                  90
+     C   90                LEAVE
+     C           B4SKJY    IFEQ 'D'                        DELETE CODE
+     C           B4SKDT    ANDLE@SYSHZ                     DELETED DATE
+     C                     ITER
+     C                     ENDIF
+     C                     MOVE 'D'       B4SKJY           DELETE CODE
+     C                     Z-ADD@SYSHZ    B4SKDT           DELETED DATE
+     C                     Z-ADD@SYSTM    B4SKTM           DELETED TIME
+     C                     MOVELW$USER    B4SKNM           DELETED PERSON
+     C                     UPDATGADPL411
+     C                     ENDDO
+      *-------------------------
+      *削除はここで終了
+     C           D1KKBN    IFEQ '0'                        :削除
+     C                     GOTO $$NEXT
+     C                     ENDIF
+      *-------------------------
+      *登録・変更
+     C                     DO   ENDRRN    RRN1
+     C           RRN1      CHAINSFREC1               95
+     C   95                LEAVE
+     C*
+     C           KEY02     CHAINGADPL41              90
+     C   90                CLEARGADPL411
+     C                     MOVE ' '       B4SKJY           DELETE CODE
+     C                     Z-ADD0         B4SKDT           DELETED DATE
+     C                     Z-ADD0         B4SKTM           DELETED TIME
+     C                     MOVEL*BLANK    B4SKNM           DELETED PERSON
+     C                     Z-ADD@SYSHZ    B4KODT           UPDATED DATE
+     C                     Z-ADD@SYSTM    B4KOTM           UPDATED TIME
+     C                     MOVELW$USER    B4KONM           UPDATED PERSON
+     C* KEY
+     C                     Z-ADD$$TOKU    B4TOKU           CUSTOMER CODE
+     C                     Z-ADD$$NONY    B4NONY           DELIVERY POINT CODE
+     C                     MOVELD1NKOJ    B4NKOJ           FACTORY CODE
+     C                     MOVELD1NUKE    B4NUKE           RECEIVING
+     C                     Z-ADDS1BIN     B4KAIS           BIN #
+      * OLD BIN INFO.
+     C                     MOVELS1OSHP    B4OSHP           SHIPPING #
+     C                     MOVELS1OCAR    B4OCAR           CARRIER
+     C                     MOVELS1ORUT    B4ORUT           ROUTE
+     C                     Z-ADDS1OBIN    B4OBIN           BIN #
+     C                     Z-ADDS1OSPD    B4OSPD           SHIPMENT ADJ. DAY
+     C*                  * Z-ADD0         B4OSPH           SHIPMENT HOUR
+     C*                  * Z-ADD0         B4OSPM           SHIPMENT MINUTES
+     C*                  * Z-ADD0         B4OSLD           SALES ADJ. DAY
+     C*                  * Z-ADD0         B4OSLH           SALES ADJ. HOUR
+     C*                  * Z-ADD0         B4OSLM           SALES ADJ. MINUTES
+      * NEW BIN INFO.
+     C                     MOVELS1NSHP    B4NSHP           SHIPPING #
+     C                     MOVELS1NCAR    B4NCAR           CARRIER
+     C                     MOVELS1NRUT    B4NRUT           ROUTE
+     C                     Z-ADDS1NBIN    B4NBIN           BIN #
+     C                     Z-ADDS1NSPD    B4NSPD           SHIPMENT ADJ. DAY
+     C*                  * Z-ADD0         B4NSPH           SHIPMENT HOUR
+     C*                  * Z-ADD0         B4NSPM           SHIPMENT MINUTES
+     C*                  * Z-ADD0         B4NSLD           SALES ADJ. DAY
+     C*                  * Z-ADD0         B4NSLH           SALES ADJ. HOUR
+     C*                  * Z-ADD0         B4NSLM           SALES ADJ. MINUTES
+      * CHANGE OVER DATE
+     C                     Z-ADDD3CHDT    B4CHDT           CHANGE OVER DATE
+     C*
+     C   90                WRITEGADPL411
+     C  N90                UPDATGADPL411
+     C  N99                ENDDO
+      ******************************************************
+      ******************************************************
+      *-------------------------
+     C           $$NEXT    TAG
+      *-------------------------
+     C                     MOVE *BLANK    D1KKBN           更新区分
+     C                     MOVE *BLANK    D1TOKU           CUSTOMER CODE
+     C                     MOVE *BLANK    D1NONY           DELIVERY POINT CODE
+     C                     MOVE *BLANK    D1NKOJ           FACTORY CODE
+     C                     MOVE *BLANK    D1NUKE           RECEIVING
+     C                     MOVE *BLANK    D1ERR            d[ｰxｮﾈｰﾆﾞ
+     C*
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDSR
+      *================================================================
+      *================================================================
+** ER
+E-01 UPDATE INST IS ERROR <0= CANCEL. 1= CHANGE. 2= ADD>
+E-02 CUSTOMER  IS NOT INPUT.
+E-03  THERE IS NOT CUSTOMER CODE IN DETAILS M/F.
+E-04 RECEIVING CO.  IS NOT INPUT.
+E-05  THERE IS NOT RECEIVING CO. CODE IN DETAILS M/F.
+E-06 FACTORY IS NOT INPUT.
+E-07 RECEIVING  IS NOT INPUT.
+E-08 CANCEL WAS APPOINTED, BUT M/F DOES NOT  EXIST .
+E-09 CANCEL WAS APPOINTED, BUT  M/F IS CANCELLED ALREADY.
+E-10 CHANGE WAS APPOINTED, BUT  M/F DOES NOT  EXIST.
+E-11 CHANGE WAS APPOINTED, BUT  M/F IS CANCELLED ALREADY.
+E-12 ADD WAS APPOINTED, BUT  M/F EXIST.
+E-13 DELETE DUE DATE IS NOT RIGHT
+E-14 FACTORY NAME  IS NOT INPUT.
+E-15 CYCLE (DAY)   IS NOT INPUT .
+E-16 CYCLE (TIMES) IS NOT INPUT .
+E-17 CYCLE (BIN)  IS NOT INPUT .
+E-18 DAY IN A WEEK IS ERROR <BLANK A / B / C / D>
+E-19 SUPPLIER IS NOT INPUT.
+E-20 PROVISION POINT  IS NOT INPUT.
+E-21 CARRIER SET UP CALLED IS ERROR <0/1/2/3/4/5>
+E-22
+E-23
+E-24
+E-25
+E-26
+E-27
+E-28
+E-29
+E-30
+E-31 SHIPMENT ADJ. DAY IS NOT INPUT.
+E-32 SHIPPING # IS NOT INPUT.
+E-33 SHIPPING # NOT FOUND IN WORK TIME M/F.
+E-34 CARRIER IS NOT INPUT.
+E-35 CARRIER NOT FOUND IN TRANSPORTATION M/F.
+E-36 ROUTE IS NOT INPUT.
+E-37 ROUTE NOT FOUND IN ROUTE M/F.
+E-38 BIN # IS NOT INPUT.
+E-39 THERE IS NOT TRANSPORTATION M/F.
+E-40 CHANGE OVER DATE IS NOT INPUT.
+E-41 CHANGE OVER DATE ERROR.

@@ -1,0 +1,277 @@
+     H            Y.
+     F** ABHR01 *********************************************
+     F* UPDATE                                              *
+     F*             ITS.           2014.09.01               *
+     F*******************************************************
+     FABHPWT1 CF  E                    WORKSTN
+     FABHPPT1 UF  E           K        DISK                      A
+     E                    ER      1  20 60
+      *
+     I            DS
+     I                                        1  12 D1SHN
+     I                                        1   5 D1SHN1
+     I                                        6  10 D1SHN2
+     I                                       11  12 D1SHN3
+      *
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60WTIME
+     I                                        7  140WDATE
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     I              '0 : DELETE'          C         WKUPD0
+     I              '1 : CHANGE'          C         WKUPD1
+     I              '2 : ADD   '          C         WKUPD2
+      *
+      *----------------------------------------------------*
+      *   K  E  Y   L  I  S  T                             *
+      *----------------------------------------------------*
+      *
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     TIME           SDATE
+     C                     EXSR #SB100
+     C           DSPSW     DOUEQ'99'
+     C                     EXSR #SB200
+     C                     ENDDO
+     C                     EXSR #SB300
+      *----------------------------------------------------*
+      * INZ                                                *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     MOVEL'01'      DSPSW   2
+     C                     MOVEL*BLANK    D1UPD
+     C                     MOVEL*BLANK    D1SHN1
+     C                     MOVEL*BLANK    D1SHN2
+     C                     MOVEL*BLANK    D1SHN3
+      *
+     CSR         ESB100    ENDSR
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C           DSPSW     DOWEQ'01'
+     C                     EXSR #SB210
+     C                     ENDDO
+      *
+     C           DSPSW     DOWEQ'02'
+     C                     EXSR #SB220
+     C                     ENDDO
+      *
+     CSR         ESB200    ENDSR
+      *----------------------------------------------------*
+      *                                                    *
+      *----------------------------------------------------*
+     CSR         #SB210    BEGSR
+      *
+     C                     EXFMTABHPWT11
+     C                     SETOF                     303132
+     C                     SETOF                     333435
+     C                     SETOF                     99
+     C                     MOVEL*BLANK    D1ERR
+      *
+     C           *IN01     IFEQ '1'
+     C                     MOVEL'99'      DSPSW
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C           *IN12     IFEQ '1'
+     C                     CALL 'ABHRT2'
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C           D1UPD     IFEQ *BLANK
+     C                     MOVELER,1      D1ERR
+     C                     SETON                     3099
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C           D1UPD     IFEQ '0'
+     C           D1UPD     OREQ '1'
+     C           D1UPD     OREQ '2'
+     C                     ELSE
+     C                     MOVELER,1      D1ERR
+     C                     SETON                     3099
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C           D1SHN     IFEQ *BLANK
+     C                     MOVELER,2      D1ERR
+     C                     SETON                     3199
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C           KEYCC     KLIST
+     C                     KFLD           K1SHN1  5
+     C                     KFLD           K1SHN2  5
+     C                     KFLD           K1SHN3  2
+     C                     MOVELD1SHN1    K1SHN1
+     C                     MOVELD1SHN2    K1SHN2
+     C                     MOVELD1SHN3    K1SHN3
+      *
+     C           KEYCC     CHAINABHPPT11             21
+     C           *IN21     IFEQ '0'
+     C           M#SKJY    ANDEQ'D'
+     C           M#SKDT    ANDLE*DATE
+     C                     SETON                     21
+     C                     ENDIF
+      *
+     C           *IN21     IFEQ '1'
+     C           D1UPD     IFEQ '0'
+     C           D1UPD     OREQ '1'
+     C                     MOVELER,5      D1ERR
+     C                     SETON                     303199
+     C                     GOTO ESB210
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           *IN21     IFEQ '0'
+     C           D1UPD     IFEQ '2'
+     C                     MOVELER,6      D1ERR
+     C                     SETON                     303199
+     C                     GOTO ESB210
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     SETOF                     19
+     C                     MOVEL*BLANK    D2UPD
+     C                     MOVEL*BLANK    D2SHN
+     C           D1SHN1    CAT  '-':0     D2SHN
+     C           D2SHN     CAT  D1SHN2:0  D2SHN
+     C           D1SHN3    IFNE *BLANK
+     C           D2SHN     CAT  '-':0     D2SHN
+     C           D2SHN     CAT  D1SHN3:0  D2SHN
+     C                     ENDIF
+      *
+     C                     SELEC
+      *
+     C           D1UPD     WHEQ '0'
+     C                     MOVELWKUPD0    D2UPD
+     C                     Z-ADDM#ADDS    D2VOL
+     C                     SETON                     19
+      *
+     C           D1UPD     WHEQ '1'
+     C                     MOVELWKUPD1    D2UPD
+     C                     Z-ADDM#ADDS    D2VOL
+      *
+     C           D1UPD     WHEQ '2'
+     C                     MOVELWKUPD2    D2UPD
+     C                     Z-ADD0         D2VOL
+      *
+     C                     ENDSL
+      *
+     C                     MOVE '02'      DSPSW   2
+      *
+     CSR         ESB210    ENDSR
+      *----------------------------------------------------*
+      *                                                    *
+      *----------------------------------------------------*
+     CSR         #SB220    BEGSR
+      *
+     C                     EXFMTABHPWT12
+     C                     SETOF                     303132
+     C                     SETOF                     99
+     C                     MOVEL*BLANK    D2ERR
+      * F3
+     C           *IN03     IFEQ '1'
+     C                     MOVEL*BLANK    D1UPD
+     C                     MOVEL*BLANK    D1SHN1
+     C                     MOVEL*BLANK    D1SHN2
+     C                     MOVEL*BLANK    D1SHN3
+     C                     MOVE '01'      DSPSW
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+     C           *IN05     IFEQ '0'
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+     C           KEYCC     CHAINABHPPT11             21
+     C                     SELEC
+     C           D1UPD     WHEQ '0'
+     C                     EXSR #DLT
+     C           D1UPD     WHEQ '1'
+     C                     EXSR #UPD
+     C           D1UPD     WHEQ '2'
+     C                     EXSR #WRT
+     C                     ENDSL
+      *
+     C                     MOVEL*BLANK    D1UPD
+     C                     MOVEL*BLANK    D1SHN1
+     C                     MOVEL*BLANK    D1SHN2
+     C                     MOVEL*BLANK    D1SHN3
+     C                     MOVE '01'      DSPSW   2
+      *
+     CSR         ESB220    ENDSR
+      *----------------------------------------------------*
+      * END                                                *
+      *----------------------------------------------------*
+     CSR         #SB300    BEGSR
+     C                     SETON                     LR
+     C                     RETRN
+     CSR         ESB300    ENDSR
+      *----------------------------------------------------*
+      * DELETE                                             *
+      *----------------------------------------------------*
+     CSR         #DLT      BEGSR
+      *
+     C           *IN21     IFEQ '0'
+     C                     MOVEL'D'       M#SKJY
+     C                     Z-ADD*DATE     M#SKDT
+     C                     UPDATABHPPT11
+     C                     ENDIF
+      *
+     CSR         EDLT      ENDSR
+      *----------------------------------------------------*
+      * CHANGE                                             *
+      *----------------------------------------------------*
+     CSR         #UPD      BEGSR
+      *
+     C           *IN21     IFEQ '0'
+     C                     Z-ADD*DATE     M#KODT
+     C                     TIME           M#KOTM
+     C                     MOVELW#PGM     M#KOPG
+     C                     MOVELW#USER    M#KOUS
+     C                     Z-ADDD2VOL     M#ADDS
+     C                     UPDATABHPPT11
+     C                     ENDIF
+      *
+     CSR         EUPD      ENDSR
+      *----------------------------------------------------*
+      * ADD                                                *
+      *----------------------------------------------------*
+     CSR         #WRT      BEGSR
+      *
+     C                     CLEARABHPPT11
+     C                     MOVEL*BLANK    M#SKJY
+     C                     Z-ADD0         M#SKDT
+     C                     Z-ADD*DATE     M#KODT
+     C                     TIME           M#KOTM
+     C                     MOVELW#PGM     M#KOPG
+     C                     MOVELW#USER    M#KOUS
+     C                     MOVELD1SHN1    M#HIN1
+     C                     MOVELD1SHN2    M#HIN2
+     C                     MOVELD1SHN3    M#HIN3
+     C                     Z-ADDD2VOL     M#ADDS
+     C           *IN21     IFEQ '0'
+     C                     UPDATABHPPT11
+     C                     ELSE
+     C                     WRITEABHPPT11
+     C                     ENDIF
+      *
+     CSR         EWRT      ENDSR
+** ER
+E-01 INPUT 0,1,2.
+E-02 INPUT PART NO.
+E-03 INPUT DATE.
+E-04 DATE ERR.
+E-05 NO DATA.
+E-06 ALREADY EXIST.

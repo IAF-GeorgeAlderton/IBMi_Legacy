@@ -1,0 +1,590 @@
+     H            Y.
+      ****************************************************************
+      *  PROGRAM    : FBCR36                                         *
+      *  WRITTEN    : 05/20/2021                                     *
+      *  WRITTEN BY : JW (SRA)                                       *
+      *  FUNCTION   : UPLOAD SLS.EXPANSION.CSV                       *
+     *** CAUTION !!! COMPLIE WITH "ALLOW NULL *YES"
+      ****************************************************************
+     FFBCPW36 CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     F                                        RRN2  KSFILE SFL02
+     F                                              KINFDS @INFDS
+     FRGAPL13 IF  E           K        DISK
+     FFGBPL01 IF  E           K        DISK
+     FFBCWP36AIF  E           K        DISK                           UC
+     FFBCPL20AIF  E           K        DISK                      A
+      *
+     E                    ERR     1  25 60
+      *-----------------------------------------------------------------
+     I@INFDS      DS
+     I                                    B 378 3790@@REC
+      *
+     I            DS
+     I                                        1  20 @@MHIN
+     I                                        1   5 @@MHN1
+     I                                        6  10 @@MHN2
+     I                                       11  15 @@MHN3
+     I                                       16  20 @@MHN4
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *----------------------------------------------------*
+      * MAIN ROUTINE
+      *----------------------------------------------------*
+     C                     EXSR #INIT
+      *
+     C                     DO   *HIVAL
+     C                     SELEC
+      * DSP01 -------------------------
+     C           @SCRN     WHEQ 'DSP01'
+     C                     EXSR #DSP01
+      * F1: EXIT
+     C           *INKA     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      * SFL01 -------------------------
+     C           @SCRN     WHEQ 'SFL01'
+     C                     EXSR #SFL01
+      * F5: EXIT
+     C           *INKE     IFEQ *ON
+     C           UPFLG     ANDEQ'Y'
+     C                     LEAVE
+     C                     ENDIF
+      * F5:
+     C           *INKE     IFEQ *ON
+     C           UPFLG     ANDNE'Y'
+     C                     MOVELERR,16    D9ERR
+     C                     ENDIF
+      * SFL02 -------------------------
+     C           @SCRN     WHEQ 'SFL02'
+     C                     EXSR #SFL02
+      *
+     C                     ENDSL
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      * DISPLAY DSP01                                      *
+      *----------------------------------------------------*
+     C           #DSP01    BEGSR
+     C                     EXFMTDSP01
+     C                     SETOF                     85
+     C                     MOVEL*BLANK    XMSG
+      * F1:EXIT
+     C           *INKA     IFEQ *ON
+     C                     GOTO DSP01X
+     C                     ENDIF
+      *--------------
+      * IF NO ERROR,
+      *--------------
+      *          ** CLEAR SUB FILE **
+     C                     SETON                     71
+     C                     WRITECTL01
+     C                     WRITECTL02
+     C                     SETOF                     71
+      *          ** SET ORDER DATA **
+     C                     CALL 'FBCC36A'
+     C                     PARM           RFLG    1
+      * CHECK AND SET DATA
+     C           RFLG      IFEQ 'Y'
+     C                     EXSR #CHK1
+     C                     ENDIF
+      *
+     C           DSP01X    ENDSR
+      *----------------------------------------------------*
+      *  CHECK DATA                                        *
+      *----------------------------------------------------*
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE 'N'       ENDFLG  1
+     C                     MOVE *OFF      *IN85
+     C                     Z-ADD0         YCNT    30
+     C                     Z-ADD0         NCNT    30
+     C                     Z-ADD0         OCNT    30
+     C                     Z-ADD0         LIN#    30
+     C                     Z-ADD0         RRN1    40
+     C                     Z-ADD0         RRN2    40
+     C                     Z-ADD0         SVNONY  40
+     C                     OPEN FBCWP36A                   OPEN
+      *
+     C                     DO   *HIVAL
+     C                     READ FBCWP36A                 91
+     C   91                LEAVE
+      * CHECK END FLAG
+     C           ENDFLG    IFEQ 'Y'
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ADD  1         LIN#
+     C                     EXSR #CHK12
+      * COUNT
+     C                     SELEC
+     C           OKFLG     WHEQ 'Y'
+     C                     ADD  1         YCNT
+     C           OKFLG     WHEQ 'N'
+     C                     ADD  1         NCNT
+     C                     OTHER
+     C                     ADD  1         OCNT
+     C                     ENDSL
+     C                     ENDDO
+      *
+     C           *IN85     IFEQ *OFF
+     C           YCNT      ANDEQ0
+     C                     MOVELERR,1     XMSG
+     C                     ENDIF
+      *
+     C           *IN85     IFEQ *OFF
+     C                     MOVEL'SFL01'   @SCRN
+     C                     ELSE
+     C                     MOVEL'SFL02'   @SCRN
+     C                     ENDIF
+      *
+     C           RRN1      IFEQ 0
+     C           RRN2      ANDEQ0
+     C                     MOVEL'DSP01'   @SCRN
+     C                     MOVELERR,1     XMSG
+     C                     ENDIF
+      *
+     C                     CLOSEFBCWP36A                   CLOSE
+      *
+     C           CHK1X     ENDSR
+      *----------------------------------------------------*
+      *  CHECK 2                                           *
+      *----------------------------------------------------*
+     C           #CHK12    BEGSR
+      * CLEAR
+     C                     MOVE ' '       OKFLG   1
+     C                     MOVEL*BLANK    @@SLSP  5
+     C                     MOVEL*BLANK    @@MHIN 20
+     C                     MOVEL*BLANK    @@RMK1 30
+     C                     Z-ADD0         @@TOKU  40
+     C                     Z-ADD0         @@NONY  40
+     C                     MOVEL*BLANK    @@NKOJ  1
+     C                     MOVEL*BLANK    @@NUKE  4
+     C                     MOVEL*BLANK    @@RMK2 30
+     C                     Z-ADD0         @@UPRC 105
+     C                     Z-ADD0         @@STYM  60
+     C                     Z-ADD0         @@ENYM  60
+      *
+      * CHECK HEADER, BY "D"
+     C                     MOVELW2SLSP    LTR1    1
+     C           LTR1      IFNE 'I'
+     C           LTR1      ANDNE'i'
+     C           W2SLSP    OREQ *BLANK
+     C                     MOVE ' '       OKFLG
+     C                     GOTO CHK12X
+     C                     ENDIF
+      * CHECK COMMENT LINE
+     C           LTR1      IFEQ '*'
+     C                     MOVE ' '       OKFLG
+     C                     GOTO CHK12X
+     C                     ENDIF
+      * 0 CHECK DUPLICATE DATA
+     C                     MOVELW2SLSP    K2SLSP
+     C                     MOVELW2TOKU    K2TOKU
+     C                     MOVELW2NONY    K2NONY
+     C                     MOVELW2NKOJ    K2NKOJ
+     C                     MOVELW2NUKE    K2NUKE
+     C                     MOVELW2MHIN    @@MHIN
+     C                     MOVELW2STYM    K2STYM
+     C                     MOVELW2ENYM    K2ENYM
+     C           K#20A     CHAINFBCPL20A             99
+     C           *IN99     IFEQ *OFF
+     C                     MOVELW2MHIN    S2ERR
+     C                     MOVELW2STYM    LTR6    6
+     C                     MOVE LTR6      S2ERR
+     C                     MOVELERR,24    S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+      *
+      * 1.(A) CHECK USER ID
+     C           W2SLSP    IFEQ *BLANK
+     C                     MOVELERR,10    S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+      *
+     C           W2SLSP    IFNE *BLANK
+     C                     MOVELW2SLSP    LTR10  10
+     C           LTR10     CHAINRGAPL13              99
+     C           *IN99     IFEQ *OFF
+     C                     MOVELW2SLSP    @@SLSP
+     C                     ELSE
+     C                     MOVELW2SLSP    S2ERR
+     C                     MOVELERR,3     S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+     C                     ENDIF
+      * 4. (D) CHECK CUSTOMER CODE
+     C           W2TOKU    IFEQ *BLANK
+     C                     MOVELERR,11    S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+      *
+     C           W2TOKU    IFNE *BLANK
+     C                     MOVELW2TOKU    $IN       P
+     C                     CALL 'UTLR60'
+     C                     PARM           $IN    17
+     C                     PARM           $TRUE  156
+     C                     PARM           $RTN    1
+     C                     Z-ADD$TRUE     NUM40   40
+     C           NUM40     CHAINFGBPL01              99
+     C           *IN99     IFEQ *OFF
+     C                     Z-ADDNUM40     @@TOKU
+     C                     ELSE
+     C                     MOVELW2TOKU    S2ERR
+     C                     MOVELERR,12    S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+     C                     ENDIF
+      * 5. (E) CHECK DELIVVERY CODE
+     C           W2NONY    IFNE *BLANK
+     C                     MOVELW2NONY    $IN       P
+     C                     CALL 'UTLR60'
+     C                     PARM           $IN    17
+     C                     PARM           $TRUE  156
+     C                     PARM           $RTN    1
+     C                     Z-ADD$TRUE     NUM40
+     C           NUM40     CHAINFGBPL01              99
+     C           *IN99     IFEQ *OFF
+     C                     Z-ADDNUM40     @@NONY
+     C                     ELSE
+     C                     MOVELW2NONY    S2ERR
+     C                     MOVELERR,13    S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+     C                     ENDIF
+      * CHECK SHIPPING MASTER
+     C           @@TOKU    IFNE 0
+     C                     MOVELW2TOKU    $TOKU
+     C                     MOVELW2NONY    $NONY
+     C                     MOVELW2NKOJ    $NKOJ
+     C                     MOVELW2NUKE    $NUKE
+     C                     CALL 'UEXR42 '
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $NKOJ   1
+     C                     PARM           $NUKE   4
+     C                     PARM           $RTN1   1
+     C           $RTN1     IFEQ 'N'
+     C                     MOVELW2TOKU    S2ERR
+     C                     MOVELERR,17    S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+     C                     ENDIF
+      *
+      * 2.(B) CHECK CUSTOMER PART#
+     C           W2MHIN    IFEQ *BLANK
+     C                     MOVE *BLANK    S2ERR
+     C                     MOVELERR,8     S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+      *
+     C                     MOVELW2MHIN    @@MHIN
+      *
+     C**         @@TOKU    IFNE 0
+     C**         W2MHIN    ANDNE*BLANK
+     C**                   MOVELW2MHIN    $MHIN
+     C**                   CALL 'UEXR43 '
+     C**                   PARM           $MHIN  20
+     C**                   PARM           $RTN3   1
+     C**         $RTN3     IFEQ 'Y'
+     C**                   MOVELW2MHIN    @@MHIN
+     C**                   ELSE
+     C**                   MOVELW2MHIN    S2ERR
+     C**                   MOVELERR,14    S2MSG
+     C**                   EXSR #ERR1
+     C**                   ENDIF
+     C**                   ENDIF
+      **3.(C) CHECK REMARK1
+     C                     MOVELW2RMK1    @@RMK1
+      * 6.(F) CHECK FACTORY
+     C                     MOVELW2NKOJ    @@NKOJ
+      **7.(G) CHECK DOCK
+     C                     MOVELW2NUKE    @@NUKE
+      **8.(H) CHECK REMARKS2
+     C                     MOVELW2RMK2    @@RMK2
+      **9.(I) CHECK PRICE
+     C           W2UPRC    IFEQ *BLANK
+     C                     MOVE *BLANK    S2ERR
+     C                     MOVELERR,15    S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+      *
+     C                     MOVELW2UPRC    $IN
+     C                     CALL 'UTLR60B'
+     C                     PARM           $IN    17
+     C                     PARM           $TRUE  156
+     C                     PARM           $RTN    1
+     C           $TRUE     IFEQ 0
+     C                     MOVEL'0'       S2ERR
+     C                     MOVELERR,15    S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+      *
+     C                     Z-ADD$TRUE     @@UPRC
+      * 10. CHECK START DATE
+     C           W2STYM    IFEQ *BLANK
+     C                     MOVE *BLANK    S2ERR
+     C                     MOVELERR,18    S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+      *
+     C           W2STYM    IFNE *BLANK
+     C                     MOVELW2STYM    LTR8    8
+     C                     MOVE '01'      LTR8
+     C                     MOVELLTR8      $SRC      P
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE2  8
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ *BLANK
+     C                     MOVELW2STYM    @@STYM
+     C                     ELSE
+     C                     MOVELW2STYM    S2ERR     P
+     C                     MOVELERR,19    S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+     C                     ENDIF
+      * 11. CHECK END DATE
+     C           W2ENYM    IFEQ *BLANK
+     C                     MOVE *BLANK    S2ERR
+     C                     MOVELERR,20    S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+      *
+     C           W2ENYM    IFNE *BLANK
+     C                     MOVELW2ENYM    LTR8    8
+     C                     MOVE '01'      LTR8
+     C                     MOVELLTR8      $SRC      P
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE2  8
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ *BLANK
+     C                     MOVELW2ENYM    @@ENYM
+     C                     ELSE
+     C                     MOVELW2ENYM    S2ERR     P
+     C                     MOVELERR,21    S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+     C                     ENDIF
+      *
+      * END OF CHECK --------------------------------------
+     C           OKFLG     IFNE 'N'
+     C                     Z-ADDLIN#      S1LIN#
+     C                     Z-ADD@@TOKU    S1TOKU
+     C                     Z-ADD@@NONY    S1NONY
+     C                     MOVEL@@NKOJ    S1NKOJ
+     C                     MOVEL@@NUKE    S1NUKE
+     C                     MOVEL@@MHN1    S1MHN1
+     C                     MOVEL@@MHN2    S1MHN2
+     C                     MOVEL@@MHN3    S1MHN3
+     C                     MOVE *BLANK    S1MHN4
+     C                     Z-ADD@@UPRC    S1UPRC
+     C                     MOVEL@@SLSP    S1SLSP
+     C                     Z-ADD@@STYM    S1STYM
+     C                     Z-ADD@@ENYM    S1ENYM
+     C                     MOVEL@@RMK1    S1RMK1
+     C                     MOVEL@@RMK2    S1RMK2
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+     C                     MOVE 'Y'       OKFLG
+     C                     ENDIF
+      *
+     C           RRN1      IFGT MAX1
+     C                     MOVELERR,4     D9ERR
+     C**                   SETON                     85
+     C                     MOVE 'Y'       ENDFLG
+     C                     ENDIF
+      *
+     C           RRN2      IFGT MAX2
+     C                     MOVELERR,5     S2MSG
+     C                     MOVELERR,5     D9ERR
+     C                     SETON                     85
+     C                     ADD  1         RRN2
+     C                     WRITESFL02
+     C                     MOVE 'Y'       ENDFLG
+     C                     ENDIF
+      *
+     C           CHK12X    ENDSR
+      *----------------------------------------------------*
+      *  DISPLAY ORDER (SFL01)                             *
+      *----------------------------------------------------*
+     C           #SFL01    BEGSR
+      *
+     C           ENDFLG    IFEQ 'Y'
+     C                     MOVELERR,21    D9ERR
+     C                     ELSE
+     C                     MOVELERR,6     D9ERR
+     C                     ENDIF
+      *
+     C                     WRITEDSP91
+     C                     SETON                     72
+     C                     EXFMTCTL01
+     C                     SETOF                     72
+     C                     MOVE *BLANK    D9ERR
+     C                     MOVE *BLANK    XMSG
+      * F3/F12 BACK
+     C           *INKC     IFEQ *ON
+     C           *INKL     OREQ *ON
+     C                     MOVEL'DSP01'   @SCRN
+     C                     ENDIF
+      * CHECK END FLAG
+     C           ENDFLG    IFEQ 'Y'
+     C                     MOVE *OFF      *INKE
+     C                     ENDIF
+      * F5: UPLOAD
+     C           *INKE     IFEQ *ON
+     C                     EXSR #UPL
+     C                     MOVEL'DSP01'   @SCRN
+     C                     ENDIF
+      *
+     C           SFL01X    ENDSR
+      *----------------------------------------------------*
+      *  DISPLAY ERROR (SFL02)                             *
+      *----------------------------------------------------*
+     C           #SFL02    BEGSR
+      *
+     C           ENDFLG    IFEQ 'Y'
+     C                     MOVELERR,5     D9ERR
+     C                     ELSE
+     C                     MOVELERR,7     D9ERR
+     C                     ENDIF
+      *
+     C                     WRITEDSP92
+     C                     SETON                     72
+     C                     EXFMTCTL02
+     C                     SETOF                     72
+     C                     MOVE *BLANK    D9ERR
+      * F3/12 BACK
+     C           *INKC     IFEQ *ON
+     C           *INKL     OREQ *ON
+     C                     MOVEL'DSP01'   @SCRN
+     C                     ENDIF
+      *
+     C           SFL02X    ENDSR
+      *----------------------------------------------------*
+      *  WRITE ERROR SFL                                   *
+      *----------------------------------------------------*
+     C           #ERR1     BEGSR
+      *
+     C                     Z-ADDLIN#      S2LIN#
+     C                     SETON                     85
+     C                     ADD  1         RRN2
+     C                     WRITESFL02
+     C                     MOVE 'N'       OKFLG
+      *
+     C           ERR1X     ENDSR
+      *----------------------------------------------------*
+      *  WRITE WORK FILE                                   *
+      *----------------------------------------------------*
+     C           #UPL      BEGSR
+      *
+     C                     Z-ADD0         UPCNT   40
+     C                     Z-ADD0         RRN1
+     C                     DO   *HIVAL
+     C                     ADD  1         RRN1
+     C           RRN1      CHAINSFL01                99
+     C   99                LEAVE
+      *
+     C                     CLEARFBCPP201
+     C                     Z-ADDS1TOKU    F2TOKU
+     C                     Z-ADDS1NONY    F2NONY
+     C                     MOVELS1NKOJ    F2NKOJ
+     C                     MOVELS1NUKE    F2NUKE
+     C                     MOVELS1MHN1    F2MHN1
+     C                     MOVELS1MHN2    F2MHN2
+     C                     MOVELS1MHN3    F2MHN3
+     C                     MOVELS1MHN4    F2MHN4
+     C                     MOVE *BLANK    F2SHN1
+     C                     MOVE *BLANK    F2SHN2
+     C                     MOVE *BLANK    F2SHN3
+     C                     MOVELS1SLSP    F2SLSP
+     C                     Z-ADDS1STYM    F2STYM
+     C                     Z-ADDS1ENYM    F2ENYM
+     C                     MOVE *BLANK    F2CLAS
+     C                     MOVELS1RMK1    F2RMK1
+     C                     MOVELS1RMK2    F2RMK2
+     C                     Z-ADDS1UPRC    F2UPRC
+      *
+     C                     Z-ADDTODAY     F2CRHZ
+     C                     Z-ADDNOW       F2CRTM
+     C                     MOVEL#USER     F2CRUS
+     C                     MOVEL#WSID     F2CRWS
+     C                     MOVEL#PGM      F2CRPG
+      *
+     C                     WRITEFBCPP201
+     C                     ADD  1         UPCNT
+     C                     ENDDO
+      *
+     C           UPCNT     IFGE 1
+     C                     MOVELERR,23    XMSG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * INITIALIZE
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           UPFLG   1
+      * IF DATA WAS UPLODED, UPFLAG=Y
+     C                     MOVE *BLANK    UPFLG
+      *
+     C           K#20A     KLIST
+     C                     KFLD           K2SLSP 10
+     C                     KFLD           K2TOKU  40
+     C                     KFLD           K2NONY  40
+     C                     KFLD           K2NKOJ  1
+     C                     KFLD           K2NUKE  4
+     C                     KFLD           @@MHN1
+     C                     KFLD           @@MHN2
+     C                     KFLD           @@MHN3
+     C                     KFLD           @@MHN4
+     C                     KFLD           K2STYM  60
+     C                     KFLD           K2ENYM  60
+      *
+     C                     TIME           SDATE
+     C                     MOVEL'DSP01'   @SCRN   5
+     C                     Z-ADD200       MAX1    40
+     C                     Z-ADD300       MAX2    40
+     C                     MOVE *OFF      *IN73            MORE
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+** ERR MSG (50 CHARACTERS) ---------------------->
+THERE IS NO DATA! PLEASE CHECK SLS-EXPANSION.CSV              01
+                                                              02
+INVALID PERSON IN CHARGE(USER ID)!                            03
+THERE IS NO ERROR. PRESS F5 FOR NEXT STEP...                  04
+ERROR REACHED MAX 300 RECORDS! PLEASE FIX DATA...             05
+PRESS F5 TO UPLOAD DATA...                                    06
+FIX ERROR DATA AND TRY AGAIN...                               07
+ENTER CUSTOMER PART#!                                         08
+USER PART IS NOT IN COMMON M/F! PLEASE REGISTER.              09
+ENTER PERSON IN CHARGE(USER ID)!                              10
+ENTER CUSTOMER CODE!                                          11
+INVALID CUSTOMER CODE!                                        12
+INVALID DELIVERY CODE!                                        13
+CUSTOMER PART IS NOT IN SALES/COMMON MASTER!                  14
+ENTER CORRECT PRICE!                                          15
+THERE IS NO DATA TO BE UPLOADED!                              16
+SHIPPING MASTER IS NOT SET UP!                                17
+ENTER START DATE!                                             18
+INVALID START DATE!                                           19
+ENTER END DATE!                                               20
+INVALID END DATE!                                             21
+SOURCE DATE REACHED MAX 200 RECORDS! PROCESS STOPPED!         22
+SOUCE DATA HAS BEEN UPLOADED SUCCESSFULLY...                  23
+SAME RECORD ALREADY UPLOADED!                                 24
+                                                              25

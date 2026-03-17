@@ -1,0 +1,177 @@
+     H            Y.
+     F****************************************************************
+     F*  PROGRAM    : FBER02                                         *
+     F*  WRITTEN    : 10/10/2015                                     *
+     F*  WRITTEN BY : JW (SRA)                                       *
+     F*  FUNCTION   : READ FBEWP01(CSV) AND UPDATE COST TABLE        *
+     F****************************************************************
+     FFBEWP02 IF  E                    DISK
+     FFCEPL50 UF  E           K        DISK                      A
+     FQPRINT  O   F     132     OF     PRINTER
+      *---------------------------------------------------------------
+     E                    TBL     1   1 40
+      *---------------------------------------------------------------
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      ******************************************************
+      *                    MAIN PROCESS
+      ******************************************************
+      * Initial Process
+     C                     EXSR @INIT
+      * Update  Process
+     C                     EXSR @UPDAT
+      * Print Footer
+     C           UPD#      ADD  ADD#      TTL#
+     C           TTL#      IFNE 0
+     C                     EXCPTFOT1
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      ******************************************************
+      *          @UPDAT: UPDATE COST
+      ******************************************************
+     C           @UPDAT    BEGSR
+      *
+     C                     MOVE *OFF      *IN80
+      *
+     C           *IN80     DOUEQ*ON
+     C                     READ FBEWP02                  80
+     C           *IN80     IFEQ *OFF
+     C           K#P50     CHAINFCEPL50              98
+      * ADD RECORD------------------------------
+     C           *IN98     IFEQ *ON
+     C                     CLEARFCEPP501
+     C                     Z-ADD@DATE     F5KODT
+     C                     Z-ADD@TIME     F5KOTM
+     C                     MOVEL#USER     F5KOME
+     C                     MOVELT4SHN1    F5PRT1
+     C                     MOVELT4SHN2    F5PRT2
+     C                     MOVELT4SHN3    F5PRT3
+     C                     MOVELT4PROC    F5PROC
+     C                     MOVELT4MCN#    F5MCHN
+     C                     Z-ADDT4COST    F5COST
+     C                     Z-ADDT4EDAT    F5VLDT
+     C                     WRITEFCEPP501
+     C                     ADD  1         ADD#
+     C                     MOVEL'ADD'     XACT    3
+     C                     EXSR @PRINT
+     C                     ENDIF
+      * UPDATE----------------------------------
+     C           *IN98     IFEQ *OFF
+     C                     CLEARFCEPP501
+     C                     Z-ADDT4CDAT    F5KODT
+     C                     Z-ADDT4CTIM    F5KOTM
+     C                     MOVELT4CUSR    F5KOME
+     C                     MOVELT4SHN1    F5PRT1
+     C                     MOVELT4SHN2    F5PRT2
+     C                     MOVELT4SHN3    F5PRT3
+     C                     MOVELT4PROC    F5PROC
+     C                     MOVELT4MCN#    F5MCHN
+     C                     Z-ADDT4COST    F5COST
+     C                     Z-ADDT4EDAT    F5VLDT
+     C                     UPDATFCEPP501
+     C                     ADD  1         UPD#
+     C                     MOVEL'UPD'     XACT
+     C                     EXSR @PRINT
+     C                     ENDIF
+      *
+     C           @ENDU     TAG
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      ******************************************************
+      *          @PRINT: PRINT ERROR REPORT
+      ******************************************************
+     C           @PRINT    BEGSR
+      *
+     C   OF                EXCPTHDR1
+     C   OF                SETOF                     OF
+     C                     ADD  1         SEQ#
+     C                     EXCPTDTL1
+      *
+     C                     ENDSR
+      ******************************************************
+      *                  INITIAL ROUTINE
+      ******************************************************
+     C           @INIT     BEGSR
+      *
+     C           K#P50     KLIST
+     C                     KFLD           T4SHN1
+     C                     KFLD           T4SHN2
+     C                     KFLD           T4SHN3
+     C                     KFLD           T4PROC
+     C                     KFLD           T4MCN#
+     C                     KFLD           T4EDAT
+      *
+     C                     Z-ADD*DATE     @DATE   80
+     C                     TIME           @TIME   60
+     C                     Z-ADD0         ADD#    50
+     C                     Z-ADD0         UPD#    50
+     C                     Z-ADD0         TTL#    50
+     C                     Z-ADD0         SEQ#    50
+     C                     MOVE *ON       *INOF
+     C                     MOVELTBL,1     #TITLE 29
+      *
+     C                     ENDSR
+      *************************************************************
+      *                    OUTPUT                                 *
+      *************************************************************
+     OQPRINT  E  102           HDR1
+     O                                    8 'PROGRAM:'
+     O                                   15 'FBER02'
+     O                         #TITLE    70
+     O                                   83 '(VALID DATE='
+     O                         T4EDAT    91
+     O                                   92 ')'
+     O                                  100 'DATE'
+     O                         @DATE    111 '    .  .  '
+     O                         @TIME    120 '  :  :  '
+     O                         PAGE  Z  130
+     O                                  126 'PAGE'
+     O        E  1             HDR1
+     O                                    3 'ACT'
+     O                                    9 'SEQ'
+     O                                   17 'MACHINE'
+     O                                   25 'PROCESS'
+     O                                   37 'PART NUMBER'
+     O                                   50 'COST'
+     O        E  1             HDR1
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+      *
+     O        E  1             DTL1
+     O                         XACT       3
+     O                         SEQ#  Z    9
+     O                         T4MCN#    15
+     O                         T4PROC    23
+     O                         T4SHN1    31
+     O                         T4SHN2    37
+     O                         T4SHN3    40
+     O                         T4COSTJ   51
+      *
+     O        E  1             FOT1
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+      *
+     O        E  1             FOT1
+     O                                   17 '** TOTAL RECORDS:'
+     O                         TTL#  J   24
+     O                                   33 '(UPDATE:'
+     O                         UPD#  J   40
+     O                                   46 ', ADD:'
+     O                         ADD#  J   53
+     O                                   54 ')'
+** TBL
+<< COST UPLOADED LOG LIST >>

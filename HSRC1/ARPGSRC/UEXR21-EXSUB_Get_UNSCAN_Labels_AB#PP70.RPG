@@ -1,0 +1,207 @@
+     H            Y.
+     F** UEXR21 *********************************************
+     F*  PROGRAM: EXSUB - GET UNSCAN LABELS                 *
+     F*  WRITTEN: JW (SRA) 2020.03.03                       *
+JW1  F*  JW                2021.04.29 CHECK @SCAN=0         *
+     F*-----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UEXR21'
+     F*                    PARM           $SHIN  12
+     F*                    PARM           $SHPF   8
+     F*                    PARM           $SHPT   8
+     F*                    PARM           $UNS    5
+     F*                    PARM           $RTN    1
+     F*  IN  $SHIN  12A  IAF PART
+     F*      $SHPF   8A  SHIP DATE FROM
+     F*      $SHPT   8A  SHIP ADTE TO
+     F*  OUT $UNS    5A  UNSCAN LABEL
+     F*      $RTN    1A  RETURN CODE (OK:BLANK, *:ERROR)
+     F******************************************************
+     FAB#PL1E IF  E           K        DISK
+     FAB#PL70 IF  E           K        DISK
+      *===================================================
+      * SYSTEM DATE
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      * KEY FIELDS
+     I            DS
+     I                                        1   80K#NOHZ
+     I                                        1   40K#NOYY
+     I                                        5   60K#NOMM
+     I                                        7   80K#NODD
+     I            DS
+     I                                        1   80BANOHZ
+     I                                        1   40BANOYY
+     I                                        5   60BANOMM
+     I                                        7   80BANODD
+     I            DS
+     I                                        1  12 BASHIN
+     I                                        1   5 BASHN1
+     I                                        6  10 BASHN2
+     I                                       11  12 BASHN3
+     I            DS
+     I                                        1  12 K#SHIN
+     I                                        1   5 K#SHN1
+     I                                        6  10 K#SHN2
+     I                                       11  12 K#SHN3
+      *===================================================
+      *           MAIN ROUTINE
+      *===================================================
+     C                     EXSR #INIT
+      * GET ORDER BOX
+     C           K#PL1E    SETLLAB#PL1E
+     C                     DO   *HIVAL
+     C                     READ AB#PL1E                  98
+     C   98                LEAVE
+      *
+     C           BASHIN    IFNE K#SHIN
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           BANOHZ    IFGT WKSHPT
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           BASKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * GET SYOS
+     C                     EXSR #GETBX
+      * GET SCAN QTY
+     C                     EXSR #GETSC
+      *
+     C           @BOX      SUB  @SCAN     @NUM    50
+     C           @NUM      IFGT 0
+     C                     ADD  @NUM      @UNS    50
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C           PEND      TAG
+     C                     MOVEL@UNS      $UNS
+     C           @UNS      IFEQ 0
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *======================================================
+      * GET # OF BOX
+      *======================================================
+     C           #GETBX    BEGSR
+     C                     Z-ADD0         @BOX    50
+      * GET SYOS
+     C                     Z-ADD0         SYOS    50
+     C           BASYOS    IFNE 0
+     C                     Z-ADDBASYOS    SYOS
+     C                     ELSE
+     C           BAUSYS    IFNE 0
+     C                     Z-ADDBAUSYS    SYOS
+     C                     ELSE
+     C                     Z-ADDBASRYO    SYOS
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           SYOS      IFEQ 0
+     C                     GOTO PEND
+     C                     ENDIF
+      *
+     C           BASRYO    DIV  SYOS      @BOX
+     C                     MVR            REV     63
+     C           REV       IFNE 0
+     C                     ADD  1         @BOX
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *======================================================
+      * GET SCAN QTY
+      *======================================================
+     C           #GETSC    BEGSR
+      *
+     C                     Z-ADD0         @SCAN   50
+     C                     MOVELBANONY    K@NONY
+     C                     MOVELBAODRN    K@ODRN
+     C                     MOVELBANOBN    K@NOBN
+      *
+     C           K#PL70    SETLLAB#PL70
+      * SEARCH BY ORDER#
+     C                     DO   *HIVAL
+     C           K#PL70    READEAB#PL70                  97
+     C   97                LEAVE
+     C           EKSKJY    IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+     C           EKSRYO    IFNE 0
+     C                     ADD  1         @SCAN
+     C                     END
+     C                     ENDDO
+      * SEARCH BY INVOICE#
+     C**JW1                MOVELBAINVN    LTR10  10
+     C**         LTR10     IFNE K@ODRN
+      *
+JW1  C           @SCAN     IFEQ 0
+      *
+     C                     MOVELBAINVN    K@ODRN
+     C           K#PL70    SETLLAB#PL70
+     C*
+     C                     DO   *HIVAL
+     C           K#PL70    READEAB#PL70                  96
+     C   96                LEAVE
+     C           EKSKJY    IFNE *BLANK
+     C                     ITER
+     C                     END
+     C           EKSRYO    IFNE 0
+     C                     ADD  1         @SCAN
+     C                     ENDIF
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *======================================================
+      * INITIAL SET
+      *======================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $SHIN  12
+     C                     PARM           $SHPF   8
+     C                     PARM           $SHPT   8
+     C                     PARM           $UNS    5
+     C                     PARM           $RTN    1
+      *
+     C           K#PL1E    KLIST
+     C                     KFLD           K#SHN1  5
+     C                     KFLD           K#SHN2  5
+     C                     KFLD           K#SHN3  2
+     C                     KFLD           K#NOYY  40
+     C                     KFLD           K#NOMM  20
+     C                     KFLD           K#NODD  20
+     C*
+     C           K#PL70    KLIST
+     C                     KFLD           BATOKU
+     C                     KFLD           K@NONY  4
+     C                     KFLD           BANKOJ
+     C                     KFLD           BANUKE
+     C                     KFLD           BAMHN1
+     C                     KFLD           BAMHN2
+     C                     KFLD           BAMHN3
+     C                     KFLD           BAMHN4
+     C                     KFLD           K@ODRN 10
+     C                     KFLD           BANOYY
+     C                     KFLD           BANOMM
+     C                     KFLD           BANODD
+     C                     KFLD           K@NOBN  2
+     C                     KFLD           BADEYY
+     C                     KFLD           BADEMM
+     C                     KFLD           BADEDD
+      *
+     C                     MOVEL$SHIN     K#SHIN
+     C                     MOVEL$SHPF     K#NOHZ
+     C                     MOVEL$SHPT     WKSHPT  80
+     C                     MOVEL'00000'   $UNS
+     C                     Z-ADD0         @UNS    50
+     C                     MOVE *BLANK    $RTN
+      *
+     C                     ENDSR

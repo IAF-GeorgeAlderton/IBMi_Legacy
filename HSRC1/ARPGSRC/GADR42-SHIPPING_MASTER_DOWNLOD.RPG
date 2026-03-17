@@ -1,0 +1,303 @@
+     H            Y.
+      ** GADR42 *******************************************************
+      *  SHIPMENT M/F DOWNLOAD
+      *  KIRI                                            2017.07.10
+      *****************************************************************
+      *        SHIPMENT M/F
+     FGADPL11 IF  E           K        DISK
+      *
+      *  EXTENTED BIN MASTER (FOR SHIPMENT M/F)
+     FGADPL41 IF  E           K        DISK
+      *
+      *
+     FFGBPL01 IF  E           K        DISK
+      *
+     FGADWP42 O   F    1024            DISK
+      *===============================================================
+      *===============================================================
+     I****************************
+      *プログラム状況データ構造*
+     I****************************
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W$WSID
+     I                                      254 263 W$USER
+     I                                      264 269 W$JBNO
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60@SYSTM
+     I                                        7  140@SYSHZ
+      *(GADPL11)SHIPMENT M/F
+     I            DS
+     I                                        1   80B5SKHZ
+     I                                        1   40B5SKYY
+     I                                        5   60B5SKMM
+     I                                        7   80B5SKDD
+      *(FGBPL01)
+     I            DS
+     I                                        1   80B2SKHZ
+     I                                        1   40B2SKYY
+     I                                        5   60B2SKMM
+     I                                        7   80B2SKDD
+      *
+     I              'DAY OF              'C         $$CSU0
+     I              '1 DAY BEFORE        'C         $$CSU1
+     I              '2 DAY BEFORE        'C         $$CSU2
+     I              'OTHER(SPECIFY)      'C         $$CSU3
+     I              'MILKRUN AUTOMATIC   'C         $$CSU4
+     I              'IAF CALLS           'C         $$CSU5
+     C*===============================================================
+     C*
+     C*===============================================================
+     C                     MOVEA*ALL'0'   *IN
+     C                     TIME           @TIME
+      *
+     C           KEY01     KLIST
+     C                     KFLD           B5TOKU           CUSTOMER CODE
+     C                     KFLD           B5NONY           DELIVERY POINT CODE
+     C                     KFLD           B5NKOJ           FACTORY CODE
+     C                     KFLD           B5NUKE           RECEIVING
+      *
+     C                     EXCPT$HED
+      *
+     C           *LOVAL    SETLLGADPL11
+      *-----------------------------------
+      *-----------------------------------
+S1   C                     DO   *HIVAL
+     C                     READ GADPL11                  90
+     C   90                LEAVE
+     C*
+ S2  C           B5SKJY    IFEQ 'D'                        DELETE CODE D
+     C           B5SKHZ    ANDLT@SYSHZ                     DELETE DATE
+     C                     ITER
+ E2  C                     ENDIF
+     C*--------------------*
+     C* CUSTOMER CODE
+     C*--------------------*
+     C                     MOVE B5TOKU    K$CODE  4
+     C                     MOVEL*BLANK    $$TONM 15        DETAIL NAME KANA
+     C                     EXSR #FGBP
+     C  N92                MOVELB2SMEI    $$TONM           DETAIL NAME KANA
+     C*--------------------*
+     C* DELIVERY POINT CODE
+     C*--------------------*
+     C                     MOVE B5NONY    K$CODE
+     C                     MOVEL*BLANK    $$NONM 15        DETAIL NAME KANA
+     C                     EXSR #FGBP
+     C  N92                MOVELB2SMEI    $$NONM           DETAIL NAME KANA
+     C*--------------------*
+     C* SUPPLIER CODE
+     C*--------------------*
+     C                     MOVE B5SIRE    K$CODE
+     C                     MOVEL*BLANK    $$SINM 15
+     C                     EXSR #FGBP
+     C  N92                MOVELB2SMEI    $$SINM
+     C*--------------------*
+     C* PROVISION POINT CODE
+     C*--------------------*
+     C                     MOVE B5SKYU    K$CODE
+     C                     MOVEL*BLANK    $$SKNM 15
+     C                     EXSR #FGBP
+     C  N92                MOVELB2SMEI    $$SKNM
+     C*--------------------*
+     C                     MOVEL*BLANK    $$CSUM 20
+     C                     SELEC
+     C           B5CSUC    WHEQ '0'                        DAY OF'
+     C                     MOVEL$$CSU0    $$CSUM
+     C           B5CSUC    WHEQ '1'                        1 DAY BEFORE
+     C                     MOVEL$$CSU1    $$CSUM
+     C           B5CSUC    WHEQ '2'                        2 DAY BEFORE
+     C                     MOVEL$$CSU2    $$CSUM
+     C           B5CSUC    WHEQ '3'                        OTHER(SPECIFY)
+     C                     MOVEL$$CSU3    $$CSUM
+     C           B5CSUC    WHEQ '4'                        MILKRUN AUTOMATIC
+     C                     MOVEL$$CSU4    $$CSUM
+     C           B5CSUC    WHEQ '5'                        IAF CALLS
+     C                     MOVEL$$CSU5    $$CSUM
+     C                     ENDSL
+     C*--------------------*
+     C**
+     C           KEY01     SETLLGADPL41
+     C*-------------------------
+ S2  C                     DO   *HIVAL
+     C           KEY01     READEGADPL41                  91
+     C   91                LEAVE
+     C           B4SKJY    IFEQ 'D'                        DELETE CODE
+     C           B4SKDT    ANDLE@SYSHZ                     DELETED DATE
+     C                     ITER
+     C                     ENDIF
+     C*
+     C                     EXCPT$DATA
+ E2  C                     ENDDO
+     C*-------------------------
+E1   C                     ENDDO
+     C*-----------------------------------
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+      *===============================================================
+      *
+      *===============================================================
+     C           #FGBP     BEGSR
+     C                     TESTN          K$CODE     50
+     C           *IN50     IFEQ *ON
+     C                     MOVE K$CODE    K@CODE  40
+     C           K@CODE    CHAINFGBPL01              92
+     C  N92      B2SKJY    IFEQ 'D'
+     C           B2SKHZ    ANDLE@SYSHZ
+     C                     SETON                     92
+     C                     ENDIF
+     C                     ELSE
+     C                     SETON                     92
+     C                     ENDIF
+     C                     ENDSR
+      *===============================================================
+      *
+      *===============================================================
+     OGADWP42 E                $HED
+  01 O                                      'CUSTOMER CODE'
+     O                                      ','
+  02 O                                      'CUSTOMER NAME'
+     O                                      ','
+  03 O                                      'DELIVERY POINT CODE'
+     O                                      ','
+  04 O                                      'DELIVERY POINT NAME'
+     O                                      ','
+  05 O                                      'FACTORY CODE'
+     O                                      ','
+  06 O                                      'RECEIVING'
+     O                                      ','
+  07 O                                      'FACTORY NAME'
+     O                                      ','
+  08 O                                      'CYCLE (DAY)'
+     O                                      ','
+  09 O                                      'CYCLE(TIME)'
+     O                                      ','
+  10 O                                      'CYCLE(BIN)'
+     O                                      ','
+  11 O                                      'DATE OF DELIVERY MONDAY'
+     O                                      ','
+  12 O                                      'TUESDAY'
+     O                                      ','
+  13 O                                      'WEDNESDAY'
+     O                                      ','
+  14 O                                      'THURSDAY'
+     O                                      ','
+  15 O                                      'FRIDAY'
+     O                                      ','
+  16 O                                      'SATURDAY'
+     O                                      ','
+  17 O                                      'SUNDAY'
+     O                                      ','
+  18 O                                      'SUPPLIER CODE'
+     O                                      ','
+  19 O**                                    'SUPPLIER NAME'
+     O**                                    ','
+  20 O                                      'FACTORY CODE'
+     O                                      ','
+  21 O                                      'PROVISION POINT CODE'
+     O                                      ','
+  22 O**                                    'PROVISION POINT NAME'
+     O**                                    ','
+  23 O                                      'CARRIER SET UP CALLED'
+     O                                      ','
+  24 O                                      'NAME'
+     O                                      ','
+  25 O                                      'BIN #'
+     O                                      ','
+      * OLD BIN INFO.
+     O                                      'OLD BIN INFO. '
+  26 O                                      'SHIPMENT ADJ. DAY'
+     O                                      ','
+  27 O                                      'SHIPPING #'
+     O                                      ','
+  28 O                                      'TRANSPORTATION CODE'
+     O                                      ','
+      * NEW BIN INFO.
+  29 O                                      'NEW BIN INFO. '
+     O                                      'SHIPMENT ADJ. DAY'
+     O                                      ','
+  30 O                                      'SHIPPING #'
+     O                                      ','
+  31 O                                      'TRANSPORTAION CODE'
+     O                                      ','
+      * CHANGE OVER DATE
+  32 O                                      'CHANGE OVER DATE'
+      *==============================
+      *==============================
+     O        E                $DATA
+     O                                      '="'
+  01 O                         B5TOKU
+     O                                      '",'
+  02 O                         $$TONM
+     O                                      ',="'
+  03 O                         B5NONY
+     O                                      '",'
+  04 O                         $$TONM
+     O                                      ',="'
+  05 O                         B5NKOJ
+     O                                      '",="'
+  06 O                         B5NUKE
+     O                                      '","'
+  07 O                         B5KMEI
+     O                                      '",'
+  08 O                         B5HIZK
+     O                                      ','
+  09 O                         B5KAIS
+     O                                      ','
+  10 O                         B5NBIN
+     O                                      ','
+  11 O                         B5YOB1
+     O                                      ','
+  12 O                         B5YOB2
+     O                                      ','
+  13 O                         B5YOB3
+     O                                      ','
+  14 O                         B5YOB4
+     O                                      ','
+  15 O                         B5YOB5
+     O                                      ','
+  16 O                         B5YOB6
+     O                                      ','
+  17 O                         B5YOB7
+     O                                      ',="'
+  18 O                         B5SIRE
+     O                                      '",'
+  19 O**                       $$SINM
+     O                                      '="'
+  20 O                         B5SMEI
+     O                                      '",="'
+  21 O                         B5SKYU
+     O                                      '",'
+  22 O**                       $$SKNM
+     O**                                    ','
+  23 O                         B5CSUC
+     O                                      ','
+  24 O                         $$CSUM
+     O                                      ','
+  25 O                         B4KAIS
+     O                                      ',="'
+  26 O                         B4OSPD
+     O                                      '",'
+  27 O                         B4OSHP
+     O                                      ','
+  28 O                         B4OCAR
+     O                                      '-'
+     O                         B4ORUT
+     O                                      '-'
+     O                         B4OBIN
+     O                                      ','
+  29 O                         B4NSPD
+     O                                      ',="'
+  30 O                         B4NSHP
+     O                                      '",'
+  31 O                         B4NCAR
+     O                                      '-'
+     O                         B4NRUT
+     O                                      '-'
+     O                         B4NBIN
+     O                                      ','
+      * CHANGE OVER DATE
+  32 O                         B4CHDT
+     O*
+      *================================================================

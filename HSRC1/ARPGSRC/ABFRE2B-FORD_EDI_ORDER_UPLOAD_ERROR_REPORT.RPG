@@ -1,0 +1,244 @@
+     H            Y.
+     F** ABFRE2B ************************************************
+     F*  PRINT "FORD EDI ORDER UPLOAD ERROR REPORT"             *
+     F*  JW   2025.06.16                                        *
+     F* --------------------------------------------
+JW1  F*  JW   2022.12.13 ADJ 5165-W7070-38S43-9 2,666 (ABFAL05)
+JW2  F*  JW   2025.01.14 ADD ROUTE# AND BIN#
+JW2  F*  JW   2025.06.16 NOT PRINY OK
+     F***********************************************************
+     FABFWPE1 IF  E           K        DISK
+JW1  FABFAL05 IF  E           K        DISK
+     FQPRINT5 O   F     198     OF     PRINTER
+      ****************************************************
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      * PART#
+     I              'W707038S439         'C         APRT01
+      ****************************************************
+      * MAIN ROUTINE
+      ****************************************************
+     C                     EXSR #INIT
+      *
+     C                     DO   *HIVAL
+     C                     READ ABFWPE1                  98
+     C   98                LEAVE
+      * IGNORE
+     C                     MOVELE1STS     LTR2    2
+     C           LTR2      IFEQ 'OK'
+     C                     ITER
+     C                     ENDIF
+      * ADJUST
+JW1  C                     EXSR #ADJ
+      * PRINT
+     C           F1QTY     IFLE 0
+     C           E1STS     ANDEQ'MISSING'
+     C                     ELSE
+     C                     EXSR #PRINT
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C           SEQ#      IFGE 1
+     C                     MOVE '*'       $STT
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *----------------------------------------------------*
+      * CHECK ADJ FILE (BFAP04)                            *
+      *----------------------------------------------------*
+JW1  C           #ADJ      BEGSR
+ .    *
+     C                     Z-ADDPYEAR     K#ADYY
+     C                     Z-ADDF1NONY    K#NONY
+     C                     MOVELF1MHIN    K#MHIN
+     C           K#AL04    SETLLABFAL05
+     C                     DO   *HIVAL
+     C           K#AL04    READEABFAL05                  98
+     C   98                LEAVE
+     C                     SUB  C4ADQT    F1QTY
+     C                     ENDDO
+ .    *
+JW1  C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      *
+     C           LIN#      IFGE 62
+     C                     EXCPT@HDR1
+     C                     Z-ADD4         LIN#
+     C                     ENDIF
+      * EDIT MHIN
+     C                     MOVELE1MHIN    $MHIN     P
+     C                     CALL 'EDTR02A'
+     C                     PARM           $MHIN  20
+     C                     PARM           $MHIN2 23
+     C                     MOVEL$MHIN2    EXMHIN 15
+      *
+     C           E1MHIN    IFEQ *BLANK
+     C                     MOVE *ON       *IN41
+     C                     ELSE
+     C                     MOVE *OFF      *IN41
+     C                     ENDIF
+     C           F1MHIN    IFEQ *BLANK
+     C                     MOVE *ON       *IN42
+     C                     ELSE
+     C                     MOVE *OFF      *IN42
+     C                     ENDIF
+      *
+     C                     MOVELF1MHIN    $MHIN     P
+     C                     CALL 'EDTR02A'
+     C                     PARM           $MHIN  20
+     C                     PARM           $MHIN2 23
+     C                     MOVEL$MHIN2    FXMHIN 15
+      * EDIT DOCK
+JW2  C                     MOVELE1DOCK    EXDOCK  2
+     C                     MOVELF1DOCK    FXDOCK  2
+      * GET ROUTE#
+     C                     MOVELE1NONY    $NONY
+     C                     MOVELE1DOCK    $DOCK
+     C                     CALL 'UTLR34G'
+     C                     PARM           $NONY   4
+     C                     PARM           $DOCK   4
+     C                     PARM           $BIN#   2
+     C                     PARM           $ROUT   4
+     C                     MOVEL$ROUT     EXROUT  4
+     C                     MOVEL$ROUT     FXROUT  4
+JW2  C                     MOVEL$BIN#     FXXBIN  2
+      *
+     C                     Z-ADDF1QTY     FXQTY   60
+      *
+JW2  C           F1STID    IFEQ *BLANK
+     C                     MOVE *BLANK    FXROUT
+     C                     MOVE *BLANK    FXXBIN
+JW2  C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL1
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *--------------------------------------------------
+      * INITIALIZE
+      *--------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $NOHZ   8        SHIP DATE
+     C                     PARM           $STT    1        STATUS
+      *
+     C           K#AL04    KLIST
+     C                     KFLD           K#ADYY  40
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#MHIN 15
+      *
+     C                     TIME           SDATE
+     C                     Z-ADD0         SEQ#    30
+     C                     Z-ADD88        LIN#    30
+     C                     MOVE *BLANK    $STT
+      *
+     C           $NOHZ     IFEQ *BLANK
+     C           $NOHZ     OREQ *ZEROS
+     C                     Z-ADDTODAY     @NOHZ   80
+     C                     ELSE
+     C                     MOVEL$NOHZ     @NOHZ
+     C                     ENDIF
+      *
+     C                     MOVEL$NOHZ     PYEAR   40
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT5 E   01           @HDR1
+     O                         #PGM       8
+     O                                   39 '** FORD EDI ORDER UP'
+     O                                   59 'LOAD ERROR REPORT **'
+     O                                   79 ' (SHIP DATE XXXX/XX/'
+     O                                   82 'XX)'
+     O                         @NOHZ     81 '    /  /  '
+     O                         TODAY    123 '    /  /  '
+     O                         NOW      133 '  :  :  '
+     O                                  137 'P.'
+     O                         PAGE  Z  141
+     O        E   02           @HDR1
+     O                                   13 '<======='
+     O                                   33 '====( UPLOADED ORDER'
+     O                                   53 'S IN AS400 )========'
+     O                                   73 '===================='
+     O                                   93 '===================>'
+     O                                  133 '<==========( ORIGINA'
+     O                                  153 'L EDI ORDER AS OF XX'
+     O                                  173 'XX/XX/XX )=========='
+     O                                  193 '===================='
+     O                                  195 '=>'
+     O                         F1PDAT   161 '    /  /  '
+     O        E   03           @HDR1
+     O                                    4 'SEQ#'
+     O                                   23 'UPLOAD_DATE_/_TIME'
+     O                                   30 'PLANT'
+     O                                   33 'DK'
+     O                                   38 'DLV#'
+     O                                   41 'BN'
+     O                                   46 'ROUT'
+     O                                   51 'PGM#'
+     O                                   64 'USER_PART#'
+     O                                   78 'ORD_QTY'
+     O                                   88 'SHIP_DATE'
+     O                                   94 'ICCD'
+     O                                  108 '** STATUS **'
+     O                                  126 'ORIGINAL_QTY '
+     O                                  134 'RCV_DATE'
+     O                                  145 'RCV_TIME'
+     O                                  151 'PLANT'
+     O                                  154 'DK'
+     O                                  159 'DLV#'
+     O                                  162 'BN'
+     O                                  167 'ROUT'
+     O                                  177 'USR_PART#'
+     O                                  194 'TO_BE_SHIPPED'
+     O        E   04           @HDR1
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+     O                                  140 '--------------------'
+     O                                  160 '--------------------'
+     O                                  180 '--------------------'
+     O                                  198 '---------------   '
+     O        E 1              @DTL1
+     O                         SEQ#  1 +001
+     O                         E1PRHZ  +001 '    /  /  '
+     O                N41      E1PRTM  +001 '0 :  :  '
+     O                         E1STID  +001
+     O                         EXDOCK  +001
+     O                N41      E1NONY  +001
+JW2  O                         E1XBIN  +001
+JW2  O                         EXROUT  +001
+     O                         E1POR#  +001
+     O                         EXMHIN  +001
+     O                N41      E1QTY 1 +000
+     O                         E1NOHZ  +001 '    /  /  '
+     O                         E1ICCD  +001
+      * STATUS
+     O                         E1STS   +001
+      *
+     O                N42      FXQTY 1 +000
+     O                         F1PRHZ  +001 '    /  /  '
+     O                N42      F1PRTM  +001 '0 :  :  '
+     O                         F1STID  +001
+     O                         FXDOCK  +001
+     O                N42      F1NONY  +001
+JW2  O                         FXXBIN  +001
+JW2  O                         FXROUT  +001
+     O                         FXMHIN  +001
+     O                         F1NOHZ  +001 '    /  /  '
+      *

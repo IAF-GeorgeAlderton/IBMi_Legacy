@@ -1,0 +1,110 @@
+             PGM
+             /** FCDC46 ******************************/
+             /*作業日報データの明細情報を抽出　　  */
+             /*       M-OKUDA      06.03.15          */
+             /****************************** FCDC46 **/
+             DCL        VAR(&US) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&TYPE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&MBAN) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&KOTAE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&DUS) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&FILE1) TYPE(*CHAR) LEN(5)
+             DCL        VAR(&IPGMN) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&OSTTS) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&OUSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&OKONA) TYPE(*CHAR) LEN(15)
+             DCL        VAR(&KINP)  TYPE(*CHAR) LEN(5)
+             DCL        VAR(&MSG)   TYPE(*CHAR) LEN(256)
+
+             RTVJOBA    JOB(&WSID) USER(&US)
+             CHGVAR     VAR(&FILE1) VALUE(%SUBSTRING(&US 1 5))
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+
+             CHGVAR     VAR(&IPGMN) VALUE('FCDC46')
+             CALL       PGM(AA800R) PARM(&IPGMN &OUSID &OKONA &OSTTS)
+             IF         COND(&OSTTS *EQ '1') THEN(GOTO CMDLBL(STEP04))
+
+ STEP05:     CHGVAR     VAR(&MSG) VALUE('別の作業者' *CAT +
+                          &OUSID *CAT &OKONA +
+                      *CAT  ' が処理中です。Ｇを入力して応答して+
+                      下さい。')
+             CHGVAR     VAR(&KINP) VALUE('G    ')
+             CALL       PGM(AB800R) PARM(&MSG &KINP &WSID &KOTAE)
+             IF         (&KOTAE *EQ 'G') GOTO END
+             IF         (&US *EQ 'D6002     ') DO
+             IF         (&KOTAE *EQ 'D') GOTO STEP99
+             ENDDO
+             GOTO       STEP05
+
+ STEP04:
+             /* 祖業日報データを選択後のデータ作成*/
+             CLRPFM     FILE(FCDPP46)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CHGJOB     SWS(00000000)
+
+             CALL       PGM(FCDR46)
+             IF         (%SWITCH(1XXXXXXX)) GOTO STEP99
+             IF         (%SWITCH(X1XXXXXX)) GOTO STEP00
+             GOTO STEP01
+
+ STEP00:     CHGVAR     VAR(&MSG) VALUE('指定された条件に合致+
+                          したデータは１件もありませんでした。+
+                                   Ｇを選択すると終了します。')
+             CHGVAR     VAR(&KINP) VALUE('G    ')
+             CALL       PGM(AB800R) PARM(&MSG &KINP &WSID &KOTAE)
+             IF         (&KOTAE = 'G') GOTO STEP99
+             GOTO       STEP00
+
+             /* ＤＤＳのフィールド選択ＳＯＵＲＣＥの作成 */
+ STEP01:     OVRDBF     FILE(INPUT) TOFILE(SRCLIB/ADDSSRC) +
+                          MBR(FCDPP46) POSITION(*START)
+             CLRPFM     FILE(FILELIB/FCDPPSO) MBR(FCDPP46)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             OVRDBF     FILE(OUTPUT) TOFILE(FILELIB/FCDPPSO) +
+                          MBR(FCDPP46) POSITION(*START)
+             CALL       PGM(FCDR47)
+             IF         (%SWITCH(X1XXXXXX)) GOTO STEP99
+             DLTOVR     FILE(INPUT)
+             DLTOVR     FILE(OUTPUT)
+             /* 選択フィールドのみでＰＦの作成 */
+             DLTF       FILE(&FILE1)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(WORKLIB/&FILE1) +
+                          SRCFILE(FILELIB/FCDPPSO) SRCMBR(FCDPP46) +
+                          TEXT('パソコン取込みデータ') +
+                          OPTION(*NOSOURCE *NOLIST) SIZE(50000 5000 +
+                          5) LVLCHK(*NO)
+             /* 選択フィールドのみの複写 */
+             CPYF       FROMFILE(FILELIB/FCDPP46) +
+                          TOFILE(WORKLIB/&FILE1) MBROPT(*ADD) +
+                          CRTFILE(*NO) FMTOPT(*DROP *MAP)
+
+ STEP02:     CHGVAR     VAR(&MSG) VALUE('ＰＣのＥｘｃｅｌ用、+
+                             再メッキデータ情報' *CAT &US *CAT +
+                          'がＷＯＲＫＬＩＢに作成されました。ＰＣ+
+                          へ自動転送しますか？自分で転送操作を+
+                           しますか？自動の選択＜ＰＣに転送要求+
+                           の設定ＰＣ転送．ＴＴＯが登録されている+
+                           場合のみ可能＞はＡ，手動の選択はＨで+
+                            応答しなさい。')
+
+             CHGVAR     VAR(&KINP) VALUE('AH   ')
+             CALL       PGM(AB800R) PARM(&MSG &KINP &WSID &KOTAE)
+             IF         (&KOTAE = 'H') GOTO STEP03
+             IF         (&KOTAE = 'A') GOTO STEP06
+             GOTO       STEP02
+ STEP03:     DSPDBM     FILE(WORKLIB/&FILE1)
+ STEP99:     CALL       PGM(AA801R) PARM(&IPGMN)
+             MONMSG     MSGID(CPF2105 CPF9999)
+             GOTO       END
+ STEP06:     STRPCO     PCTA(*NO)
+             MONMSG     MSGID(CPF0000)
+             STRPCCMD   PCCMD('"C:$PROGRAM FILES$PERSONAL +
+                          COMMUNICATIONS$PCSFT5.EXE" +
+                          C:$AS400$TTO$ＰＣ転送.TTO') PAUSE(*NO)
+             CALL       PGM(AA801R) PARM(&IPGMN)
+             MONMSG     MSGID(CPF2105 CPF9999)
+ END:        ENDPGM

@@ -1,0 +1,896 @@
+     ******************************************************************
+     **  プログラム名   :CHECK GATE PROCESSING                     **
+     **  プログラムＩＤ :  MRHR55     <RPG>                        **
+     **  作成年月日     :  2014/05/09                              **
+     **  作成者         :  TR-ITS                                  **
+     **  プログラム概要 : チェックイン・チェックアウト日付を　　 **
+     **                   : 出力する　　　　　　　　　　　　       **
+     **--------------------------------------------------------------**
+     **  変更年月日     :  YYYY/MM/DD                              **
+     **  変更者         :                                          **
+     **  変更内容       :                                          **
+     ******************************************************************
+     ** <<使用標識説明>>
+     **        01       :プログラム終了  <F01>
+     **        05       :更新処理        <F05>
+     **     41～59    :画面共通エラー標識（全画面共通）
+     **        70 72    :画面プロテクト
+     **        71 73    :画面非表示
+     **        80       :試作手配データファイル読込
+     **        81       :他ファイル読込
+     **        88       : LOOKUP(*EQ)
+     **        89       :サブファイル読込
+     **        99       :代表エラー標識
+     ******************************************************************
+     H            Y/                                    1
+     **==============================================================**
+     **  ファイル
+     **==============================================================**
+     F*<<部品情報マスタ保守　部品マスタメンテナンス画面>>
+     FMRHPW55 CF  E                    WORKSTN
+     F                                              KINFDS WSDS
+     F                                        D2RRN KSFILE SFLREC02
+     F*<<試作手配データファイル(L1)>>
+     FMRHPL51 UF  E           K        DISK
+     F*<<カレンダーマスタ>>
+     FAGDPL12 IF  E           K        DISK
+     F*<<細目コード管理マスタ>>
+     FFGBPL01 IF  E           K        DISK
+      *<<OPERATOR MASTER>>
+     FMRHPP71 IF  E           K        DISK
+      *
+     **==============================================================**
+     **  配列
+     **==============================================================**
+     E                    @MS     1   8 53                ERR MSG
+      *
+     **==============================================================**
+     **  ＤＳ
+     **==============================================================**
+     I*<<システム情報>>
+     I           SDS
+     I                                     *PROGRAM S@PGID
+     I                                      244 253 S@WSID
+     I                                      254 263 S@USID
+     I                                      264 269 S@JBID
+     I*<<システム日時>>
+     I            DS
+     I                                        1  140S@TIME
+     I                                        1   60S@HMS
+     I                                        1   20S@TMHH
+     I                                        3   40S@TMMM
+     I                                        5   60S@TMSS
+     I                                        7  140S@YYMD
+     I                                        7  100S@DYYY
+     I                                       11  120S@DYMM
+     I                                       13  140S@DYDD
+     I*<<カーソル制御>>
+     IWSDS        DS
+     I                                    B 370 3710S@CUR
+     I                                      370 370 S@LIN
+     I                                      371 371 S@COL
+     I                                    B 378 3790S@POS
+     **--------------------------------------------------------------**
+     I* <<共通>>
+     I            DS
+     I                                        1   80W@SYMD
+     I                                        1   20W@SMM
+     I                                        3   40W@SDD
+     I                                        5   80W@SYY4
+     I            DS
+     I                                        1   80W@YMD8
+     I                                        1   40W@YY4
+     I                                        3   40W@YY2
+     I                                        3   80W@YMD6
+     I                                        5   60W@MM
+     I                                        7   80W@DD
+     I            DS
+     I                                        1   7 W@TEH1
+     I                                        1   4 W@TH11
+     I                                        5   7 W@TH12
+     I            DS
+     I                                        1   8 W@TEH2
+     I                                        1   4 W@TH21
+     I                                        5   5 W@HF1
+     I                                        6   8 W@TH22
+     I            DS
+     I                                        1  14 W@HNBN
+     I                                        1   5 W@HIN1
+     I                                        6   6 W@HF2
+     I                                        7  11 W@HIN2
+     I                                       12  12 W@HF3
+     I                                       13  14 W@HIN3
+     I            DS
+     I                                        1   80W@B2HZ
+     I                                        1   40W@B2YY
+     I                                        5   60W@B2MM
+     I                                        7   80W@B2DD
+      *画面表示用(YYMMDD)
+     I            DS
+     I                                        1   60W@CIHZ
+     I                                        1   20W@CIYY
+     I                                        3   40W@CIMM
+     I                                        5   60W@CIDD
+     I            DS
+     I                                        1   60W@COHZ
+     I                                        1   20W@COYY
+     I                                        3   40W@COMM
+     I                                        5   60W@CODD
+      *画面表示用(MMDDYY)
+     I*           DS
+     I*                                       1   60W@CIHZ
+     I*                                       1   20W@CIMM
+     I*                                       3   40W@CIDD
+     I*                                       5   60W@CIYY
+     I*           DS
+     I*                                       1   60W@COHZ
+     I*                                       1   20W@COMM
+     I*                                       3   40W@CODD
+     I*                                       5   60W@COYY
+      *ファイル用(YYYYMMDD)
+     I            DS
+     I                                        1   80STCIHZ
+     I                                        1   40W@CIY4
+     I                                        3   40W@CIY2
+     I                                        5   60W@CIM
+     I                                        7   80W@CID
+     I            DS
+     I                                        1   80STCOHZ
+     I                                        1   40W@COY4
+     I                                        3   40W@COY2
+     I                                        5   60W@COM
+     I                                        7   80W@COD
+     **==============================================================**
+     **  パラメータ
+     **==============================================================**
+     C***        *ENTRY    PLIST
+     C***                  PARM           P@THI1  4        *手配番号1
+     C***                  PARM           P@THI2  3        *手配番号2
+     C***                  PARM           P@GRHZ  80       *登録日
+     C***                  PARM           P@GRTM  60       *登録時間
+     C                     MOVEL*BLANK    P@THI1  4        *手配番号1
+     C                     MOVEL*BLANK    P@THI2  3        *手配番号2
+     C                     Z-ADD*ZERO     P@GRHZ  80       *登録日
+     C                     Z-ADD*ZERO     P@GRTM  60       *登録時間
+     C* <<日付変換(DATR00) >>
+     C           P1DA00    PLIST
+     C                     PARM           PZYMD   6        *日付6
+     C                     PARM           PKYMD   8        *日付8
+     **==============================================================**
+     **  ＫＥＹ
+     **==============================================================**
+     C* <<試作手配データファイル(MRHPL51)>>
+     C           STKEY1    KLIST
+     C                     KFLD           STTHI1           *手配№　絶対番号
+     C                     KFLD           STTHI2           *手配№　連番
+     C           STKEY2    KLIST
+     C                     KFLD           STTHI1           *手配№　絶対番号
+     C                     KFLD           STTHI2           *手配№　連番
+     C                     KFLD           STGRHZ           *登録作業　年月日
+     C                     KFLD           STGRTM           *登録作業　時分秒
+     C           STKEY3    KLIST
+     C                     KFLD           STTHI1           *手配№　絶対番号
+     C                     KFLD           STTHI2           *手配№　連番
+     C                     KFLD           STGRHZ           *登録作業　年月日
+     C                     KFLD           STGRTM           *登録作業　時分秒
+     C                     KFLD           STKTNO           *工程№
+     C* <<カレンダーマスタ(AGDPL12) >>
+     C           F8KEY     KLIST
+     C                     KFLD           F8KAYY           *年
+     C                     KFLD           F8KAMM           *月
+     C                     KFLD           F8KADD           *日
+     C* <<細目コード管理マスタ(FGBPL01) >>
+     C           B2KEY     KLIST
+     C                     KFLD           B2CODE           *細目コード
+     **==============================================================**
+     **  メインルーチン
+     **==============================================================**
+      *
+      *---<初期処理>---*
+     C                     EXSR #INIT
+      *
+      *---<主処理>---*
+     C           W@NEXT    DOUEQ'END  '                    ¬DO_01
+     C           W@NEXT    CASEQ'CHKOP'   #CHKOP           ~¬CAS
+      * G1
+     C           W@NEXT    CASEQ'SET10'   #SET10           ~¬CAS
+     C           W@NEXT    CASEQ'PNL10'   #PNL10            |
+     C           W@NEXT    CASEQ'CHK10'   #CHK10            |
+      * G2
+     C           W@NEXT    CASEQ'SET20'   #SET20            |
+     C           W@NEXT    CASEQ'PNL20'   #PNL20            |
+     C           W@NEXT    CASEQ'CHK20'   #CHK20            |
+      *
+     C           W@NEXT    CASEQ'DBOUT'   #DBOUT            |
+     C                     END                             _｢CAS
+      *
+     C                     END                             ｢DO_01
+      *
+      *---<終了処理>---*
+     C                     SETON                     LR
+     C                     RETRN
+      *
+      **************************************************************************
+      *         Ｓ　Ｕ　Ｂ　－　Ｒ　Ｏ　Ｕ　Ｔ　Ｉ　Ｎ　Ｅ
+      **************************************************************************
+      *-------------------------------------------------------------------------
+      *          #INIT    初期処理
+      *-------------------------------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C                     TIME           S@TIME
+     C                     Z-ADDS@DYMM    W@SMM
+     C                     Z-ADDS@DYDD    W@SDD
+     C                     Z-ADDS@DYYY    W@SYY4
+     C**                   Z-ADDW@SYMD    D1SYMD           * SYSTEM DATE
+      *
+     C                     MOVEL'-'       W@HF1
+     C                     MOVEL'-'       W@HF2
+     C                     MOVEL'-'       W@HF3
+      *
+     C                     Z-ADD*ZERO     W@GRHZ  80       *登録日
+     C                     Z-ADD*ZERO     W@GRTM  80       *登録時間
+      *
+      *パラメータ手配番号セットのとき（進捗確認画面より遷移）
+      *仮に試作手配データファイルが変更された場合を鑑み、
+      *再度、最新の登録日を確認する（削除の場合は、戻す）
+     C                     MOVEL*BLANK    W@RDFL  1        *読取フラグ
+     C           P@THI1    IFNE *BLANK                     ¬IF_01
+     C           P@THI2    ORNE *BLANK
+      *
+      *試作手配データファイル(MRHPL51)
+     C                     MOVELP@THI1    STTHI1           *手配№　絶対番号
+     C                     MOVELP@THI2    STTHI2           *手配№　連番
+     C           STKEY1    SETGTMRHPL511
+     C           STKEY1    REDPEMRHPL511            N    80
+     C           *IN80     IFEQ '0'                        ~¬IF_02
+     C           STGSJY    IFEQ 'D'                        ~~¬IF_03
+     C           STGSHZ    ANDLES@YYMD
+      *(処理無し)
+     C                     ELSE                            --+ELSE_03
+     C                     MOVEL'1'       W@RDFL           *読取フラグ
+     C           STGRHZ    IFNE P@GRHZ                     ~~~¬IF_04
+     C           STGRTM    ORNE P@GRTM
+     C                     Z-ADDSTGRHZ    P@GRHZ           *手配番号登録日
+     C                     Z-ADDSTGRTM    P@GRTM           *手配番号登録時間
+     C                     END                             ___｢IF_04
+      ** MRHR64表示後、別端末で最終工程まで終了した場合、
+      ** MRHR64からの呼び出しは終了する
+     C           STCOHZ    IFNE *ZERO                      ~~~¬IF_04
+     C                     MOVEL*BLANK    W@RDFL           *読取フラグ
+     C                     END                             ___｢IF_04
+     C                     END                             __｢IF_03
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'CHKOP'   W@NEXT  5
+     C*                    MOVEL'SET10'   W@NEXT  5
+      *パラメータ手配番号セットのとき（進捗確認画面より遷移）
+     C           P@THI1    IFNE *BLANK                     ¬IF_01
+     C           P@THI2    ORNE *BLANK
+     C                     MOVELP@THI1    W@TH21           *手配№　絶対番号
+     C                     MOVELP@THI2    W@TH22           *手配№　連番
+     C                     Z-ADDP@GRHZ    W@GRHZ           *登録日
+     C                     Z-ADDP@GRTM    W@GRTM           *登録時間
+     C                     MOVEL'SET20'   W@NEXT
+     C           W@RDFL    IFEQ *BLANK                     ~¬IF_02
+     C                     MOVEL'END  '   W@NEXT
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *
+     C                     MOVEL*BLANK    D0OPCD           OPERATOR
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CHKOP   オペレーターコード入力　処理
+      *-------------------------------------------------------------------------
+     C           #CHKOP    BEGSR
+      *
+     C                     MOVEL*BLANK    D0OPCD           G1-PNL
+     C                     EXFMTMRHPW510
+     C                     SETOF                     40
+     C                     SETOF                     99
+      *
+     C                     MOVEL*BLANK    D1OPNM           G1-PNL
+     C                     MOVEL*BLANK    D0EMSG           * ERR MSG
+      *
+      * NEXT-CONTROL
+     C           D0OPCD    CHAINMRHPP71              40
+     C           *IN40     IFEQ '0'
+     C                     MOVELSBOPNM    D1OPNM           G1-PNL
+     C                     MOVEL'SET10'   W@NEXT           G1-PNL
+     C                     ELSE
+     C                     MOVEL@MS,8     D0EMSG           * ERR MSG
+     C                     MOVEL'CHKOP'   W@NEXT
+     C                     SETON                     99
+     C                     ENDIF
+      *
+      * CF01
+     C           *IN01     IFEQ '1'                        ¬IF_01
+     C                     MOVEL'END  '   W@NEXT
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #SET10   第一画面(G1) 項目セット処理
+      *-------------------------------------------------------------------------
+     C           #SET10    BEGSR
+      *
+     C                     SETOF                     41
+     C                     SETOF                     99
+      *
+     C                     MOVEL*BLANK    D1TEHI           *手配番号
+     C                     MOVEL*BLANK    D1EMSG           * ERR MSG
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'PNL10'   W@NEXT           G1-PNL
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #PNL10   第一画面(G1) 表示処理
+      *-------------------------------------------------------------------------
+     C           #PNL10    BEGSR
+      *
+     C                     EXFMTMRHPW511
+      *
+     C                     SETOF                     41
+     C                     SETOF                     99
+     C                     MOVEL*BLANK    D1EMSG           * ERR MSG
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'CHK10'   W@NEXT
+      * CF01
+     C           *IN03     IFEQ '1'                        ¬IF_01
+     C                     MOVEL'CHKOP'   W@NEXT
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CHK10   第一画面(G1) チェック処理
+      *-------------------------------------------------------------------------
+     C           #CHK10    BEGSR
+      *
+     C                     MOVELD1TEHI    W@TEH1           *手配番号
+     C                     MOVELW@TH11    W@TH21           *手配番号
+     C                     MOVELW@TH12    W@TH22           *手配番号
+      *手配番号
+     C           D1TEHI    IFEQ *BLANK                     ¬IF_01
+     C  N99                MOVEL@MS,01    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     4199
+      *
+     C                     ELSE                            +ELSE_01
+      *試作手配データファイル(MRHPL51)
+     C                     MOVELW@TH11    STTHI1           *手配№　絶対番号
+     C                     MOVELW@TH12    STTHI2           *手配№　連番
+     C           STKEY1    SETGTMRHPL511
+     C           STKEY1    REDPEMRHPL511            N    80
+     C           *IN80     IFEQ '1'                        ~¬IF_02
+     C  N99                MOVEL@MS,02    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     99
+      *
+     C                     ELSE                            -+ELSE_02
+     C           STGSJY    IFEQ 'D'                        ~~¬IF_03
+     C           STGSHZ    ANDLES@YYMD
+     C  N99                MOVEL@MS,03    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     99
+      *
+     C                     ELSE                            --+ELSE_03
+     C                     Z-ADDSTGRHZ    W@GRHZ           *登録日
+     C                     Z-ADDSTGRTM    W@GRTM           *登録時間
+      *最終ゲート出終了
+     C           STCOHZ    IFNE *ZERO                      ~~~¬IF_04
+     C  N99                MOVEL@MS,04    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     99
+     C                     END                             ___｢IF_04
+     C                     END                             __｢IF_03
+     C                     END                             _｢IF_02
+      *
+     C                     END                             ｢IF_01
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'SET20'   W@NEXT
+      *エラーあり
+     C           *IN99     IFEQ '1'                        ¬IF_01
+     C                     MOVEL'PNL10'   W@NEXT
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #SET20   第二画面(G2) 項目セット処理
+      *-------------------------------------------------------------------------
+     C           #SET20    BEGSR
+      * CTL
+     C                     SETON                         33
+     C                     WRITESFLCTL02
+     C                     SETOF                         33
+      *
+     C                     Z-ADD*ZERO     D2RRN
+     C                     Z-ADD*ZERO     W@RRNW  40
+      *
+     C                     MOVELW@TEH2    D2TEHI           *手配番号
+     C                     MOVEL*BLANK    D2SHNB           *社内品番
+      *試作手配データファイル(MRHPL51)
+     C                     MOVELW@TH21    STTHI1           *手配№　絶対番号
+     C                     MOVELW@TH22    STTHI2           *手配№　連番
+     C                     Z-ADDW@GRHZ    STGRHZ           *登録日
+     C                     Z-ADDW@GRTM    STGRTM           *登録時間
+     C           STKEY2    SETLLMRHPL511
+     C                     EXSR #RED10
+     C           *IN80     IFEQ '0'                        ¬IF_01
+     C                     MOVELSTSHN1    W@HIN1           *社内品番１
+     C                     MOVELSTSHN2    W@HIN2           *社内品番２
+     C                     MOVELSTSHN3    W@HIN3           *社内品番３
+     C                     MOVELW@HNBN    D2SHNB           *社内品番
+     C                     END                             ｢IF_01
+      *工程セット
+     C                     MOVEL*BLANK    W@FRST  1        *初回ON
+     C           D2RRN     DOWLT15                         ¬DO_01
+     C                     CLEARSFLREC02
+     C                     ADD  1         D2RRN
+     C                     SETOF                     4243
+      *
+     C           *IN80     IFEQ '0'                        ~¬IF_01
+     C                     Z-ADDSTKTNO    S2KTNO           *工程番号
+     C                     MOVELSTKTEI    S2KTEI           *工程コード
+      *細目コード管理マスタ(FGBPL01)
+     C                     Z-ADDSTKBMN    B2CODE           *細目コード
+     C           B2KEY     CHAINFGBPL011             81
+     C           *IN81     IFEQ '1'                        ~~¬IF_02
+     C                     ELSE                            --+ELSE_02
+     C                     Z-ADDB2SKYY    W@B2YY
+     C                     Z-ADDB2SKMM    W@B2MM
+     C                     Z-ADDB2SKDD    W@B2DD
+     C           B2SKJY    IFEQ 'D'                        ~~~¬IF_03
+     C           W@B2HZ    ANDLES@YYMD
+     C                     ELSE                            ---+ELSE_03
+     C                     MOVELB2SMEI    S2KBNM           *工場名
+     C                     END                             ___｢IF_03
+     C                     END                             __｢IF_02
+      *ゲート入日付区分
+     C           STCIHZ    IFNE *ZERO                      ~~¬IF_02
+     C                     Z-ADDW@CIM     W@CIMM           *月
+     C                     Z-ADDW@CID     W@CIDD           *日
+     C                     Z-ADDW@CIY2    W@CIYY           *年２
+     C                     Z-ADDW@CIHZ    S2CIHZ           *ゲート入日付
+     C                     Z-ADDSTCIHZ    SHCIHZ           *ゲート入日付H
+     C                     MOVEL'1'       SHCIKB           *ゲート入日付区分
+      *
+     C                     ELSE                            --+ELSE_02
+      *２回目以降
+     C           W@FRST    IFNE *BLANK                     ~~~¬IF_03
+     C                     MOVEL'2'       SHCIKB           *ゲート入日付区分
+     C                     ELSE                            ---+ELSE_03
+     C                     MOVEL'1'       W@FRST           *初回ON
+     C                     Z-ADDS@DYMM    W@CIMM           *月
+     C                     Z-ADDS@DYDD    W@CIDD           *日
+     C                     Z-ADDS@DYYY    W@CIYY           *年２
+     C                     Z-ADDW@CIHZ    S2CIHZ           *ゲート入日付
+     C                     Z-ADDD2RRN     W@RRNW
+     C                     END                             ___｢IF_03
+     C                     END                             __｢IF_02
+      *ゲート出日付区分
+     C           STCOHZ    IFNE *ZERO                      ~~¬IF_02
+     C                     Z-ADDW@COM     W@COMM           *月
+     C                     Z-ADDW@COD     W@CODD           *日
+     C                     Z-ADDW@COY2    W@COYY           *年２
+     C                     Z-ADDW@COHZ    S2COHZ           *ゲート出日付
+     C                     Z-ADDSTCOHZ    SHCOHZ           *ゲート出日付H
+     C                     MOVEL'1'       SHCOKB           *ゲート出日付区分
+      *
+     C                     ELSE                            --+ELSE_02
+      *２回目以降
+     C           W@FRST    IFNE *BLANK                     ~~~¬IF_03
+     C                     MOVEL'2'       SHCOKB           *ゲート出日付区分
+     C                     ELSE                            ---+ELSE_03
+     C                     MOVEL'1'       W@FRST           *初回ON
+     C                     Z-ADDS@DYMM    W@COMM           *月
+     C                     Z-ADDS@DYDD    W@CODD           *日
+     C                     Z-ADDS@DYYY    W@COYY           *年２
+     C                     Z-ADDW@COHZ    S2COHZ           *ゲート出日付
+     C                     Z-ADDD2RRN     W@RRNW
+     C                     END                             ___｢IF_03
+     C                     END                             __｢IF_02
+      *
+      *ファイルが読めないとき
+     C                     ELSE                            -+ELSE_01
+     C                     MOVEL'2'       SHCIKB           *ゲート入日付区分
+     C                     MOVEL'2'       SHCOKB           *ゲート出日付区分
+     C                     END                             _｢IF_01
+      *
+     C                     WRITESFLREC02
+      *
+     C  N80                EXSR #RED10
+     C                     END                             ｢DO_01
+      *
+     C                     Z-ADD1         D2RRN
+      *標識セット
+     C                     DO   15        D2RRN            ¬DO_01
+     C           D2RRN     CHAINSFLREC02             89
+     C           *IN89     IFEQ '0'                        ~¬IF_01
+     C                     SETOF                     707172
+     C                     SETOF                     73
+      *プロテクト
+     C           SHCIKB    IFEQ '1'                        ~~¬IF_02
+     C                     SETON                     70
+     C                     END                             __｢IF_02
+     C           SHCOKB    IFEQ '1'                        ~~¬IF_02
+     C                     SETON                     72
+     C                     END                             __｢IF_02
+      *非表示
+     C           SHCIKB    IFEQ '2'                        ~~¬IF_02
+     C                     SETON                     7071
+     C                     END                             __｢IF_02
+     C           SHCOKB    IFEQ '2'                        ~~¬IF_02
+     C                     SETON                     7273
+     C                     END                             __｢IF_02
+      *
+     C                     UPDATSFLREC02
+     C                     END                             _｢IF_01
+     C                     END                             ｢DO_01
+      *
+     C           W@RRNW    IFEQ *ZERO                      ¬IF_01
+     C                     Z-ADDS@POS     W@RRNW  40
+     C                     END                             ｢IF_01
+     C                     Z-ADDW@RRNW    D2RRN
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'PNL20'   W@NEXT
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #RED10   試作かんばん情報ファイル　読込
+      *-------------------------------------------------------------------------
+     C           #RED10    BEGSR
+      *
+     C                     DO   *HIVAL                     ¬DO_01
+     C           STKEY2    READEMRHPL511            N    80
+      *
+     C   80                LEAVE
+      *<対象範囲データ抽出>
+      *削除データ
+     C           STGSJY    IFEQ 'D'                        ~¬IF_01
+     C           STGSHZ    ANDLES@YYMD
+     C                     ITER
+     C                     ENDIF                           _｢IF_01
+      *
+     C                     LEAVE
+     C                     ENDDO                           ｢DO_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #PNL20   第二画面(G2) 表示処理
+      *-------------------------------------------------------------------------
+     C           #PNL20    BEGSR
+      *
+     C**                   WRITEMRHPW512
+     C                     WRITEFMT099
+     C                     SETON                     3132
+     C                     EXFMTSFLCTL02
+     C                     SETOF                     3132
+      *
+     C                     SETOF                     99
+     C                     MOVEL*BLANK    D2EMSG           * ERR MSG
+     C           W@RRNW    IFEQ *ZERO                      ¬IF_01
+     C                     Z-ADDS@POS     W@RRNW
+     C                     END                             ｢IF_01
+     C                     Z-ADD1         D2RRN
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'CHK20'   W@NEXT
+      * CF03
+     C           *IN03     IFEQ '1'                        ¬IF_01
+     C                     MOVEL'PNL10'   W@NEXT
+      *パラメータ手配番号セットのとき（進捗確認画面より遷移）
+     C           P@THI1    IFNE *BLANK                     ~¬IF_02
+     C           P@THI2    ORNE *BLANK
+     C                     MOVEL'END  '   W@NEXT
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CHK20   第二画面(G2) チェック処理
+      *-------------------------------------------------------------------------
+     C           #CHK20    BEGSR
+      *
+     C                     Z-ADD*ZERO     W@RRNE  40
+     C                     Z-ADD*ZERO     W@ZYMD  80       *前回日付
+      *
+     C                     DO   15        D2RRN            ¬DO_01
+     C           D2RRN     CHAINSFLREC02             89
+     C           *IN89     IFEQ '0'                        ~¬IF_01
+     C                     SETOF                     4243
+      *
+     C                     Z-ADD*ZERO     W@YMD8           *日付8
+     C           S2CIHZ    IFNE *ZERO                      ~~¬IF_02
+      *ＩＮ日付変換(DATR00)
+     C                     Z-ADDS2CIHZ    W@CIHZ
+     C                     Z-ADDW@CIYY    W@YY2
+     C                     Z-ADDW@CIMM    W@MM
+     C                     Z-ADDW@CIDD    W@DD
+     C                     MOVELW@YMD6    PZYMD            *日付6
+     C                     MOVEL*BLANK    PKYMD            *日付8
+     C                     CALL 'DATR00'  P1DA00
+     C                     MOVELPKYMD     W@YMD8           *日付8
+     C                     END                             __｢IF_02
+      *ＩＮ日付
+     C           SHCIKB    IFEQ *BLANK                     ~~¬IF_02
+      *
+     C           S2CIHZ    IFEQ *ZERO                      ~~~¬IF_03
+     C  N99                MOVEL@MS,05    D2EMSG    P      * ERR MSG
+     C  N99                Z-ADDD2RRN     W@RRNE
+     C  N99                SETON                     4299
+      *
+     C                     ELSE                            ---+ELSE_03
+      *カレンダーマスタ(AGDPL12)
+     C                     Z-ADDW@YY4     F8KAYY           *年
+     C                     Z-ADDW@MM      F8KAMM           *月
+     C                     Z-ADDW@DD      F8KADD           *日
+     C           F8KEY     CHAINAGDPL121             81
+     C           *IN81     IFEQ '1'                        ~~~~¬IF_04
+     C  N99                MOVEL@MS,06    D2EMSG    P      * ERR MSG
+     C  N99                Z-ADDD2RRN     W@RRNE
+     C  N99                SETON                     4299
+      *前回日付けとの大小チェック
+     C                     ELSE                            ----+ELSE_04
+     C           W@YMD8    IFLT W@ZYMD                     ~~~~~¬IF_05
+     C  N99                MOVEL@MS,06    D2EMSG    P      * ERR MSG
+     C  N99                Z-ADDD2RRN     W@RRNE
+     C  N99                SETON                     4299
+      *
+     C                     ELSE                            -----+ELSE_05
+     C                     Z-ADDW@YMD8    SHCIHZ           *ゲート入日付H
+     C                     END                             _____｢IF_05
+     C                     END                             ____｢IF_04
+     C                     END                             ___｢IF_03
+      *
+     C                     END                             __｢IF_02
+      *入力日付退避
+     C                     Z-ADDW@YMD8    W@ZYMD           *前回日付
+      *
+     C                     Z-ADD*ZERO     W@YMD8           *日付8
+     C           S2COHZ    IFNE *ZERO                      ~~¬IF_02
+      *ＯＵＴ日付変換(DATR00)
+     C                     Z-ADDS2COHZ    W@COHZ
+     C                     Z-ADDW@COYY    W@YY2
+     C                     Z-ADDW@COMM    W@MM
+     C                     Z-ADDW@CODD    W@DD
+     C                     MOVELW@YMD6    PZYMD            *日付6
+     C                     MOVEL*BLANK    PKYMD            *日付8
+     C                     CALL 'DATR00'  P1DA00
+     C                     MOVELPKYMD     W@YMD8           *日付8
+     C                     END                             __｢IF_02
+      *ＯＵＴ日付
+     C           SHCOKB    IFEQ *BLANK                     ~~¬IF_02
+      *
+     C           S2COHZ    IFEQ *ZERO                      ~~~¬IF_03
+     C  N99                MOVEL@MS,05    D2EMSG    P      * ERR MSG
+     C  N99                Z-ADDD2RRN     W@RRNE
+     C  N99                SETON                     4399
+      *
+     C                     ELSE                            ---+ELSE_03
+      *カレンダーマスタ(AGDPL12)
+     C                     Z-ADDW@YY4     F8KAYY           *年
+     C                     Z-ADDW@MM      F8KAMM           *月
+     C                     Z-ADDW@DD      F8KADD           *日
+     C           F8KEY     CHAINAGDPL121             81
+     C           *IN81     IFEQ '1'                        ~~~~¬IF_04
+     C  N99                MOVEL@MS,06    D2EMSG    P      * ERR MSG
+     C  N99                Z-ADDD2RRN     W@RRNE
+     C  N99                SETON                     4399
+      *前回日付けとの大小チェック
+     C                     ELSE                            ----+ELSE_04
+     C           W@YMD8    IFLT W@ZYMD                     ~~~~~¬IF_05
+     C  N99                MOVEL@MS,06    D2EMSG    P      * ERR MSG
+     C  N99                Z-ADDD2RRN     W@RRNE
+     C  N99                SETON                     4399
+      *
+     C                     ELSE                            -----+ELSE_05
+     C                     Z-ADDW@YMD8    SHCOHZ           *ゲート入日付H
+     C                     END                             _____｢IF_05
+     C                     END                             ____｢IF_04
+     C                     END                             ___｢IF_03
+      *
+     C                     END                             __｢IF_02
+      *入力日付退避
+     C                     Z-ADDW@YMD8    W@ZYMD           *前回日付
+      *
+      *プロテクト・非表示フラグ再設定
+     C                     SETOF                     707172
+     C                     SETOF                     73
+      **プロテクト
+     C           SHCIKB    IFEQ '1'                        ~~¬IF_02
+     C                     SETON                     70
+     C                     END                             __｢IF_02
+     C           SHCOKB    IFEQ '1'                        ~~¬IF_02
+     C                     SETON                     72
+     C                     END                             __｢IF_02
+      **非表示
+     C           SHCIKB    IFEQ '2'                        ~~¬IF_02
+     C                     SETON                     7071
+     C                     END                             __｢IF_02
+     C           SHCOKB    IFEQ '2'                        ~~¬IF_02
+     C                     SETON                     7273
+     C                     END                             __｢IF_02
+      *
+     C                     UPDATSFLREC02
+     C                     END                             _｢IF_01
+      *
+     C                     END                             ｢DO_01
+      *
+     C           *IN99     IFEQ '0'                        ¬IF_01
+      *試作手配データファイル(MRHPL51)
+     C                     MOVELW@TH21    STTHI1           *手配№　絶対番号
+     C                     MOVELW@TH22    STTHI2           *手配№　連番
+     C                     Z-ADDW@GRHZ    STGRHZ           *登録日
+     C                     Z-ADDW@GRTM    STGRTM           *登録時間
+     C           STKEY2    SETGTMRHPL511
+     C           STKEY2    REDPEMRHPL511            N    80
+     C           *IN80     IFEQ '1'                        ~¬IF_02
+     C           STGSJY    OREQ 'D'
+     C           STGSHZ    ANDLES@YYMD
+     C  N99                MOVEL@MS,07    D2EMSG    P      * ERR MSG
+     C  N99                Z-ADDW@RRNW    W@RRNE
+     C  N99                SETON                     99
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *
+      *エラーあり
+     C           *IN99     IFEQ '1'                        ¬IF_01
+     C                     Z-ADDW@RRNE    D2RRN
+     C                     ELSE                            +ELSE_01
+     C                     Z-ADDW@RRNW    D2RRN
+     C                     END                             ｢IF_01
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'PNL20'   W@NEXT
+      * CF05
+     C           *IN05     IFEQ '1'                        ¬IF_01
+     C           *IN99     ANDEQ'0'
+     C                     MOVEL'DBOUT'   W@NEXT
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #DBOUT   Ｄ．Ｂ　アクセス処理
+      *-------------------------------------------------------------------------
+     C           #DBOUT    BEGSR
+      *
+     C                     DO   15        D2RRN            ¬DO_01
+     C           D2RRN     CHAINSFLREC02             89
+     C           *IN89     IFEQ '0'                        ~¬IF_01
+      *ＩＮ日付
+     C           SHCIKB    IFEQ *BLANK                     ~~¬IF_02
+      *試作手配データファイル(MRHPL51)
+     C                     MOVELW@TH21    STTHI1           *手配№　絶対番号
+     C                     MOVELW@TH22    STTHI2           *手配№　連番
+     C                     Z-ADDW@GRHZ    STGRHZ           *登録日
+     C                     Z-ADDW@GRTM    STGRTM           *登録時間
+     C                     Z-ADDS2KTNO    STKTNO           *工程番号
+     C****       STKEY3    CHAINMRHPL511             80
+     C           STKEY3    SETLLMRHPL511
+     C                     EXSR #RED20
+     C           *IN80     IFEQ '0'                        ~~~¬IF_03
+     C           STGSJY    IFEQ 'D'                        ~~~~¬IF_04
+     C           STGSHZ    ANDLES@YYMD
+      *
+     C                     ELSE                            ----+ELSE_04
+     C                     EXSR #UPD10                     * UPDAT
+     C                     END                             ____｢IF_04
+     C                     END                             ___｢IF_03
+     C                     END                             __｢IF_02
+      *ＯＵＴ日付
+     C           SHCOKB    IFEQ *BLANK                     ~~¬IF_02
+      *試作手配データファイル(MRHPL51)
+     C                     MOVELW@TH21    STTHI1           *手配№　絶対番号
+     C                     MOVELW@TH22    STTHI2           *手配№　連番
+     C                     Z-ADDW@GRHZ    STGRHZ           *登録日
+     C                     Z-ADDW@GRTM    STGRTM           *登録時間
+     C                     Z-ADDS2KTNO    STKTNO           *工程番号
+     C****       STKEY3    CHAINMRHPL511             80
+     C           STKEY3    SETLLMRHPL511
+     C                     EXSR #RED20
+     C           *IN80     IFEQ '0'                        ~~~¬IF_03
+     C           STGSJY    IFEQ 'D'                        ~~~~¬IF_04
+     C           STGSHZ    ANDLES@YYMD
+      *
+     C                     ELSE                            ----+ELSE_04
+     C                     EXSR #UPD20                     * UPDAT
+     C                     END                             ____｢IF_04
+     C                     END                             ___｢IF_03
+     C                     END                             __｢IF_02
+      *
+     C                     END                             _｢IF_01
+      *
+     C                     END                             ｢DO_01
+      *
+      * NEXT-CONTROL
+     C***                  MOVEL'SET10'   W@NEXT
+     C                     MOVEL'CHKOP'   W@NEXT  5
+      *パラメータ手配番号セットのとき（進捗確認画面より遷移）
+     C***        P@THI1    IFNE *BLANK                     ¬IF_01
+     C***        P@THI2    ORNE *BLANK
+     C***                  MOVEL'END  '   W@NEXT
+     C***                  END                             ｢IF_01
+      **
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #RED20   試作かんばん情報ファイル　読込　更新用
+      *-------------------------------------------------------------------------
+     C           #RED20    BEGSR
+      *
+     C                     DO   *HIVAL                     ¬DO_01
+     C           STKEY3    READEMRHPL511                 80
+      *
+     C   80                LEAVE
+      *<対象範囲データ抽出>
+      *削除データ
+     C           STGSJY    IFEQ 'D'                        ~¬IF_01
+     C           STGSHZ    ANDLES@YYMD
+     C                     ITER
+     C                     ENDIF                           _｢IF_01
+      *
+     C                     LEAVE
+     C                     ENDDO                           ｢DO_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #UPD10   試作手配データファイル(MRHPL51)更新処理(UPDAT)
+      *-------------------------------------------------------------------------
+     C           #UPD10    BEGSR
+      *ＩＮ日付
+     C                     Z-ADDS@YYMD    STGKHZ           * UPDATE DATE
+     C                     Z-ADDS@HMS     STGKTM           * UPDATE TIME
+     C                     MOVELS@PGID    STGKPG           * UPDATE PROGRAM
+     C                     MOVELS@USID    STGKNM           * UPDATE PERSON
+      *
+     C                     Z-ADDSHCIHZ    STCIHZ           * CHECK IN DATE
+     C                     MOVELS@USID    STCINM           * CHECK IN PERSON
+      *
+     C                     UPDATMRHPL511
+      *
+     C                     Z-ADDSTKTNO    WTKTNO  20                   ERSON
+     C                     MOVELSTKTEI    WTKTEI  4                    ERSON
+     C           STKEY1    SETLLMRHPL511
+     C           STKEY1    READEMRHPL511                 80
+      *現在工程
+     C           *IN80     DOWEQ'0'                        ~¬DO
+     C           STGSJY    IFEQ 'D'                        ~~¬IF
+     C           STKEY1    READEMRHPL511                 80
+     C                     ITER
+     C                     ENDIF                           __｢IF
+     C                     MOVELWTKTNO    STCPNO
+     C                     MOVELWTKTEI    STCPRC
+     C                     UPDATMRHPL511
+     C           STKEY1    READEMRHPL511                 80
+     C                     ENDDO                           _｢DO
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #UPD20   試作手配データファイル(MRHPL51)更新処理(UPDAT)
+      *-------------------------------------------------------------------------
+     C           #UPD20    BEGSR
+      *ＯＵＴ日付
+     C                     Z-ADDS@YYMD    STGKHZ           * UPDATE DATE
+     C                     Z-ADDS@HMS     STGKTM           * UPDATE TIME
+     C                     MOVELS@PGID    STGKPG           * UPDATE PROGRAM
+     C                     MOVELS@USID    STGKNM           * UPDATE PERSON
+      *
+     C                     Z-ADDSHCOHZ    STCOHZ           * CHECK OUT DATE
+     C                     MOVELS@USID    STCONM           * CHECK OUT PERSON
+      *
+     C                     UPDATMRHPL511
+      *
+     C                     ENDSR
+      *----------------------------------------------------------------
+**  @MS  ( ERR MSG )
+ER01 NO. ISN'T INPUT!
+ER02 NOT EXSIST IN LOT .NO
+ER03 LOT .NO ALREADY DELETED
+ER04 IT HAS COMPLETED
+ER05 DATE ISN'T INPUT!
+ER06 INCORRECT DATE
+ER07 LOT NUMBER ALREADY DELETED OR UPDATED
+ER08 NOT FOUND

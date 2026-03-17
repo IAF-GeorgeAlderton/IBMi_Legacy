@@ -1,0 +1,269 @@
+     H            Y.
+      ** ADDR7K  *********************************************
+      *  PRIORITY KANBAN FILE INQ                            *
+      *  J.WATANABE 2024.08.05                               *
+      ********************************************************
+     FABBPW7Q CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     FABBPL71 IF  E           K        DISK
+      ********************************************************
+     E                    MSG     1  12 60
+      *
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *-----------------------------------------------------------*
+      *     M  A  I  N  L  I  N  E      SFL1                      *
+      *-----------------------------------------------------------*
+      *
+     C                     EXSR #INIT
+      *
+     C           W@ID      DOWNE'99'
+     C           W@ID      CASEQ'01'      #DSP1
+     C           W@ID      CASEQ'02'      #SFL1
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *************************************************************
+      * DISPLAY 1ST SCREEN
+      *************************************************************
+     C           #DSP1     BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVE *OFF      *IN85
+     C                     MOVE *OFF      *IN41
+     C                     MOVE *OFF      *IN42
+      * F1/F3: EXIT
+     C           *INKA     IFEQ *ON
+     C           *INKC     OREQ *ON
+     C           *INKL     OREQ *ON
+     C                     MOVEL'99'      W@ID
+     C                     GOTO XDSP1
+     C                     ENDIF
+      *
+     C                     EXSR #CHK1
+      *
+     C           *IN85     IFEQ *OFF
+     C                     MOVEL'02'      W@ID
+     C                     ENDIF
+      *
+     C           XDSP1     ENDSR
+      *************************************************************
+      *  CHECK ENTRY DATA
+      *************************************************************
+     C           #CHK1     BEGSR
+      * CHECK DATE FROM
+     C           XFROM     IFEQ *BLANK
+     C                     MOVELMSG,6     XMSG
+     C                     SETON                     4185
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVE XFROM     $SRC
+     C                     CALL 'UTLR01A'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE1  8
+     C                     PARM           $TRUE2 10
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ *BLANK
+     C                     MOVEL$TRUE1    @FROM   80
+     C                     MOVEL$TRUE2    XFROM
+     C                     ELSE
+     C                     MOVELMSG,1     XMSG
+     C                     SETON                     4285
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * CHECK DATE TO
+     C           XTO       IFEQ *BLANK
+     C                     MOVELXFROM     XTO
+     C                     ENDIF
+      *
+     C           XTO       IFEQ '99999999'
+     C                     Z-ADDTODAY     @TO     80
+     C                     ELSE
+     C                     MOVE XTO       $SRC
+     C                     CALL 'UTLR01A'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE1  8
+     C                     PARM           $TRUE2 10
+     C                     PARM           $RTN    1
+      *
+     C           $RTN      IFEQ *BLANK
+     C                     MOVEL$TRUE1    @TO     80
+     C                     MOVEL$TRUE2    XTO
+     C                     ELSE
+     C                     MOVELMSG,2     XMSG
+     C                     SETON                     4285
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           @FROM     IFGT @TO
+     C                     MOVELMSG,3     XMSG
+     C                     SETON                     414285
+     C                     ENDIF
+      * IF NO ERROR
+     C           *IN85     IFEQ *OFF
+     C                     EXSR #SET1
+      *
+     C           RCNT1     IFGT 0
+     C                     MOVEL'02'      W@ID
+     C                     ELSE
+     C                     MOVELMSG,4     XMSG
+     C                     SETON                     414285
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           XCHK1     ENDSR
+      ************************************************************
+      *  SET DATA FOR SFL01
+      ************************************************************
+     C           #SET1     BEGSR
+      *
+     C                     MOVE 'Y'       FIRST   1
+     C                     EXSR #CLRS1
+     C                     Z-ADD@FROM     @DATE
+      * SUB 1 DAY
+     C                     MOVEL@DATE     $DT8
+     C                     MOVE '-'       $SIGN
+     C                     MOVE '0001'    $DAYS
+     C                     MOVE 'N'       $IAF
+     C                     CALL 'UTLR10'
+     C                     PARM           $DT8    8
+     C                     PARM           $SIGN   1
+     C                     PARM           $DAYS   4
+     C                     PARM           $IAF    1
+     C                     PARM           $TGT8   8
+     C                     PARM           $RTN    1
+     C                     MOVEL$TGT8     @DATE
+      *
+     C                     DO   *HIVAL
+     C                     Z-ADD0         SH1CNT
+     C                     Z-ADD0         SH2CNT
+     C                     Z-ADD0         SH3CNT
+      * ADD 1 DAY
+     C                     MOVEL@DATE     $DT8
+     C                     MOVE '+'       $SIGN
+     C                     CALL 'UTLR10'
+     C                     PARM           $DT8    8
+     C                     PARM           $SIGN   1
+     C                     PARM           $DAYS   4
+     C                     PARM           $IAF    1
+     C                     PARM           $TGT8   8
+     C                     PARM           $RTN    1
+     C                     MOVEL$TGT8     @DATE
+      *
+     C           @DATE     IFGT @TO
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           @DATE     SETLLABBPL71
+     C                     DO   *HIVAL
+     C           @DATE     READEABBPL71                  97
+     C   97                LEAVE
+      *
+     C                     SELEC
+     C           A7SHFT    WHEQ '1'
+     C                     ADD  1         SH1CNT
+     C           A7SHFT    WHEQ '2'
+     C                     ADD  1         SH2CNT
+     C           A7SHFT    WHEQ '3'
+     C                     ADD  1         SH3CNT
+     C                     ENDSL
+     C                     ENDDO
+      * CREATE SFL
+     C                     CLEARSFL01
+     C                     Z-ADD@DATE     S1DATE
+     C                     Z-ADDSH1CNT    S1SH1
+     C                     Z-ADDSH2CNT    S1SH2
+     C                     Z-ADDSH3CNT    S1SH3
+     C           @DATE     IFEQ @TO
+     C                     MOVE *ON       *IN97
+     C                     ELSE
+     C                     MOVE *OFF      *IN97
+     C                     ENDIF
+     C                     ADD  1         RRN1
+      * MAX
+     C           RRN1      IFGT 730
+     C                     MOVELMSG,8     XMSG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     WRITESFL01
+      *
+     C                     ENDDO
+      *
+     C                     Z-ADDRRN1      RCNT1
+      *
+     C                     ENDSR
+      ************************************************************
+      *  DSPLAY 2ND SCREEN
+      ************************************************************
+     C           #SFL1     BEGSR
+      *
+     C                     EXSR #SET1
+      *
+     C                     WRITEDSP99
+     C                     MOVE *ON       *IN70
+     C                     EXFMTCTL01
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVE *OFF      *IN85
+     C                     MOVE *OFF      *IN70
+      *
+     C                     SELEC
+      * F3: EXIT
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+      * F12: BACK
+     C           *INKL     WHEQ *ON
+     C                     MOVE '01'      W@ID
+      * ENTER
+     C                     OTHER
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *************************************************************
+      * CLEAR SUB FILE 01
+      *************************************************************
+     C           #CLRS1    BEGSR
+      *
+     C                     SETON                     71
+     C                     WRITECTL01
+     C                     SETOF                     71
+     C                     Z-ADD0         RRN1
+      *
+     C                     ENDSR
+      *************************************************************
+      * INITIAL SETTING
+      *************************************************************
+     C           #INIT     BEGSR
+      *
+     C                     TIME           SDATE
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVEL'01'      W@ID    2
+     C                     MOVELTODAY     XFROM     P
+     C                     MOVELTODAY     XTO       P
+     C                     Z-ADD0         RRN1    40
+     C                     Z-ADD0         RCNT1   40
+     C                     Z-ADD0         @DATE   80
+     C                     Z-ADD0         SH1CNT  30
+     C                     Z-ADD0         SH2CNT  30
+     C                     Z-ADD0         SH3CNT  30
+      *
+     C                     ENDSR
+      *************************************************************
+** (ERR) (60A).....2.........3.........4.........5.........6
+FROM_DATE IS INCORRECT !                                     01
+TO_DATE IS INCORRECT !                                       02
+FROM_DATE > TO_DATE !                                        03
+NO DATA FOUND !                                              04
+PRESS F5 TO PROCESS...                                       05
+ENTER FROM_DATE !                                            06
+ENTER TO_DATE !                                              07
+REACHED MAX DATE (730 DAYS)!                                 08
+                                                             09
+                                                             10

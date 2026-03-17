@@ -1,0 +1,545 @@
+     H            Y.
+     F** AJNR10 *********************************************
+     F*  SCAN COMPLIANCE RATE INQUIRY/REPORT                *
+     F*  J.WATANABE   2020.04.10                            *
+     F*******************************************************
+     FAJNPW10 CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     F                                              KINFDS @INFDS
+     FNZTPL09 IF  E           K        DISK
+     FAJNWP10 UF  E           K        DISK                      A
+     F*******************************************************
+     E                    MSG     1  10 70
+     E                    HDR     1   6 20
+     E                    XHD         3 20
+      *
+     I@INFDS      DS
+     I                                    B 378 3790@@REC
+      *
+     I            DS
+     I                                        1  60 XHD
+     I                                        1  20 HDR1
+     I                                       21  40 HDR2
+     I                                       41  60 HDR3
+      *
+     I            DS
+     I                                        1  140@SDAT
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *
+     I           SDS
+     I                                     *PROGRAM #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     EXSR #INIT
+      *
+     C                     DO   *HIVAL
+     C                     SELEC
+     C           SCRN#     WHEQ '01'
+     C                     EXSR #DSP01
+      *
+     C           SCRN#     WHEQ '02'
+     C                     EXSR #DSP02
+      *
+     C                     OTHER
+     C                     LEAVE
+     C                     ENDSL
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *====================================================*
+      * 1ST SCREEN                                         *
+      *====================================================*
+     C           #DSP01    BEGSR
+      *
+     C           SCRN#     DOWEQ'01'
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANK    XMSG
+     C                     SETOF                     414285
+     C                     SELEC
+      * F1: END
+     C           *INKA     WHEQ *ON
+     C                     MOVEL'99'      SCRN#
+     C                     LEAVE
+      *
+      * F5: REPORT
+     C**         *INKE     WHEQ *ON
+     C**                   EXSR #REPT
+     C**                   MOVEL'99'      SCRN#
+     C**                   LEAVE
+      *
+     C                     OTHER
+     C                     EXSR #CHK1
+      *
+     C           *IN85     IFEQ *ON
+     C                     ITER
+     C                     ENDIF
+      * IF NO ERROR
+     C                     MOVE '02'      SCRN#
+     C                     LEAVE
+     C                     ENDSL
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *====================================================*
+      * CHECK 1ST SCREEN ENTRY DATA                        *
+      *====================================================*
+     C           #CHK1     BEGSR
+      * CHECK DATE FROM
+     C           XFROM     IFEQ *BLANK
+     C                     MOVE *ON       *IN85
+     C                     MOVE *ON       *IN41
+     C                     MOVELMSG,1     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVELXFROM     $SRC
+     C                     CALL 'UTLR01A'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE1  8
+     C                     PARM           $TRUE2 10
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ '1'
+     C                     MOVE *ON       *IN85
+     C                     MOVE *ON       *IN41
+     C                     MOVELMSG,3     XMSG
+     C                     GOTO XCHK1
+     C                     ELSE
+     C                     MOVEL$TRUE1    HFROM
+     C                     MOVEL$TRUE2    XFROM
+     C                     ENDIF
+      * CHECK DATE TO
+     C           XTO       IFEQ *BLANK
+     C                     MOVE *ON       *IN85
+     C                     MOVE *ON       *IN42
+     C                     MOVELMSG,2     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XTO       IFEQ '99999999'
+     C                     MOVEL'99999999'HTO
+     C                     ELSE
+     C                     MOVELXTO       $SRC
+     C                     CALL 'UTLR01A'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE1  8
+     C                     PARM           $TRUE2 10
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ '1'
+     C                     MOVE *ON       *IN85
+     C                     MOVE *ON       *IN42
+     C                     MOVELMSG,4     XMSG
+     C                     GOTO XCHK1
+     C                     ELSE
+     C                     MOVEL$TRUE1    HTO
+     C                     MOVEL$TRUE2    XTO
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           HFROM     IFGT HTO
+     C                     MOVE *ON       *IN85
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN42
+     C                     MOVELMSG,5     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * IF NO ERROR...
+     C                     EXSR #CLR
+     C                     EXSR #DSET
+      *
+     C           *IN85     IFEQ *ON
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVELMSG,6     XMSG
+      *
+     C           XCHK1     ENDSR
+      *====================================================*
+      * SET WORK FILE (AJNWP10)                            *
+      *====================================================*
+     C           #DSET     BEGSR
+      *
+     C                     Z-ADD0         RCNT    50
+      * SET 1. OQ-IN
+     C                     EXSR #SET1
+      * SET 2. OQ-OUT
+     C                     EXSR #SET2
+      * SET 3. BZ/DM IN
+     C                     EXSR #SET3
+      * SET 4. BZ/DS OUT
+     C                     EXSR #SET4
+      * SET 5. ***
+     C***                  EXSR #SET5
+      *
+     C           RCNT      IFEQ 0
+     C                     MOVE *ON       *IN85
+     C                     MOVE *ON       *IN41
+     C                     MOVELMSG,7     XMSG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *====================================================*
+      * 2ND SCREEN                                         *
+      *====================================================*
+     C           #DSP02    BEGSR
+      *
+     C                     EXSR #DSET1
+      *
+     C           SCRN#     DOWEQ'02'
+      *
+     C                     MOVE *ON       *IN56
+     C                     MOVELMSG,10    XCMD
+     C                     WRITEDSP99
+     C                     EXFMTCTL01
+     C                     MOVE *OFF      *IN56
+     C                     MOVEL*BLANK    XMSG
+     C                     SETOF                     414285
+     C                     SELEC
+      * F1: END
+     C           *INKA     WHEQ *ON
+     C                     MOVEL'99'      SCRN#
+     C                     LEAVE
+      * F12: BACK
+     C           *INKL     WHEQ *ON
+     C                     MOVEL'01'      SCRN#
+     C                     LEAVE
+      * F8: LEFT (<--)
+     C           *INKH     WHEQ *ON
+     C           W@SCNT    IFEQ 2
+     C                     Z-ADD1         W@SCNT
+     C                     EXSR #DSET1
+     C                     ENDIF
+      * F9: RIGHT (-->)
+     C           *INKI     WHEQ *ON
+     C           W@SCNT    IFEQ 1
+     C                     Z-ADD2         W@SCNT
+     C                     EXSR #DSET2
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *====================================================*
+      * CLEAR WORK FILE                                    *
+      *====================================================*
+     C           #CLR      BEGSR
+      *
+     C           *LOVAL    SETLLAJNWP10
+     C                     DO   *HIVAL
+     C                     READ AJNWP10                  97
+     C   97                LEAVE
+     C                     DELETAJNWP101
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *====================================================*
+      * SET 1. OQ-IN       *
+      *====================================================*
+     C           #SET1     BEGSR
+      *
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD0         @SCN    50
+     C                     Z-ADD0         @TTL    50
+     C                     Z-ADDHFROM     KEY01   80
+     C           KEY01     SETLLNZTPL09
+      *
+     C                     DO   *HIVAL
+     C                     READ NZTPL09                  98
+     C   98                LEAVE
+      * END ?
+     C           N1KOHZ    IFGT HTO
+     C                     LEAVE
+     C                     ENDIF
+      * LOCATION
+     C                     MOVELN1LOC2    LTR1    1
+     C           LTR1      IFNE 'E'
+     C           LTR1      ANDNE'L'
+     C                     ITER
+     C                     ENDIF
+      * FIRST ?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     Z-ADDN1KOHZ    SVKOHZ  80
+     C                     ENDIF
+      * BREAK ?
+     C           N1KOHZ    IFNE SVKOHZ
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * DETAIL PROCESS
+     C                     ADD  1         @TTL
+     C           N1ERR     IFEQ *BLANK
+     C                     ADD  1         @SCN
+     C                     ENDIF
+     C                     ENDDO
+      * LAST BRAEK
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *===================================*
+      * BREAK FOR OPTION 1                *
+      *===================================*
+     C           #BRK1     BEGSR
+      *
+     C           @TTL      IFEQ 0
+     C                     Z-ADD0         @RAT    41
+     C                     ELSE
+     C           @SCN      MULT 100       NUM70   70
+     C           NUM70     DIV  @TTL      @RAT      H
+     C                     ENDIF
+      * WRITE
+     C           SVKOHZ    CHAINAJNWP10              88
+     C           *IN88     IFEQ *OFF
+     C                     Z-ADD1         W1OPT
+     C                     Z-ADD@SCN      W1SCN1
+     C                     Z-ADD@TTL      W1TTL1
+     C                     Z-ADD@RAT      W1RAT1
+     C                     UPDATAJNWP101
+     C                     ELSE
+     C                     CLEARAJNWP101
+     C                     Z-ADDSVKOHZ    W1DATE
+     C                     Z-ADD1         W1OPT
+     C                     Z-ADD@SCN      W1SCN1
+     C                     Z-ADD@TTL      W1TTL1
+     C                     Z-ADD@RAT      W1RAT1
+     C                     WRITEAJNWP101
+     C                     ADD  1         RCNT
+     C                     ENDIF
+      * RESET
+     C                     Z-ADDN1KOHZ    SVKOHZ
+     C                     Z-ADD0         @SCN
+     C                     Z-ADD0         @TTL
+      *
+     C                     ENDSR
+      *====================================================*
+      * SET 2. OQ-OUT      *
+      *====================================================*
+     C           #SET2     BEGSR
+      *
+      *
+     C                     ENDSR
+      *====================================================*
+      * SET 3. BZ/DM IN    *
+      *====================================================*
+     C           #SET3     BEGSR
+      *
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD0         @SCN    50
+     C                     Z-ADD0         @TTL    50
+     C                     Z-ADDHFROM     KEY01   80
+     C           KEY01     SETLLNZTPL09
+      *
+     C                     DO   *HIVAL
+     C                     READ NZTPL09                  98
+     C   98                LEAVE
+      * END ?
+     C           N1KOHZ    IFGT HTO
+     C                     LEAVE
+     C                     ENDIF
+      * LOCATION
+     C                     MOVELN1LOC2    LTR1    1
+     C           LTR1      IFNE 'G'
+     C           LTR1      ANDNE'X'
+     C                     ITER
+     C                     ENDIF
+      * FIRST ?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     Z-ADDN1KOHZ    SVKOHZ  80
+     C                     ENDIF
+      * BREAK ?
+     C           N1KOHZ    IFNE SVKOHZ
+     C                     EXSR #BRK3
+     C                     ENDIF
+      * DETAIL PROCESS
+     C                     ADD  1         @TTL
+     C           N1ERR     IFEQ *BLANK
+     C                     ADD  1         @SCN
+     C                     ENDIF
+     C                     ENDDO
+      * LAST BRAEK
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK3
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *===================================*
+      * BREAK FOR OPTION 3                *
+      *===================================*
+     C           #BRK3     BEGSR
+      *
+     C           @TTL      IFEQ 0
+     C                     Z-ADD0         @RAT    41
+     C                     ELSE
+     C           @SCN      MULT 100       NUM70   70
+     C           NUM70     DIV  @TTL      @RAT      H
+     C                     ENDIF
+      * WRITE
+     C           SVKOHZ    CHAINAJNWP10              88
+     C           *IN88     IFEQ *OFF
+     C                     Z-ADD3         W1OPT
+     C                     Z-ADD@SCN      W1SCN3
+     C                     Z-ADD@TTL      W1TTL3
+     C                     Z-ADD@RAT      W1RAT3
+     C                     UPDATAJNWP101
+     C                     ELSE
+     C                     CLEARAJNWP101
+     C                     Z-ADDSVKOHZ    W1DATE
+     C                     Z-ADD3         W1OPT
+     C                     Z-ADD@SCN      W1SCN3
+     C                     Z-ADD@TTL      W1TTL3
+     C                     Z-ADD@RAT      W1RAT3
+     C                     WRITEAJNWP101
+     C                     ADD  1         RCNT
+     C                     ENDIF
+      * RESET
+     C                     Z-ADDN1KOHZ    SVKOHZ
+     C                     Z-ADD0         @SCN
+     C                     Z-ADD0         @TTL
+      *
+     C                     ENDSR
+      *====================================================*
+      * SET 4. BZ/DS OUT   *
+      *====================================================*
+     C           #SET4     BEGSR
+      *
+      *
+     C                     ENDSR
+      *====================================================*
+      * SET SUBFILE FOR 2-1                                *
+      *====================================================*
+     C           #DSET1    BEGSR
+      *
+      * SET HEADER
+     C                     MOVELHDR,1     XHD,1
+     C                     MOVELHDR,2     XHD,2
+     C                     MOVELHDR,3     XHD,3
+      * CLEAR SFL
+     C                     MOVE *ON       *IN57
+     C                     WRITECTL01
+     C                     MOVE *OFF      *IN57
+     C                     Z-ADD0         RRN1
+      * GET DATA
+     C           *LOVAL    SETLLAJNWP10
+     C                     DO   *HIVAL
+     C                     READ AJNWP10             N    97
+     C   97                LEAVE
+      *
+     C           W1OPT     IFNE 1
+     C           W1OPT     ANDNE2
+     C           W1OPT     ANDNE3
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     CLEARSFL01
+     C                     Z-ADDW1DATE    SDATE
+     C                     Z-ADDW1SCN1    SSCN1
+     C                     Z-ADDW1TTL1    STTL1
+     C                     Z-ADDW1RAT1    SRAT1
+     C                     Z-ADDW1SCN2    SSCN2
+     C                     Z-ADDW1TTL2    STTL2
+     C                     Z-ADDW1RAT2    SRAT2
+     C                     Z-ADDW1SCN3    SSCN3
+     C                     Z-ADDW1TTL3    STTL3
+     C                     Z-ADDW1RAT3    SRAT3
+      *
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+     C                     ENDDO
+      * DEFAULT LINE
+     C           RRN1      IFEQ 0
+     C                     CLEARSFL01
+     C                     Z-ADD1         RRN1
+     C                     WRITESFL01
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *====================================================*
+      * SET SUBFILE FOR 2-2                                *
+      *====================================================*
+     C           #DSET2    BEGSR
+      *
+     C                     Z-ADD*ZERO     RRN1    40
+      * SET HEADER
+     C                     MOVELHDR,4     XHD,1
+     C                     MOVELHDR,5     XHD,2
+     C                     MOVELHDR,6     XHD,3
+      * CLEAR SFL
+     C                     MOVE *ON       *IN57
+     C                     WRITECTL01
+     C                     MOVE *OFF      *IN57
+     C                     Z-ADD0         RRN1
+      * GET DATA
+     C           *LOVAL    SETLLAJNWP10
+     C                     DO   *HIVAL
+     C                     READ AJNWP10             N    97
+     C   97                LEAVE
+      *
+     C           W1OPT     IFNE 4
+     C           W1OPT     ANDNE5
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     CLEARSFL01
+     C                     Z-ADDW1DATE    SDATE
+     C                     Z-ADDW1SCN4    SSCN1
+     C                     Z-ADDW1TTL4    STTL1
+     C                     Z-ADDW1RAT4    SRAT1
+     C                     Z-ADDW1SCN5    SSCN2
+     C                     Z-ADDW1TTL5    STTL2
+     C                     Z-ADDW1RAT5    SRAT2
+     C                     Z-ADDW1SCN6    SSCN3
+     C                     Z-ADDW1TTL6    STTL3
+     C                     Z-ADDW1RAT6    SRAT3
+      *
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+     C                     ENDDO
+      * DEFAULT LINE
+     C           RRN1      IFEQ 0
+     C                     CLEARSFL01
+     C                     Z-ADD1         RRN1
+     C                     WRITESFL01
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *====================================================*
+      * SET INITIAL VALUE                                  *
+      *====================================================*
+     C           #INIT     BEGSR
+      *
+     C                     TIME           @SDAT
+     C                     MOVEL'01'      SCRN#   2
+     C                     MOVELTODAY     XFROM
+     C                     MOVEL'99999999'XTO
+     C                     Z-ADD1         W@SCNT  20
+     C                     MOVELHDR,1     XHD,1
+     C                     MOVELHDR,2     XHD,2
+     C                     MOVELHDR,3     XHD,3
+      *
+     C                     ENDSR
+** MSG(70A) .......2.........3.........4.........5.........6.........7
+ENTER DATE_FROM !                                                       1
+ENTER DATE_TO !                                                         2
+DATE_FROM IS INVALID !                                                  3
+DATE_TO IS INVALID !                                                    4
+FROM_DATE > TO_DATE !                                                   5
+PRESS F12 TO GO BACK TO FIRST SCREEN...                                 6
+NO DATA !                                                               7
+                                                                        8
+                                                                        9
+F1:EXIT     F12:GO BACK     F8:LEFT(<--)     F9:RIGHT(-->)             10
+** HDR(20A) .......>
+<***** OQ_IN ******>  1
+<***** OQ_OUT *****>  2
+<**** BZ/DS_IN ****>  3
+<**** BZ/DS_OUT ***>  4
+<**** FINAL_IN ****>  5
+<     ********     >  6

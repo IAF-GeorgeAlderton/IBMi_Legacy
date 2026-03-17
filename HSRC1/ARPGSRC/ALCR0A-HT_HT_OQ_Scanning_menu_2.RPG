@@ -1,0 +1,192 @@
+     H            Y.
+     F** ALCR0A ****************************************************
+     F* HT/HT OQ SCANNING MENU 2                                   *
+     F*    LEC.      2016.02.15                                    *
+%0001F*    T.SAKAKI  2019.11.15  ADD OPTN '3'& '4'                 *
+JW1  F*    JW        2020.04.21  REMOVE OPTION 1 & 2               *
+JW2  F*    JW        2020.09.15  ADD DUMMY (TO DETECT INDIRECT CALL)
+     F**************************************************************
+     FALCPW0Z CF  E                    WORKSTN
+     FALBPL30 IF  E           K        DISK
+     E                    ER      1  11 65
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        7  14 SDATE
+     I                                        1   6 STIME
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           WORKER  6
+     C                     PARM           WUSRID 10
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     EXSR #SB100
+     C           DSPSW     DOUEQ'99'
+     C                     EXSR #SB200
+     C                     ENDDO
+     C                     EXSR #SB300
+      *----------------------------------------------------*
+      * INZ                                                *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     TIME           WTIME
+     C                     MOVEL'01'      DSPSW   2
+     C                     MOVELWORKER    USRCD
+     C                     Z-ADD0         D1SEL
+JW2  C                     GOTO ESB100
+ |    ****************************************
+ |    * UN-PROCESS LINE (FOR INDIRECT CALL)  *
+ |    ****************************************
+ |   C                     CALL 'ALCR12'                   D1SEL=3
+JW2  C                     CALL 'ALDR9X'                   D1SEL=4
+      *
+     CSR         ESB100    ENDSR
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C           DSPSW     DOWEQ'01'
+     C                     EXSR #SB210
+     C                     ENDDO
+      *
+     CSR         ESB200    ENDSR
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     CSR         #SB210    BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANK    MSG
+     C                     MOVEL*BLANK    WPGM    6
+     C                     MOVEL*BLANK    P2PGM  10
+     C                     SETOF                     3199
+      *
+     C                     TIME           WTIME
+     C           *IN03     IFEQ '1'
+     C                     MOVEL'99'      DSPSW   2
+     C                     GOTO ESB210
+     C                     ENDIF
+      *-----------------------------*
+      *  P LIST                     *
+      *-----------------------------*
+     C           P1        PLIST
+     C                     PARM           POPR    6
+     C                     PARM           PUSR   10
+     C                     PARM           PSECT   1
+      *
+     C           P2        PLIST
+     C                     PARM           POPR    6
+     C                     PARM           PUSR2  20
+     C                     PARM           PSECT   1
+      *
+     C           P3        PLIST
+     C                     PARM           POPR
+     C                     PARM           PUSR2
+     C                     PARM           PSECT
+     C                     PARM           PFLG    1
+      *-----------------------------*
+      *
+     C                     MOVE WORKER    POPR    6        SET WORKER ID
+     C                     MOVELW#USER    PUSR2  20        SET WORKER ID
+     C*
+     C                     MOVE WORKER    POPR2   60       SET WORKER ID
+     C                     SETOF                     98
+     C           POPR2     SETGTALBPL301
+     C                     DO   *HIVAL
+     C           POPR2     REDPEALBPL301                 98
+     C   98                LEAVE
+     C           ALSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+     C                     MOVELALWKNM    W1USNM 20
+     C                     MOVELALWKNM    PUSR2  20
+     C                     ENDDO
+      *
+     C                     MOVELW#USER    PUSR   10        SET WORKER ID
+     C                     MOVEL*BLANK    PSUPP   4
+     C                     MOVEL'2'       PSECT   1
+      *
+     C                     SELEC
+      * 4POINT SCAN
+JW1  C**         D1SEL     WHEQ 1
+ |   C**                   MOVEL'ALCC10'  WPGM
+ |    * STORE IN LOCATION
+ |   C**         D1SEL     WHEQ 2
+JW1  C**                   MOVEL'ALDR99'  WPGM
+      * NEW 4POINT SCAN
+     C           D1SEL     WHEQ 3
+     C                     MOVEL'ALCR12'  WPGM
+      * NEW STORE IN LOCATION
+     C           D1SEL     WHEQ 4
+     C                     MOVEL'ALDR9X'  WPGM
+     C                     MOVE '1'       PFLG
+      *
+     C                     OTHER
+     C                     SETON                     3199
+     C                     MOVELER,1      MSG
+     C                     EXSR #SB999
+     C                     GOTO ESB210
+     C                     ENDSL
+      *
+      * CREATE SIGN-ON INFO
+     C                     MOVELWPGM      P2PGM  10
+     C                     MOVE WORKER    P2WKR   6
+     C                     MOVELW1USNM    P2WKN  20
+     C                     CALL 'ALDRZ6'
+     C                     PARM           P2PGM
+     C                     PARM           P2WKR
+     C                     PARM           P2WKN
+%0001 * CALL PROCESS
+     C                     SELEC
+JW1  C**         D1SEL     WHEQ 1
+ |   C**                   CALL WPGM      P1
+ |   C**         D1SEL     WHEQ 2
+JW1  C**                   CALL WPGM      P1
+     C           D1SEL     WHEQ 3
+     C                     CALL WPGM      P2
+     C           D1SEL     WHEQ 4
+     C                     CALL WPGM      P3
+     C                     OTHER
+     C                     ENDSL
+      *
+     C                     Z-ADD0         D1SEL
+      *
+      * DELETE SIGN-ON INFO
+     C                     CALL 'ALDRZ7'
+      *
+     CSR         ESB210    ENDSR
+      *----------------------------------------------------*
+      * END                                                *
+      *----------------------------------------------------*
+     CSR         #SB300    BEGSR
+      *
+     C                     SETON                     LR
+     C                     RETRN
+     CSR         ESB300    ENDSR
+      *----------------------------------------------------*
+      * ERR                                                *
+      *----------------------------------------------------*
+     CSR         #SB999    BEGSR
+      *
+     C                     MOVELMSG       P1ERR
+     C                     CALL 'AM#R08'
+     C                     PARM           P1ERR  25
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+      *
+     CSR         ESB999    ENDSR
+**
+INPUT NO. ERR
+
+
+
+

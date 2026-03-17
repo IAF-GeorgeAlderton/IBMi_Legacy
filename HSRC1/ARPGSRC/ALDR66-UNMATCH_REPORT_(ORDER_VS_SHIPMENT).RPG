@@ -1,0 +1,266 @@
+     H            Y.
+     F** ALDR66 ************************************************
+     F* UNMATCH LIST (ORDER VS. SHIPMENT)                      *
+     F* H.AMANO  2001.11.15                                    *
+JW1  F* JW       2021.04.29 CHECK @@QTY=0 (SCANNED QTY)        *
+     F**********************************************************
+     FAB#PL12 IF  E           K        DISK
+     F                                              KINFDS @INF12
+     FAB#PL70 IF  E           K        DISK
+     FALDPL25 IF  E           K        DISK
+     FALDPL35 IF  E           K        DISK
+     FALBPL30 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+      *------------------------------------------------------------
+     E                    TTL     1   1 42
+     E                    OPR        10  6
+     E                    NAM         5 11
+      *------------------------------------------------------------
+     I@INF12      DS
+     I                                    B 397 4000@@R12
+     I@INF17      DS
+     I                                    B 397 4000@@R17
+     I            DS
+     I                                        1   80K@YMD
+     I                                        1   40K@YY
+     I                                        5   60K@MM
+     I                                        7   80K@DD
+     I            DS
+     I                                        1   80W@YMD
+     I                                        1   40W@YY
+     I                                        5   60W@MM
+     I                                        7   80W@DD
+     I            DS
+     I                                        1   40EKDAT
+     I                                        1   20EKDEMM
+     I                                        3   40EKDEDD
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *------------------------------------------------------------
+     C                     EXSR #PRT
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *------------------------------------------------------------
+      *  INITIALIZE
+      *------------------------------------------------------------
+     C           *INZSR    BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           P@FROM  80
+     C                     PARM           P@TO    80
+     C           K#AP12    KLIST
+     C                     KFLD           K@YY
+     C                     KFLD           K@MM
+     C                     KFLD           K@DD
+     C           K#AP70    KLIST
+     C                     KFLD           BATOKU
+     C                     KFLD           @@NONY  4
+     C                     KFLD           BANKOJ
+     C                     KFLD           BANUKE
+     C                     KFLD           BAMHN1
+     C                     KFLD           BAMHN2
+     C                     KFLD           BAMHN3
+     C                     KFLD           BAMHN4
+     C**                   KFLD           BAODRN
+JW1  C                     KFLD           XXODRN 10
+     C                     KFLD           BANOYY
+     C                     KFLD           BANOMM
+     C                     KFLD           BANODD
+     C                     KFLD           K@NOBN  2
+     C                     KFLD           BADEYY
+     C                     KFLD           BADEMM
+     C                     KFLD           BADEDD
+      *
+     C           K#FCP     KLIST
+     C                     KFLD           BASHN1
+     C                     KFLD           BASHN2
+     C                     KFLD           BASHN3
+      *
+     C                     Z-ADDP@FROM    K@YMD
+      *
+     C                     ENDSR
+      *------------------------------------------------------------
+      *  OUTPUT
+      *------------------------------------------------------------
+     C           #PRT      BEGSR
+      *
+     C                     TIME           W@TIME  60
+     C                     MOVE *ALL'-'   W@LINE 90
+     C                     MOVE *OFF      *IN98
+     C           K#AP12    SETLLAB#PL12
+      *
+     C           *IN80     DOUEQ*ON
+     C                     READ AB#PL12                  80
+      *
+     C           *IN80     IFEQ *OFF
+     C           BASKJY    ANDEQ*BLANK
+      *
+     C           BANOHZ    IFGT *DATE
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           K#FCP     CHAINFCEPL01              90
+     C           *IN90     IFEQ *ON
+     C           A2SSYS    ORGT BASRYO
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADD@@R12     @@REC   90
+      *  CHECK SHIP FILE
+     C                     EXSR #SHP
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *------------------------------------------------------------
+      *  CHECK SHIP FILE
+      *------------------------------------------------------------
+     C           #SHP      BEGSR
+      *
+     C                     MOVE *OFF      *IN77
+     C                     Z-ADD*ZERO     @@QTY   70
+     C                     Z-ADD*ZERO     @SDAT   40
+     C                     Z-ADD*ZERO     X       50
+     C                     MOVE BANONY    @@NONY
+     C                     MOVE BANOBN    K@NOBN
+JW1  C                     MOVELBAODRN    XXODRN
+     C           K#AP70    SETLLAB#PL70
+     C           *IN81     DOUEQ*ON
+     C           K#AP70    READEAB#PL70                  81
+     C           *IN81     IFEQ *OFF
+     C           EKSKJY    ANDEQ*BLANK
+     C           EKHENK    ANDEQ*BLANK
+     C                     MOVE *ON       *IN77
+     C                     ADD  EKSRYO    @@QTY
+     C           EKSRYO    IFGT *ZERO
+     C                     Z-ADDEKDAT     @SDAT
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+JW1  C           @@QTY     IFEQ 0
+ .   C                     MOVELBAINVN    XXODRN
+ .   C           K#AP70    SETLLAB#PL70
+ .   C           *IN81     DOUEQ*ON
+ .   C           K#AP70    READEAB#PL70                  81
+ .   C           *IN81     IFEQ *OFF
+ .   C           EKSKJY    ANDEQ*BLANK
+ .   C           EKHENK    ANDEQ*BLANK
+ .   C                     MOVE *ON       *IN77
+ .   C                     ADD  EKSRYO    @@QTY
+ .   C           EKSRYO    IFGT *ZERO
+ .   C                     Z-ADDEKDAT     @SDAT
+ .   C                     ENDIF
+ .    *
+ .   C                     ENDIF
+ .   C                     ENDDO
+JW1  C                     ENDIF
+      * UNMATCH
+     C           @@QTY     IFLT BASRYO
+     C           *IN77     ANDEQ*ON
+     C                     EXSR #OUT
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *------------------------------------------------------------
+      *  OUTPUT
+      *------------------------------------------------------------
+     C           #OUT      BEGSR
+      *
+     C           *IN98     IFEQ *OFF
+     C           *INOF     OREQ *ON
+     C                     EXCPT@HED
+     C                     ENDIF
+      *
+     C  N98                MOVE *ON       *IN98
+      *
+     C                     MOVE *BLANK    OPR
+     C                     MOVE *BLANK    NAM
+     C                     Z-ADD*ZERO     X
+     C           @@QTY     IFNE *ZERO
+     C           K#AP70    SETLLAB#PL70
+     C           *IN81     DOUEQ*ON
+     C           K#AP70    READEAB#PL70                  81
+     C           *IN81     IFEQ *OFF
+     C           EKSKJY    ANDEQ*BLANK
+     C           EKSRYO    ANDGT*ZERO
+      *
+     C           EKSERL    CHAINALDPL25              90
+     C           *IN90     IFEQ *OFF
+     C           A1OPER    LOKUPOPR                      10
+     C           *IN10     IFEQ *OFF
+     C                     ADD  1         X
+     C                     MOVE A1OPER    OPR,X
+     C                     MOVE A1OPER    @6      60
+     C           @6        CHAINALBPL30              91
+     C                     MOVELALWKNM    W10    10
+     C                     MOVELW10       NAM,X
+     C                     ENDIF
+     C                     ELSE
+     C           EKSERL    CHAINALDPL35              90
+     C           *IN90     IFEQ *OFF
+     C           A3OPER    LOKUPOPR                      10
+     C           *IN10     IFEQ *OFF
+     C                     ADD  1         X
+     C                     MOVE A3OPER    OPR,X
+     C                     MOVE A3OPER    @6      60
+     C           @6        CHAINALBPL30              91
+     C                     MOVELALWKNM    W10    10
+     C                     MOVELW10       NAM,X
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C           X         IFEQ 5
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDIF
+      *
+     C                     Z-ADDBASRYO    @@7     70
+     C                     EXCPT@DTL
+      *
+     C                     ENDSR
+      *---------------------------------------------------
+     OQPRINT  E   01           @HED
+     O                         #PGM       8
+     O                         UDATE Y  115
+     O                         W@TIME   124 '  :  :  '
+     O                                  128 'P.'
+     O                         PAGE  Z  132
+     O        E   02           @HED
+     O                         TTL,1     60
+     O        E   04           @HED
+     O                                   10 'SHIP DATE'
+     O                                   20 'DELIVERY'
+     O                                   22 'F'
+     O                                   27 'DOCK'
+     O                                   31 'BIN'
+     O                                   38 'PART#'
+     O                                   56 'ORDER QTY'
+     O                                   65 'SCANNED'
+     O        E   06           @HED
+     O                         W@LINE    90
+     O        E 1              @DTL
+     O                         BANOHZY   10
+     O                         BANONY    18
+     O                         BANKOJ    22
+     O                         BANUKE    27
+     O                         BANOBN4   30
+     O                         BASHN1    38
+     O                         BASHN2    44
+     O                         BASHN3    47
+     O                         @@7   1   56
+     O                         @@QTY 1   65
+     O                         @SDAT     72 '  /  '
+     O                         NAM      130
+** TTL
+<< UNMATCHED LIST (ORDER VS. SHIPMENT) >>

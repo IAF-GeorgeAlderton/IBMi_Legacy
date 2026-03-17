@@ -1,0 +1,705 @@
+     H            Y/                                    1
+     H** FAAR24 *******************************************************
+     H*  COMMON PART MAINTENANCE LOG (INQ/PRINT)                      *
+     H*  J.WATANABE  2023.04.13                                       *
+     H* ------------------------------------------------------------- *
+     H*  JW1    2025.11.18 ADD MAX RECORDS ERROR MSG                  *
+     H*****************************************************************
+     FFAAPW24 CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     F                                              KINFDS @INFDS
+     FFAAPL14 IF  E           K        DISK
+     FFGBPL01 IF  E           K        DISK
+     FRGAPL11 IF  E           K        DISK
+     FFAAPL05 IF  E           K        DISK
+     FFAAWP04 IF  E           K        DISK                      A    UC
+     FFAAWP05 O   E                    DISK
+     FQPRINT  O   F     132     OF     PRINTER
+      *================================================================
+     E**                  MSG     1   9 60
+JW1  E                    MSG     1  10 60
+      *
+     I@INFDS      DS
+     I                                    B 370 3710@@LIN
+     I                                    B 378 3790@@REC
+      *
+     I            DS
+     I                                        1   40S@CRTM
+     I                                        1   20B7TM1
+     I                                        3   40B7TM2
+      *
+     I            DS
+     I                                        1  17 X@MHIN
+     I                                        1   5 XMHN1
+     I                                        6   6 @XH1
+     I                                        7  11 XMHN2
+     I                                       12  12 @XH2
+     I                                       13  17 XMHN3
+      *
+     I            DS
+     I                                        1  17 @MHIN
+     I                                        1   5 B7MHN1
+     I                                        6   6 @MH1
+     I                                        7  11 B7MHN2
+     I                                       12  12 @MH2
+     I                                       13  17 B7MHN3
+      *
+     I            DS
+     I                                        1  14 @SHIN
+     I                                        1   5 B7SHN1
+     I                                        6   6 @SH1
+     I                                        7  11 B7SHN2
+     I                                       12  12 @SH2
+     I                                       13  14 B7SHN3
+      *
+     I            DS
+     I                                        1  140@SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *
+     I           SDS
+     I                                     *PROGRAM #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     I                                      264 269 #JBNO
+     C*===============================================================
+     C*  START  PROGRAM
+     C*===============================================================
+     C                     EXSR #INIT
+      *
+     C           @@ID      DOWNE'99'
+     C           @@ID      CASEQ'01'      #DSP01
+     C           @@ID      CASEQ'02'      #DSP02
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *===================================================================
+      * DISPLAY 1ST SCREEN
+      *===================================================================
+     C           #DSP01    BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     SETOF                     414243
+     C                     SETOF                     44
+     C                     SETOF                     85
+     C                     MOVE *BLANK    XMSG1
+     C                     SELEC
+     C* F1: END ------
+     C           *INKA     WHEQ *ON
+     C                     MOVE '99'      @@ID
+     C* F3: END ------
+     C           *INKC     WHEQ *ON
+     C                     MOVE '99'      @@ID
+      * ENTR ---------
+     C                     OTHER
+     C                     EXSR #CHK1
+      * NO DATA
+     C           *IN85     IFEQ *ON
+     C                     GOTO XDSP01
+     C                     ENDIF
+      * IF NO ERROR --------------
+     C           *IN85     IFEQ *OFF
+     C                     EXSR #SET1
+JW1   * CHECK MAX RECORD
+ .   C           RRN1      IFGE 9995
+     C                     MOVE *ON       *IN85
+     C                     MOVELMSG,10    XMSG1
+     C                     MOVE *ON       *IN41
+ .   C                     GOTO XDSP01
+JW1  C                     ENDIF
+      *
+     C                     MOVE '02'      @@ID
+     C                     GOTO XDSP01
+     C                     ENDIF
+      *
+     C                     ENDSL
+      *
+     C           XDSP01    ENDSR
+     C*===============================================================
+     C*   CHECK ENTRY
+     C*===============================================================
+     C           #CHK1     BEGSR
+     C                     MOVE *OFF      *IN85
+      * CHECK FROM DATE
+     C           XFROM     IFEQ *BLANK
+     C                     MOVELMSG,1     XMSG1
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVELXFROM     $SRC      P
+     C                     CALL 'UTLR01A'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $TRUE2 10
+     C                     PARM           @RTN1   1
+     C           @RTN1     IFNE *BLANK
+     C                     MOVELMSG,3     XMSG1
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     MOVEL$TRUE2    XFROM     P
+     C                     MOVEL$TRUE     @FROM
+      * CHECK TO DATE
+     C           XTO       IFEQ *BLANK
+     C                     MOVELMSG,2     XMSG1
+     C                     MOVE *ON       *IN42
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVELXTO       $SRC      P
+     C                     CALL 'UTLR01A'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $TRUE2 10
+     C                     PARM           @RTN1   1
+     C           @RTN1     IFNE *BLANK
+     C                     MOVE *ON       *IN42
+     C                     MOVELMSG,4     XMSG1
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     MOVEL$TRUE2    XTO       P
+     C                     MOVEL$TRUE     @TO
+      * CHECK FROM > TO
+     C           @FROM     IFGT @TO
+     C                     MOVE *ON       *IN41
+     C                     MOVELMSG,9     XMSG1
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * CHECK DATA
+JW3  C                     EXSR #CHK2
+     C           *IN86     IFEQ *ON
+     C                     MOVELMSG,6     XMSG1
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * CHECK PART
+     C           XMHN1     IFNE *BLANK
+     C                     MOVELXMHN1     KMHN1
+     C                     MOVELXMHN2     KMHN2
+     C                     MOVELXMHN3     KMHN3
+     C                     MOVE *BLANK    KMHN4
+     C           K#PL06    CHAINFAAPL05              95
+     C           *IN95     IFEQ *ON
+     C                     MOVELMSG,7     XMSG1
+     C                     MOVE *ON       *IN43
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     ENDIF
+      * CHECK DATA EXIST
+JW3  C                     EXSR #CHK2
+     C           *IN86     IFEQ *ON
+     C                     MOVELMSG,6     XMSG1
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * IF NO ERROR........
+     C                     MOVELXNONY     @NONY   40
+      *
+      *
+     C           XCHK1     ENDSR
+     C*===============================================================
+     C*   CHECK DATA EXIST
+     C*===============================================================
+     C           #CHK2     BEGSR
+      *
+     C                     Z-ADD0         SEQ#
+      * BY DATE ------------------------
+     C           @FROM     SETLLFAAPL14
+      *
+     C                     DO   *HIVAL
+     C                     READ FAAPL14                  98
+     C   98                LEAVE
+      * END
+     C           B7KODT    IFGT @TO
+     C                     LEAVE
+     C                     ENDIF
+      * SELECT PART
+     C           XMHN1     IFNE *BLANK
+     C           B7MHN1    IFNE XMHN1
+     C           B7MHN2    ORNE XMHN2
+     C           B7MHN3    ORNE XMHN3
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     LEAVE
+     C                     ENDDO
+      *---------------------------------
+     C                     CLOSEFAAWP04
+      *
+     C           SEQ#      IFEQ 0
+     C                     MOVE *ON       *IN86
+     C                     ELSE
+     C                     MOVE *OFF      *IN86
+     C                     ENDIF
+      *
+     C           XCHK2     ENDSR
+      *-----------------------------------------------------
+      *  DISPLAY 2ND SCREEN
+      *-----------------------------------------------------
+     C           #DSP02    BEGSR
+      *
+     C                     WRITEDSP99
+     C                     MOVE *ON       *IN51
+     C                     EXFMTCTL01
+     C                     MOVE *OFF      *IN51
+      *
+     C                     SELEC
+     C           *INKA     WHEQ *ON
+     C           *INKC     OREQ *ON
+     C           *INKL     OREQ *ON
+     C                     MOVE '01'      @@ID
+      * F7: PRINT
+     C           *INKG     WHEQ *ON
+     C                     EXSR #OUT
+      * OVER 10 PAGES
+     C           SEQ#      IFGE 620
+     C                     MOVELMSG,8     XMSG2
+     C                     GOTO XDSP02
+     C                     ENDIF
+      *
+     C                     EXSR #PRINT
+     C                     MOVE '99'      @@ID
+      * F9: DOWNLOAD
+     C           *INKI     WHEQ *ON
+     C                     EXSR #OUT
+     C                     MOVE 'Y'       $RTN
+     C                     EXSR #CSV
+     C                     MOVE '99'      @@ID
+     C                     ENDSL
+      *
+     C           XDSP02    ENDSR
+     C*===============================================================
+     C* SET SFL01
+     C*===============================================================
+     C           #SET1     BEGSR
+      * CLEAR SFL
+     C                     Z-ADD0         SVKODT  80
+     C                     Z-ADD0         RRN1    40
+     C                     MOVE *ON       *IN52
+     C                     WRITECTL01
+     C                     MOVE *OFF      *IN52
+      *
+     C                     Z-ADD0         SEQ#
+      * BY DATE ------------------------
+     C           @FROM     SETLLFAAPL14
+      *
+     C                     DO   *HIVAL
+     C                     READ FAAPL14                  98
+     C   98                LEAVE
+      * END
+     C           B7KODT    IFGT @TO
+     C                     LEAVE
+     C                     ENDIF
+      * SELECT PART
+     C           XMHN1     IFNE *BLANK
+     C           B7MHN1    IFNE XMHN1
+     C           B7MHN2    ORNE XMHN2
+     C           B7MHN3    ORNE XMHN3
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      * SELECT DELIV#
+     C           XNONY     IFNE *BLANK
+     C           B7NONY    ANDNE@NONY
+     C                     ITER
+     C                     ENDIF
+      * BREAK?
+     C           SVKODT    IFNE 0
+     C           SVKODT    ANDNEB7KODT
+     C                     CLEARSFL01
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+     C                     ENDIF
+      *
+     C                     CLEARSFL01
+     C                     MOVELB7KODT    S@CRDT
+     C                     MOVELB7KOTM    S@CRTM
+      *
+     C                     MOVEL':::::'   X@CRTM
+     C                     MOVELB7TM1     X@CRTM
+     C                     MOVE B7TM2     X@CRTM
+      *
+     C                     MOVELB7KOUS    S@CRUS
+     C                     MOVELB7TYPE    S@EDIT
+      *
+     C                     SETOF                     313233
+     C                     SELEC
+     C           S@EDIT    WHEQ 'ADD'
+     C                     MOVE *ON       *IN31
+     C           S@EDIT    WHEQ 'UPD'
+     C                     MOVE *ON       *IN32
+     C                     MOVE 'CHG'     S@EDIT
+     C                     OTHER
+     C                     MOVE *ON       *IN33
+     C                     ENDSL
+      *
+     C                     MOVELB7TOKU    S@CUST
+     C                     MOVELB7NONY    S@NONY
+     C                     MOVELB7NKJO    S@NKOJ
+     C                     MOVELB7NUKE    S@NUKE
+     C                     MOVEL@MHIN     S@MHIN
+     C                     MOVEL@SHIN     S@IPAR
+      *
+     C                     ADD  1         RRN1
+JW1   * CHECK MAX RECORD
+ .   C           RRN1      IFGE 9995
+ .   C                     LEAVE
+JW1  C                     ENDIF
+      *
+     C                     WRITESFL01
+     C                     MOVELB7KODT    SVKODT
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+     C*===============================================================
+     C* OUTPUT FAAWP04 (WORK)
+     C*===============================================================
+     C           #OUT      BEGSR
+      *
+     C                     OPEN FAAWP04
+     C                     Z-ADD0         SEQ#
+      * BY DATE ------------------------
+     C           @FROM     SETLLFAAPL14
+      *
+     C                     DO   *HIVAL
+     C                     READ FAAPL14                  98
+     C   98                LEAVE
+      * END
+     C           B7KODT    IFGT @TO
+     C                     LEAVE
+     C                     ENDIF
+      * SELECT PART
+     C           XMHN1     IFNE *BLANK
+     C           B7MHN1    IFNE XMHN1
+     C           B7MHN2    ORNE XMHN2
+     C           B7MHN3    ORNE XMHN3
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     WRITEFAAWP041
+      *
+     C                     ENDDO
+      *---------------------------------
+     C                     CLOSEFAAWP04
+      *
+     C                     ENDSR
+     C*===============================================================
+     C* PRINT
+     C*===============================================================
+     C           #PRINT    BEGSR
+      *
+     C                     OPEN FAAWP04
+     C                     MOVE 'Y'       FIRST
+     C                     MOVE *ZERO     SVKODT
+      *
+     C                     DO   *HIVAL
+     C                     READ FAAWP04                  97
+     C   97                LEAVE
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELB7KODT    SVKODT
+     C                     ENDIF
+      * BREAK?
+     C           B7KODT    IFNE SVKODT
+     C                     EXCPT#LINE
+     C                     MOVELB7KODT    SVKODT
+     C                     ENDIF
+      *
+     C                     EXSR #PRT1
+     C                     ENDDO
+      *---------------------------------
+     C                     CLOSEFAAWP04
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT PRINTER                                     *
+      *----------------------------------------------------*
+     C           #PRT1     BEGSR
+      * ADJ
+     C                     MOVELB7TYPE    @TYPE
+     C           @TYPE     IFEQ 'UPD'
+     C                     MOVEL'CHG'     @TYPE
+     C                     ENDIF
+      * USER PART
+     C           B7MHN2    IFEQ *BLANK
+     C                     MOVE ' '       @MH1
+     C                     ELSE
+     C                     MOVE '-'       @MH1
+     C                     ENDIF
+     C           B7MHN3    IFEQ *BLANK
+     C                     MOVE ' '       @MH2
+     C                     ELSE
+     C                     MOVE '-'       @MH2
+     C                     ENDIF
+      * IAF PART
+     C           B7SHN2    IFEQ *BLANK
+     C                     MOVE ' '       @SH1
+     C                     ELSE
+     C                     MOVE '-'       @SH1
+     C                     ENDIF
+     C           B7SHN3    IFEQ *BLANK
+     C                     MOVE ' '       @SH2
+     C                     ELSE
+     C                     MOVE '-'       @SH2
+     C                     ENDIF
+      * CUST NAME
+     C           B7TOKU    CHAINFGBPL01              99
+     C           *IN99     IFEQ *OFF
+     C                     MOVELB2SMEI    @TOKUN
+     C                     ELSE
+     C                     MOVE *BLANK    @TOKUN
+     C                     ENDIF
+      * DELIVERY NAME
+     C           B7NONY    CHAINFGBPL01              99
+     C           *IN99     IFEQ *OFF
+     C                     MOVELB2SMEI    @NONYN
+     C                     ELSE
+     C                     MOVE *BLANK    @NONYN
+     C                     ENDIF
+      * USER NAME
+     C           B7KOUS    CHAINRGAPL11              99
+     C           *IN99     IFEQ *OFF
+     C                     MOVELJ8NAME    @USNM
+     C                     ELSE
+     C                     MOVE *BLANK    @USNM
+     C                     ENDIF
+      *
+     C                     MOVELB7KOUS    @USR
+     C                     MOVELB7KOTM    @KOTM
+      * PRINT HEADER
+     C           LIN#      IFGE 63
+     C                     EXCPT#HDR
+     C                     Z-ADD4         LIN#
+     C                     ENDIF
+      * PRINT DETAIL
+     C**                   ADD  1         SEQ#
+     C                     EXCPT#DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+     C*===============================================================
+     C* CSV
+     C*===============================================================
+     C           #CSV      BEGSR
+      *
+     C                     OPEN FAAWP04
+     C                     MOVE 'Y'       FIRST
+     C                     MOVE *ZERO     SVKODT
+      *
+     C                     DO   *HIVAL
+     C                     READ FAAWP04                  97
+     C   97                LEAVE
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELB7KODT    SVKODT
+     C                     EXSR #CSV@H
+     C                     ENDIF
+      * BREAK?
+     C           B7KODT    IFNE SVKODT
+     C                     MOVELB7KODT    SVKODT
+     C                     ENDIF
+      *
+     C                     EXSR #CSV@D
+      *
+     C                     ENDDO
+      *---------------------------------
+     C                     CLOSEFAAWP04
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  DOWNLOAD CSV HEADER                               *
+      *----------------------------------------------------*
+     C           #CSV@H    BEGSR
+      * SET HEADER
+     C                     CLEARFAAWP051
+     C                     MOVEL'EDIT'    WKTYPE
+     C                     MOVEL'CUSTOMER'WKTOKU
+     C                     MOVEL'NAME'    WKTONM
+     C                     MOVEL'DELIVERY'WKNONY
+     C                     MOVEL'NAME'    WKNONM
+     C                     MOVEL'FACTORY' WKNKJO
+     C                     MOVEL'DOCK'    WKNUKE
+     C                     MOVEL'USR PART'WKMHIN
+     C                     MOVEL'IAF PART'WKSHIN
+     C                     MOVEL'UPD_DATE'WKKODT
+     C                     MOVEL'UPD_TIME'WKKOTM
+     C                     MOVEL'UPD_USER'WKUSR
+     C                     MOVEL'USR_NAME'WKUSNM
+     C                     WRITEFAAWP051
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  DOWNLOAD CSV DETAIL                               *
+      *----------------------------------------------------*
+     C           #CSV@D    BEGSR
+     C                     CLEARFAAWP051
+      * ADJ
+     C                     MOVELB7TYPE    WKTYPE
+     C           @TYPE     IFEQ 'UPD'
+     C                     MOVEL'CHG'     WKTYPE
+     C                     ENDIF
+      * USER PART
+     C           B7MHN2    IFEQ *BLANK
+     C                     MOVE ' '       @MH1
+     C                     ELSE
+     C                     MOVE '-'       @MH1
+     C                     ENDIF
+     C           B7MHN3    IFEQ *BLANK
+     C                     MOVE ' '       @MH2
+     C                     ELSE
+     C                     MOVE '-'       @MH2
+     C                     ENDIF
+     C                     MOVEL@MHIN     WKMHIN
+      * IAF PART
+     C           B7SHN2    IFEQ *BLANK
+     C                     MOVE ' '       @SH1
+     C                     ELSE
+     C                     MOVE '-'       @SH1
+     C                     ENDIF
+     C           B7SHN3    IFEQ *BLANK
+     C                     MOVE ' '       @SH2
+     C                     ELSE
+     C                     MOVE '-'       @SH2
+     C                     ENDIF
+     C                     MOVEL@SHIN     WKSHIN
+      * CUST NAME
+     C                     MOVELB7TOKU    WKTOKU
+     C           B7TOKU    CHAINFGBPL01              99
+     C           *IN99     IFEQ *OFF
+     C                     MOVELB2SMEI    WKTONM
+     C                     ENDIF
+      * DELIVERY NAME
+     C                     MOVELB7NONY    WKNONY
+     C           B7NONY    CHAINFGBPL01              99
+     C           *IN99     IFEQ *OFF
+     C                     MOVELB2SMEI    WKNONM
+     C                     ENDIF
+      *
+     C                     MOVELB7NKJO    WKNKJO
+     C                     MOVELB7NUKE    WKNUKE
+     C                     MOVELB7KODT    WKKODT
+     C                     MOVELB7KOTM    WKKOTM
+      * USER NAME
+     C                     MOVELB7KOUS    WKUSR
+     C           B7KOUS    CHAINRGAPL11              99
+     C           *IN99     IFEQ *OFF
+     C                     MOVELJ8NAME    WKUSNM
+     C                     ENDIF
+      *
+     C                     WRITEFAAWP051
+      *
+     C                     ENDSR
+     C*===============================================================
+     C*   << INIT >>
+     C*===============================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $RTN    1
+      *
+     C           K#PL06    KLIST
+     C                     KFLD           KMHN1   5
+     C                     KFLD           KMHN2   5
+     C                     KFLD           KMHN3   5
+     C                     KFLD           KMHN4   5
+      *
+     C                     MOVE *BLANK    $RTN
+     C                     TIME           @SDATE
+     C                     Z-ADD0         @FROM   80
+     C                     Z-ADD0         @TO     80
+     C                     Z-ADD88        LIN#    30
+     C                     Z-ADD0         SEQ#    40
+     C                     MOVE '01'      @@ID    2
+      *
+     C                     MOVELTODAY     XFROM
+     C                     MOVELTODAY     XTO
+      *
+     C                     MOVE *BLANK    @TOKUN 15
+     C                     MOVE *BLANK    @NONYN 15
+     C                     MOVE *BLANK    @USNM  15
+     C                     MOVE *BLANK    @USR    6
+     C                     MOVE *BLANK    @KOTM   40
+     C                     MOVE *ZERO     SVKODT  80
+     C                     MOVE *BLANK    @TYPE   3
+     C                     MOVE 'Y'       FIRST   1
+      *
+     C                     ENDSR
+      *===============================================================
+     OQPRINT  E   01           #HDR
+     O                         #PGM      12
+     O                         #USER     22
+     O                                   50 '** COMMON PART MASTE'
+     O                                   70 'R MAINTENANCE LOG **'
+     O                                  109 'DATE'
+     O                         TODAY    103 '    .  .  '
+     O                         NOW      113 '  :  :  '
+     O                         PAGE  Z  120
+     O                                  117 'P.'
+     O        E   03           #HDR
+     O                                    7 'FROM:'
+     O                         @FROM     18 '    /  /  '
+     O                                   24 'TO:'
+     O                         @TO       35 '    /  /  '
+     O        E 1              #HDR
+     O                                   10 'UPD DATE'
+     O                                   16 'TIME'
+     O                                   22 'USER'
+     O                                   29 'NAME'
+     O                                   46 'EDIT'
+     O                                   55 'CUSTOMER'
+     O                                   76 'DELIVERY'
+     O                                   90 'FC'
+     O                                   95 'DOCK'
+     O                                  105 'USER PART'
+     O                                  122 'IAF PART'
+     O        E 1              #HDR
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+     O                                  130 '----------'
+     O        E 1              #DTL
+     O                         B7KODT  +001 '    /  /  '
+     O                         @KOTM   +001 '0 :  '
+     O                         @USR    +001
+     O                         @USNM   +001
+     O                         @TYPE   +003
+     O                         B7TOKU  +001
+     O                         @TOKUN  +001
+     O                         B7NONY  +001
+     O                         @NONYN  +001
+     O                         B7NKJO  +001
+     O                         B7NUKE  +001
+     O                         @MHIN   +001
+     O                         @SHIN   +001
+     O        E 1              #LINE
+     O                                    2 '* '
+** MSG   +.........+.........+.........+.........+.........+
+ENTER DATE "FROM" !                                          01
+ENTER DATE "TO" !                                            02
+DATE "FROM" IS NOT IN CALENDAR MASTER !                      03
+DATE "TO" IS NOT IN CALENDAR MASTER !                        04
+PRESS F7 OR F9 TO PRINT...                                   05
+THERE IS NO TARGET DATA!                                     06
+PART IS NOT IN COMMON PART MASTER !                          07
+* ERROR * IT WILL BE OVER 10 PAGES. PLEASE USE F9 !          08
+DATE "FROM" IS GREATER THAN "TO" !                           09
+* ERROR * IT WILL BE OVER MAX RECORDS (10,000) !             10

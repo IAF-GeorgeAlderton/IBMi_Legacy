@@ -1,0 +1,183 @@
+     H            Y.                                    1
+     H***INVR10*****************************************************************
+     H* INVENTORY ENTRY                                                        *
+     H*        09/30/03
+     H*
+     H**************************************************************************
+     FINVPW20 CF  E                    WORKSTN
+     FFCEPL01 IF  E           K        DISK
+     FINVPP10 IF  E           K        DISK
+     FINVPL10 IF  E           K        DISK
+     F            INVPP101                          KRENAMEINVLR
+     FINVPP20 O   E                    DISK                           UC
+      **************************************************************************
+     E                    CMD     1   1 20
+     E                    ERR     1   2 68
+      **************************************************************************
+     I            DS
+     I                                        1  12 PART
+     I                                        1   5 K@PRT1
+     I                                        6  10 K@PRT2
+     I                                       11  12 K@PRT3
+     I            DS
+     I                                        1   80A2DATE
+     I                                        1   40A2SYYY
+     I                                        5   60A2SYMM
+     I                                        7   80A2SYDD
+     I            DS
+     I                                        1   6 LOC
+     I                                        1   1 A2STRK
+     I                                        2   3 A2STRT
+     I                                        4   5 A2STRR
+     I                                        6   6 A2STRD
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     C**************************************************************************
+     C*                    MAIN ROUTINE
+     C**************************************************************************
+     C           @@ID      DOWNE'99'
+     C           @@ID      CASEQ'01'      #SCRN1           APICS
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+     C**************************************************************************
+     C*         INITIALIZE
+     C**************************************************************************
+     C           *INZSR    BEGSR
+      *
+     C           K#INV     KLIST
+     C                     KFLD           K@PRT1  5
+     C                     KFLD           K@PRT2  5
+     C                     KFLD           K@PRT3  2
+     C                     KFLD           K@DATE  80
+      *
+     C           K#FCE     KLIST
+     C                     KFLD           K@PRT1  5
+     C                     KFLD           K@PRT2  5
+     C                     KFLD           K@PRT3  2
+     C           P#CMD     PLIST
+     C                     PARM           P@CMD 256
+     C                     PARM           P@LEN  155
+     C                     MOVE '01'      @@ID    2
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C           #SCRN1    BEGSR
+      *
+     C                     EXFMTDSP01
+      *
+     C                     SELEC
+     C           *INKA     WHEQ *ON
+     C                     MOVE '99'      @@ID
+     C                     OTHER
+     C                     EXSR #CHK1
+     C           *IN99     IFEQ *OFF
+     C           *INKE     ANDEQ*ON
+     C                     EXSR #WRT
+     C                     MOVE '99'      @@ID
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*     CHECK
+     C**************************************************************************
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE *OFF      *IN99                        F5
+     C                     MOVEA'00'      *IN,61                       F5
+     C                     MOVE *BLANK    D@ERR
+      *
+     C           D@TO      IFEQ *ZERO
+     C                     Z-ADDD@FROM    D@TO
+     C                     ENDIF
+      *
+     C           D@FROM    IFEQ *ZERO
+     C                     SETON                     9961
+     C                     MOVE ERR,1     D@ERR
+     C                     ENDIF
+      *
+     C           D@TO      IFLT D@FROM
+     C  N99                MOVE ERR,1     D@ERR
+     C                     SETON                     996162
+     C                     ENDIF
+      *
+     C           D@FROM    SETLLINVPP10
+     C           *IN90     DOUEQ*ON
+     C                     READ INVPP10                  90
+     C           *IN90     IFEQ *OFF
+     C           IVSKJY    ANDEQ*BLANK
+     C           IVDATE    IFLE D@TO
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           *IN90     IFEQ *ON
+     C  N99                MOVE ERR,2     D@ERR
+     C                     SETON                     9961
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*     WRITE DATA
+     C**************************************************************************
+     C           #WRT      BEGSR
+      *
+     C                     MOVELCMD,1     P@CMD
+     C                     Z-ADD20        P@LEN
+     C                     CALL 'QCMDEXC' P#CMD
+     C                     OPEN INVPP20
+      *
+     C                     Z-ADDD@FROM    K@DATE
+      *
+     C           *LOVAL    SETLLINVPL10
+     C           *IN80     DOUEQ*ON
+     C                     READ INVPL10                  80
+     C           *IN80     IFEQ *OFF
+     C           IVSKJY    ANDEQ*BLANK
+     C                     MOVE IVSHN1    K@PRT1
+     C                     MOVE IVSHN2    K@PRT2
+     C                     MOVE IVSHN3    K@PRT3
+     C                     Z-ADD*ZERO     @@KAN   50
+     C           K#INV     SETLLINVPL10
+     C           *IN81     DOUEQ*ON
+     C           K#FCE     READEINVPL10                  81
+     C           *IN81     IFEQ *OFF
+     C           IVSKJY    ANDEQ*BLANK
+     C           IVDATE    IFGT D@TO
+     C                     LEAVE
+     C                     ENDIF
+     C                     ADD  IVKANS    @@KAN
+     C                     ENDIF
+     C                     ENDDO
+     C           @@KAN     IFGT *ZERO
+     C           K#FCE     CHAINFCEPL01              90
+     C           *IN90     IFEQ *OFF
+     C           A2DATE    IFLE *DATE
+     C                     Z-ADDA2SSYS    @@SYS
+     C                     ELSE
+     C                     Z-ADDA2KSYS    @@SYS   50
+     C                     ENDIF
+      *
+     C           @@KAN     MULT @@SYS     I2QTY
+     C                     MOVE PART      I2PART
+     C                     MOVE LOC       I2LOC
+     C                     WRITEINVPP201
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           K#FCE     SETGTINVPL10
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+**
+CLRPFM INVPP20
+** ERR
+ DATE ERROR
+ NO DATA OF THE DATE.

@@ -1,0 +1,171 @@
+     H            Y.
+     F***ANZR08*****************************************************************
+     F*  PROGRAM    : PRINT ORDER VS SAFETY STOCK CHECK LIST                   *
+     F*             :                                                          *
+     F*  WRITTEN    : 2019.01.09                                               *
+     F*  WRITTEN BY : JW (SRA)                                                 *
+     F**************************************************************************
+     FANZWP07 IF  E           K        DISK
+     FFGBPL01 IF  E           K        DISK
+     FQPRINT  O   F     198     OF     PRINTER
+      *---------------------------------------------------
+     E                    NY       1000  4 0
+     I            DS
+     I                                        1  140@DATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1  14 Z7SHN
+     I                                        1   5 Z7SHN1
+     I                                        6   6 PH1
+     I                                        7  11 Z7SHN2
+     I                                       12  12 PH2
+     I                                       13  14 Z7SHN3
+     I            DS
+     I                                        1   5 Z7LOC
+     I                                        1   2 Z7LOC2
+     I                                        3   3 PH3
+     I                                        4   5 Z7LOC3
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      ***********************************************************
+     C                     EXSR #INIT
+      *
+     C                     DO   *HIVAL
+     C                     READ ANZWP07                  98
+     C   98                LEAVE
+      *
+     C                     MOVE *BLANK    PH1
+     C                     MOVE *BLANK    PH2
+     C           Z7SHN2    IFNE *BLANK
+     C                     MOVE '-'       PH1
+     C                     ENDIF
+     C           Z7SHN3    IFNE *BLANK
+     C                     MOVE '-'       PH2
+     C                     ENDIF
+      * GET CUST NAME
+     C                     MOVELZ7NONY    NUM40   40
+     C           NUM40     CHAINFGBPL01              99
+     C           *IN99     IFEQ *OFF
+     C                     MOVELB2SMEI    @NAME  15
+     C                     ELSE
+     C                     MOVE *BLANK    @NAME
+     C                     ENDIF
+      * COMP DIFFERENT
+     C           Z7TINV    SUB  Z7TBOX    @DIF    30
+      * PRINT BLANK
+     C           SVNOHZ    IFNE 0
+     C           SVNOHZ    ANDNEZ7NOHZ
+     C                     EXCPT@BRK
+     C                     ADD  1         LIN#
+     C                     ENDIF
+      *
+     C                     EXSR #PRINT
+     C                     Z-ADDZ7NOHZ    SVNOHZ
+      *
+     C                     ENDDO
+      *
+     C           PCNT      IFEQ 0
+     C                     EXCPT@FOTX
+     C                     ELSE
+     C                     EXCPT@FOT1
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      *
+     C           LIN#      IFGE 60
+     C                     EXCPT@HDR
+     C                     Z-ADD4         LIN#
+     C                     ENDIF
+      *
+     C                     ADD  1         PCNT
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C                     TIME           @DATE
+     C                     Z-ADD88        LIN#    30
+     C                     Z-ADD0         PCNT    40
+     C                     MOVE ' '       PH1
+     C                     MOVE ' '       PH2
+     C                     MOVE '-'       PH3
+     C                     Z-ADD0         SVNOHZ  80
+      *
+     C                     EXCPT@HDR
+     C                     Z-ADD4         LIN#    30
+      *
+     C                     ENDSR
+      ************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   50 '** ORDER VS SAFETY S'
+     O                                   70 'TOCK CHECK LIST **  '
+     O                         TODAY    112 '    .  .  '
+     O                         NOW      122 '  :  :  '
+     O                                  126 'P.'
+     O                         PAGE  Z  130
+      *
+     O        E   03           @HDR
+     O                                   65 'SAFETY'
+     O                                   74 'A'
+     O                                   82 'B'
+     O                                   90 'A-B'
+      *
+     O        E   04           @HDR
+     O                                    5 'SEQ#'
+     O                                   16 'SHIP_DATE'
+     O                                   27 'IAF PART'
+     O                                   37 'LOC'
+     O                                   47 'Q/C'
+     O                                   57 'BOX/DAY'
+     O                                   65 ' STOCK'
+     O                                   75 'TOTAL(*)'
+     O                                   82 'ORDER'
+     O                                   90 'DIFF'
+     O                                   98 'DELV#'
+     O                                  104 'NAME'
+     O                                  122 'PERSON'
+      *
+     O        E 1              @DTL
+     O                         PCNT  Z +001
+     O                         Z7NOHZ  +002 '    /  /  '
+     O                         Z7SHN   +002
+     O                         Z7LOC   +001
+     O                         Z7SYOS1 +001
+     O                         Z7DBOX1 +003
+     O                         Z7SINV1 +003
+     O                         Z7TINV1 +004
+     O                         Z7TBOX1 +003
+     O                                 +002 '('
+     O                         @DIF  J +001
+     O                                 +001 ')'
+     O                         Z7NONY  +002
+     O                         @NAME   +002
+     O                         Z7PRSN  +001
+      *
+     O        E 1              @BRK
+     O                                    1 '.'
+      *
+     O        E 1              @FOT1
+     O                                   20 '** END OF REPORT ** '
+      *
+     O        E 1              @FOT1
+     O                                   20 '** TOTAL = (BOX/DAY '
+     O                                   40 'X 1.25) + SAFETY STO'
+     O                                   60 'CK                  '
+      *
+     O        E 1              @FOTX
+     O                                   20 '** THERE IS NO DATA '
+     O                                   40 'TO PRINT OUT...     '

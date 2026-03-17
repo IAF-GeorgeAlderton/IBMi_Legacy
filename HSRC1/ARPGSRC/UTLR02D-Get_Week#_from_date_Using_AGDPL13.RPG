@@ -1,0 +1,99 @@
+     H            Y.
+     F** UTLR02D**************************************************
+     F*  PROGRAM: UTILITY - GET WEEK# FROM DATE (USING AGDPL13)  *
+     F*  WRITTEN: JW (SRA)  2025.11.14                           *
+     F*----------------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UTLR02D'
+     F*                    PARM           $DATE   8
+     F*                    PARM           $DAY    1
+     F*                    PARM           $WEEK#  1
+     F*                    PARM           $RTN    1
+     F*   IN  $DATE :  8A DATE (YYYYMMDD)
+     F*   OUT $DAY  :  1A DAY OF THE WEEK ('1'=MONDAY ... '7'=SUNDAY)
+     F*       $WEEK#:  1A WEEK#
+     F*       $RTN  :  1A RETURN FLAG (BLANK=OK, 1=ERROR)
+     F******************************************************
+     FAGDPL13 IF  E           K        DISK
+      *--------------------------------------------------------
+     E                    DAT        10  1
+     IW@DATE      DS
+     I                                        1   40W@YY
+     I                                        5   60W@MM
+     I                                        7   80W@DD
+      *--------------------------------------------------------
+      *                    MAIN PROCESS
+      *--------------------------------------------------------
+      *
+     C                     EXSR @INIT
+      *
+     C                     MOVELW@DD      K@KADD
+     C           KEY       CHAINAGDPL13              99
+     C           *IN99     IFEQ *ON
+     C                     MOVE '1'       $RTN
+     C                     GOTO @END
+     C                     ENDIF
+      * COUNT WEEK#
+     C                     Z-ADDF8YOBI    SVYOBI  10
+     C                     Z-ADD1         K@KADD
+     C           KEY       SETLLAGDPL13
+     C                     MOVE *OFF      *IN98
+     C           *IN98     DOWEQ*OFF
+     C           KEY2      READEAGDPL13                  98
+     C           *IN98     IFEQ *OFF
+     C           F8YOBI    IFEQ SVYOBI
+     C                     ADD  1         WEEK#
+     C                     ENDIF
+     C           F8KAYY    IFEQ W@YY
+     C           F8KAMM    ANDEQW@MM
+     C           F8KADD    ANDEQW@DD
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      *
+      * SET PARAMETER
+     C                     MOVELSVYOBI    $DAY
+     C                     MOVELWEEK#     $WEEK#
+      * COUNT HOW MANY TIMES
+     C           @END      TAG
+     C                     SETON                     LR
+     C                     RETRN
+      *=============================================================
+      *                    INITIAL PROCESS
+      *=============================================================
+     C           @INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $DATE   8
+     C                     PARM           $DAY    1
+     C                     PARM           $WEEK#  1
+     C                     PARM           $RTN    1
+      *
+     C           KEY       KLIST
+     C                     KFLD           K@KAYY  40
+     C                     KFLD           K@KAMM  20
+     C                     KFLD           K@KADD  20
+      *
+     C           KEY2      KLIST
+     C                     KFLD           K@KAYY
+     C                     KFLD           K@KAMM
+      *
+     C                     MOVEL'0'       $DAY
+     C                     MOVEL'0'       $WEEK#
+     C                     MOVEL' '       $RTN
+     C                     Z-ADD0         WEEK#   10
+      *
+      * SET SPECIAL MONTH FLAG (SET ON IF 1ST DAY IS SATURDAY)
+     C                     MOVEL$DATE     W@DATE
+     C                     MOVE ' '       SPFLG   1
+     C                     MOVELW@YY      K@KAYY
+     C                     MOVELW@MM      K@KAMM
+     C                     Z-ADD1         K@KADD
+     C           KEY       CHAINAGDPL13              99
+     C           *IN99     IFEQ *OFF
+     C           F8YOBI    ANDEQ6
+     C                     MOVE *ON       SPFLG
+     C                     ENDIF
+      *
+     C                     ENDSR

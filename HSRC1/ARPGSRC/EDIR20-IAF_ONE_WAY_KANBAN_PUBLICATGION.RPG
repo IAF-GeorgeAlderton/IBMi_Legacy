@@ -1,0 +1,550 @@
+     H            Y,
+      *** EDIR20 *******************************************
+      *  IAF ONE WAY KANBAN PUBLICATGION                   *
+      *  PROGRAM-ID : EDIR20                               *
+      *  K.OKACHI : SEP/21/1997                            *
+      *             OCT/10/1997 ADD ORDER # %0002          *
+      *             OCT/13/1997 PRINT PARTIAL %0003        *
+      *  K.YASUDA   JUL/23/1999 AB#PL10->AB#PL13           *
+      *  N.HYOTO    FEB/08/2001 USE USER QTY.,IF MASTER =0 *
+      ************************************* EDIR20 *********
+     FEDIPW20 CF  E                    WORKSTN
+     FAB#PL13 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+     FFCCPL11 IF  E           K        DISK
+     FEDIWP10 O   E                    DISK
+     E                    ER      1  14 60               ERROR MESSAGE
+%0001E*                   TB1     1   2  5               SUPPLIER CD
+     E                    TB2     1   4  2   COLO   10   COLOR BIN
+      *----------*
+      * SUPPLIER *
+      *----------*
+     I            DS
+     I                                        1   5 SP
+     I                                        1   4 SUPL
+     I                                        5   5 SUPK
+      *--------------*
+      * INVOICE DATE *
+      *--------------*
+     I            DS
+     I                                        1   80SYHZ
+     I                                        1   20SYMM
+     I                                        3   40SYDD
+     I                                        5   80SYYY
+      *---------------*
+      * USER PARTS NO *
+      *---------------*
+     I            DS
+     I                                        1  20 MHN
+     I                                        1  10 WMHN
+     I                                        1   5 BAMHN1
+     I                                        6  10 BAMHN2
+     I                                       11  15 BAMHN3
+     I                                       16  20 BAMHN4
+      *-------------------------*
+      * INTRAL COMPANY PARTS NO *
+      *-------------------------*
+     I            DS
+     I                                        1  12 WSHN
+     I                                        1   5 BASHN1
+     I                                        6  10 BASHN2
+     I                                       11  12 BASHN3
+      *-------------*
+      * DELETE DATE *
+      *-------------*
+     I            DS
+     I                                        1   80A2GSHZ
+     I                                        1   40A2GSYY
+     I                                        5   60A2GSMM
+     I                                        7   80A2GSDD
+      *-----------*
+      * ORDER NO. *
+      *-----------*
+     I            DS
+     I                                        1  10 BAODRN
+     I                                        1   1 ODYY
+     I                                        2   3 ODMM
+     I                                        4   5 ODDD
+     I                                        6   7 ODBIN
+     I                                        8  10 ODBLK
+     I            DS
+     I                                        1   6 SYOS
+     I                                        1   1 SYOS1
+     I                                        2   2 SYOS2
+     I                                        3   3 SYOS3
+     I                                        4   4 SYOS4
+     I                                        5   5 SYOS5
+     I                                        6   6 SYOS6
+%0003I            DS
+%0003I                                        1   6 EFSYOS
+%0003I                                        1   1 EFSYS1
+%0003I                                        2   2 EFSYS2
+%0003I                                        3   3 EFSYS3
+%0003I                                        4   4 EFSYS4
+%0003I                                        5   5 EFSYS5
+%0003I                                        6   6 EFSYS6
+     I            DS
+     I                                        1  20 UHIN
+     I                                        1   5 UHIN1
+     I                                        6  10 UHIN2
+     I                                       11  15 UHIN3
+     I                                       16  20 UHIN4
+      *------*
+      * KEYS *
+      *------*
+      *<< FOR EDI FIXED ORDER DATA >>
+     C           KEY1      KLIST
+     C                     KFLD           NONY    40
+     C                     KFLD           SYYY
+     C                     KFLD           SYMM
+     C                     KFLD           SYDD
+     C                     KFLD           UKER
+     C                     KFLD           UHIN1
+     C                     KFLD           UHIN2
+     C                     KFLD           UHIN3
+     C                     KFLD           UHIN4
+     C                     KFLD           ODER
+      *<< FOR USER KANBAN M/F >>
+     C           KEY2      KLIST
+     C                     KFLD           MM
+     C                     KFLD           BANONY
+     C                     KFLD           BANKOJ
+     C                     KFLD           BANUKE
+     C                     KFLD           BASBAN
+     C                     KFLD           BAMHN1
+     C                     KFLD           BAMHN2
+     C                     KFLD           BAMHN3
+     C                     KFLD           BAMHN4
+      *<< FOR PARTS INFORMATION M/F >>
+     C           KEY3      KLIST
+     C                     KFLD           BASHN1
+     C                     KFLD           BASHN2
+     C                     KFLD           BASHN3
+      **********************************************
+      *--------------------------------------------*
+      *<<<<<       EDIR20 EXECUSION           >>>>>*
+      *--------------------------------------------*
+      **********************************************
+     C           STP0      TAG
+     C                     MOVE *BLANK    SUPL
+     C                     MOVE *BLANK    SUPK
+     C                     Z-ADD0         SYHZ
+     C                     Z-ADD1         MAIS
+      **********************
+      *  DISPLAY 1 SCREEN  *
+      **********************
+     C           STP1      TAG
+     C                     EXFMTEDIPW201
+     C                     SETOF                     010203
+     C                     SETOF                     040506
+     C                     SETOF                     0799
+      *
+     C           *INKA     IFEQ '1'
+     C                     SETON                     U1LR
+     C                     RETRN
+     C                     ENDIF
+      *---------------------*
+      *  CHECK OF SUPPLIER  *
+      *---------------------*
+     C           SUPL      IFEQ *BLANK
+     C                     SETON                     0199
+     C                     MOVE ER,1      MSG
+     C                     GOTO STP1
+     C                     ENDIF
+      *
+     C           SUPK      IFEQ *BLANK
+     C                     SETON                     0299
+     C                     MOVE ER,2      MSG
+     C                     GOTO STP1
+     C                     ENDIF
+      *
+%0001C*                    SETOF                     10
+%0001C*          SP        LOKUPTB1                      10
+%0001C*          *IN10     IFEQ '0'
+%0001C*                    SETON                     0199
+%0001C*                    MOVE ER,3      MSG
+%0001C*                    GOTO STP1
+%0001C*                    ENDIF
+      *
+     C                     MOVELSUPL      NONY    40
+      *-----------------*
+      *  CHECK OF DATE  *
+      *-----------------*
+     C           SYHZ      IFEQ 0
+     C                     SETON                     0399
+     C                     MOVE ER,4      MSG
+     C                     GOTO STP1
+     C                     ENDIF
+     C           SYMM      IFEQ 0
+     C                     SETON                     0399
+     C                     MOVE ER,5      MSG
+     C                     GOTO STP1
+     C                     ENDIF
+     C           SYMM      IFGT 12
+     C                     SETON                     0399
+     C                     MOVE ER,8      MSG
+     C                     GOTO STP1
+     C                     ENDIF
+     C           SYDD      IFEQ 0
+     C                     SETON                     0399
+     C                     MOVE ER,6      MSG
+     C                     GOTO STP1
+     C                     ENDIF
+     C           SYDD      IFGT 31
+     C                     SETON                     0399
+     C                     MOVE ER,9      MSG
+     C                     GOTO STP1
+     C                     ENDIF
+     C           SYYY      IFEQ 0
+     C                     SETON                     0399
+     C                     MOVE ER,7      MSG
+     C                     GOTO STP1
+     C                     ENDIF
+      *-------------------------------------*
+      *  CHECK OF PUBLICATION NO OF SHEETS  *
+      *-------------------------------------*
+     C           MAIS      IFEQ 0
+     C                     SETON                     0499
+     C                     MOVE ER,10     MSG
+     C                     GOTO STP1
+     C                     ENDIF
+      *-------------------------------------*
+      *  CHECK OF ORDER NO.  *
+      *-------------------------------------*
+     C           ODER      IFEQ *BLANK
+     C                     SETON                     0599
+     C                     MOVE ER,12     MSG
+     C                     GOTO STP1
+     C                     ENDIF
+      *-------------------------------------*
+      *  CHECK OF USER PART NO. *
+      *-------------------------------------*
+     C           UHIN      IFEQ *BLANK
+     C                     SETON                     0699
+     C                     MOVE ER,13     MSG
+     C                     GOTO STP1
+     C                     ENDIF
+      *-------------------------------------*
+      *  CHECK OF DOCK NO.  *
+      *-------------------------------------*
+     C           UKER      IFEQ *BLANK
+     C                     SETON                     0799
+     C                     MOVE ER,14     MSG
+     C                     GOTO STP1
+     C                     ENDIF
+      *--------------------*
+      *  FILE READ CHECK   *
+      *--------------------*
+     C                     SETOF                     20
+     C                     MOVE *BLANK    NORED   1
+     C           KEY1      SETLLAB#PL131                 20
+     C                     DO   *HIVAL
+     C           KEY1      READEAB#PL13                  20
+     C           *IN20     IFEQ '1'
+     C                     GOTO JUMP
+     C                     ENDIF
+     C*
+     C           *IN20     IFEQ '0'
+     C           BASKJY    IFEQ 'D'
+     C**JW       BASKHZ    ANDLE*DATE
+     C                     GOTO JUMP
+     C                     ENDIF
+     C                     ENDIF
+     C*
+     C                     SETON                     20
+     C                     MOVE '*'       NORED
+     C           JUMP      TAG
+     C  N20                ENDDO
+      *
+     C           NORED     IFEQ *BLANK
+     C                     SETON                     0199
+     C                     MOVE ER,11     MSG
+     C                     GOTO STP1
+     C                     ENDIF
+      *
+     C           *INKE     IFEQ '0'
+     C                     GOTO STP1
+     C                     ENDIF
+      *-----------*
+      *  OUTPUT   *
+      *-----------*
+     C                     SETOF                     20
+     C           KEY1      SETLLAB#PL131                 20
+     C                     DO   *HIVAL
+     C           KEY1      READEAB#PL13                  20
+     C           *IN20     IFEQ '1'
+     C                     GOTO ESC
+     C                     ENDIF
+     C*
+     C           *IN20     IFEQ '0'
+     C           BASKJY    IFEQ 'D'
+     C**JW       BASKHZ    ANDLE*DATE
+     C                     GOTO ESC
+     C                     ENDIF
+     C                     ENDIF
+     C*
+     C*
+      *
+      **<< BACK SIDE >>**
+     C                     MOVE *BLANK    EBWREN
+     C                     MOVE *BLANK    EBUKER
+     C                     MOVE *BLANK    EBTOKC
+     C                     MOVE *BLANK    EBSBAN
+     C                     MOVE *BLANK    EBUHN1
+     C                     MOVE *BLANK    EBUHN2
+     C                     MOVE *BLANK    EBUHN3
+     C                     MOVE *BLANK    EBUHN4
+     C                     MOVE *BLANK    EBADDR
+     C                     MOVE *BLANK    EBKOJO
+     C                     MOVE *BLANK    EBTOKN
+     C                     MOVE *BLANK    EBZETI
+     C                     MOVE *BLANK    EBKOSN
+     C                     MOVE *BLANK    EBSHN1
+     C                     MOVE *BLANK    EBSHN2
+     C                     MOVE *BLANK    EBSHN3
+     C                     MOVE *BLANK    EBBOXT
+     C                     MOVE *BLANK    EBSYOS
+     C                     MOVE *BLANK    EBUSER
+     C                     MOVE *BLANK    EBHSRK
+      *
+      **<< FACE SIDE >>**
+     C*
+     C* IF QTY/CONT. OF MASTER IS ZERO,
+     C* USE USER QTY./CONTAINER.
+     C           BASYOS    IFEQ *ZERO
+     C                     MOVE BAUSYS    SYOS
+     C*
+     C                     ELSE
+     C                     MOVE BASYOS    SYOS
+     C                     END
+     C*
+     C           SYOS1     IFNE '0'
+     C                     GOTO SYEND
+     C                     ELSE
+     C                     MOVE *BLANK    SYOS1
+     C                     ENDIF
+     C           SYOS2     IFNE '0'
+     C                     GOTO SYEND
+     C                     ELSE
+     C                     MOVE *BLANK    SYOS2
+     C                     ENDIF
+     C           SYOS3     IFNE '0'
+     C                     GOTO SYEND
+     C                     ELSE
+     C                     MOVE *BLANK    SYOS3
+     C                     ENDIF
+     C           SYOS4     IFNE '0'
+     C                     GOTO SYEND
+     C                     ELSE
+     C                     MOVE *BLANK    SYOS4
+     C                     ENDIF
+     C           SYOS5     IFNE '0'
+     C                     GOTO SYEND
+     C                     ELSE
+     C                     MOVE *BLANK    SYOS5
+     C                     ENDIF
+     C           SYOS6     IFEQ '0'
+     C                     MOVE *BLANK    SYOS6
+     C                     ENDIF
+     C           SYEND     TAG
+     C                     MOVE MAIS      EFMAIS
+     C                     MOVE BASIRE    EFSUPL
+     C                     MOVE BASIRK    EFSUPK
+     C                     MOVE SYYY      EFSYYY
+     C                     MOVE SYMM      EFSYMM
+     C                     MOVE SYDD      EFSYDD
+     C                     MOVE BAMHN1    EFUHN1
+     C                     MOVE BAMHN2    EFUHN2
+     C                     MOVE BAMHN3    EFUHN3
+     C                     MOVE BAMHN4    EFUHN4
+     C                     MOVE SYOS      EFSYOS
+     C                     MOVE BANUKE    EFUKER
+     C                     MOVE BANKOJ    EFKOJO
+     C                     MOVE BASBAN    EFSBAN
+     C*          WSHN      IFEQ WMHN
+     C*                    MOVE *BLANK    EFSHN1
+     C*                    MOVE *BLANK    EFSHN2
+     C*                    MOVE *BLANK    EFSHN3
+     C*                    ELSE
+     C                     MOVE BASHN1    EFSHN1
+     C                     MOVE BASHN2    EFSHN2
+     C                     MOVE BASHN3    EFSHN3
+     C*                    ENDIF
+     C                     MOVE BATOKU    EFTOKU
+     C                     MOVE BANONY    EFNONY
+%0002C                     MOVE BAODRN    EFODRN
+     C                     MOVE *BLANK    EFCOLO
+     C           BASIRE    IFEQ '1426'
+     C                     Z-ADD1         A       10
+     C           ODBIN     LOKUPTB2,A                    77
+     C           *IN77     IFEQ '1'
+     C                     MOVE COLO,A    EFCOLO
+     C                     ENDIF
+     C                     ENDIF
+      *
+      ***************************
+      *  PARTS INFORMATION M/F  *
+      ***************************
+     C                     MOVE *BLANK    BUHERR  1
+      *
+     C                     EXSR BUHIN
+      *
+     C           BUHERR    IFEQ '*'
+     C                     MOVE A2SMEI    EFPARN
+     C                     MOVE A2ZETI    EFZETI
+     C                     ELSE
+     C                     MOVE *BLANK    EFPARN
+     C                     MOVE *BLANK    EFZETI
+     C                     ENDIF
+      *
+      *********************
+      *  USER KANBAN M/F  *
+      *********************
+     C                     EXSR KANBN
+      *
+      ******************************************************
+      *
+     C                     Z-ADD0         HMAI    30
+     C                     Z-ADD0         #AMR    60
+     C           BASYOS    IFEQ *ZERO
+     C           BASRYO    DIV  BAUSYS    HMAI
+     C                     MVR            #AMR
+     C*
+     C                     ELSE
+     C           BASRYO    DIV  BASYOS    HMAI
+     C                     MVR            #AMR
+     C                     END
+     C*
+     C           #AMR      IFNE 0
+     C                     ADD  1         HMAI
+     C                     ENDIF
+%0003C                     Z-ADDHMAI      X       30
+%0003C           1         DO   HMAI      X
+%0003C           X         IFEQ HMAI
+%0003C           #AMR      IFNE 0
+%0003C                     MOVE #AMR      EFSYOS
+%0003C           EFSYS1    IFNE '0'
+%0003C                     GOTO EFEND
+%0003C                     ELSE
+%0003C                     MOVE *BLANK    EFSYS1
+%0003C                     ENDIF
+%0003C           EFSYS2    IFNE '0'
+%0003C                     GOTO EFEND
+%0003C                     ELSE
+%0003C                     MOVE *BLANK    EFSYS2
+%0003C                     ENDIF
+%0003C           EFSYS3    IFNE '0'
+%0003C                     GOTO EFEND
+%0003C                     ELSE
+%0003C                     MOVE *BLANK    EFSYS3
+%0003C                     ENDIF
+%0003C           EFSYS4    IFNE '0'
+%0003C                     GOTO EFEND
+%0003C                     ELSE
+%0003C                     MOVE *BLANK    EFSYS4
+%0003C                     ENDIF
+%0003C           EFSYS5    IFNE '0'
+%0003C                     GOTO EFEND
+%0003C                     ELSE
+%0003C                     MOVE *BLANK    EFSYS5
+%0003C                     ENDIF
+%0003C           EFSYS6    IFEQ '0'
+%0003C                     MOVE *BLANK    EFSYS6
+%0003C                     ENDIF
+%0003C           EFEND     TAG
+%0003C                     END
+%0003C                     END
+     C                     WRITEEDIWP101
+     C                     ENDDO
+      *
+     C           ESC       TAG
+     C  N20                ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *-----------------------------------------*
+      *  PARTS INFORMATION M/F READ SUBROUTINE  *
+      *-----------------------------------------*
+     C           BUHIN     BEGSR
+     C                     SETOF                     30
+     C           KEY3      CHAINFCEPL01              30
+     C           *IN30     IFEQ '0'
+     C           A2GSKD    IFEQ 'D'
+     C           A2GSHZ    ANDLE*DATE
+     C                     SETON                     30
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           *IN30     IFEQ '0'
+     C                     MOVE '*'       BUHERR
+     C                     ELSE
+     C                     MOVE *BLANK    BUHERR
+     C                     ENDIF
+     C                     ENDSR
+      *-----------------------------------*
+      *  USER KANBAN M/F READ SUBROUTINE  *
+      *-----------------------------------*
+     C           KANBN     BEGSR
+     C                     Z-ADD*MONTH    MM      20
+      ****************
+      *  FIRST READ  *
+      ****************
+     C                     SETOF                     31
+     C           KEY2      CHAINFCCPL11              31
+     C           *IN31     IFEQ '0'
+     C           B4SKBN    IFEQ 'D'
+     C           B4SKHZ    ANDLE*DATE
+     C                     SETON                     31
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           *IN31     IFEQ '0'
+     C                     MOVE B4UTKR    EFADDR
+     C                     GOTO EXT
+     C                     ENDIF
+      *
+     C           MM        IFEQ 12
+     C                     Z-ADD1         MM
+     C                     ELSE
+     C           MM        ADD  1         MM
+     C                     ENDIF
+      *****************
+      *  SECOND READ  *
+      *****************
+     C                     SETOF                     31
+     C           KEY2      CHAINFCCPL11              31
+     C           *IN31     IFEQ '0'
+     C           B4SKBN    IFEQ 'D'
+     C           B4SKHZ    ANDLE*DATE
+     C                     SETON                     31
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           *IN31     IFEQ '0'
+     C                     MOVE B4UTKR    EFADDR
+     C                     ELSE
+     C                     MOVE *BLANK    EFADDR
+     C                     ENDIF
+      *
+     C           EXT       TAG
+     C                     ENDSR
+**  ER
+E-01 SUPPLIER CODE ISN'T IT. INPUT IT.
+E-02 SUPPLIER'S FACTORY ISN'T IT. INPUT IT.
+E-03 THIS SUPPLIER ISN'T ADMITTED.
+E-04 INVOICE DATE ISN'T IT. INPUT IT.
+E-05 INVOICE DATE (MONTH) ISN'T IT.INPUT IT.
+E-06 INVOICE DATE (DAY) ISN'T IT. INPUT IT.
+E-07 INVOICE DATE (YEAR) ISN'T IT. INPUT IT.
+E-08 THERE ISN'T MONTH JUSTLY.
+E-09 THERE ISN'T DAY JUSTLY.
+E-10 PUBLICATION NO OF SHEETS ISN'T IT. INPUT IT.
+E-11 TRERE ISN'T APPLICATION DATA.
+E-12 ORDER NO. ISN'T IT. INPUT IT.
+E-13 USER PART NO. ISN'T IT. INPUT IT.
+E-14 DOCK CODE ISN'T IT. INPUT IT.
+** COLOR BIN
+10YELLOW
+20BLUE
+30GREEN
+40WHITE

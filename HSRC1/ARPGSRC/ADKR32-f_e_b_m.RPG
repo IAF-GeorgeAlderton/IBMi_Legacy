@@ -1,0 +1,339 @@
+     H            Y.
+     F** ADKR32 **********************************
+     F*臨時かんばんオーダーファイル作成
+     F*    KATOGI.         2015.12.22            *
+     F********************************************
+     FADKWP31 IF  E           K        DISK
+     FADKWP32 UF  E           K        DISK                      A
+     FADKPP39 IF  E           K        DISK
+     FAGAPL31 IF  E           K        DISK
+     FAAIPL11 IF  E           K        DISK
+     E                    @HHK       99  7 0             品番箱数
+     E                    @THK       99  7 0             合計箱数
+     E                    @JUN       99  2 0             割振り順
+     E                    @SRT       99 16 0
+     E                    CBTR       24  2 0             m]c ﾍﾞ]
+      *
+     I            DS
+     I                                        1  480CBTR
+     I                                        1   20CBTR01
+     I                                        3   40CBTR02
+     I                                        5   60CBTR03
+     I                                        7   80CBTR04
+     I                                        9  100CBTR05
+     I                                       11  120CBTR06
+     I                                       13  140CBTR07
+     I                                       15  160CBTR08
+     I                                       17  180CBTR09
+     I                                       19  200CBTR10
+     I                                       21  220CBTR11
+     I                                       23  240CBTR12
+     I                                       25  260CBTR13
+     I                                       27  280CBTR14
+     I                                       29  300CBTR15
+     I                                       31  320CBTR16
+     I                                       33  340CBTR17
+     I                                       35  360CBTR18
+     I                                       37  380CBTR19
+     I                                       39  400CBTR20
+     I                                       41  420CBTR21
+     I                                       43  440CBTR22
+     I                                       45  460CBTR23
+     I                                       47  480CBTR24
+      *
+     I            DS
+     I                                        1  140WDATE
+     I                                        1   60STIME
+     I                                        7  140SDATE
+      *品番箱数計＞便箱数計＞優先順
+     I            DS
+     I                                        1  160WSRT
+     I                                        1   70WHHK
+     I                                        8  140WTHK
+     I                                       15  160WJUN
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C                     TIME           WDATE
+      *便数
+     C                     Z-ADD0         WKCIBI  20
+     C           0111      CHAINAAIPL111             20
+     C           *IN20     IFEQ '0'
+     C                     Z-ADDCDCIBI    WKCIBI
+     C                     ENDIF
+      *
+     C***        *LOVAL    SETLLADKWP311
+     C                     READ ADKWP311                 80
+     C           *IN80     DOWEQ'0'
+     C                     Z-ADD1         CNT     50
+     C           CNT       DOWLEW1RCNT
+     C           W1TRBN    IFEQ '0'
+     C                     EXSR #SB100                     指定便あり
+     C                     ELSE
+     C                     EXSR #SB110                     指定便なし
+     C                     ENDIF
+     C                     EXSR #SB400
+     C                     EXSR #SB500
+     C                     EXSR #SB510
+     C                     ADD  1         CNT
+     C                     ENDDO
+     C                     READ ADKWP311                 80
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *--------------------------------------*
+      *割振り順テーブル                    *
+      *--------------------------------------*
+     CSR         #SB100    BEGSR
+      *指定便
+     C                     CLEAR@JUN
+     C           KEYAGA    KLIST
+     C                     KFLD           W1SHN1  5
+     C                     KFLD           W1SHN2  5
+     C                     KFLD           W1SHN3  2
+     C                     Z-ADD1         X       30
+     C           KEYAGA    CHAINAGAPL311             22
+     C           *IN22     IFEQ '0'
+     C           X         DOWLE24
+     C           CBTR,X    IFNE 0
+     C           CBTR,X    ANDLEWKCIBI
+     C                     EXSR #SB101
+     C                     ENDIF
+     C                     ADD  1         X
+     C                     ENDDO
+     C                     ENDIF
+      *
+     CSR         ESB100    ENDSR
+      *--------------------------------------*
+      *割振り順テーブル                    *
+      *--------------------------------------*
+     CSR         #SB101    BEGSR
+      *
+     C           CBTR,X    SETLLADKPP391
+     C           CBTR,X    READEADKPP391                 80
+     C           *IN80     DOWEQ'0'
+     C           D$SKJY    IFEQ 'D'
+     C           D$SKHZ    ANDLE*DATE
+     C                     ELSE
+     C                     Z-ADDCBTR,X    Y       30
+     C                     Z-ADDD$JUN     @JUN,Y
+     C                     ENDIF
+     C           CBTR,X    READEADKPP391                 80
+     C                     ENDDO
+      *
+     CSR         ESB101    ENDSR
+      *--------------------------------------*
+      *割振り順テーブル                    *
+      *--------------------------------------*
+     CSR         #SB110    BEGSR
+      *指定便無し
+     C                     CLEAR@JUN
+     C           *LOVAL    SETLLADKPP391
+     C                     READ ADKPP391                 80
+     C           *IN80     DOWEQ'0'
+     C           D$SKJY    IFEQ 'D'
+     C           D$SKHZ    ANDLE*DATE
+     C                     ELSE
+     C                     Z-ADDD$BIN     X       30
+     C           X         IFNE 0
+     C           X         ANDLEWKCIBI
+     C                     Z-ADDD$JUN     @JUN,X
+     C                     ENDIF
+     C                     ENDIF
+     C                     READ ADKPP391                 80
+     C                     ENDDO
+      *
+     CSR         ESB110    ENDSR
+      *--------------------------------------*
+      *便を決める                          *
+      *--------------------------------------*
+     CSR         #SB400    BEGSR
+      *
+     C                     CLEAR@HHK
+     C                     CLEAR@THK
+      *
+     C           KEYHIN    KLIST
+     C                     KFLD           #KSHN1  5
+     C                     KFLD           #KSHN2  5
+     C                     KFLD           #KSHN3  2
+      *品番合計
+     C                     MOVELW1SHN1    #KSHN1
+     C                     MOVELW1SHN2    #KSHN2
+     C                     MOVELW1SHN3    #KSHN3
+     C           KEYHIN    SETLLADKWP321
+     C           KEYHIN    READEADKWP321                 81
+     C           *IN81     DOWEQ'0'
+     C                     Z-ADDW2APBN    X       30
+     C           X         IFNE 0
+     C                     ADD  W2MAIS    @HHK,X
+     C                     ENDIF
+     C           KEYHIN    READEADKWP321                 81
+     C                     ENDDO
+      *便合計
+     C                     MOVEL*BLANK    #KSHN1
+     C                     MOVEL*BLANK    #KSHN2
+     C                     MOVEL*BLANK    #KSHN3
+     C           KEYHIN    SETLLADKWP321
+     C           KEYHIN    READEADKWP321                 81
+     C           *IN81     DOWEQ'0'
+     C                     Z-ADDW2APBN    X       30
+     C           X         IFNE 0
+     C                     ADD  W2MAIS    @THK,X
+     C                     ENDIF
+     C           KEYHIN    READEADKWP321                 81
+     C                     ENDDO
+      *品番箱数、合計箱数、順位で配列セット
+     C                     CLEAR@SRT
+     C                     Z-ADD*HIVAL    @SRT
+     C                     Z-ADD1         X
+     C           X         DOWLE99
+     C           @JUN,X    IFNE 0
+     C                     Z-ADD@HHK,X    WHHK
+     C                     Z-ADD@THK,X    WTHK
+     C                     Z-ADD@JUN,X    WJUN
+     C                     MOVEAWSRT      @SRT,X
+     C                     ENDIF
+     C                     ADD  1         X
+     C                     ENDDO
+      *配列をソート
+     C                     SORTA@SRT
+     C                     MOVEA@SRT,1    WSRT
+     C                     Z-ADD1         X
+     C                     Z-ADD1         WKAPBN  20
+      *ソートした配列から順位を取り出し、順位テーブルで探索
+      *探索した添え字を便にセット
+     C           WJUN      LOKUP@JUN,X                   29
+     C           *IN29     IFEQ '1'
+     C                     Z-ADDX         WKAPBN
+     C                     ENDIF
+      *
+     CSR         ESB400    ENDSR
+      *--------------------------------------*
+      *品番データ                          *
+      *--------------------------------------*
+     CSR         #SB500    BEGSR
+      *
+     C           KEYBIN    KLIST
+     C                     KFLD           #KSHN1  5
+     C                     KFLD           #KSHN2  5
+     C                     KFLD           #KSHN3  2
+     C                     KFLD           #KAPHZ  80
+     C                     KFLD           #KAPBN  20
+     C                     MOVELW1SHN1    #KSHN1
+     C                     MOVELW1SHN2    #KSHN2
+     C                     MOVELW1SHN3    #KSHN3
+     C                     Z-ADDW1APHZ    #KAPHZ
+     C                     Z-ADDWKAPBN    #KAPBN
+     C           KEYBIN    CHAINADKWP321             23
+     C           *IN23     IFEQ '0'
+     C                     ADD  W1BARL    W2MAIS
+     C                     UPDATADKWP321
+     C                     ELSE
+     C                     CLEARADKWP321
+     C                     MOVELW1SHN1    W2SHN1
+     C                     MOVELW1SHN2    W2SHN2
+     C                     MOVELW1SHN3    W2SHN3
+     C                     Z-ADDW1BARL    W2BARL
+     C                     Z-ADDW1BARL    W2MAIS
+     C                     Z-ADDW1APHZ    W2APHZ
+     C                     Z-ADDWKAPBN    W2APBN
+      *
+     C                     MOVELW1BRUI    W2BRUI
+     C                     Z-ADDW1HTYY    W2HTYY
+     C                     Z-ADDW1HTMM    W2HTMM
+     C                     Z-ADDW1HTDD    W2HTDD
+     C                     Z-ADDW1HTBB    W2HTBB
+     C                     Z-ADDW1SYYY    W2SYYY
+     C                     Z-ADDW1SYMM    W2SYMM
+     C                     Z-ADDW1SYDD    W2SYDD
+     C                     Z-ADDW1SYBB    W2SYBB
+     C                     Z-ADDW1MKYY    W2MKYY
+     C                     Z-ADDW1MKMM    W2MKMM
+     C                     Z-ADDW1MKDD    W2MKDD
+     C                     Z-ADDW1MKBB    W2MKBB
+     C                     Z-ADDW1KAYY    W2KAYY
+     C                     Z-ADDW1KAMM    W2KAMM
+     C                     Z-ADDW1KADD    W2KADD
+     C                     Z-ADDW1KABB    W2KABB
+     C                     Z-ADDW1TBAN    W2TBAN
+     C                     MOVELW1KUBN    W2KUBN
+     C                     MOVELW1BAN1    W2BAN1
+     C                     MOVELW1MNAM    W2MNAM
+     C                     Z-ADDW1MNHZ    W2MNHZ
+     C                     MOVELW1HKAN    W2HKAN
+     C                     MOVELW1FILR    W2FILR
+     C                     MOVELW1MAK1    W2MAK1
+     C                     MOVELW1MAK2    W2MAK2
+     C                     Z-ADDW1DATE    W2DATE
+     C                     MOVELW1BAN2    W2BAN2
+     C                     MOVELW1BAN3    W2BAN3
+     C                     Z-ADDW1SYUY    W2SYUY
+     C                     Z-ADDW1BMON    W2BMON
+     C                     MOVELW1ZENO    W2ZENO
+     C                     MOVELW1BLOK    W2BLOK
+     C                     Z-ADDW1CODE    W2CODE
+     C                     MOVELW1TYPE    W2TYPE
+     C                     MOVELW1MEK1    W2MEK1
+     C                     MOVELW1MEK2    W2MEK2
+     C                     MOVELW1MEK3    W2MEK3
+     C                     Z-ADDW1MKLT    W2MKLT
+     C                     MOVELW1COLR    W2COLR
+     C                     Z-ADDW1SIZE    W2SIZE
+     C                     Z-ADDW1KUBI    W2KUBI
+     C                     Z-ADDW1CIHI    W2CIHI
+     C                     Z-ADDW1CIBI    W2CIBI
+     C                     Z-ADDW1CIOK    W2CIOK
+     C                     MOVELW1OFFL    W2OFFL
+     C                     Z-ADDW1KACO    W2KACO
+     C                     Z-ADDW1TOKI    W2TOKI
+     C                     Z-ADDW1NOBB    W2NOBB
+     C                     MOVELW1MLIN    W2MLIN
+     C                     MOVELW1JOKN    W2JOKN
+     C                     MOVELW1KBAN    W2KBAN
+     C                     MOVELW1KBNC    W2KBNC
+     C                     Z-ADDW1SRYO    W2SRYO
+     C                     Z-ADDW1SORT    W2SORT
+     C                     MOVELW1GETS    W2GETS
+     C                     MOVELW1UKEI    W2UKEI
+     C                     Z-ADDW1RZBI    W2RZBI
+     C                     Z-ADDW1DTYY    W2DTYY
+     C                     Z-ADDW1DTMM    W2DTMM
+     C                     Z-ADDW1DTDD    W2DTDD
+     C                     Z-ADDW1DTBB    W2DTBB
+      *
+     C                     WRITEADKWP321
+     C                     ENDIF
+      *
+     CSR         ESB500    ENDSR
+      *--------------------------------------*
+      *便合計データ                        *
+      *--------------------------------------*
+     CSR         #SB510    BEGSR
+      *
+     C                     MOVEL*BLANK    #KSHN1
+     C                     MOVEL*BLANK    #KSHN2
+     C                     MOVEL*BLANK    #KSHN3
+     C                     Z-ADDW1APHZ    #KAPHZ
+     C                     Z-ADDWKAPBN    #KAPBN
+     C           KEYBIN    CHAINADKWP321             23
+     C           *IN23     IFEQ '0'
+     C                     ADD  W1BARL    W2MAIS
+     C                     UPDATADKWP321
+     C                     ELSE
+     C                     CLEARADKWP321
+     C                     MOVEL*BLANK    W2SHN1
+     C                     MOVEL*BLANK    W2SHN2
+     C                     MOVEL*BLANK    W2SHN3
+     C                     Z-ADD0         W2BARL
+     C                     Z-ADDW1BARL    W2MAIS
+     C                     Z-ADDW1APHZ    W2APHZ
+     C                     Z-ADDWKAPBN    W2APBN
+     C                     WRITEADKWP321
+     C                     ENDIF
+      *
+     CSR         ESB510    ENDSR

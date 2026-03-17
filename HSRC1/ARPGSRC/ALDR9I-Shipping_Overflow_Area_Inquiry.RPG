@@ -1,0 +1,426 @@
+     H            Y.                                    1
+      *  ALDR9I  ***************************************************************
+      *  SHIPPING OVERFLOW AREA INQUIRY                                        *
+      *  LEC           2023.05.25                                              *
+      **************************************************************************
+     FALDPW9I CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     F                                        RRN2  KSFILE SFL02
+     F                                              KINFDS @INFDS
+     FALBPL30 IF  E           K        DISK
+     FFCEPL07 IF  E           K        DISK
+     FALDPL9V IF  E           K        DISK
+     FALDWP9I UF  E           K        DISK                      A    UC
+      **************************************************************************
+     E                    ERR     1   4 70
+     E                    CMD     1   1 70
+      **************************************************************************
+     I@INFDS      DS
+     I                                     *STATUS  @STTS
+     I                                    B 370 3710@@LIN
+     I                                    B 378 3790@@REC
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60WSSTM6
+     I                                        1   40WSSTM4
+     I                                        1   20WSSHHH
+     I                                        3   40WSSNNN
+     I                                        5   60WSSSSS
+     I                                        7  140WSSDAT
+     I                                        7  100WSSYYY
+     I                                       11  120WSSMMM
+     I                                       13  140WSSDDD
+      * P/M LOC CHANGE DATE
+     I            DS
+     I                                        1   80A2TRHZ
+     I                                        1   40A2TRYY
+     I                                        5   60A2TRMM
+     I                                        7   80A2TRDD
+      * SCAN DATE
+     I            DS
+     I                                        1   80WICODT
+     I                                        5   80WICOMD
+      * SCAN TIME
+     I            DS
+     I                                        1   60WICOTM
+     I                                        1   20WICOHH
+     I                                        3   40WICOMM
+      * FORMATTED TIME
+     I            DS
+     I                                        1   5 ##TIME
+     I                                        1   20HH
+     I                                        3   3 COLON
+     I                                        4   50MM
+      * PART#
+     I            DS
+     I                                        1  15 ##PART
+     I                                        1   5 WISHN1
+     I                                        6   6 DASH1
+     I                                        7  11 WISHN2
+     I                                       12  12 DASH2
+     I                                       13  14 WISHN3
+      * F/G LOCN
+     I            DS
+     I                                        1   5 ##LOCN
+     I                                        1   2 LOC1
+     I                                        4   5 LOC2
+      **************************************************************************
+      *                    MAIN ROUTINE
+      **************************************************************************
+     C                     EXSR #INIT
+      *
+     C           @@ID      DOWNE'99'
+     C           @@ID      CASEQ'10'      #SFL01
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *************************************************************************
+      *         INITIALIZE
+      **************************************************************************
+     C           #INIT     BEGSR
+      *
+     C                     TIME           WSDT
+      *
+     C                     MOVEL'10'      @@ID    2
+      *
+     C                     ENDSR
+      **************************************************************************
+      *     SET 1ST SUBFILE - AREA TOTALS
+      **************************************************************************
+     C           #SET1     BEGSR
+      *
+      * clear subfile1...
+     C                     MOVEL*ON       *IN41
+     C                     WRITECTL01
+     C                     MOVEL*OFF      *IN41
+     C                     MOVEL*OFF      *IN42
+     C                     Z-ADD0         RRN1    40
+     C                     Z-ADD0         RRN2    40
+      *
+      * clear work file...
+     C                     CLOSEALDWP9I
+     C           P#CMD     PLIST
+     C                     PARM           P@CMD 256
+     C                     PARM           P@LEN  155
+     C                     Z-ADD70        P@LEN
+     C                     MOVELCMD,1     P@CMD
+     C                     CALL 'QCMDEXC' P#CMD
+     C                     OPEN ALDWP9I
+      *
+      * read ALDPL9V, get totals for subfile1 and create workfile
+     C           *LOVAL    SETLLALDPL9V
+     C                     READ ALDPL9V                  97
+     C                     MOVELAVLOCN    SVLOCN  6
+     C                     MOVELAVNCFL    SVNCFL  1
+      *
+     C           *IN97     DOWEQ*OFF
+      *
+     C           AVSKJY    IFEQ *BLANK
+     C           AVOKNG    ANDEQ'OK'
+      *
+      * get area totals
+     C           AVLOCN    IFNE SVLOCN
+     C                     EXSR #NLOCN
+     C                     ENDIF
+      *
+     C                     ADD  1         ##ATOT  50
+     C                     MOVELAVLOCN    SVLOCN
+     C                     MOVELAVNCFL    SVNCFL
+      *
+     C                     MOVELAVCOWK    ##WKCD  60
+     C           ##WKCD    CHAINALBPL30              95
+     C           *IN95     IFEQ *ON
+     C                     MOVE *BLANK    ALWKNM
+     C                     ENDIF
+      *
+      * write to detail workfile...
+     C                     EXSR #WRTWF
+      *
+     C                     ENDIF
+      *
+     C                     READ ALDPL9V                  97
+      *
+     C                     ENDDO
+      *
+     C                     EXSR #NLOCN
+      *
+     C           RRN1      IFEQ *ZERO
+     C                     MOVELERR,1     XMSG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *************************************************************************
+      *   NEW OVERFLOW LOCATION
+      **************************************************************************
+     C           #NLOCN    BEGSR
+      *
+     C           ##ATOT    IFGT *ZERO
+     C                     ADD  1         RRN1
+     C                     MOVE SVLOCN    S1AREA
+     C                     MOVELSVLOCN    H1AREA
+     C                     Z-ADD##ATOT    S1ATOT
+     C           SVNCFL    IFEQ 'Y'
+     C                     MOVE *ON       *IN31
+     C                     ELSE
+     C                     MOVE *OFF      *IN31
+     C                     ENDIF
+     C                     MOVE *IN31     IND31
+     C                     WRITESFL01
+     C                     Z-ADD*ZERO     ##ATOT
+     C                     ENDIF
+      *
+     C                     ENDSR
+      **************************************************************************
+      *   WRITE TO DETAIL WORKFILE
+      **************************************************************************
+     C           #WRTWF    BEGSR
+      *
+     C                     MOVEL##WKCD    WIWKCD
+     C                     MOVELALWKNM    WIWKNM
+     C                     Z-ADDAVCODT    WICODT
+     C                     Z-ADDAVCOTM    WICOTM
+      *
+      * shipping overflow area (location)...
+     C                     MOVELAVLOCN    WIAREA
+      *
+      * finished goods location...
+     C                     MOVEL*BLANKS   WILOCN
+     C           AVAZET    CHAINFCEPL07              77
+     C           *IN77     IFEQ *OFF
+     C           A2TRHZ    IFLE WSSDAT
+     C           A2STRT    CAT  A2STRR    WILOCN
+     C                     ELSE
+     C           A2KTRT    CAT  A2KTRR    WILOCN
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     MOVELAVAZET    WIZETI
+     C                     MOVELAVAHN1    WISHN1
+     C                     MOVELAVAHN2    WISHN2
+     C                     MOVELAVAHN3    WISHN3
+     C                     MOVELAVABAR    WIABAR
+     C                     MOVELAVTEHA    WITEHA
+     C                     MOVELAVPAGE    WIPAGE
+     C                     MOVELAVPTOR    WIPTOR
+     C                     MOVELAVPTLT    WIPTLT
+     C                     MOVELAVNCFL    WINCFL
+     C                     WRITEALDWP9I1
+      *
+     C                     ENDSR
+      **************************************************************************
+      *     1ST SUBFILE - AREA TOTALS
+      **************************************************************************
+     C           #SFL01    BEGSR
+      *
+     C                     EXSR #SET1
+      *
+     C                     Z-ADD1         W#RNP1  40
+      *
+     C                     DO   *HIVAL
+      *
+     C                     MOVEL*OFF      *IN47
+     C                     MOVEL*ON       *IN48
+     C                     WRITEDSP98
+     C                     Z-ADDW#RNP1    #RCN01
+     C                     EXFMTCTL01
+      *
+     C           @@REC     IFNE *ZERO
+     C                     Z-ADD@@REC     W#RNP1
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    XMSG
+      * F1: END
+     C                     SELEC
+     C           *INKA     WHEQ *ON
+     C                     MOVEL'99'      @@ID
+     C                     LEAVE
+      * F5: DOWNLOAD
+     C           *INKE     WHEQ *ON
+     C                     EXSR #DOWN
+     C                     MOVEL'10'      @@ID
+     C                     LEAVE
+      * F9: SEARCH
+     C           *INKI     WHEQ *ON
+     C                     CALL 'ALDR9S'
+     C                     MOVEL'10'      @@ID
+     C                     LEAVE
+      * ENTR
+     C                     OTHER
+     C                     EXSR #CHK1
+      * <F1:END>
+     C           *INKA     IFEQ *ON
+     C                     MOVEL'99'      @@ID
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      **************************************************************************
+      *  <F5>  DOWNLOAD CSV
+      **************************************************************************
+     C           #DOWN     BEGSR
+      *
+     C                     MOVEL'2'       TYPE    1
+     C                     MOVEL'ALDWP9I' FILE   10
+     C                     MOVEL'QTEMP'   LIB    10
+     C                     MOVELERR,4     PCFL   30
+     C                     MOVEL'C'       CSV     1
+     C                     MOVEL'Y'       FLDS    1
+     C                     MOVEL'Y'       BRKMSG  1
+      *
+     C                     CALL 'APLC94'
+     C                     PARM           TYPE
+     C                     PARM           FILE
+     C                     PARM           LIB
+     C                     PARM           PCFL
+     C                     PARM           CSV
+     C                     PARM           FLDS
+     C                     PARM           BRKMSG
+      *
+     C                     MOVELERR,3     XMSG
+      *
+     C                     ENDSR
+      *************************************************************************
+     C*     1st SUBFILE CHECK
+     C**************************************************************************
+     C           #CHK1     BEGSR
+      *
+     C                     Z-ADD0         RRN1
+      *
+     C                     DO   *HIVAL
+      *
+     C                     ADD  1         RRN1
+     C           RRN1      CHAINSFL01                93
+     C   93                LEAVE
+      *
+     C           S1SEL     IFNE *BLANK
+     C                     MOVEL*BLANK    S1SEL
+     C                     MOVE IND31     *IN31
+     C                     UPDATSFL01
+     C                     MOVEL*OFF      *IN52
+     C                     EXSR #SET2
+     C                     EXSR #FMT2
+      * F1: END
+     C           *INKA     IFEQ *ON
+     C                     MOVEL'99'      @@ID
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ELSE
+     C                     MOVEL*OFF      *IN52
+     C                     MOVE IND31     *IN31
+     C                     MOVEL*BLANK    S1SEL
+     C                     UPDATSFL01
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     SET 2ND SUBFILE
+      **************************************************************************
+     C           #SET2     BEGSR
+      *
+     C                     MOVEL*ON       *IN61
+     C                     WRITECTL02
+     C                     MOVEL*OFF      *IN61
+     C                     MOVEL*OFF      *IN62
+     C                     Z-ADD0         RRN2    40
+      *
+     C                     MOVEL*ON       *IN63
+      *
+     C                     MOVELS1AREA    D2AREA
+     C                     MOVELH1AREA    AREA    6
+      * READ ALDWP9I
+     C           K#W9I     KLIST
+     C                     KFLD           AREA
+      *
+     C           K#W9I     SETLLALDWP9I
+      *
+     C                     DO   *HIVAL
+      *
+     C           K#W9I     READEALDWP9I                  97
+     C   97                LEAVE
+      *
+     C                     CLEARSFL02
+     C                     Z-ADDWICOMD    S2DATE
+     C                     Z-ADDWICOHH    HH
+     C                     MOVE ':'       COLON
+     C                     Z-ADDWICOMM    MM
+     C                     MOVEL##TIME    S2TIME
+      * PART
+     C           WISHN2    IFNE *BLANK
+     C                     MOVE '-'       DASH1
+     C                     ELSE
+     C                     MOVE *BLANK    DASH1
+     C                     ENDIF
+      *
+     C           WISHN3    IFNE *BLANK
+     C                     MOVE '-'       DASH2
+     C                     ELSE
+     C                     MOVE *BLANK    DASH2
+     C                     ENDIF
+      *
+     C                     MOVEL##PART    S2HIN1
+      *
+      * FINISHED GOODS LOCATION
+     C                     MOVELWILOCN    LOC1
+     C                     MOVE WILOCN    LOC2
+     C                     MOVEL##LOCN    S2LOCN
+      *
+     C                     MOVELWIWKNM    S2WKNM
+     C                     MOVELWITEHA    S2LOT#
+     C                     MOVELWIPAGE    S2PAG#
+      *
+      * subfile limit, cannot be over maximum number of rows...
+     C           RRN2      IFLT 9999
+     C                     ADD  1         RRN2
+     C                     WRITESFL02
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     DISPLAY 2ND SUBFILE
+      **************************************************************************
+     C           #FMT2     BEGSR
+      *
+     C                     Z-ADD1         W#RNP2  40
+      *
+     C                     DO   *HIVAL
+      *
+     C                     SETON                     4748
+     C                     WRITEDSP99
+     C                     Z-ADDW#RNP2    #RCN02
+     C                     EXFMTCTL02
+     C                     MOVE *BLANK    XMSG
+      * <F1:END OR F12:BACK>
+     C   KA
+     COR KL                LEAVE
+      *
+      *
+     C           @@REC     IFNE *ZERO
+     C                     Z-ADD@@REC     W#RNP2
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      **************************************************************************
+** ERR   +.........+.........+.........+.........+.........+.........> (70)
+NO DATA FOUND                                                          03
+ENTER X FOR SELECTION                                                  04
+DOWNLOAD SUCCESSFUL                                                    04
+Shipping_Overflow                                                      04
+** CMD
+CLRPFM QTEMP/ALDWP9I

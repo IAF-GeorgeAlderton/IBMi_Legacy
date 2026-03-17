@@ -1,0 +1,311 @@
+     H            Y.
+      ** AJSR1F  *****************************************************
+      * データ抽出処理(RESULT⇒ALMPP01,ALMPP11)                  *
+      *  SEEK                       2023.10.30                       *
+      ****************************************************************
+     FRESULT  IF  F     512            DISK
+     FFCEPL01 IF  E           K        DISK
+     FAB#PPCT UF  E           K        DISK                      A
+     FALMPL04 IF  E           K        DISK                      A
+     FALMPP11 O   E           K        DISK
+      ****************************************************************
+      * 使用標識                                                   *
+      *        90       : 汎用標識                                 *
+      ****************************************************************
+     E                    REPG        4  2               ページ№
+      ****************************************************************
+     IRESULT  NS
+     I                                        1   1 RERCID
+     I                                        2   9 REKANO
+     I                                       10  17 REPG
+     I                                       18  21 REKBN
+     I                                       22  29 REZAB1
+     I                                       30  37 REZAB2
+     I                                       39  50 RESHN
+     I                                       72  790RETODT
+     I                                       80  830RETOT4
+     I                                       84  882RETWGT
+     I                                       89  90 REKIBN
+     I                                      103 1072REKWGT
+     I                                      116 121 RETACD
+     I            DS
+     I                                        1   8 REKANO
+     I                                        1   1 REKA0A
+     I                                        2   5 REKA0B
+     I                                        6   8 REKA0C
+     I            DS
+     I                                        1   80RETODT
+     I                                        1   60RETOYM
+     I            DS
+     I                                        1   80A1SKDT
+     I                                        1   40A1SKYY
+     I                                        5   60A1SKMM
+     I                                        7   80A1SKDD
+     I            DS
+     I                                        1   80A1KODT
+     I                                        1   40A1KOYY
+     I                                        5   60A1KOMM
+     I                                        7   80A1KODD
+     I            DS
+     I                                        1   60A1TSYM
+     I                                        1   40A1TSQY
+     I                                        5   60A1TSQM
+     I            DS
+     I                                        1   80A1SCDT
+     I                                        1   40A1SCYY
+     I                                        5   60A1SCMM
+     I                                        7   80A1SCDD
+     I            DS
+     I                                        1  12 A1SHN
+     I                                        1   5 A1SHN1
+     I                                        6  10 A1SHN2
+     I                                       11  12 A1SHN3
+     I            DS
+     I                                        1  15 A1KAN
+     I                                        1   8 A1KA01
+     I                                        9  10 A1KA02
+     I                                       11  14 A1KA03
+     I                                       15  15 A1KA04
+     I            DS
+     I                                        1   80ABSKDT
+     I                                        1   40ABSKYY
+     I                                        5   60ABSKMM
+     I                                        7   80ABSKDD
+     I            DS
+     I                                        1   80ABKODT
+     I                                        1   40ABKOYY
+     I                                        5   60ABKOMM
+     I                                        7   80ABKODD
+     I            DS
+     I                                        1   60ABTSYM
+     I                                        1   40ABTSQY
+     I                                        5   60ABTSQM
+     I            DS
+     I                                        1   80ABSCDT
+     I                                        1   40ABSCYY
+     I                                        5   60ABSCMM
+     I                                        7   80ABSCDD
+     I            DS
+     I                                        1   8 ABLOTX
+     I                                        1   7 ABLOT1
+     I                                        8   8 ABLOT2
+     I            DS
+     I                                        1   80A2GSDT
+     I                                        1   40A2GSY4
+     I                                        5   60A2GSMM
+     I                                        7   80A2GSDD
+     I            DS
+     I                                        1  140W0TIME
+     I                                        1   60W0TITM
+     I                                        7  140W0TIDT
+     I           SDS
+     I                                     *PROGRAM DSPGM
+     I                                      244 253 DSJOB
+     I                                      254 263 DSUSER
+      ****************************************************************
+      * パラメータ                                                 *
+      ****************************************************************
+     C*  CHKR01
+     C           PLIST1    PLIST
+     C                     PARM           P1AREA100        フィールド
+     C                     PARM           P1BYTE  3        有効桁数
+     C                     PARM           P1CHK   1        チェックディジット
+     C                     PARM           P1RTCD  1        リターンＣＤ
+      ****************************************************************
+      * キーリスト                                                 *
+      ****************************************************************
+     C*  AB#PPCT
+     C           KEYCT     KLIST
+     C                     KFLD           CTKEY1           KEY WORD 1
+     C                     KFLD           CTKEY2           KEY WORD 2
+     C*  FCEPL01
+     C           KEYA2     KLIST
+     C                     KFLD           A2BHB1           社内品番１
+     C                     KFLD           A2BHB2           社内品番２
+     C                     KFLD           A2BHB3           社内品番３
+     C*  ALMPL04
+     C           KEYA1     KLIST
+     C                     KFLD           A1LINE           LINE
+     C                     KFLD           A1SCYY           SCAN YEAR
+     C                     KFLD           A1SCMM           SCAN MONTH
+     C                     KFLD           A1SCDD           SCAN DAY
+     C                     KFLD           A1SCTM           SCAN TIME
+     C                     KFLD           A1KAKB           MANAGEMENT CLASS.
+     C                     KFLD           A1ZETI           ABSOLUTE NO.
+     C                     KFLD           A1TEHI           ORDER NO.
+     C                     KFLD           A1PAGN           PAGE NO.
+     C                     KFLD           A1OTHR           OTHER CLASS.
+      ****************************************************************
+      * メイン                                                     *
+      ****************************************************************
+     C* 初期処理
+     C                     EXSR #INIT
+     C*
+     C           1         SETLLRESULT
+B01  C                     DO   *HIVAL
+     C                     READ RESULT                   90
+     C   90                LEAVE
+     C* 選択
+B02  C           RERCID    IFNE 'D'
+     C                     ITER
+E02  C                     ENDIF
+B02  C           REKIBN    IFNE '05'
+     C           REKIBN    ANDNE'06'
+     C           REKIBN    ANDNE'08'
+     C           REKIBN    ANDNE'09'
+     C           REKIBN    ANDNE'10'
+     C                     ITER
+E02  C                     ENDIF
+     C* 出力
+     C                     EXSR #WRT
+     C*
+E01  C                     ENDDO
+     C* 終了
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      ****************************************************************
+      * 初期処理                                                   *
+      ****************************************************************
+     C           #INIT     BEGSR
+     C*
+     C                     TIME           W0TIME
+     C*
+     C                     ENDSR
+      ****************************************************************
+      * データ出力処理（ＡＬＭＰＬ０４、ＡＡＭＰＰ１１）           *
+      ****************************************************************
+     C           #WRT      BEGSR
+     C*  ALMPL04 (WRT)
+     C                     CLEARALMPL041
+     C*
+     C***** NO-SET         MOVEL          A1SKJY           DLT
+     C***** NO-SET         Z-ADD          A1SKDT           DLT DATE
+     C***** NO-SET         Z-ADD          A1SKTM           DLT TIME
+     C                     Z-ADDW0TIDT    A1KODT           UPD DATE
+     C                     Z-ADDW0TITM    A1KOTM           UPD TIME
+     C***** NO-SET         MOVEL          A1TMLT           TM LAST
+     C                     MOVELDSUSER    A1USER           USER
+     C                     MOVELDSJOB     A1WSID           WS
+     C                     MOVELDSPGM     A1PGID           PGM
+     C                     Z-ADDRETOYM    A1TSYM           TREATMENT YEAR+MONTH
+     C*
+     C                     Z-ADDRETODT    A1SCDT           SCAN DATE
+     C                     MOVELRETOT4    A1SCTM           SCAN TIME
+     C                     MOVELRETACD    A1TMCD           TM
+     C                     MOVE *BLANK    A1SHFT           SHIFT
+     C                     SELEC
+     C           A1SCTM    WHGE 0630
+     C           A1SCTM    ANDLE1429
+     C                     MOVEL'1'       A1SHFT           SHIFT
+     C           A1SCTM    WHGE 1430
+     C           A1SCTM    ANDLE2229
+     C                     MOVEL'2'       A1SHFT           SHIFT
+     C                     OTHER
+     C                     MOVEL'3'       A1SHFT           SHIFT
+     C                     ENDSL
+     C***** NO-SET         MOVEL          A1RONO           FURNACE#
+     C                     MOVELRESHN     A1SHN            PART NO
+     C*
+     C                     MOVELA1SHN1    A2BHB1           社内品番１
+     C                     MOVELA1SHN2    A2BHB2           社内品番２
+     C                     MOVELA1SHN3    A2BHB3           社内品番３
+     C           KEYA2     CHAINFCEPL011             90
+B01  C           *IN90     IFEQ *OFF
+     C           A2GSKD    ANDNE*BLANK
+     C           A2GSDT    ANDLEW0TIDT
+     C                     MOVE *ON       *IN90
+E01  C                     ENDIF
+     C  N90                MOVELA2ZANM    A1ZANM           MATERIAL NAME
+     C*
+     C***** NO-SET         Z-ADD          A1ZADM           MATERIAL DIAM
+     C***** NO-SET         Z-ADD          A1HOJI           TIME
+     C***** NO-SET         Z-ADD          A1ONDO           TEMPERATURE
+     C***** NO-SET         Z-ADD          A1CO2P           CO2%
+     C                     Z-ADDRETWGT    A1HKJR           WEIGHT FOR A BOX
+     C***** NO-SET         Z-ADD          A1CONT           #OF CONT
+     C                     Z-ADDREKWGT    A1TTLW           TTL WEIGHT
+     C                     MOVEL'SB'      A1LINE           LINE
+     C                     MOVE REKIBN    A1LINE
+     C***** NO-SET         MOVEL          A1MSG            MESSAGE
+     C*
+     C                     MOVE *BLANK    A1KAN            BARCODE
+     C                     MOVELREKANO    A1KA01
+     C                     MOVELREKBN     A1KA03
+     C*
+     C                     MOVELREKA0A    A1KAKB           MANAGEMENT CLASS.
+     C                     MOVELREKA0B    A1ZETI           ABSOLUTE NO.
+     C                     MOVELREKA0C    A1TEHI           ORDER NO.
+     C                     MOVELREKBN     A1OTHR           OTHER CLASS.
+     C*  AAMPP11 (WRT)
+     C                     CLEARALMPP111
+     C*
+     C***** NO-SET         MOVEL          ABSKJY           DLT
+     C***** NO-SET         Z-ADD          ABSKDT           DLT DATE
+     C                     Z-ADDW0TIDT    ABKODT           UPD DATE
+     C                     Z-ADDW0TITM    ABKOTM           UPD TIME
+     C                     MOVELDSUSER    ABUSER           USER
+     C                     MOVELDSJOB     ABWSID           WS
+     C                     MOVELDSPGM     ABPGID           PGM
+     C                     MOVEL'SB'      ABLINE           LINE
+     C                     MOVE REKIBN    ABLINE
+     C                     Z-ADDRETOYM    ABTSYM           TREATMENT YEAR+MONTH
+     C                     Z-ADDRETODT    ABSCDT           SCAN DATE
+     C                     MOVELRETOT4    ABSCTM           SCAN TIME
+     C***** NO-SET         MOVEL          ABHEAT           HEAT#
+     C                     MOVELREZAB1    ABLOT0           LOT ID0
+     C                     MOVELREZAB2    ABLOTX           LOT ID1+ID2
+     C*
+B01  C                     DO   4         I       50
+B02  C           REPG,I    IFEQ *BLANK
+     C                     ITER
+E02  C                     ENDIF
+     C*
+     C                     MOVELREPG,I    A1PAGN           PAGE NO.
+     C           KEYA1     SETLLALMPL041                 90*EQ
+     C   90                ITER
+     C*
+     C                     Z-ADD*ZERO     W0SEQ   40       SEQ-NO
+     C                     EXSR #SEQ
+     C*
+     C                     Z-ADDW0SEQ     A1TSQ#           TREATMENT SEQ#
+     C                     MOVELREPG,I    A1KA02
+     C                     MOVELA1KAN     P1AREA    P      フィールド
+     C                     MOVEL'014'     P1BYTE           有効桁数
+     C                     MOVE *BLANK    P1CHK            チェックディジット
+     C                     MOVE *BLANK    P1RTCD           リターンＣＤ
+     C                     CALL 'CHKR01'  PLIST1
+     C                     MOVELP1CHK     A1KA04
+     C                     WRITEALMPL041
+     C*
+     C                     Z-ADDW0SEQ     ABTSQ#           TREATMENT SEQ#
+     C                     WRITEALMPP111
+     C*
+E01  C                     ENDDO
+     C*
+     C                     ENDSR
+      ****************************************************************
+      * ＳＥＱの算出                                               *
+      ****************************************************************
+     C           #SEQ      BEGSR
+     C*  AB#PPCT (WRT/UPD)
+     C                     CLEARAB#PPCT1
+     C*
+     C                     MOVEL'ALMR011' CTKEY1    P      KEY WORD 1
+     C                     MOVELREKIBN    CTKEY2    P      KEY WORD 2
+     C           KEYCT     CHAINAB#PPCT1             90
+B01  C           *IN90     IFEQ *ON
+     C***** NO-SET         MOVEL          CTCHR1           DSCRIPTION 1
+     C***** NO-SET         MOVEL          CTCHR2           DSCRIPTION 2
+     C                     Z-ADDRETOYM    CTNBR1           NUMBER 1
+E01  C                     ENDIF
+     C           CTNBR1    IFNE RETOYM
+     C                     Z-ADDRETOYM    CTNBR1
+     C                     Z-ADD*ZERO     CTNBR2
+     C                     ENDIF
+     C                     ADD  1         CTNBR2           NUMBER 2
+     C   90                WRITEAB#PPCT1
+     C  N90                UPDATAB#PPCT1
+     C*
+     C                     Z-ADDCTNBR2    W0SEQ
+     C*
+     C                     ENDSR

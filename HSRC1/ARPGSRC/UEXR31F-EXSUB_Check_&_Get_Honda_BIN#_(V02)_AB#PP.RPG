@@ -1,0 +1,130 @@
+     H            Y.
+     F** UEXR31F ********************************************
+     F*  PROGRAM: CHECK & GET HONDA BIN# (V.2)              *
+     F*           (USING AB#PP2A)                           *
+     F*  WRITTEN: JW (SRA) 2024.07.10                       *
+     F*-----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UEXR31F'
+     F*                    PARM           $NONY   4
+     F*                    PARM           $DATE   8
+     F*                    PARM           $BINI   2
+     F*                    PARM           $PLNT   3
+     F*                    PARM           $SHCD  10
+     F*                    PARM           $BINO   2
+     F*  IN  $NONY   4A DELIVERY CODE
+     F*      $DATE   8A SHIP DATE
+     F*      $BINI   2A BIN# (IN)
+     F*      $PLNT   3A PLANT
+     F*      $SHCD  10A SHIP TO CODE
+     F*  OUT $BINO   2A AVAILABLE BIN#
+     F******************************************************
+     FAB#PL2A7IF  E           K        DISK
+     FAB#PL2A8IF  E           K        DISK
+     F            AB#PP2A1                          KRENAMEAB#PP2AX
+      *===================================================
+      *           MAIN ROUTINE
+      *===================================================
+     C                     EXSR #INIT
+      *
+     C                     DO   *HIVAL
+     C                     ADD  1         @BIN
+     C                     Z-ADD@BIN      K#BIN
+      *
+     C                     EXSR #PLSH
+      *
+     C                     EXSR #ASDT
+      *
+     C           OKFLG1    IFEQ 'Y'
+     C           OKFLG2    ANDEQ'Y'
+     C                     MOVEL@BIN      $BINO
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *======================================================
+      * SEARCH BIN# BY PLSH
+      *======================================================
+     C           #PLSH     BEGSR
+      *
+     C                     MOVE 'Y'       OKFLG1  1        BIN# ACCEPTABLE
+     C           K#PLA7    SETLLAB#PL2A7
+     C                     DO   *HIVAL
+     C           K#PLA     READEAB#PL2A7                 98
+     C   98                LEAVE
+      *
+      * IF ASDT = $DATE        --> THEN (BIN# NOT ACCEPTABLE)
+     C           ACASDT    IFEQ K#DATE
+     C                     MOVE 'N'       OKFLG1           BIN# NOT CCEPTABLE
+     C                     LEAVE
+     C                     ENDIF
+      *
+      * IF DIFFERNT PLANT OR SHIPTO --> THEN (BIN# NOT ACCEPTABLE)
+     C           ACPLNT    IFNE $PLNT
+     C           ACSHCD    ORNE $SHCD
+     C                     MOVE 'N'       OKFLG1           BIN# NOT CCEPTABLE
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *======================================================
+      * SEARCH BIN# BY ASDT
+      *======================================================
+     C           #ASDT     BEGSR
+      *
+     C                     MOVE 'Y'       OKFLG2  1        ACCEPTABLE
+     C           K#PLA7    SETLLAB#PL2A8
+     C                     DO   *HIVAL
+     C           K#PLA     READEAB#PL2A8                 98
+     C   98                LEAVE
+      *
+     C                     MOVE 'N'       OKFLG2           BIN# NOT CCEPTABLE
+     C                     LEAVE
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *======================================================
+      * INITIAL SET
+      *======================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $NONY   4
+     C                     PARM           $DATE   8
+     C                     PARM           $BINI   2
+     C                     PARM           $PLNT   3
+     C                     PARM           $SHCD  10
+     C                     PARM           $BINO   2
+      *
+     C           K#PLA7    KLIST
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#DATE  80
+     C                     KFLD           K#BIN   20
+     C                     KFLD           K#PLNT  3
+     C                     KFLD           K#SHCD 10
+      *
+     C           K#PLA     KLIST
+     C                     KFLD           K#NONY
+     C                     KFLD           K#DATE
+     C                     KFLD           K#BIN
+      * SET KEY
+     C                     MOVEL$NONY     K#NONY
+     C                     MOVEL$DATE     K#DATE
+     C                     MOVE *BLANK    K#SHCD
+     C                     MOVE $BINI     $BINO
+      *
+     C           $BINI     IFEQ *BLANK
+     C                     Z-ADD0         @BIN    20
+     C                     ELSE
+     C                     MOVEL$BINI     @BIN
+     C                     SUB  1         @BIN
+     C                     ENDIF
+      * FOR DEBUG
+     C                     MOVE *BLANK    ACODRN
+      *
+     C                     ENDSR

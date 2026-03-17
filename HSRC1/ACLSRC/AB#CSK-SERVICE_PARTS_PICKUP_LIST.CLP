@@ -1,0 +1,163 @@
+             PGM        PARM(&PTYPE &PPICK &PSIRE &PNOHZ &PNOBI +
+                          &PWEIG &PRT)
+             /** AB#CSK **********************************************/
+             /*  SERVICE PARTS PICK UP LIST                          */
+             /*                                                      */
+             /* TCHK1 12/26/05 CHG PRINTER CONTROL                   */
+             /* TCHK2 08/26/06 BUG FIX                               */
+             /* TCHK3 01/12/07 CHG PRINTER CONTROL                   */
+             /* TCHK4 11/16/07 ADD NAL '02'CONTROL                   */
+             /* %0001 T.SAKAKI   ADD NEW COMMON LAYOUT               */
+             /********************************************** AB#CSK **/
+             DCL        VAR(&PPICK) TYPE(*DEC) LEN(2)
+             DCL        VAR(&PTYPE) TYPE(*CHAR) LEN(2)
+             DCL        VAR(&PSIRE) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&PNOHZ) TYPE(*CHAR) LEN(8)
+/* TCHK2 */  DCL        VAR(&PNOBI) TYPE(*DEC) LEN(2)
+             DCL        VAR(&PWEIG) TYPE(*DEC) LEN(3 2)
+             DCL        VAR(&PMANI) TYPE(*CHAR) LEN(18)
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&US) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT)   TYPE(*CHAR) LEN(1)
+             DCL        VAR(&POUT)  TYPE(*CHAR) LEN(10)
+ /*%0001*/   DCL        VAR(&ORGOUT)  TYPE(*CHAR) LEN(10)
+ /*%0001*/   DCL        VAR(&PLTP) TYPE(*CHAR) LEN(1) VALUE(' ')
+
+             RTVJOBA    JOB(&WSID) USER(&US)
+
+             IF         COND(&PRT *EQ '1') THEN(CHGVAR VAR(&POUT) +
+                          VALUE(LANPRT02))
+             IF         COND(&PRT *EQ '2') THEN(CHGVAR VAR(&POUT) +
+                          VALUE(LANPRT07))
+             IF         COND(&PRT *EQ '3') THEN(CHGVAR VAR(&POUT) +
+                          VALUE(LANPRT08))
+             IF         COND(&PRT *EQ '4') THEN(CHGVAR VAR(&POUT) +
+                          VALUE(LANPRT03))
+             IF         COND(&PRT *EQ '5') THEN(CHGVAR VAR(&POUT) +
+                          VALUE(LANPRT04))
+/* TCHK1 */  IF         COND(&PRT *EQ '6') THEN(CHGVAR VAR(&POUT) +
+                          VALUE(LANPRT09))
+/* TCHK1 */  IF         COND(&PRT *EQ '7') THEN(CHGVAR VAR(&POUT) +
+                          VALUE(LANPRT10))
+/* TCHK1 */  IF         COND(&PRT *EQ '8') THEN(CHGVAR VAR(&POUT) +
+                          VALUE(LANPRT05))
+/* TCHK1 */  IF         COND(&PRT *EQ '9') THEN(CHGVAR VAR(&POUT) +
+                          VALUE(QDKT))
+/* JW    */  IF         COND(&PRT *EQ 'X') THEN(CHGVAR VAR(&POUT) +
+                          VALUE(QDKT))
+
+ /* %0001 SAVE ORIGINAL OUTQ */
+             CHGVAR VAR(&ORGOUT) VALUE(&POUT)
+
+ /* CHECK LIST TYPE SWITCHING MASTER */
+             CALL       PGM(AB#R9S) PARM(&PSIRE &PLTP)
+
+    /* NOT PRINT IF ONLY NEW LAYOUT */
+             IF         COND(&PLTP *EQ 'N') THEN(CHGVAR VAR(&POUT) +
+                          VALUE(QDKT))
+
+
+             OVRPRTF    FILE(AB#PR3A) DEVTYPE(*AFPDS) PAGESIZE(66 +
+                          80) LPI(6) RPLUNPRT(*YES) OUTQ(&POUT) +
+                          FORMTYPE(K6S1) COPIES(&PPICK) +
+                          EXPDATE(*DAYS) DAYS(14)
+             OVRPRTF    FILE(AB#PR3C) DEVTYPE(*AFPDS) PAGESIZE(66 +
+                          80) LPI(6) RPLUNPRT(*YES) OUTQ(&POUT) +
+                          FORMTYPE(K6S1) COPIES(&PPICK) +
+                          EXPDATE(*DAYS) DAYS(14)
+             OVRPRTF    FILE(AB#PR3D) DEVTYPE(*AFPDS) PAGESIZE(66 +
+                          80) LPI(6) RPLUNPRT(*YES) OUTQ(&POUT) +
+                          FORMTYPE(K6S1) COPIES(&PPICK) +
+                          EXPDATE(*DAYS) DAYS(14)
+             OVRPRTF    FILE(AB#PR3E) DEVTYPE(*AFPDS) PAGESIZE(66 +
+                          80) LPI(6) RPLUNPRT(*YES) OUTQ(&POUT) +
+                          FORMTYPE(K6S1) COPIES(&PPICK) +
+                          EXPDATE(*DAYS) DAYS(14)
+             OVRPRTF    FILE(AB#PR3F) DEVTYPE(*AFPDS) PAGESIZE(66 +
+                          80) LPI(6) RPLUNPRT(*YES) OUTQ(&POUT) +
+                          FORMTYPE(K6S1) COPIES(&PPICK) +
+                          EXPDATE(*DAYS) DAYS(14)
+             OVRPRTF    FILE(AB#PR3G) DEVTYPE(*AFPDS) PAGESIZE(66 +
+                          80) LPI(6) RPLUNPRT(*YES) OUTQ(&POUT) +
+                          FORMTYPE(K6S1) COPIES(&PPICK) +
+                          EXPDATE(*DAYS) DAYS(14)
+             OVRPRTF    FILE(AB#PR3J) DEVTYPE(*AFPDS) PAGESIZE(66 +
+                          80) LPI(6) RPLUNPRT(*YES) OUTQ(&POUT) +
+                          FORMTYPE(K6S1) COPIES(&PPICK) +
+                          EXPDATE(*DAYS) DAYS(14)
+             OVRPRTF    FILE(AB#PR3R) DEVTYPE(*AFPDS) PAGESIZE(66 +
+                          80) LPI(6) OVRFLW(60) RPLUNPRT(*YES) +
+                          OUTQ(&POUT) FORMTYPE(K6S1) COPIES(&PPICK) +
+                          EXPDATE(*DAYS) DAYS(14)
+
+       /* '01' OR '07' */
+             IF         COND((&PTYPE *EQ '01') *OR +
+                             (&PTYPE *EQ '07')) THEN(DO)
+             CALL       PGM(AB#RSG) PARM(&PWEIG)
+             ENDDO
+
+       /* '02' OR '09' */
+             IF         COND(&PTYPE *EQ '02' *OR &PTYPE *EQ '09') +
+                          THEN(DO)
+             /* GET THE MANIFEST NUMBER */
+             CALL       PGM(AB#R95) PARM(&US &PSIRE &PNOHZ &PNOBI &PMANI)
+             CALL       PGM(AB#RSA) PARM(&PWEIG &PMANI)
+             ENDDO
+
+       /* '03' */
+             IF         COND(&PTYPE *EQ '03') THEN(DO)
+             CALL       PGM(AB#RSC) PARM(&PWEIG &PTYPE)
+             ENDDO
+
+       /* '04' OR '05' OR '06' */
+             IF         COND(&PTYPE *GE '04' *AND &PTYPE *LE '06') +
+                          THEN(DO)
+             CALL       PGM(AB#RSD) PARM(&PWEIG &PTYPE)
+             ENDDO
+
+       /* '08' */
+             IF         COND(&PTYPE *EQ '08') THEN(DO)
+             CALL       PGM(AB#RSJ) PARM(&PWEIG)
+             ENDDO
+
+       /* '10' */
+             IF         COND(&PTYPE *EQ '10') THEN(DO)
+             CALL       PGM(AB#R95) PARM(&US &PSIRE &PNOHZ &PNOBI &PMANI)
+             CALL       PGM(AB#RSK) PARM(&PWEIG &PMANI)
+             ENDDO
+
+       /* '11' */
+             IF         COND(&PTYPE *EQ '11') THEN(DO)
+             CALL       PGM(AB#RSS) PARM(&PWEIG)
+             ENDDO
+
+             DLTOVR     FILE(*ALL)
+
+    /* NOT PRINT IF ONLY OLD LAYOUT */
+             IF         COND(&PLTP *EQ 'O') THEN(GOTO CMDLBL(END))
+
+    /* NEW PACKING LIST */
+             CHGVAR     VAR(&POUT) VALUE(&ORGOUT)
+    /* NEW PACKING LIST */
+
+             IF         COND(&POUT *NE 'LANPRT02') THEN(DO)
+             OVRPRTF    FILE(AB#PR3K) DEVTYPE(*AFPDS) PAGESIZE(66 +
+                          80) LPI(6) OVRFLW(60) RPLUNPRT(*YES) +
+                          OUTQ(&POUT) FORMTYPE(K6S1) COPIES(&PPICK) +
+                          EXPDATE(*DAYS) DAYS(14)
+             ENDDO
+
+
+   /* **  if lanprt02, then make it pull from drawer 2...   ** */
+             IF         COND(&POUT *EQ 'LANPRT02') THEN(DO)
+             OVRPRTF    FILE(AB#PR3K) DEVTYPE(*AFPDS) PAGESIZE(66 +
+                          80) LPI(6) OVRFLW(60) RPLUNPRT(*YES) +
+                          OUTQ(&POUT) FORMTYPE(K6S1) COPIES(&PPICK) +
+                          EXPDATE(*DAYS) DAYS(14) DRAWER(2)
+             ENDDO
+
+             CALL       PGM(AB#R30)
+
+ END:        CLRPFM QTEMP/AB#WP37
+
+             ENDPGM

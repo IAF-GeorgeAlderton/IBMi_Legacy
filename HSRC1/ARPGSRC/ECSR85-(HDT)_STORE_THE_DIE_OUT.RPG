@@ -1,0 +1,1377 @@
+     H            Y.
+     F** ECSR85 *******************************************
+     F*  (HDT) STORE THE DIE OUT                          *
+     F*          2017.06.05  ITS.  T.MITSUI               *
+     F*****************************************************
+     F*          FILE DEFINITION                          *
+     F*****************************************************
+     F*==< SCREEN >==*
+     FECSPW85 CF  E                    WORKSTN
+     F*
+     FECQPPNO UF  F      10            DISK
+     F*==< S/38 PASSWORD M/F >==*
+     F*RGAPL21 IF  E           K        DISK
+     F*
+     F*==< FACILITY MANAGEMENT M/F >==*
+     FMFAPL22 IF  E           K        DISK
+     F*
+     F*==< REASON FOR DIE STORE OUT FILE >==*
+     FECSPP70 IF  E           K        DISK
+     F*
+     F*==< DIE KANBAN M/F >==*
+     FGCQPL11 IF  E           K        DISK
+     F*
+     F*==< DIE STORE IN/OUT RESULT FILE >==*
+     FECSPL82 IF  E           K        DISK                      A
+     F*
+     F*==< DIE INVENTORY FILE >==*
+     FECSPL10 UF  E           K        DISK                      A
+     F*
+     FECSPP01 O   E                    DISK
+     FECSPPE1 IF  E           K        DISK
+     F*
+     E*****************************************************
+     F*          ARRAY DEFINITION                         *
+     E*****************************************************
+     E                    @ER     1  20 25
+     E*
+     IECQPPNO AA  98
+     I                                        1  100DRECD
+     I*****************************************************
+     I*          DATA STRUCTURE                           *
+     I*****************************************************
+     I*==< SYSTEM INFORMATION >==*
+     I           SDS
+     I                                     *PROGRAM @@PGID
+     I                                      244 253 @@WSID
+     I                                      254 263 @@USID
+     I                                      264 269 @@JBNO
+     I*==< SYSTEM DATE/TIME >==*
+     I            DS
+     I                                        1  140S@TIME
+     I                                        1   20S@JJ
+     I                                        3   40S@FF
+     I                                        1   60S@HMS
+     I                                        7  140S@YMD
+     I                                        7  100S@YYYY
+     I                                       11  120S@MM
+     I                                       13  140S@DD
+     I*==< SCREEN ITEM >==*
+     I*         ( REQUESTER BARCODE )
+     ID#1BAR      DS
+     I                                        1  10 D#1REQ
+     I*         ( MACHINE BARCODE )
+     ID#2BAR      DS
+     I                                        1   3 D#2KIB
+     I                                        4   4 D#2CDG
+     I*         ( REASON BARCODE )
+     ID#3BAR      DS
+     I                                        1   1 D#3RSC
+     I                                        2   2 D#3CDG
+     I*         ( DIE LOCATION BARCODE )
+     ID#4BAR      DS
+     I                                        1   2 D#4KT1
+     I                                        3   6 D#4KT2
+     I                                        7   7 D#4KT3
+     I                                        8   8 D#4KT4
+     I                                        9   9 D#4TR1
+     I                                       10  11 D#4TR2
+     I                                       12  13 D#4TR3
+     I                                       14  14 D#4TR4
+     I                                       15  15 D#4TR5
+     I                                       16  16 D#4CDG
+     I*         ( DIE STORE LABEL BARCODE )
+     ID#5BAR      DS
+     I                                        1   2 D#5KT1
+     I                                        3   6 D#5KT2
+     I                                        7   7 D#5KT3
+     I                                        8   8 D#5KT4
+     I                                        9  14 D#5ISN
+     I                                       15  15 D#5CDG
+     I*==< WORK >==*
+     I*         ( DIE NUMBER : XX-XXXX-X-X )
+     I            DS
+     I                                        1  11 W@KAT@
+     I                                        1   2 W@KAT1
+     I                                        3   3 W@KAH2
+     I                                        4   7 W@KAT2
+     I                                        8   8 W@KAH3
+     I                                        9   9 W@KAT3
+     I                                       10  10 W@KAH4
+     I                                       11  11 W@KAT4
+     I*         ( DIE LOCATION : X-XX-XX-X-X )
+     I            DS
+     I                                        1  11 W@LOC@
+     I                                        1   1 W@LOC1
+     I                                        2   2 W@LOH2
+     I                                        3   4 W@LOC2
+     I                                        5   5 W@LOH3
+     I                                        6   7 W@LOC3
+     I                                        8   8 W@LOH4
+     I                                        9   9 W@LOC4
+     I                                       10  10 W@LOH5
+     I                                       11  11 W@LOC5
+     I*
+     C*****************************************************
+     C*          PARAMETERS LIST                          *
+     C*****************************************************
+     C*==< ENTRY PARM >==*
+     C           *ENTRY    PLIST
+     C                     PARM           P@TAC5  5
+     C                     PARM           P@TANM 10
+     C                     PARM           P@CMD   2
+     C                     PARM           P@STS   1
+     C*
+     C*==< CHKR03 >==*
+     C           P@CHK1    PLIST
+     C                     PARM           P@BRCD100
+     C                     PARM           P@BYTE  3
+     C                     PARM           P@CKDG  1
+     C                     PARM           P@RTN1  1
+     C*
+     C*****************************************************
+     C*          LEY LIST                                 *
+     C*****************************************************
+     C*==< MFAPL22 : FACILITY MANAGEMENT M/F >==*
+     C           K@MF21    KLIST
+     C                     KFLD           K@KOJY  40        FACTORY CODE
+     C                     KFLD           K@KBN1  3         MACHINE NO
+     C*@@@@                KFLD           K@KBN2  1         BRANCH NUMBER
+     C*
+     C*==< GCQPL11 : DIE KANBAN M/F >==*
+     C           K@CQ11    KLIST
+     C                     KFLD           K@TKR1  1         FACTORY
+     C                     KFLD           K@TKR2  2         PASSAGE
+     C                     KFLD           K@TKR3  2         LINE
+     C                     KFLD           K@TKR4  1         STAIR
+     C                     KFLD           K@TKR5  1         STAIR
+     C                     KFLD           K@KAT1  2         DIE NO.1
+     C                     KFLD           K@KAT2  4         DIE NO.2
+     C                     KFLD           K@KAT3  1         DIE NO.3
+     C*
+     C           K@CQ12    KLIST
+     C                     KFLD           K@TKR1  1         FACTORY
+     C                     KFLD           K@TKR2  2         PASSAGE
+     C                     KFLD           K@TKR3  2         LINE
+     C                     KFLD           K@TKR4  1         STAIR
+     C                     KFLD           K@TKR5  1         STAIR
+     C                     KFLD           K@KAT1  2         DIE NO.1
+     C                     KFLD           K@KAT2  4         DIE NO.2
+     C*
+     C*==< ECSPL82 : DIE STORE IN/OUT RESULT FILE >==*
+     C           K@CS80    KLIST
+     C                     KFLD           K@SBAR 20         S/OUT LABEL BARCODE
+     C                     KFLD           K@IOKB  1         IN/OUT FLG
+     C                     KFLD           K@HNTE  2         JUDGMENT
+     C*
+     C*==< ECSPL10 : DIE INVENTORY FILE >==*
+     C           K@CS10    KLIST
+     C                     KFLD           K@KAT1            DIE#1
+     C                     KFLD           K@KAT2                2
+     C                     KFLD           K@KAT3                3
+     C                     KFLD           K@KAT4  1             4
+     C           K@CS11    KLIST
+     C                     KFLD           K@KAT1            DIE#1
+     C                     KFLD           K@KAT2                2
+     C*
+     C*****************************************************
+     C*          INTERNAL WORKING ITEM                    *
+     C*****************************************************
+     C                     MOVEL'EDT1'    S@PROC  4
+     C                     MOVEL*BLANK    W@DSP9  4
+     C                     MOVEL*BLANK    S@MSG4 25
+     C                     MOVEL*BLANK    F@READ  1
+     C*
+     C*****************************************************
+     C*          MAIN ROUTINE                             *
+     C*****************************************************
+     C*
+D----C           S@PROC    DOWNE'EXIT'
+|    C*
+|S---C                     SELEC
+|+---C           S@PROC    WHEQ 'EDT1'
+||   C                     EXSR #EDT1
+||   C*
+|+---C           S@PROC    WHEQ 'DSP1'
+||   C                     EXSR #DSP1
+||   C*
+|+---C           S@PROC    WHEQ 'CHK1'
+||   C                     EXSR #CHK1
+||   C*
+|+---C           S@PROC    WHEQ 'EDT2'
+||   C                     EXSR #EDT2
+||   C*
+|+---C           S@PROC    WHEQ 'DSP2'
+||   C                     EXSR #DSP2
+||   C*
+|+---C           S@PROC    WHEQ 'CHK2'
+||   C                     EXSR #CHK2
+||   C*
+|+---C           S@PROC    WHEQ 'EDT3'
+||   C                     EXSR #EDT3
+||   C*
+|+---C           S@PROC    WHEQ 'DSP3'
+||   C                     EXSR #DSP3
+||   C*
+|+---C           S@PROC    WHEQ 'CHK3'
+||   C                     EXSR #CHK3
+||   C*
+|+---C           S@PROC    WHEQ 'EDT4'
+||   C                     EXSR #EDT4
+||   C*
+|+---C           S@PROC    WHEQ 'DSP4'
+||   C                     EXSR #DSP4
+||   C*
+|+---C           S@PROC    WHEQ 'CHK4'
+||   C                     EXSR #CHK4
+||   C*
+|+---C           S@PROC    WHEQ 'EDT5'
+||   C                     EXSR #EDT5
+||   C*
+|+---C           S@PROC    WHEQ 'DSP5'
+||   C                     EXSR #DSP5
+||   C*
+|+---C           S@PROC    WHEQ 'CHK5'
+||   C                     EXSR #CHK5
+||   C*
+|+---C           S@PROC    WHEQ 'DATA'
+||   C                     EXSR #DATA
+||   C*
+|+---C           S@PROC    WHEQ 'DSP6'
+||   C                     EXSR #DSP6
+||   C*
+||   C*
+|E---C                     ENDSL
+|    C*
+E----C                     ENDDO
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+     C*
+     C*****************************************************
+     C*  #EDT1   EDIT SCREEN(1)                           *
+     C*****************************************************
+     C           #EDT1     BEGSR
+     C*
+     C*==< INITIALIZE ITEMS >==*
+     C                     MOVEL@@WSID    D#WSID
+     C                     MOVELP@TANM    D#TANM
+     C*
+     C                     MOVEL*BLANK    D#1BAR
+     C                     MOVEL*BLANK    D#2BAR
+     C                     MOVEL*BLANK    D#3BAR
+     C                     MOVEL*BLANK    D#4BAR
+     C                     MOVEL*BLANK    D#5BAR
+     C                     MOVEL*BLANK    D#EMSG
+     C*
+     C*==< NEXT PROCESSING >==*
+     C                     MOVEL'DSP1'    S@PROC
+     C*
+     C           #EDT1E    ENDSR
+     C*****************************************************
+     C*  #DSP1   DISPLAY SCREEN(1)                        *
+     C*****************************************************
+     C           #DSP1     BEGSR
+     C*
+     C*==< DISPLAY >==*    _____________
+     C                     EXFMTECSPW851
+     C*                    ~~~~~~~~~~~~~
+     C                     TIME           S@TIME
+     C*
+     C*==< NEXT PROCESSING >==*
+S----C                     SELEC
++----C           *IN01     WHEQ '1'                        < F1 >
+|    C                     MOVEL'EXIT'    S@PROC
+|    C*
++----C           *IN02     WHEQ '1'                        < F2 >
+|    C           *IN03     OREQ '1'                        < F3 >
+|    C           *IN04     OREQ '1'                        < F4 >
+|    C           *IN05     OREQ '1'                        < F5 >
+|    C           *IN06     OREQ '1'                        < F6 >
+|    C           *IN07     OREQ '1'                        < F7 >
+|    C           *IN08     OREQ '1'                        < F8 >
+|    C           *IN09     OREQ '1'                        < F9 >
+|    C           *IN10     OREQ '1'                        < F10 >
+|    C           *IN11     OREQ '1'                        < F11 >
+|    C           *IN12     OREQ '1'                        < F12 >
+|    C           *IN13     OREQ '1'                        < F13 >
+|    C           *IN14     OREQ '1'                        < F14 >
+|    C           *IN15     OREQ '1'                        < F15 >
+|    C           *IN16     OREQ '1'                        < F16 >
+|    C           *IN17     OREQ '1'                        < F17 >
+|    C           *IN18     OREQ '1'                        < F18 >
+|    C           *IN19     OREQ '1'                        < F19 >
+|    C           *IN20     OREQ '1'                        < F20 >
+|    C           *IN21     OREQ '1'                        < F21 >
+|    C           *IN22     OREQ '1'                        < F22 >
+|    C           *IN23     OREQ '1'                        < F23 >
+|    C           *IN24     OREQ '1'                        < F24 >
+|    C                     MOVEL'DSP1'    S@PROC
+|    C*
++----C                     OTHER                           < ENTER >
+|    C                     MOVEL'CHK1'    S@PROC
+E----C                     ENDSL
+     C*
+     C           #DSP1E    ENDSR
+     C*****************************************************
+     C*  #CHK1   CHECK SCREEN(1)                          *
+     C*****************************************************
+     C           #CHK1     BEGSR
+     C*
+     C*==< INITIALIZE ITEMS >==*
+     C                     MOVEL*BLANK    D#EMSG
+     C*
+     C*==< REQUESTER >==*
+I----C           D#1BAR    IFEQ *BLANK
+|    C                     MOVEL@ER,1     D#EMSG
+|    C                     SETOF                     81
+|    C                     EXSR #DSP9
+|    C                     MOVEL'EDT1'    S@PROC
+|    C                     GOTO #CHK1E
+E----C                     ENDIF
+     C*                    ____________
+     C*          D#1BAR    CHAINRGAPL21              91
+     C*                    ~~~~~~~~~~~~
+I----C*          *IN91     IFEQ '1'
+|    C*          *IN91     OREQ '0'
+|    C*          R2SKJY    ANDEQ'D'
+|    C*                    MOVEL@ER,2     D#EMSG
+|    C*                    SETOF                     81
+|    C*                    EXSR #DSP9
+|    C*                    MOVEL'EDT1'    S@PROC
+|    C*                    GOTO #CHK1E
+E----C*                    ENDIF
+     C*
+     C*==< NEXT PROCESSING >==*
+     C                     MOVEL'EDT2'    S@PROC
+     C*
+     C           #CHK1E    ENDSR
+     C*****************************************************
+     C*  #EDT2   EDIT SCREEN(2)                           *
+     C*****************************************************
+     C           #EDT2     BEGSR
+     C*
+     C*==< INITIALIZE ITEMS >==*
+     C                     MOVELD#1BAR    D#RQNM
+     C*
+     C                     MOVEL*BLANK    D#2BAR
+     C                     MOVEL*BLANK    D#3BAR
+     C                     MOVEL*BLANK    D#4BAR
+     C                     MOVEL*BLANK    D#5BAR
+     C                     MOVEL*BLANK    D#EMSG
+     C*
+     C*==< NEXT PROCESSING >==*
+     C                     MOVEL'DSP2'    S@PROC
+     C*
+     C           #EDT2E    ENDSR
+     C*****************************************************
+     C*  #DSP2   DISPLAY SCREEN(2)                        *
+     C*****************************************************
+     C           #DSP2     BEGSR
+     C*
+     C*==< DISPLAY >==*    _____________
+     C                     EXFMTECSPW852
+     C*                    ~~~~~~~~~~~~~
+     C                     TIME           S@TIME
+     C*
+     C*==< NEXT PROCESSING >==*
+S----C                     SELEC
++----C           *IN01     WHEQ '1'                        < F1 >
+|    C                     MOVEL'EDT1'    S@PROC
+|    C*
++----C           *IN02     WHEQ '1'                        < F2 >
+|    C           *IN03     OREQ '1'                        < F3 >
+|    C           *IN04     OREQ '1'                        < F4 >
+|    C           *IN05     OREQ '1'                        < F5 >
+|    C           *IN06     OREQ '1'                        < F6 >
+|    C           *IN07     OREQ '1'                        < F7 >
+|    C           *IN08     OREQ '1'                        < F8 >
+|    C           *IN09     OREQ '1'                        < F9 >
+|    C           *IN10     OREQ '1'                        < F10 >
+|    C           *IN11     OREQ '1'                        < F11 >
+|    C           *IN12     OREQ '1'                        < F12 >
+|    C           *IN13     OREQ '1'                        < F13 >
+|    C           *IN14     OREQ '1'                        < F14 >
+|    C           *IN15     OREQ '1'                        < F15 >
+|    C           *IN16     OREQ '1'                        < F16 >
+|    C           *IN17     OREQ '1'                        < F17 >
+|    C           *IN18     OREQ '1'                        < F18 >
+|    C           *IN19     OREQ '1'                        < F19 >
+|    C           *IN20     OREQ '1'                        < F20 >
+|    C           *IN21     OREQ '1'                        < F21 >
+|    C           *IN22     OREQ '1'                        < F22 >
+|    C           *IN23     OREQ '1'                        < F23 >
+|    C           *IN24     OREQ '1'                        < F24 >
+|    C                     MOVEL'DSP2'    S@PROC
+|    C*
++----C                     OTHER                           < ENTER >
+|    C                     MOVEL'CHK2'    S@PROC
+E----C                     ENDSL
+     C*
+     C           #DSP2E    ENDSR
+     C*****************************************************
+     C*  #CHK2   CHECK SCREEN(2)                          *
+     C*****************************************************
+     C           #CHK2     BEGSR
+     C*
+     C*==< INITIALIZE ITEMS >==*
+     C                     MOVEL*BLANK    D#EMSG
+     C*
+     C*==< MACHINE NUMBER >==*
+I----C           D#2BAR    IFEQ *BLANK
+|    C                     MOVEL@ER,3     D#EMSG
+|    C                     SETOF                     81
+|    C                     EXSR #DSP9
+|    C                     MOVEL'EDT2'    S@PROC
+|    C                     GOTO #CHK2E
+E----C                     ENDIF
+     C*
+     C                     MOVELD#2BAR    P@BRCD    P
+     C                     MOVEL'003'     P@BYTE
+     C                     MOVEL*LOVAL    P@CKDG
+     C                     MOVEL*LOVAL    P@RTN1
+     C                     CALL 'CHKR03'  P@CHK1
+I----C           P@CKDG    IFNE D#2CDG
+|    C                     MOVEL@ER,4     D#EMSG
+|    C                     SETOF                     81
+|    C                     EXSR #DSP9
+|    C                     MOVEL'EDT2'    S@PROC
+|    C                     GOTO #CHK2E
+E----C                     ENDIF
+     C*
+     C                     Z-ADD0111      K@KOJY            FACTORY CODE
+     C                     MOVELD#2KIB    K@KBN1            MACHINE NO
+     C*@@@@                MOVEL*BLANK    K@KBN2            BRANCH NUMBER
+     C*                    ____________
+     C           K@MF21    SETLLMFAPL22
+     C           K@MF21    READEMFAPL22                  92
+     C*                    ~~~~~~~~~~~~
+D----C           *IN92     DOWEQ'0'
+|    C           M@SKJY    ANDEQ'D'
+|    C*                    ____________
+|    C           K@MF21    READEMFAPL22                  92
+|    C*                    ~~~~~~~~~~~~
+E----C                     ENDDO
+     C*
+I----C           *IN92     IFEQ '1'
+|    C                     MOVEL@ER,5     D#EMSG
+|    C                     SETOF                     81
+|    C                     EXSR #DSP9
+|    C                     MOVEL'EDT2'    S@PROC
+|    C                     GOTO #CHK2E
+E----C                     ENDIF
+     C*
+     C*==< NEXT PROCESSING >==*
+     C                     MOVEL'EDT3'    S@PROC
+     C*
+     C           #CHK2E    ENDSR
+     C*****************************************************
+     C*  #EDT3   EDIT SCREEN(3)                           *
+     C*****************************************************
+     C           #EDT3     BEGSR
+     C*
+     C*==< INITIALIZE ITEMS >==*
+     C                     MOVELD#2KIB    D#KIBN
+     C*
+     C                     MOVEL*BLANK    D#3BAR
+     C                     MOVEL*BLANK    D#4BAR
+     C                     MOVEL*BLANK    D#5BAR
+     C                     MOVEL*BLANK    D#EMSG
+     C*
+     C*==< NEXT PROCESSING >==*
+     C                     MOVEL'DSP3'    S@PROC
+     C*
+     C           #EDT3E    ENDSR
+     C*****************************************************
+     C*  #DSP3   DISPLAY SCREEN(3)                        *
+     C*****************************************************
+     C           #DSP3     BEGSR
+     C*
+     C*==< DISPLAY >==*    _____________
+     C                     EXFMTECSPW853
+     C*                    ~~~~~~~~~~~~~
+     C                     TIME           S@TIME
+     C*
+     C*==< NEXT PROCESSING >==*
+S----C                     SELEC
++----C           *IN01     WHEQ '1'                        < F1 >
+|    C                     MOVEL'EDT2'    S@PROC
+|    C*
++----C           *IN02     WHEQ '1'                        < F2 >
+|    C           *IN03     OREQ '1'                        < F3 >
+|    C           *IN04     OREQ '1'                        < F4 >
+|    C           *IN05     OREQ '1'                        < F5 >
+|    C           *IN06     OREQ '1'                        < F6 >
+|    C           *IN07     OREQ '1'                        < F7 >
+|    C           *IN08     OREQ '1'                        < F8 >
+|    C           *IN09     OREQ '1'                        < F9 >
+|    C           *IN10     OREQ '1'                        < F10 >
+|    C           *IN11     OREQ '1'                        < F11 >
+|    C           *IN12     OREQ '1'                        < F12 >
+|    C           *IN13     OREQ '1'                        < F13 >
+|    C           *IN14     OREQ '1'                        < F14 >
+|    C           *IN15     OREQ '1'                        < F15 >
+|    C           *IN16     OREQ '1'                        < F16 >
+|    C           *IN17     OREQ '1'                        < F17 >
+|    C           *IN18     OREQ '1'                        < F18 >
+|    C           *IN19     OREQ '1'                        < F19 >
+|    C           *IN20     OREQ '1'                        < F20 >
+|    C           *IN21     OREQ '1'                        < F21 >
+|    C           *IN22     OREQ '1'                        < F22 >
+|    C           *IN23     OREQ '1'                        < F23 >
+|    C           *IN24     OREQ '1'                        < F24 >
+|    C                     MOVEL'DSP3'    S@PROC
+|    C*
++----C                     OTHER                           < ENTER >
+|    C                     MOVEL'CHK3'    S@PROC
+E----C                     ENDSL
+     C*
+     C           #DSP3E    ENDSR
+     C*****************************************************
+     C*  #CHK3   CHECK SCREEN(3)                          *
+     C*****************************************************
+     C           #CHK3     BEGSR
+     C*
+     C*==< INITIALIZE ITEMS >==*
+     C                     MOVEL*BLANK    D#EMSG
+     C*
+     C*==< REASON BARCODE >==*
+I----C           D#3BAR    IFEQ *BLANK
+|    C                     MOVEL@ER,6     D#EMSG
+|    C                     SETOF                     81
+|    C                     EXSR #DSP9
+|    C                     MOVEL'EDT3'    S@PROC
+|    C                     GOTO #CHK3E
+E----C                     ENDIF
+     C*
+     C                     MOVELD#3BAR    P@BRCD    P
+     C                     MOVEL'001'     P@BYTE
+     C                     MOVEL*LOVAL    P@CKDG
+     C                     MOVEL*LOVAL    P@RTN1
+     C                     CALL 'CHKR03'  P@CHK1
+I----C           P@CKDG    IFNE D#3CDG
+|    C                     MOVEL@ER,7     D#EMSG
+|    C                     SETOF                     81
+|    C                     EXSR #DSP9
+|    C                     MOVEL'EDT3'    S@PROC
+|    C                     GOTO #CHK3E
+E----C                     ENDIF
+     C*                    ____________
+     C           D#3RSC    SETLLECSPP70
+     C                     EXSR #CS70
+     C*                    ~~~~~~~~~~~~
+I----C           *IN93     IFEQ '1'
+|    C                     MOVEL@ER,8     D#EMSG
+|    C                     SETOF                     81
+|    C                     EXSR #DSP9
+|    C                     MOVEL'EDT3'    S@PROC
+|    C                     GOTO #CHK3E
+E----C                     ENDIF
+     C*
+     C*==< NEXT PROCESSING >==*
+     C                     MOVEL'EDT4'    S@PROC
+     C*
+     C           #CHK3E    ENDSR
+     C*===================================================*
+     C*  #CS70   ECSPP70 READE                            *
+     C*===================================================*
+     C           #CS70     BEGSR
+     C*
+     C           #CS701    TAG
+     C*                    ____________
+     C           D#3RSC    READEECSPP70                  93
+     C*                    ~~~~~~~~~~~~
+     C           *IN93     CABEQ'1'       #CS70E
+     C*
+     C*==< SKIP >==*
+I----C           E7SKJY    IFEQ 'D'
+|    C           E7SKHZ    ANDLE*DATE                                  )
+|    C                     GOTO #CS701
+E----C                     ENDIF
+     C*
+     C           #CS70E    ENDSR
+     C*****************************************************
+     C*  #EDT4   EDIT SCREEN(4)                           *
+     C*****************************************************
+     C           #EDT4     BEGSR
+     C*
+     C*==< INITIALIZE ITEMS >==*
+     C                     MOVELE7RSNM    D#RINM
+     C*
+     C                     MOVEL*BLANK    D#4BAR
+     C                     MOVEL*BLANK    D#5BAR
+     C                     MOVEL*BLANK    D#EMSG
+     C*
+     C*==< NEXT PROCESSING >==*
+     C                     MOVEL'DSP4'    S@PROC
+     C*
+     C           #EDT4E    ENDSR
+     C*****************************************************
+     C*  #DSP4   DISPLAY SCREEN(4)                        *
+     C*****************************************************
+     C           #DSP4     BEGSR
+     C*
+     C*==< DISPLAY >==*    _____________
+     C                     EXFMTECSPW854
+     C*                    ~~~~~~~~~~~~~
+     C                     TIME           S@TIME
+     C*
+     C*==< NEXT PROCESSING >==*
+S----C                     SELEC
++----C           *IN01     WHEQ '1'                        < F1 >
+|    C                     MOVEL'EDT3'    S@PROC
+|    C*
++----C           *IN02     WHEQ '1'                        < F2 >
+|    C           *IN03     OREQ '1'                        < F3 >
+|    C           *IN04     OREQ '1'                        < F4 >
+|    C           *IN05     OREQ '1'                        < F5 >
+|    C           *IN06     OREQ '1'                        < F6 >
+|    C           *IN07     OREQ '1'                        < F7 >
+|    C           *IN08     OREQ '1'                        < F8 >
+|    C           *IN09     OREQ '1'                        < F9 >
+|    C           *IN10     OREQ '1'                        < F10 >
+|    C           *IN11     OREQ '1'                        < F11 >
+|    C           *IN12     OREQ '1'                        < F12 >
+|    C           *IN13     OREQ '1'                        < F13 >
+|    C           *IN14     OREQ '1'                        < F14 >
+|    C           *IN15     OREQ '1'                        < F15 >
+|    C           *IN16     OREQ '1'                        < F16 >
+|    C           *IN17     OREQ '1'                        < F17 >
+|    C           *IN18     OREQ '1'                        < F18 >
+|    C           *IN19     OREQ '1'                        < F19 >
+|    C           *IN20     OREQ '1'                        < F20 >
+|    C           *IN21     OREQ '1'                        < F21 >
+|    C           *IN22     OREQ '1'                        < F22 >
+|    C           *IN23     OREQ '1'                        < F23 >
+|    C           *IN24     OREQ '1'                        < F24 >
+|    C                     MOVEL'DSP4'    S@PROC
+|    C*
++----C                     OTHER                           < ENTER >
+|    C                     MOVEL'CHK4'    S@PROC
+E----C                     ENDSL
+     C*
+     C           #DSP4E    ENDSR
+     C*****************************************************
+     C*  #CHK4   CHECK SCREEN(4)                          *
+     C*****************************************************
+     C           #CHK4     BEGSR
+     C*
+     C*==< INITIALIZE ITEMS >==*
+     C                     MOVEL*BLANK    S@MSG4
+     C                     MOVEL*BLANK    D#EMSG
+     C*
+     C*==< DIE LOCATION BARCODE >==*
+I----C           D#4BAR    IFEQ *BLANK
+|    C                     MOVEL@ER,9     D#EMSG
+|    C                     SETOF                     81
+|    C                     EXSR #DSP9
+|    C                     MOVEL'EDT4'    S@PROC
+|    C                     GOTO #CHK4E
+E----C                     ENDIF
+     C*
+     C                     MOVELD#4BAR    P@BRCD    P
+     C                     MOVEL'015'     P@BYTE
+     C                     MOVEL*LOVAL    P@CKDG
+     C                     MOVEL*LOVAL    P@RTN1
+     C                     CALL 'CHKR03'  P@CHK1
+I----C           P@CKDG    IFNE D#4CDG
+|    C                     MOVEL@ER,10    D#EMSG
+|    C                     SETOF                     81
+|    C                     EXSR #DSP9
+|    C                     MOVEL'EDT4'    S@PROC
+|    C                     GOTO #CHK4E
+E----C                     ENDIF
+     C*
+     C                     MOVELD#4TR1    K@TKR1            FACTORY
+     C                     MOVELD#4TR2    K@TKR2            PASSAGE
+     C                     MOVELD#4TR3    K@TKR3            LINE
+     C                     MOVELD#4TR4    K@TKR4            STAIR
+     C                     MOVELD#4TR5    K@TKR5            STAIR
+     C                     MOVELD#4KT1    K@KAT1            DIE NO.1
+     C                     MOVELD#4KT2    K@KAT2            DIE NO.2
+     C                     MOVELD#4KT3    K@KAT3            DIE NO.3
+     C*                    ____________
+     C           K@CQ11    SETLLGCQPL11
+     C                     EXSR #CQ11
+     C*                    ~~~~~~~~~~~~
+     C           *IN94     IFEQ '1'
+     C           K@CQ12    SETLLGCQPL11
+     C                     EXSR #CQ12
+     C                     ENDIF
+     C*
+I----C           *IN94     IFEQ '1'
+|    C                     MOVEL@ER,11    D#EMSG
+|    C                     SETOF                     81
+|    C                     EXSR #DSP9
+|    C                     MOVEL'EDT4'    S@PROC
+|    C                     GOTO #CHK4E
+E----C                     ENDIF
+     C*
+     C                     CALL 'ECSR91'
+     C                     PARM S@YMD     P@DATE  80        DATE
+     C                     PARM S@HMS     P@TIME  60        TIME
+     C                     PARM D#4KT1    P@KAT1  2         DIE NO.1
+     C                     PARM D#4KT2    P@KAT2  4         DIE NO.2
+     C                     PARM D#4KT3    P@KAT3  1         DIE NO.3
+     C                     PARM D#4KT4    P@KAT4  1         DIE NO.4
+     C                     PARM D#2KIB    P@KIBN  3         MACHINE NO.
+     C                     PARM *ZERO     P@REQT  30        RESTRICTION QUANTITY
+     C                     PARM *ZERO     P@GIQT  30        GOODS ISSUE QUANTITY
+     C*
+I----C           P@REQT    IFNE *ZERO
+|    C           P@REQT    ANDLEP@GIQT
+|    C                     MOVEL@ER,17    D#EMSG
+|    C                     SETON                     81
+|    C                     EXSR #DSP9
+|I---C           *IN01     IFEQ '1'
+||   C                     MOVEL'EDT4'    S@PROC
+||   C                     GOTO #CHK4E
+|+---C                     ELSE
+||   C                     MOVEL@ER,17    S@MSG4
+||   C                     MOVEL*BLANK    D#EMSG
+|E---C                     ENDIF
+E----C                     ENDIF
+     C*
+     C           K@E111    KLIST
+     C                     KFLD           D#4KT1
+     C                     KFLD           D#4KT2
+     C                     KFLD           K@4KT3  1
+     C                     KFLD           K@4KT4  1
+     C                     MOVEL*BLANK    K@4KT3
+     C                     MOVEL*BLANK    K@4KT4
+     C                     MOVEL*BLANK    D#TXT1
+     C                     MOVEL*BLANK    D#TXT2
+     C                     MOVEL*BLANK    D#TXT3
+     C                     MOVEL*BLANK    D#TXT4
+     C           K@E111    CHAINECSPPE11             81
+     C           *IN81     IFEQ '0'
+     C           CNSKJY    ANDEQ'D'
+     C           CNSKHZ    ANDLE*DATE
+     C                     SETON                     81
+     C                     ENDIF
+     C           *IN81     IFEQ '0'
+     C                     MOVELCNTXT1    D#TXT1
+     C                     MOVELCNTXT2    D#TXT2
+     C                     MOVELCNTXT3    D#TXT3
+     C                     MOVELCNTXT4    D#TXT4
+     C                     ENDIF
+     C*==< NEXT PROCESSING >==*
+     C           *IN81     IFEQ '0'
+     C                     MOVEL'DSP6'    S@PROC
+     C                     ELSE
+     C                     Z-ADD0         D#MAI
+     C                     MOVEL'EDT5'    S@PROC
+     C                     ENDIF
+     C*
+     C           #CHK4E    ENDSR
+     C*===================================================*
+     C*  #CQ11   GCQPL11 READE                            *
+     C*===================================================*
+     C           #CQ11     BEGSR
+     C*
+     C           #CQ111    TAG
+     C*                    ____________
+     C           K@CQ11    READEGCQPL11                  94
+     C*                    ~~~~~~~~~~~~
+     C           *IN94     CABEQ'1'       #CQ11E
+     C*
+     C*==< SKIP >==*
+I----C           T6SKJY    IFEQ 'D'
+|    C           T6SKHZ    ANDLE*DATE                                  )
+|    C                     GOTO #CQ111
+E----C                     ENDIF
+     C*
+     C           #CQ11E    ENDSR
+     C*===================================================*
+     C*  #CQ12   GCQPL11 READE                            *
+     C*===================================================*
+     C           #CQ12     BEGSR
+     C*
+     C           #CQ121    TAG
+     C*                    ____________
+     C           K@CQ12    READEGCQPL11                  94
+     C*                    ~~~~~~~~~~~~
+     C           *IN94     CABEQ'1'       #CQ12E
+     C*
+     C*==< SKIP >==*
+I----C           T6SKJY    IFEQ 'D'
+|    C           T6SKHZ    ANDLE*DATE                                  )
+|    C                     GOTO #CQ121
+E----C                     ENDIF
+      *
+     C                     SELEC
+     C           D#4KT3    WHEQ 'U'
+     C           D#4KT3    OREQ '4'
+     C           T6KAT3    IFNE 'U'
+     C           T6KAT3    ANDNE'4'
+     C                     GOTO #CQ121
+     C                     ENDIF
+     C                     OTHER
+     C           T6KAT3    IFEQ 'U'
+     C           T6KAT3    OREQ '4'
+     C                     GOTO #CQ121
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C*
+     C           #CQ12E    ENDSR
+     C*****************************************************
+     C*  #EDT5   EDIT SCREEN(5)                           *
+     C*****************************************************
+     C           #EDT5     BEGSR
+     C*
+     C*==< INITIALIZE ITEMS >==*
+     C                     MOVEL*BLANK    W@KAT@
+     C                     MOVELD#4KT1    W@KAT1
+     C                     MOVELD#4KT2    W@KAT2
+     C                     MOVELD#4KT3    W@KAT3
+     C                     MOVELD#4KT4    W@KAT4
+I----C           D#4KT2    IFNE *BLANK
+|    C                     MOVEL'-'       W@KAH2
+E----C                     ENDIF
+I----C           D#4KT3    IFNE *BLANK
+|    C                     MOVEL'-'       W@KAH3
+E----C                     ENDIF
+I----C           D#4KT4    IFNE *BLANK
+|    C                     MOVEL'-'       W@KAH4
+E----C                     ENDIF
+     C                     MOVELW@KAT@    D#KAT@
+     C*
+     C                     MOVEL*BLANK    W@LOC@
+     C                     MOVELD#4TR1    W@LOC1
+     C                     MOVELD#4TR2    W@LOC2
+     C                     MOVELD#4TR3    W@LOC3
+     C                     MOVELD#4TR4    W@LOC4
+     C                     MOVELD#4TR5    W@LOC5
+I----C           D#4TR2    IFNE *BLANK
+|    C                     MOVEL'-'       W@LOH2
+E----C                     ENDIF
+I----C           D#4TR3    IFNE *BLANK
+|    C                     MOVEL'-'       W@LOH3
+E----C                     ENDIF
+I----C           D#4TR4    IFNE *BLANK
+|    C                     MOVEL'-'       W@LOH4
+E----C                     ENDIF
+I----C           D#4TR5    IFNE *BLANK
+|    C                     MOVEL'-'       W@LOH5
+E----C                     ENDIF
+     C                     MOVELW@LOC@    D#LOC@
+     C*
+     C                     MOVEL*BLANK    D#5BAR
+     C                     MOVEL*BLANK    D#EMSG
+     C*
+     C*==< NEXT PROCESSING >==*
+     C                     MOVEL'DSP5'    S@PROC
+     C*
+     C           #EDT5E    ENDSR
+     C*****************************************************
+     C*  #DSP5   DISPLAY SCREEN(5)                        *
+     C*****************************************************
+     C           #DSP5     BEGSR
+     C*
+     C*==< DISPPLAY >==*   _____________
+     C                     EXFMTECSPW855
+     C*                    ~~~~~~~~~~~~~
+     C                     TIME           S@TIME
+     C*
+     C*==< NEXT PROCESSING >==*
+S----C                     SELEC
++----C           *IN01     WHEQ '1'                        < F1 >
+|    C                     MOVEL'EDT1'    S@PROC
++----C           *IN02     WHEQ '1'                        < F2 >
+|    C                     MOVEL'EDT2'    S@PROC
+|    C           *IN03     WHEQ '1'                        < F3 >
+|    C                     MOVEL'EDT3'    S@PROC
+|    C           *IN04     WHEQ '1'                        < F4 >
+|    C                     MOVEL'EDT4'    S@PROC
+|    C*
++----C           *IN05     WHEQ '1'                        < F5 >
+|    C           *IN06     OREQ '1'                        < F6 >
+|    C           *IN07     OREQ '1'                        < F7 >
+|    C           *IN08     OREQ '1'                        < F8 >
+|    C           *IN09     OREQ '1'                        < F9 >
+|    C           *IN10     OREQ '1'                        < F10 >
+|    C           *IN11     OREQ '1'                        < F11 >
+|    C           *IN12     OREQ '1'                        < F12 >
+|    C           *IN13     OREQ '1'                        < F13 >
+|    C           *IN14     OREQ '1'                        < F14 >
+|    C           *IN15     OREQ '1'                        < F15 >
+|    C           *IN16     OREQ '1'                        < F16 >
+|    C           *IN17     OREQ '1'                        < F17 >
+|    C           *IN18     OREQ '1'                        < F18 >
+|    C           *IN19     OREQ '1'                        < F19 >
+|    C           *IN20     OREQ '1'                        < F20 >
+|    C           *IN21     OREQ '1'                        < F21 >
+|    C           *IN22     OREQ '1'                        < F22 >
+|    C           *IN23     OREQ '1'                        < F23 >
+|    C           *IN24     OREQ '1'                        < F24 >
+|    C                     MOVEL'DSP5'    S@PROC
+|    C*
++----C                     OTHER                           < ENTER >
+|    C                     MOVEL'CHK5'    S@PROC
+E----C                     ENDSL
+     C*
+     C           #DSP5E    ENDSR
+     C*****************************************************
+     C*  #CHK5   CHECK SCREEN(5)                          *
+     C*****************************************************
+     C           #CHK5     BEGSR
+     C*
+     C*==< INITIALIZE ITEMS >==*
+     C                     MOVEL*BLANK    D#EMSG
+     C*
+     C*==< DIE STORE LABEL >==*
+I----C           D#5BAR    IFEQ *BLANK
+|    C                     MOVEL@ER,12    D#EMSG
+|    C                     SETOF                     81
+|    C                     EXSR #DSP9
+|    C                     MOVEL'EDT5'    S@PROC
+|    C                     GOTO #CHK5E
+E----C                     ENDIF
+     C*
+     C                     MOVELD#5BAR    P@BRCD    P
+     C                     MOVEL'014'     P@BYTE
+     C                     MOVEL*LOVAL    P@CKDG
+     C                     MOVEL*LOVAL    P@RTN1
+     C                     CALL 'CHKR03'  P@CHK1
+I----C           P@CKDG    IFNE D#5CDG
+|    C                     MOVEL@ER,13    D#EMSG
+|    C                     SETOF                     81
+|    C                     EXSR #DSP9
+|    C                     MOVEL'EDT5'    S@PROC
+|    C                     GOTO #CHK5E
+E----C                     ENDIF
+     C*
+I----C           D#4KT1    IFNE D#5KT1                      DIE NO.1
+|    C           D#4KT2    ORNE D#5KT2                      DIE NO.2
+|    C*          D#4KT3    ORNE D#5KT3                      DIE NO.3
+|    C*          D#4KT4    ORNE D#5KT4                      DIE NO.4
+|    C                     MOVEL@ER,14    D#EMSG
+|    C                     SETOF                     81
+|    C                     EXSR #DSP9
+|    C                     MOVEL'EDT5'    S@PROC
+|    C                     GOTO #CHK5E
+E----C                     ENDIF
+     C*
+     C                     MOVELD#5BAR    K@SBAR    P       S/OUT LABEL BARCODE
+     C                     MOVEL'O'       K@IOKB            IN/OUT FLG
+     C                     MOVEL'OK'      K@HNTE            JUDGMENT
+     C*                    ____________
+     C           K@CS80    SETLLECSPL82
+     C                     EXSR #CS80
+     C*                    ~~~~~~~~~~~~
+I----C           *IN95     IFEQ '0'
+|    C                     MOVEL@ER,15    D#EMSG
+|    C                     SETOF                     81
+|    C                     EXSR #DSP9
+|    C                     MOVEL'EDT5'    S@PROC
+|    C                     GOTO #CHK5E
+E----C                     ENDIF
+     C*
+     C                     MOVEL'0'       F@READ
+     C                     MOVELD#5KT1    K@KAT1            DIE#1
+     C                     MOVELD#5KT2    K@KAT2                2
+     C                     MOVELD#5KT4    K@KAT3                3
+     C*                    MOVELD#5KT4    K@KAT4                4
+     C                     MOVELD#5KT3    S@KAT3  1             3
+     C                     MOVELD#5KT4    S@KAT4  1             4
+     C                     MOVELD#4TR1    S@LOC1  1
+     C                     MOVELD#4TR2    S@LOC2  2
+     C                     MOVELD#4TR3    S@LOC3  2
+     C                     MOVELD#4TR4    S@LOC4  1
+     C                     MOVELD#4TR5    S@LOC5  1
+     C*                    ____________
+     C           K@CS10    SETLLECSPL10
+     C           K@CS10    READEECSPL10             N    96
+     C*                    ~~~~~~~~~~~~
+D----C           *IN96     DOWEQ'0'
+|    C           F@READ    ANDEQ'0'
+|I---C           E1SKJY    IFEQ *BLANK
+|    C           E1SQTY    ANDGE1
+||   C*          E1LOC1    ANDEQD#4TR1
+||   C*          E1LOC2    ANDEQD#4TR2
+||   C*          E1LOC3    ANDEQD#4TR3
+||   C*          E1LOC4    ANDEQD#4TR4
+||   C                     MOVEL'1'       F@READ
+||   C*
+|+---C                     ELSE
+||   C*                    ____________
+||   C           K@CS10    READEECSPL10             N    96
+||   C*                    ~~~~~~~~~~~~
+|E---C                     ENDIF
+E----C                     ENDDO
+     C*
+     C           F@READ    IFEQ '0'
+      *
+     C                     SELEC
+     C           D#5KT3    WHEQ 'U'
+     C           D#5KT3    OREQ '4'
+     C           D#5KT4    OREQ 'U'
+     C           D#5KT4    OREQ '4'
+      *
+     C           K@CS11    SETLLECSPL10
+     C           K@CS11    READEECSPL10             N    96
+     C           *IN96     DOWEQ'0'
+     C           F@READ    ANDEQ'0'
+     C           E1SKJY    IFEQ *BLANK
+     C           E1KAT3    ANDEQ'U'
+     C           E1SQTY    ANDGE1
+     C           E1SKJY    OREQ *BLANK
+     C           E1KAT3    ANDEQ'4'
+     C           E1SQTY    ANDGE1
+     C           E1SKJY    OREQ *BLANK
+     C           E1KAT4    ANDEQ'U'
+     C           E1SQTY    ANDGE1
+     C           E1SKJY    OREQ *BLANK
+     C           E1KAT4    ANDEQ'4'
+     C           E1SQTY    ANDGE1
+     C                     MOVEL'1'       F@READ
+     C                     MOVELE1KAT3    S@KAT3                3
+     C                     MOVELE1KAT4    S@KAT4                4
+     C                     MOVELE1LOC1    S@LOC1  1
+     C                     MOVELE1LOC2    S@LOC2  2
+     C                     MOVELE1LOC3    S@LOC3  2
+     C                     MOVELE1LOC4    S@LOC4  1
+     C                     MOVEL*BLANK    S@LOC5  1
+     C                     ELSE
+     C           K@CS11    READEECSPL10             N    96
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     OTHER
+      *
+     C           K@CS11    SETLLECSPL10
+     C           K@CS11    READEECSPL10             N    96
+     C           *IN96     DOWEQ'0'
+     C           F@READ    ANDEQ'0'
+     C           E1SKJY    IFEQ *BLANK
+|    C           E1SQTY    ANDGE1
+     C           E1KAT3    ANDEQ' '
+     C           E1KAT4    ANDEQ' '
+     C                     MOVEL'1'       F@READ
+     C                     MOVELE1KAT3    S@KAT3                3
+     C                     MOVELE1KAT4    S@KAT4                4
+     C                     MOVELE1LOC1    S@LOC1  1
+     C                     MOVELE1LOC2    S@LOC2  2
+     C                     MOVELE1LOC3    S@LOC3  2
+     C                     MOVELE1LOC4    S@LOC4  1
+     C                     MOVEL*BLANK    S@LOC5  1
+     C                     ELSE
+     C           K@CS11    READEECSPL10             N    96
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSL
+      *
+     C                     ENDIF
+     C*
+I----C           *IN96     IFEQ '0'
+|    C           E1SQTY    ANDGE1
+|    C*                    |
++----C                     ELSE
+|    C                     MOVEL@ER,16    D#EMSG
+|    C                     SETOF                     81
+|    C                     EXSR #DSP9
+|    C                     MOVEL'EDT5'    S@PROC
+|    C                     GOTO #CHK5E
+E----C                     ENDIF
+     C*
+     C*==< NEXT PROCESSING >==*
+     C                     MOVEL'DATA'    S@PROC
+     C*
+     C           #CHK5E    ENDSR
+     C*****************************************************
+     C*  #DSP6   DISPLAY SCREEN(6)                        *
+     C*****************************************************
+     C           #DSP6     BEGSR
+     C*
+     C*==< DISPPLAY >==*   _____________
+     C                     EXFMTECSPW856
+     C*                    ~~~~~~~~~~~~~
+     C                     TIME           S@TIME
+     C*
+     C*==< NEXT PROCESSING >==*
+S----C                     SELEC
++----C           *IN01     WHEQ '1'                        < F1 >
+|    C                     MOVEL'EDT4'    S@PROC
+|    C           *IN07     WHEQ '1'                        < F7 >
+|    C                     Z-ADD0         D#MAI
+|    C                     MOVEL'EDT5'    S@PROC
+|    C*
++----C           *IN02     WHEQ '1'                        < F2 >
+|    C           *IN03     OREQ '1'                        < F3 >
+|    C           *IN04     OREQ '1'                        < F4 >
+|    C           *IN05     OREQ '1'                        < F5 >
+|    C           *IN06     OREQ '1'                        < F6 >
+|    C           *IN08     OREQ '1'                        < F8 >
+|    C           *IN09     OREQ '1'                        < F9 >
+|    C           *IN10     OREQ '1'                        < F10 >
+|    C           *IN11     OREQ '1'                        < F11 >
+|    C           *IN12     OREQ '1'                        < F12 >
+|    C           *IN13     OREQ '1'                        < F13 >
+|    C           *IN14     OREQ '1'                        < F14 >
+|    C           *IN15     OREQ '1'                        < F15 >
+|    C           *IN16     OREQ '1'                        < F16 >
+|    C           *IN17     OREQ '1'                        < F17 >
+|    C           *IN18     OREQ '1'                        < F18 >
+|    C           *IN19     OREQ '1'                        < F19 >
+|    C           *IN20     OREQ '1'                        < F20 >
+|    C           *IN21     OREQ '1'                        < F21 >
+|    C           *IN22     OREQ '1'                        < F22 >
+|    C           *IN23     OREQ '1'                        < F23 >
+|    C           *IN24     OREQ '1'                        < F24 >
+|    C                     MOVEL'DSP6'    S@PROC
+|    C*
++----C                     OTHER                           < ENTER >
+|    C                     MOVEL'DSP6'    S@PROC
+E----C                     ENDSL
+     C*
+     C           #DSP6E    ENDSR
+     C*===================================================*
+     C*  #CS80   ECSPL82 READE                            *
+     C*===================================================*
+     C           #CS80     BEGSR
+     C*
+     C           #CS801    TAG
+     C*                    ____________
+     C           K@CS80    READEECSPL82                  95
+     C*                    ~~~~~~~~~~~~
+     C           *IN95     CABEQ'1'       #CS80E
+     C*
+     C*==< SKIP >==*
+I----C           E8SKJY    IFEQ 'D'
+|    C           E8SKHZ    ANDLE*DATE                                  )
+|    C                     GOTO #CS801
+E----C                     ENDIF
+     C*
+I----C           E8GSKB    IFNE 'H'
+|    C                     GOTO #CS801
+E----C                     ENDIF
+     C*
+     C           #CS80E    ENDSR
+     C*****************************************************
+     C*  #DATA   ECSPP80 RECORD OUTPUT                    *
+     C*          ECSPP10 RECORD UPDATE                    *
+     C*****************************************************
+     C           #DATA     BEGSR
+     C*
+     C*==< ECSPP01 (OK) >==*
+     C                     CLEARECQPP011
+     C                     Z-ADDS@YYYY    EQKOYY
+     C                     Z-ADDS@MM      EQKOMM
+     C                     Z-ADDS@DD      EQKODD
+     C                     Z-ADDS@JJ      EQKOHH
+     C                     Z-ADDS@FF      EQKOSS
+     C                     MOVELP@TAC5    EQKOME
+     C                     Z-ADDS@YYYY    EQYOYY
+     C                     Z-ADDS@MM      EQYOMM
+     C                     Z-ADDS@DD      EQYODD
+     C                     MOVEL'0111'    EQBMON
+     C                     MOVELD#5KT1    EQKAT1
+     C                     MOVELD#5KT2    EQKAT2
+     C**                   MOVELD#5KT3    EQKAT3
+     C                     MOVELS@KAT4    EQKAT3
+     C                     Z-ADD1         EQKOSU
+     C                     MOVELD#2KIB    EQKINO
+     C                     MOVEL*BLANK    EQEDNO
+     C                     MOVEL*BLANK    EQBUKA
+     C                     MOVEL*BLANK    EQBURI
+     C                     MOVEL*BLANK    EQKTEI
+     C                     MOVEL*BLANK    EQGRUP
+     C                     MOVELD#3RSC    EQHSON
+     C           S@HMS     IFGE 080000
+     C           S@HMS     ANDLT200000
+     C                     MOVEL'0'       EQHYKB           0:DAY
+     C                     ELSE
+     C                     MOVEL'1'       EQHYKB           1:NIGHT
+     C                     END
+     C                     SETOF                     90
+     C           1         CHAINECQPPNO              90
+     C           *IN90     IFEQ '0'
+     C                     ADD  1         DRECD
+     C                     Z-ADDDRECD     EQRECD
+     C                     EXCPTUP
+     C                     END
+     C*                    _____________
+     C                     WRITEECQPP011
+     C*                    ~~~~~~~~~~~~~
+     C*==< ECSPP80 (OK) >==*
+     C                     CLEARECSPL821
+     C                     Z-ADD0111      E8BMON            FACTORY CODE
+     C                     MOVELD#2KIB    E8KIBN            MACHINE NO
+     C                     MOVELD#3RSC    E8RIYU            IN/OUT REASON
+     C                     MOVELD#5KT1    E8KAT1            DIE NO.1
+     C                     MOVELD#5KT2    E8KAT2            DIE NO.2
+     C                     MOVELD#5KT3    E8KAT3            DIE NO.3
+     C                     MOVELD#5KT4    E8KAT4            DIE NO.4
+     C**                   MOVELD#4TR1    E8TKR1            LOCATION (FACTORY)
+     C**                   MOVELD#4TR2    E8TKR2            LOCATION (PASSAGE)
+     C**                   MOVELD#4TR3    E8TKR3            LOCATION (LINE)
+     C**                   MOVELD#4TR4    E8TKR4            LOCATION (STAIR)
+     C**                   MOVELD#4TR5    E8TKR5            LOCATION (STAIR)
+     C**                   MOVELS@KAT3    E8KAT3            DIE NO.3
+     C**                   MOVELS@KAT4    E8KAT4            DIE NO.4
+     C                     MOVELS@LOC1    E8TKR1            LOCATION (FACTORY)
+     C                     MOVELS@LOC2    E8TKR2            LOCATION (PASSAGE)
+     C                     MOVELS@LOC3    E8TKR3            LOCATION (LINE)
+     C                     MOVELS@LOC4    E8TKR4            LOCATION (STAIR)
+     C                     MOVELS@LOC5    E8TKR5            LOCATION (STAIR)
+     C                     Z-ADD1         E8KOSU            IN/OUT QUANTITY
+     C                     MOVEL'O'       E8IOKB            IN/OUT FLG
+     C                     MOVEL'H'       E8GSKB            GENERATION SOURCE
+     C                     Z-ADDS@YMD     E8IOHZ            IN/OUT DATE
+     C                     Z-ADDS@HMS     E8IOJK            IN/OUT TIME
+     C                     MOVELP@TAC5    E8IOME            IN/OUT WORKER
+     C                     MOVELD#1BAR    E8OREQ            OUT REQUESTER
+     C                     MOVEL'OK'      E8HNTE            JUDGMENT
+     C                     MOVEL*BLANK    E8EMSG            ERR MSG
+I----C           S@MSG4    IFNE *BLANK
+|    C                     MOVELS@MSG4    E8EMSG            ERR MSG
+E----C                     ENDIF
+     C           E8EMSG    IFEQ @ER,17
+     C                     MOVEL'NG'      E8HNTE            JUDGMENT
+     C                     END
+     C                     MOVEL*BLANK    E8PBAR            PT BARCODE
+     C                     MOVELD#5BAR    E8SBAR            S/OUT LABEL BARCODE
+     C                     MOVELD#4BAR    E8LBAR            LOCATION BARCODE
+     C                     MOVEL*BLANK    E8DBAR            DIE KANBAN BARCODE
+     C*                    _____________
+     C                     WRITEECSPL821
+     C*                    ~~~~~~~~~~~~~
+     C*==< ECSPP10 >==*
+     C                     MOVELD#5KT1    K@KAT1            DIE#1
+     C                     MOVELD#5KT2    K@KAT2                2
+     C***                  MOVELD#5KT3    K@KAT3                3
+     C***                  MOVELD#5KT4    K@KAT4                4
+     C                     MOVELD#5KT4    K@KAT3                3
+     C*                    MOVELS@KAT4    K@KAT4                4
+     C*                    ____________
+     C           K@CS10    CHAINECSPL10              96
+     C*                    ~~~~~~~~~~~~
+I----C           *IN96     IFEQ '1'
+|    C           *IN96     OREQ '0'
+|    C           E1SKJY    ANDEQ'D'
+|    C                     CLEARECSPP101
+|    C                     MOVELD#5KT1    E1KAT1            DIE#1
+|    C                     MOVELD#5KT2    E1KAT2                2
+|    C**                   MOVELD#5KT3    E1KAT3                3
+|    C**                   MOVELD#5KT4    E1KAT4                4
+|    C**                   MOVELD#4TR1    E1LOC1            LOCATION 1
+|    C**                   MOVELD#4TR2    E1LOC2                     2
+|    C**                   MOVELD#4TR3    E1LOC3                     3
+|    C**                   MOVELD#4TR4    E1LOC4                     4
+|    C                     MOVELS@KAT3    E1KAT3                3
+|    C                     MOVELS@KAT4    E1KAT4                4
+|    C                     MOVELS@LOC1    E1LOC1            LOCATION 1
+|    C                     MOVELS@LOC2    E1LOC2                     2
+|    C                     MOVELS@LOC3    E1LOC3                     3
+|    C                     MOVELS@LOC4    E1LOC4                     4
+E----C                     ENDIF
+     C*
+     C                     Z-ADDS@YMD     E1KDAT            UPDATE DATE
+     C                     Z-ADDS@HMS     E1KTIM            UPDATE TIME
+     C                     MOVELP@TAC5    E1KOME            UPDATE USER
+     C                     MOVEL@@PGID    E1KPGM            UPDATE PGM
+     C                     Z-ADD*DATE     E1OTDT            LATEST OUT DATE
+     C                     SUB  1         E1SQTY            CURRENT INVENTORY
+     C*                    _____________
+     C  N96                UPDATECSPP101
+     C   96                WRITEECSPP101
+     C*                    ~~~~~~~~~~~~~
+     C*==<次処理>==*
+     C**                   MOVEL'EDT1'    S@PROC
+     C                     ADD  1         D#MAI
+     C                     MOVEL'EDT5'    S@PROC
+     C*
+     C           #DATAE    ENDSR
+     C*****************************************************
+     C*  #DSP9   DISPLAY SCREEN(9)                        *
+     C*****************************************************
+     C           #DSP9     BEGSR
+     C*
+     C                     MOVEL'DISP'    W@DSP9
+     C                     SETON                     99
+     C*
+D----C           W@DSP9    DOWNE'EXIT'
+|    C*==< DISPLAY >==*    _____________
+|    C                     EXFMTECSPW859
+|    C*                    ~~~~~~~~~~~~~
+|    C                     SETOF                     99
+|    C*==< PF KEY >==*
+|S---C                     SELEC
+|+---C           *IN01     WHEQ '1'
+||   C                     MOVEL'EXIT'    W@DSP9
+|+---C           *IN07     WHEQ '1'
+||I--C           *IN81     IFEQ '1'
+|||  C                     MOVEL'EXIT'    W@DSP9
+||E--C                     ENDIF
+|E---C                     ENDSL
+E----C                     ENDDO
+     C*
+     C*==< ECSPP80 (NG) >==*
+I----C           *IN01     IFEQ '1'
+|    C                     CLEARECSPL821
+|    C                     Z-ADD0111      E8BMON            FACTORY CODE
+|    C                     MOVELD#2KIB    E8KIBN            MACHINE NO
+|    C                     MOVELD#3RSC    E8RIYU            IN/OUT REASON
+|    C                     MOVELD#5KT1    E8KAT1            DIE NO.1
+|    C                     MOVELD#5KT2    E8KAT2            DIE NO.2
+|    C                     MOVELD#5KT3    E8KAT3            DIE NO.3
+|    C                     MOVELD#5KT4    E8KAT4            DIE NO.4
+|    C**                   MOVELD#4TR1    E8TKR1            LOCATION (FACTORY)
+|    C**                   MOVELD#4TR2    E8TKR2            LOCATION (PASSAGE)
+|    C**                   MOVELD#4TR3    E8TKR3            LOCATION (LINE)
+|    C**                   MOVELD#4TR4    E8TKR4            LOCATION (STAIR)
+|    C**                   MOVELD#4TR5    E8TKR5            LOCATION (STAIR)
+|    C**                   MOVELS@KAT3    E8KAT3            DIE NO.3
+|    C**                   MOVELS@KAT4    E8KAT4            DIE NO.4
+|    C                     MOVELS@LOC1    E8TKR1            LOCATION (FACTORY)
+|    C                     MOVELS@LOC2    E8TKR2            LOCATION (PASSAGE)
+|    C                     MOVELS@LOC3    E8TKR3            LOCATION (LINE)
+|    C                     MOVELS@LOC4    E8TKR4            LOCATION (STAIR)
+|    C                     MOVELS@LOC5    E8TKR5            LOCATION (STAIR)
+|    C                     Z-ADD*ZERO     E8KOSU            IN/OUT QUANTITY
+|    C                     MOVEL'O'       E8IOKB            IN/OUT FLG
+|    C                     MOVEL'H'       E8GSKB            GENERATION SOURCE
+|    C                     Z-ADDS@YMD     E8IOHZ            IN/OUT DATE
+|    C                     Z-ADDS@HMS     E8IOJK            IN/OUT TIME
+|    C                     MOVELP@TAC5    E8IOME            IN/OUT WORKER
+|    C                     MOVELD#1BAR    E8OREQ            OUT REQUESTER
+|    C                     MOVEL'NG'      E8HNTE            JUDGMENT
+|    C                     MOVELD#EMSG    E8EMSG            ERR MSG
+|    C                     MOVEL*BLANK    E8PBAR            PT BARCODE
+|    C                     MOVELD#5BAR    E8SBAR            S/OUT LABEL BARCODE
+|    C                     MOVELD#4BAR    E8LBAR            LOCATION BARCODE
+|    C                     MOVEL*BLANK    E8DBAR            DIE KANBAN BARCODE
+|    C*                    _____________
+|    C                     WRITEECSPL821
+|    C*                    ~~~~~~~~~~~~~
+E----C                     ENDIF
+     C*
+     C           #DSP9E    ENDSR
+     C*
+      *-----------------------------------------------------------
+     OECQPPNO E                UP
+     O                         DRECD     10
+----+-*--1----+----2----+----3----+----4----+----5----+----6
+** @ER
+E-01 READ ERR (REQ)
+E-02 REQUESTER ERR
+E-03 READ ERR (M)
+E-04 CHECK DIGIT ERR (M)
+E-05 MACHINE NO. ERR
+E-06 READ ERR (R)
+E-07 CHECK DIGIT ERR (R)
+E-08 REASON CODE ERR
+E-09 READ ERR (L)
+E-10 CHECK DIGIT ERR (L)
+E-11 DIE KANBAN M/F ERR
+E-12 READ ERR (D)
+E-13 CHECK DIGIT ERR (S)
+E-14 DIE PART NO. ERR
+E-15 S/O LABEL DUPLICATE
+E-16 THERE IS NO STOCK
+E-17 LIMIT EXCEEDED
+
+
+

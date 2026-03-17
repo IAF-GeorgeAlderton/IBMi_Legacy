@@ -1,0 +1,197 @@
+     H            Y.
+     F***CHKR58*****************************************************************
+     F*  PROGRAM    : CHECK HONDA ORDERS PO#                                   *
+     F*             : READ AB#PL10A                                            *
+     F*  WRITTEN    : 2019.07.05                                               *
+     F*  WRITTEN BY : JW (SRA)                                                 *
+     F**************************************************************************
+     FAB#PL10AIF  E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1  20 SVMHIN
+     I                                        1   5 SVMHN1
+     I                                        6  10 SVMHN2
+     I                                       11  15 SVMHN3
+     I                                       16  20 SVMHN4
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+     C           *LOVAL    SETLLAB#PL10A
+     C                     DO   *HIVAL
+     C                     READ AB#PL10A                 98
+     C   98                LEAVE
+      *
+      * SELECT HONDA
+     C           BATOKU    IFNE 0294
+     C           BATOKU    ANDNE0295
+     C           BATOKU    ANDNE0296
+     C           BATOKU    ANDNE0390
+     C           BATOKU    ANDNE0391
+     C           BATOKU    ANDNE0400
+     C           BATOKU    ANDNE1602
+     C           BATOKU    ANDNE3135
+     C                     ITER
+     C                     ENDIF
+      *
+     C           BASKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * FIRST ?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELBAODRN    SVODRN
+     C                     MOVELBAMHIN    SVMHIN
+     C                     MOVELBANONY    SVNONY
+     C                     MOVELBANOHZ    SVNOHZ
+     C                     MOVELBANOBN    SVNOBN
+     C                     MOVELBAEDIK    SVEDIK
+     C                     MOVELBATOKU    SVTOKU
+     C                     ENDIF
+      * BREAK ?
+     C           BAODRN    IFNE SVODRN
+     C           BAMHIN    ORNE SVMHIN
+     C           BANONY    ORNE SVNONY
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * PROCESS
+     C                     ADD  BASRYO    IAFQTY
+     C                     Z-ADDBANOHZ    SVNOHZ
+     C                     ENDDO
+      * LAST BRREAK
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     ENDIF
+      *
+     C           SEQ#      IFNE 0
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  BREAK                                             *
+      *----------------------------------------------------*
+     C           #BRK1     BEGSR
+      * CHECK EP90
+     C                     MOVELSVNONY    $NONY
+     C                     MOVELSVODRN    $ODRN
+     C                     MOVELSVMHIN    $MHIN
+     C                     MOVELSVNOHZ    $NOHZ
+     C                     CALL 'UEXR10'
+     C                     PARM           $NONY   4
+     C                     PARM           $ODRN  10
+     C                     PARM           $MHINI 20
+     C                     PARM           $NOHZ   8
+     C                     PARM           $PLNT   3
+     C                     PARM           $SHCD  10
+     C                     PARM           $PLSH   8
+     C                     PARM           $QTY    9
+     C                     PARM           $MHIN0 20
+     C                     PARM           $RTN    1
+     C                     MOVEL$QTY      EDIQTY  90
+      *
+     C           IAFQTY    IFNE EDIQTY
+     C                     EXSR #PRINT
+     C                     ENDIF
+      * RESET
+     C                     MOVELBAODRN    SVODRN
+     C                     MOVELBAMHIN    SVMHIN
+     C                     MOVELBANONY    SVNONY
+     C                     MOVELBANOHZ    SVNOHZ
+     C                     MOVELBANOBN    SVNOBN
+     C                     MOVELBAEDIK    SVEDIK
+     C                     MOVELBATOKU    SVTOKU
+     C                     Z-ADD0         IAFQTY
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      * GET CUSTOMER NAME
+     C                     MOVELBANONY    $DLV
+     C                     CALL 'UTLR62'
+     C                     PARM           $DLV    4
+     C                     PARM           $GRP    3
+     C                     PARM           $NAME1 15
+     C                     PARM           $NAME2 50
+     C                     PARM           $RTN    1
+     C                     MOVEL$NAME1    XNAME  15
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $RTN    1
+      *
+     C                     MOVE *BLANK    $RTN
+     C                     TIME           SDATE
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+     C                     MOVE 'Y'       FIRST   1
+      *
+     C                     Z-ADD0         SVNOHZ  80
+     C                     Z-ADD0         SVNONY  40
+     C                     MOVE *BLANK    SVODRN 10
+     C                     MOVE *BLANK    SVMHIN
+     C                     MOVE *BLANK    SVEDIK  1
+     C                     Z-ADD0         SVNOBN  20
+     C                     Z-ADD0         SVTOKU  40
+     C                     Z-ADD0         IAFQTY  90
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   40 '** CHECK HONDA ORDER'
+     O                                   60 ' QTY BY ORDER# **   '
+     O                                   80 '                    '
+     O                                   89 'DATE'
+     O                         TODAY     92 '    .  .  '
+     O                         NOW      102 '  :  :  '
+     O                                  106 'P.'
+     O                         PAGE  Z  110
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   13 'ORDER#'
+     O                                   21 'TYP'
+     O                                   39 'USER_PART________'
+     O                                   46 'CUST'
+     O                                   51 'DELV'
+     O                                   60 'SHP_DATE'
+     O                                   67 'BIN#'
+     O                                   79 'IAF_QTY'
+     O                                   90 'EDI_QTY'
+     O        E 1              @DTL
+     O                         SEQ#  1 +000
+     O                         SVODRN  +002
+     O                         SVEDIK  +002
+     O                         SVMHN1  +002
+     O                         SVMHN2  +001
+     O                         SVMHN3  +001
+     O                         SVTOKU  +003
+     O                         SVNONY  +001
+     O                         SVNOHZ  +001 '    /  /  '
+     O                                 +002 '--'
+     O                         IAFQTY1 +002
+     O                         EDIQTY1 +000

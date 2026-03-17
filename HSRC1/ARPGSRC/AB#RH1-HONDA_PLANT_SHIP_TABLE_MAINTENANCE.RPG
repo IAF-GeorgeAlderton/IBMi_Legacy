@@ -1,0 +1,306 @@
+     H** AB#RH1 *******************************************************
+     H* UPDATE OF HONDA (PLANT+SHIP -> CUSTOMER.DELVERY)              *
+     H*
+     H*  KIRI 15.08.20
+     H*****************************************************************
+     H            Y/                                    1
+     FAB#PWH1 CF  E                    WORKSTN
+     F                                              KINFDS INFDS
+      * DETAIL CODE MANAGEMENT RECORD .LAYOUT ..LOGICAL FILE ..        *
+     FFGBPL01 IF  E           K        DISK
+      * SHIPMENT M/F   CUSTOMER ORDER    *.
+     FGADPL11 IF  E           K        DISK
+      *
+     FAB#PPHN UF  E           K        DISK                      A
+      *================================================================
+     E                    MSG     1  20 60               d[ｰ xｮﾈｰﾆﾞ
+      *================================================================
+     IINFDS       DS
+     I                                    B 378 3790$$RRN
+      *
+      *
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60@SYSTM
+     I                                        7  140@SYSHZ
+      *     <<
+      *
+     I           SDS
+     I                                     *PROGRAM W@PGM
+     I                                      244 253 W@WSID
+     I                                      254 263 W@USER
+     I                                      264 269 W@JBNO
+      *===============================================================
+      *  START  PROGRAM
+      *===============================================================
+     C                     MOVE '#INIT   '@STEP   8
+     C*
+     C           @STEP     DOUEQ'#END    '
+     C           @STEP     CASEQ'#INIT   '#INIT
+     C           @STEP     CASEQ'#DSP1   '#DSP1
+     C           @STEP     CASEQ'#CHK1   '#CHK1
+     C           @STEP     CASEQ'#DSP2   '#DSP2
+     C           @STEP     CASEQ'#CHK2   '#CHK2
+     C           @STEP     CASEQ'#CHK2 F5'#CHK2
+     C           @STEP     CASEQ'#UPDAT  '#UPDAT
+     C                     ENDCS
+     C                     ENDDO
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+      *===============================================================
+      *   << INIT >>
+      *===============================================================
+     C           #INIT     BEGSR
+     C                     TIME           @TIME
+     C                     MOVEA*ALL'0'   *IN
+     C                     MOVE *BLANK    D1KBN
+     C                     MOVE *BLANK    D1PLNT
+     C                     MOVE *BLANK    D1SHCD
+     C                     MOVE *BLANK    D1ERR            エラー
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDSR
+      *===============================================================
+      *  画面１　表示
+      *===============================================================
+     C           #DSP1     BEGSR
+     C*
+     C                     EXFMTDSP01
+     C                     MOVEA'00000000'*IN,21
+     C                     SETOF                     99
+     C                     MOVE *BLANK    D1ERR            エラー
+     C*
+     C                     MOVE '#CHK1   '@STEP
+     C*  < F1 >  END JOB
+     C           *INKA     IFEQ *ON
+     C                     MOVE '#END    '@STEP
+     C                     ENDIF
+     C*  < F12 >  INQUIRY
+     C           *INKL     IFEQ *ON
+     C                     MOVELD1PLNT    P@PLNT
+     C                     MOVELD1SHCD    P@SHCD
+     C                     CALL 'AB#RH2'
+     C                     PARM           P@PLNT  3
+     C                     PARM           P@SHCD 10
+     C           P@SHCD    IFNE *BLANK
+     C                     MOVELP@PLNT    D1PLNT
+     C                     MOVELP@SHCD    D1SHCD
+     C                     ENDIF
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDIF
+     C*
+     C                     ENDSR
+      *===============================================================
+      *  画面１　チェック
+      *===============================================================
+     C           #CHK1     BEGSR
+     C*--------------------
+     C* D1KBN (21)
+     C*--------------------
+     C                     SELEC
+     C           D1KBN     WHEQ '0'
+     C                     MOVEL'0-CANCEL'D2KBN
+     C                     SETON                     30
+     C           D1KBN     WHEQ '1'
+     C                     MOVEL'1-CHANGE'D2KBN
+     C                     SETOF                     30
+     C           D1KBN     WHEQ '2'
+     C                     MOVEL'2-ADD   'D2KBN
+     C                     SETOF                     30
+     C                     OTHER
+     C                     SETON                     2199
+     C                     MOVELMSG,1     D1ERR
+     C                     GOTO @CHK1Z
+     C                     ENDSL
+     C*--------------------
+     C* D1PLNT (22)
+     C*--------------------
+     C           D1PLNT    IFEQ *BLANK
+     C                     SETON                     2299
+     C                     MOVELMSG,2     D1ERR
+     C                     GOTO @CHK1Z
+     C                     ENDIF
+     C*--------------------
+     C* D1SHCD (23)
+     C*--------------------
+     C           D1SHCD    IFEQ *BLANK
+     C                     SETON                     2399
+     C                     MOVELMSG,3     D1ERR
+     C                     GOTO @CHK1Z
+     C                     ENDIF
+     C*--------------------
+     C           KEY01     KLIST
+     C                     KFLD           D1PLNT
+     C                     KFLD           D1SHCD
+     C*
+     C           KEY01     CHAINAB#PPHN             N90
+     C  N90      AHSKJY    IFEQ 'D'                        DELETE CODE
+     C           AHSKDT    ANDLE@SYSHZ                     DELETE DATE
+     C                     SETON                     90
+     C                     ENDIF
+     C*
+S1   C           *IN90     IFEQ *OFF
+     C           D1KBN     IFEQ '2'                        2-ADD
+     C                     SETON                     212223
+     C                     SETON                         99
+     C                     MOVELMSG,5     D1ERR
+     C                     GOTO @CHK1Z
+     C                     ENDIF
+     C                     Z-ADDAHTOKU    D2TOKU
+     C                     Z-ADDAHNONY    D2NONY
+X1   C                     ELSE
+     C           D1KBN     IFNE '2'                        NE 2-ADD
+     C                     SETON                     212223
+     C                     SETON                         99
+     C                     MOVELMSG,4     D1ERR
+     C                     GOTO @CHK1Z
+     C                     ENDIF
+     C                     Z-ADD0         D2TOKU
+     C                     Z-ADD0         D2NONY
+E1   C                     ENDIF
+     C*-------------------------
+     C           @CHK1Z    TAG
+     C*-------------------------
+     C*
+S1   C           *IN99     IFEQ *ON
+     C                     MOVE '#DSP1   '@STEP
+X1   C                     ELSE
+     C                     MOVEL*BLANK    D2SMEI
+     C                     MOVEL*BLANK    D2KMEI
+     C                     MOVEA'00000000'*IN,31
+     C                     MOVEL*BLANK    D2ERR
+     C                     MOVE '#DSP2   '@STEP
+E1   C                     ENDIF
+     C*
+     C                     ENDSR
+      *===============================================================
+      *  画面２　表示
+      *===============================================================
+     C           #DSP2     BEGSR
+     C*
+     C                     EXFMTDSP02
+     C                     SETOF                     99
+     C                     MOVEA'00000000'*IN,31
+     C                     MOVE *BLANK    D2ERR
+     C*
+     C                     MOVE '#CHK2   '@STEP
+     C*  < F3 >  BACK
+     C           *INKC     IFEQ *ON
+     C                     MOVEA'00000000'*IN,21
+     C                     MOVE *BLANK    D1ERR
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDIF
+     C*  < F5 >  UPDAT
+     C           *INKE     IFEQ *ON
+     C                     MOVE '#CHK2 F5'@STEP
+     C           D1KBN     IFEQ '0'                        0-CANCEL
+     C                     MOVE '#UPDAT  '@STEP
+     C                     ENDIF
+     C                     ENDIF
+     C*
+     C                     ENDSR
+      *===============================================================
+      *  画面２　チェック
+      *===============================================================
+     C           #CHK2     BEGSR
+     C                     MOVEL*BLANK    D2SMEI
+     C                     MOVEL*BLANK    D2KMEI
+     C*--------------------
+     C           D2TOKU    IFEQ 0
+     C                     SETON                     3199
+     C                     MOVELMSG,6     D2ERR
+     C                     GOTO @CHK2Z
+     C                     ENDIF
+     C*
+     C           D2TOKU    CHAINFGBPL01              91
+     C  N91      B2SKJY    IFEQ 'D'
+     C                     SETON                     91
+     C                     ENDIF
+     C           *IN91     IFEQ *ON
+     C                     SETON                     3199
+     C                     MOVELMSG,7     D2ERR
+     C                     GOTO @CHK2Z
+     C                     ENDIF
+     C                     MOVELB2SMEI    D2SMEI
+     C*
+     C           D2NONY    IFEQ 0
+     C                     SETON                     3299
+     C                     MOVELMSG,8     D2ERR
+     C                     GOTO @CHK2Z
+     C                     ENDIF
+     C*
+     C           KEY02     KLIST
+     C                     KFLD           D2TOKU
+     C                     KFLD           D2NONY
+     C           KEY02     SETLLGADPL11
+     C                     DO   *HIVAL
+     C           KEY02     READEGADPL11                  91
+     C   91                LEAVE
+     C           B5SKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+     C                     MOVELB5KMEI    D2KMEI
+     C                     LEAVE
+     C                     ENDDO
+     C           *IN91     IFEQ *ON
+     C                     SETON                     3299
+     C                     MOVELMSG,9     D2ERR
+     C                     GOTO @CHK2Z
+     C                     ENDIF
+     C*-------------------------
+     C           @CHK2Z    TAG
+     C*-------------------------
+     C           *IN99     IFEQ *OFF
+     C           @STEP     ANDEQ'#CHK2 F5'
+     C                     MOVEL'#UPDAT  '@STEP
+     C                     ELSE
+     C                     MOVEL'#DSP2   '@STEP
+     C                     ENDIF
+     C                     ENDSR
+      *===============================================================
+      *  更新処理
+      *===============================================================
+     C           #UPDAT    BEGSR
+     C*
+     C           KEY01     CHAINAB#PPHN              90
+     C*
+     C           D1KBN     IFEQ '0'                        0-CANCEL
+     C                     MOVE 'D'       AHSKJY           DELETE CODE
+     C                     Z-ADD@SYSHZ    AHSKDT           DELETE DATE
+     C  N90                UPDATAB#PPHN1
+     C                     ELSE
+     C                     MOVE *BLANK    AHSKJY           DELETE CODE
+     C                     Z-ADD0         AHSKDT           DELETE DATE
+     C                     Z-ADD@SYSHZ    AHKODT           UPDATE DATE
+     C                     Z-ADD@SYSTM    AHKOTM           UPDATE TIME
+     C                     MOVELW@USER    AHKOME           UPDATE USER
+     C                     MOVELW@PGM     AHPGMN           UPDATE PGM
+     C                     MOVELD1PLNT    AHPLNT
+     C                     MOVELD1SHCD    AHSHCD
+     C                     Z-ADDD2TOKU    AHTOKU
+     C                     Z-ADDD2NONY    AHNONY
+     C   90                WRITEAB#PPHN1
+     C  N90                UPDATAB#PPHN1
+     C                     ENDIF
+      *
+     C                     MOVE *BLANK    D1KBN
+     C                     MOVE *BLANK    D1PLNT
+     C                     MOVE *BLANK    D1SHCD
+     C                     MOVE *BLANK    D1ERR
+     C                     MOVEA'00000000'*IN,21
+     C                     MOVE '#DSP1   '@STEP
+      *
+     C                     ENDSR
+      *===============================================================
+      *===============================================================
+**  MSG
+ ENTER 0, 1 OR 2 FOR THE UPDATE ID
+ ENTER PLANT ID
+ ENTER SHIP TO CODE
+ THERE IS NO TARGET DATA
+ PLANT AND SHIP TO IS ALREADY REGISTED
+ ENTER CUSTOMER CODE
+ CUSTOMER CODE DOES NOT EXIST IN MASTER
+ ENTER DELIVERY CODE
+ DELIVERY CODE DOES NOT EXIST IN SHIPPING MASTER
+

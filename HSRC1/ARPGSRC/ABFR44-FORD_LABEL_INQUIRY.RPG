@@ -1,0 +1,219 @@
+     H            Y.
+      ** ABFR44 **********************************************
+      *  FORD LABEL INQUIRY                                  *
+      *  JW.      2022.11.07                                 *
+      ********************************************************
+     FABFPW44 CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     FABF6L10 IF  E           K        DISK
+      *
+     E                    ERR     1  10 60
+      *
+     I            DS
+     I                                        1   80FCKOHZ
+     I                                        1   40FCKOYY
+     I                                        5   60FCKOMM
+     I                                        7   80FCKODD
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *===========================================================*
+      *    MAIN ROUTINE                                           *
+      *===========================================================*
+     C                     EXSR #INIT
+      *
+     C           W@ID      DOWNE'99'
+     C           W@ID      CASEQ'01'      #DSP1
+     C           W@ID      CASEQ'02'      #DSP2
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *************************************************************
+      * Purpose: Display Screen 1 to get Date Range.
+      *************************************************************
+     C           #DSP1     BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVE *OFF      *IN99
+     C                     MOVE *OFF      *IN31
+     C                     MOVE *OFF      *IN32
+      * F1/3: EXIT
+     C           *INKA     IFEQ *ON
+     C           *INKC     OREQ *ON
+     C                     MOVEL'99'      W@ID
+     C                     GOTO @END1
+     C                     ENDIF
+      * ENTR:
+     C                     EXSR #CHK1
+      *
+      * if no errors on screen 1, fill subfile
+     C           *IN99     IFEQ *OFF
+     C                     EXSR #SET1
+      *
+     C           RRN1      IFGT 0
+     C                     MOVEL'02'      W@ID
+     C                     ELSE
+     C                     MOVELERR,5     XMSG
+     C                     SETON                     313299
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           @END1     ENDSR
+      *************************************************************
+      * Purpose: Check Screen When ENTER is Pressed.
+      *************************************************************
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE *BLANK    XNAM
+      * DEIVERY CODE
+     C           XNONY     IFEQ 0
+     C                     MOVELERR,1     XMSG
+     C                     SETON                     3199
+     C                     GOTO @EDSP1
+     C                     ENDIF
+      *
+     C                     MOVELXNONY     PMNONY
+     C                     MOVE ' '       PMOPT
+     C                     CALL 'UTLR16'
+     C                     PARM           PMNONY  4
+     C                     PARM           PMOPT   1
+     C                     PARM           PMNAME 20
+     C                     PARM           PTOKU   4
+     C                     PARM           PMRTN   1
+     C           PMNAME    IFEQ *BLANK
+     C                     MOVELERR,2     XMSG
+     C                     SETON                     3199
+     C                     GOTO @EDSP1
+     C                     ENDIF
+     C                     MOVELPMNAME    XNAM
+      * SHIP DATE
+     C           XFROM     IFEQ 0
+     C                     MOVELERR,3     XMSG
+     C                     SETON                     3299
+     C                     GOTO @EDSP1
+     C                     ENDIF
+      *  check date...
+     C                     MOVELXFROM     $SRC      P
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+     C           $RTN      IFNE ' '
+     C                     MOVELERR,4     XMSG
+     C                     SETON                     3299
+     C                     GOTO @EDSP1
+     C                     ENDIF
+     C                     MOVEL$TRUE     XFROM
+      *
+     C           @EDSP1    ENDSR
+      *************************************************************
+      * Purpose: Fill subfile with detail within date range.
+      *************************************************************
+     C           #SET1     BEGSR
+      *
+     C                     Z-ADD0         @SEQ    40
+      * look for records within the specified date range.
+     C           K#10      SETLLABF6L10
+     C                     DO   *HIVAL
+     C           K#10      READEABF6L10                  51
+     C   51                LEAVE
+      *
+     C           FCSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDFCSEQ#    SSEQ#
+     C                     Z-ADDFCSHTM    SNOBN
+     C                     MOVELFCCPAR    SMHIN
+     C                     MOVELFCPBCD    STYP
+     C                     MOVELFCPRNT    SPRNT
+     C                     Z-ADDFCKOHZ    SKOHZ
+     C                     MOVELFCKOME    SKOME
+     C           STYP      IFEQ 'S'
+     C                     ADD  1         @SEQ
+     C                     Z-ADDFCUQTY    SQPC
+     C                     Z-ADD@SEQ      SSQ
+     C                     Z-ADDFCUQTY    SQPC
+     C                     MOVELFCSERL    SSERL
+     C                     ELSE
+     C                     Z-ADD0         SSQ
+     C                     Z-ADD0         SQPC
+     C                     MOVEL'--------'SSERL     P
+     C                     ENDIF
+      *
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+      *
+     C                     ENDDO
+      *
+     C                     Z-ADDRRN1      COUNT   60
+      *
+     C                     ENDSR
+      ************************************************************
+      * Purpose: Display Screen 2.
+      ************************************************************
+     C           #DSP2     BEGSR
+      *
+     C                     WRITEFMT90
+     C                     MOVEL'1'       *IN70
+     C                     EXFMTSFLCTL
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVEL'0'       *IN99
+     C                     MOVEL'0'       *IN70
+      *
+     C                     SELEC
+      * F1/3: END
+     C           *INKA     WHEQ *ON
+     C           *INKC     OREQ *ON
+     C                     MOVEL'99'      W@ID
+      * F12: BACK
+     C           *INKL     WHEQ *ON
+     C                     EXSR #CLRSR
+     C                     Z-ADD0         RRN1
+     C                     MOVEL'01'      W@ID
+      * ENTR:
+     C                     OTHER
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *************************************************************
+      * Purpose: Clear Subfile.
+      *************************************************************
+     C           #CLRSR    BEGSR
+     C                     SETON                     71
+     C                     WRITESFLCTL
+     C                     SETOF                     71
+     C                     Z-ADD0         RRN1
+      *
+     C                     ENDSR
+      *************************************************************
+      * Purpose: Initialize variables.
+      *************************************************************
+     C           #INIT     BEGSR
+      *
+     C           K#10      KLIST
+     C                     KFLD           XNONY
+     C                     KFLD           XFROM
+      *
+     C                     MOVEL'01'      W@ID    2
+     C                     TIME           SDATE
+     C                     Z-ADD0         RRN1    50
+     C                     Z-ADDTODAY     XFROM
+      *
+     C                     ENDSR
+      *************************************************************
+** ERR(60) .........2........3.........4.........5.........6
+ENTER DELIVERY CODE !                                         01
+DELILIVERY CODE NOT FOUND IN MASTER !                         02
+ENTER SHIP DATE !                                             03
+SHIP DATE IS NOT VALID !                                      04
+THERE IS NO DATA IN THIS DATE !                               05
+                                                              06
+                                                              07
+                                                              08
+                                                              09
+                                                              10

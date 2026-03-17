@@ -1,0 +1,122 @@
+     H            Y.
+     F** AM#R86  *******************************************
+     F* PLAN START END  PACKING                            *
+     F*      ITS.        2015.06.24                        *
+     F******************************************************
+     FAM#WP83 IF  E           K        DISK
+     FAM#WP64 IF  E           K        DISK
+     FAM#PP00 IF  E           K        DISK
+     FAM#WP86 O   E                    DISK                      A
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60STIME
+     I                                        7  140SDATE
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           P1FIXD  80
+     C                     PARM           P1FIXT  60
+     C                     PARM           P1BINS  30
+     C                     PARM           P1KENS  40
+      *
+      *-----------------------------------------------------
+      *  MAIN ROUTINE
+      *-----------------------------------------------------
+     C                     TIME           WTIME
+      * PULLING CYCLE
+     C                     Z-ADD0         D1PULC  30
+     C                     MOVEL'PULCYC'  KEY    10
+     C           KEY       CHAINAM#PP001             20
+     C           *IN20     IFEQ '0'
+     C                     Z-ADDD0VALU    D1PULC
+     C                     ENDIF
+      * PACKING CYCLE
+     C                     Z-ADD0         D1PACC  30
+     C                     MOVEL'PACCYC'  KEY    10
+     C           KEY       CHAINAM#PP001             20
+     C           *IN20     IFEQ '0'
+     C                     Z-ADDD0VALU    D1PACC
+     C                     ENDIF
+      *集荷サイクル分減らす
+     C                     SUB  D1PULC    P1KENS
+     C           P1KENS    DIV  P1BINS    WKMIN   30
+     C           WKMIN     IFGT D1PULC
+     C                     Z-ADDD1PULC    WKMIN
+     C                     ENDIF
+      *
+     C           KEY51     KLIST
+     C                     KFLD           K1FIXD  80
+     C                     KFLD           K1FIXT  60
+     C                     Z-ADDP1FIXD    K1FIXD
+     C                     Z-ADDP1FIXT    K1FIXT
+     C           KEY51     SETLLAM#WP641
+     C           KEY51     READEAM#WP641                 83
+      *集荷サイクル分遅らせる
+     C                     Z-ADD1         X       30
+     C                     READ AM#WP831                 80
+     C           *IN80     DOWEQ'0'
+     C           X         ANDLED1PULC
+     C                     READ AM#WP831                 80
+     C                     ADD  1         X
+     C                     ENDDO
+      *
+     C                     Z-ADDWKMIN     W       30
+     C*****                READ AM#WP831                 80
+     C           *IN80     DOWEQ'0'
+     C           W         IFEQ WKMIN
+     C                     Z-ADD0         W
+     C                     EXSR #SB400
+     C                     ENDIF
+     C                     EXSR #SB500
+     C                     ADD  1         W
+     C                     READ AM#WP831                 80
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *                                                    *
+      *----------------------------------------------------*
+     CSR         #SB400    BEGSR
+      *
+     C                     MOVEL'0'       GET     1
+     C                     MOVEL*BLANK    WKTRKB  2
+     C                     MOVEL*BLANK    WKIAFB  3
+     C                     Z-ADD0         WKEXTR  30
+     C           *IN83     DOWEQ'0'
+     C           GET       ANDEQ'0'
+     C           W4IAFB    IFNE *BLANK
+     C                     MOVEL'1'       GET     1
+     C                     MOVELW4TRKB    WKTRKB
+     C                     MOVELW4IAFB    WKIAFB
+     C                     Z-ADDW4EXTR    WKEXTR
+     C                     ENDIF
+     C           KEY51     READEAM#WP641                 83
+     C                     ENDDO
+      *
+     CSR         ESB400    ENDSR
+      *----------------------------------------------------*
+      *                                                    *
+      *----------------------------------------------------*
+     CSR         #SB500    BEGSR
+      *
+     C                     CLEARAM#WP861
+     C                     Z-ADDW3FIXD    W6FIXD
+     C                     Z-ADDW3FIXT    W6FIXT
+     C                     MOVELW3SHID    W6SHID
+     C                     Z-ADDW3DATE    W6DATE
+     C                     Z-ADDW3TIME    W6TIME
+     C                     MOVELW3USE     W6USE
+     C                     MOVELW3YOBI    W6YOBI
+     C                     MOVELWKTRKB    W6TRKB
+     C                     MOVELWKIAFB    W6IAFB
+     C                     Z-ADDWKEXTR    W6EXTR
+     C                     WRITEAM#WP861
+      *
+     CSR         ESB500    ENDSR

@@ -1,0 +1,701 @@
+     H            Y.
+     F** ABAR1E **************************************************
+     F*    ..FORD EDI(830)                                       *
+     F*    H.AMANO    JAN/07/03                                  *
+     F*                                                          *
+     F* TCHK1 05/15/07 BUG FIX                                   *
+     F* TCHK2 12/08/08 CHG ZERO DIVIDE                           *
+     F* TCHK3 01/12/09 CHG AFTER ROLLBACK                        *
+     F* TCHK4 02/13/09 CHG ZERO DIVIDE ... BUG FIX               *
+     F* TCHK5 02/13/09 CHG QTCD='F' DO NOT UPDATE ABAWP10        *
+     F* TCHK6 03/27/09 CHG DOCK CHECK                            *
+     F* TCHK7 01/10/11 CHG PREV CUM QTY                          *
+     F* TCHK8 02/12/13 CHG CFDOCK LENGTH(4 --> 5)                *
+%0001F* T.SAKAKI 01/07/16 ADD LOGIC FOR REMAINDER                *
+%0002F* T.SAKAKI 01/22/16 FIX BUG FOR CUM CALUCULATION           *
+%0003F* T.SAKAKI 01/15/16 CHG LOGIC FOR QTY ZERO                 *
+     F* LEC      01/28/16 ADD LOGIC FOR STORAGE FACILITY         *
+     F************************************************** ABAR2G **
+     FABAEP10 IP  E                    DISK
+     FABAEP11 IF  E           K        DISK
+     FGADPL11 IF  E           K        DISK
+     FAGDPL12 IF  E           K        DISK
+TCHK6FABFDL02 IF  E           K        DISK
+     FABFDL03 IF  E           K        DISK
+     F            ABFDL01R                          KRENAMEABFDL3R
+     FABAWP10 UF  E           K        DISK                      A
+     FABFPP10 O   E           K        DISK
+     FABFPP20 O   E           K        DISK
+     FABFPP30 UF  E           K        DISK                      A
+     FABAEP25 IF  E           K        DISK                      A
+     FABFAL01 IF  E           K        DISK
+     FOUTFILE O   F     256            DISK                      A
+     FABFPL10 IF  E           K        DISK
+     F            ABFPP101                          KRENAMEABFPL0X
+     F****************************************************
+     E                    HSU        31  7 0
+     E                    HYM         7  8 0
+     E                    HNB        20  1
+     E                    @HNB       20  1
+     E                    WSR        15  1
+     E                    XSR         8  1
+     E                    IUHN       40  1
+     E                    WUHN       20  1
+     E                    CD         14  1               QTY CODE
+     E                    DAS        14  6 0             CUM START DATE
+     E                    DAE        14  6 0             CUM END   DATE
+     E                    CUM        14 10 0             CUM QTY
+     E                    QTY        14 10 0             NET QTY
+      * DOCK CODE = INUKE + 'A'
+     I            DS
+     I                                        1   5 WDOCK
+     I                                        5   5 #32
+      * SYSTEM TIME & DATE
+     I            DS
+     I                                        1  120WTMDT
+     I                                        1   60WTIME
+     I                                        1   20WTIHH
+     I                                        3   40WTIMM
+     I                                        7  120WDATE
+     I                                        7   80WDAYY
+     I                                        9  100WDAMM
+     I                                       11  120WDADD
+      *
+     I            DS
+     I                                        1 2170HSU
+     I                                        1   70ABNN01
+     I                                        8  140ABNN02
+     I                                       15  210ABNN03
+     I                                       22  280ABNN04
+     I                                       29  350ABNN05
+     I                                       36  420ABNN06
+     I                                       43  490ABNN07
+     I                                       50  560ABNN08
+     I                                       57  630ABNN09
+     I                                       64  700ABNN10
+     I                                       71  770ABNN11
+     I                                       78  840ABNN12
+     I                                       85  910ABNN13
+     I                                       92  980ABNN14
+     I                                       99 1050ABNN15
+     I                                      106 1120ABNN16
+     I                                      113 1190ABNN17
+     I                                      120 1260ABNN18
+     I                                      127 1330ABNN19
+     I                                      134 1400ABNN20
+     I                                      141 1470ABNN21
+     I                                      148 1540ABNN22
+     I                                      155 1610ABNN23
+     I                                      162 1680ABNN24
+     I                                      169 1750ABNN25
+     I                                      176 1820ABNN26
+     I                                      183 1890ABNN27
+     I                                      190 1960ABNN28
+     I                                      197 2030ABNN29
+     I                                      204 2100ABNN30
+     I                                      211 2170ABNN31
+     I            DS
+     I                                        1  20 ABMHIN
+     I                                        1   5 ABMHN1
+     I                                        6  10 ABMHN2
+     I                                       11  15 ABMHN3
+     I                                       16  20 ABMHN4
+     I            DS
+     I                                        1   80F8KAHZ
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+     I            DS
+     I                                        1   80B5SKHZ
+     I                                        1   40B5SKYY
+     I                                        5   60B5SKMM
+     I                                        7   80B5SKDD
+     I            DS
+     I                                        1   80F9SKHZ
+     I                                        1   40F9SKYY
+     I                                        5   60F9SKMM
+     I                                        7   80F9SKDD
+     I            DS
+     I                                        1   80WNYMD
+     I                                        1   60WNYM
+     I                                        1   40WNYY
+     I                                        5   60WNMM
+     I                                        7   80WNDD
+     I            DS
+     I                                        1   80@NYMD
+     I                                        1   60@NYM
+     I                                        7   80D
+     I            DS
+     I                                        1   8 XSR
+     I                                        1   80#SR
+     I            DS
+     I                                        1  15 WSR
+     I                                        1  15 VSR
+     I            DS
+     I                                        1  20 HNB
+     I                                        1  20 $HNB
+     I* SCHEDULE ISSUE DATE(ABFPP30)
+     I            DS
+     I                                        1   80CGSIDT
+     I                                        3   80CGSI6
+     I            DS
+     I                                        1  20 WMHIN
+     I                                        1   5 WMHN1
+     I                                        6  10 WMHN2
+     I                                       11  15 WMHN3
+     I                                       16  20 WMHN4
+     I                                        1   7 OMHN1
+     I                                        8  11 OMHN2
+     I                                       12  15 OMHN3
+     I                                       16  20 OMHN4
+     I                                        1  20 @HNB
+     I                                        1  12 WIPAR
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+TCHK7I            DS
+TCHK7I                                        1   60W@SIDT
+TCHK7I                                        1   20W@SIYY
+TCHK7I                                        3   40W@SIMM
+TCHK7I                                        5   60W@SIDD
+      *--------------------------------------------------------------
+      *     MAIN ROUTINE
+      *--------------------------------------------------------------
+     C                     Z-ADD0         ERRCD   20
+TCHK6C                     MOVE '0000'    WSBAN   4
+      * CHECK DOCK CODE
+     C           ABDOCK    IFNE @@DOCK
+TCHK6C           ABSHDK    ORNE @@SHDK
+%0002C           ABREL#    ORNE @@REL#
+     C           ABSTFC    ORNE @@STFC                     STORAGE FACILITY
+     C                     EXSR #DCHK
+     C                     MOVE *BLANK    K@PART
+     C                     MOVEL*BLANK    @MHIN
+     C                     EXSR #P20
+     C                     ENDIF
+      *
+     C           ERRCD     IFEQ *ZERO
+     C           ABCUST    IFNE @@TOKU
+     C           WNONY     ORNE @@NONY
+     C           K#25      CHAINABAEP25              90
+     C           *IN90     IFEQ *ON
+     C                     MOVE ABCUST    AACUST
+     C                     Z-ADDWNONY     AASHTO
+     C                     WRITEABAEP251
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     MOVELABDOCK    @@DOCK  5
+TCHK6C                     MOVELABSHDK    @@SHDK  4
+     C                     MOVELABSTFC    @@STFC  5
+     C                     MOVE ABCUST    WTOKU   40
+     C                     MOVE ABFACT    WNKOJ   1
+      *
+B01  C           ABPART    IFNE @@PART
+     C           @MHIN     OREQ *BLANK
+      *
+     C                     EXSR #PCHK
+     C                     Z-ADD*ZERO     @@CNT   30
+      * %0002 OMIT
+      * CUM QTY
+     C**                   EXSR #CUM
+%0002C                     Z-ADDABSHQT    WWCUM
+      *
+     C                     MOVELABREL#    K@POR#
+     C                     MOVEL@MHIN     WIPAR
+     C           KEY9      CHAINABFPP30              95
+     C           *IN95     IFEQ *ON
+     C                     MOVE '1'       @OK
+     C                     ELSE
+     C                     MOVE *BLANK    @OK     1
+     C                     ENDIF
+      * ABFPP30
+     C                     EXSR #P30
+      *
+      * ABFPP20
+     C*****      @OK       IFEQ '1'
+     C                     MOVELABPART    K@PART    P
+     C                     EXSR #P20
+     C******               ENDIF
+      *
+E01  C                     ENDIF
+      *
+     C                     MOVE ABPART    @@PART 40
+     C                     MOVE ABREL#    @@REL# 10
+      *
+     C                     Z-ADDWNONY     @@NONY  40
+     C                     MOVE ABCUST    @@TOKU  4
+      * FORECAST FILE
+     C                     MOVE *OFF      *IN77
+     C                     MOVEL'C'       WNOKN   1
+     C                     MOVE ABCUST    K@CUST
+     C           KEY5      SETLLGADPL111
+     C           *IN10     DOUEQ*ON
+     C           KEY5      READEGADPL111                 10
+     C           *IN10     IFEQ *OFF
+     C           B5SKJY    ANDEQ*BLANK
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+     C*
+IF004C           *IN10     IFEQ '1'
+     C                     SETON                     0577
+     C                     Z-ADD2         ERRCD
+     C                     ELSE
+     C                     EXSR #FCST
+%0003C***        WSURY     CABEQ*ZERO     @JUMP
+     C                     ENDIF
+      *
+     C                     EXCPTDTL
+     C* ABFPP10
+     C           @OK       IFEQ '1'
+     C                     EXSR #P10
+      *
+     C                     ENDIF
+      *
+     C           @JUMP     TAG
+      *------------------------------------------------------
+      *  CHECK DOCK CODE
+      *------------------------------------------------------
+     C           #DCHK     BEGSR
+      *
+TCHK6C*          ABDOCK    SETLLABF9P011
+TCHK6C*          *IN90     DOUEQ*ON
+TCHK6C*          ABDOCK    READEABF9P011                 90
+TCHK6C*          *IN90     IFEQ *OFF
+TCHK6C*          F9SKJY    ANDEQ*BLANK
+TCHK6C*                    MOVE F9DELY    WNONY
+TCHK6C*                    LEAVE
+TCHK6C*                    ENDIF
+TCHK6C*                    ENDDO
+TCHK6C*
+TCHK6C           ABSHDK    IFEQ *BLANK
+TCHK6C           ABDOCK    SETLLABFDL02
+TCHK6C           *IN90     DOUEQ*ON
+TCHK6C           ABDOCK    READEABFDL02                  90
+TCHK6C           *IN90     IFEQ *OFF
+TCHK6C           QASKJY    ANDEQ*BLANK
+TCHK6C                     MOVELQANONY    WNONY
+TCHK6C                     LEAVE
+TCHK6C                     END
+TCHK6C                     ENDDO
+TCHK6C                     ELSE
+TCHK6C           K#FDL     KLIST
+TCHK6C                     KFLD           ABDOCK
+TCHK6C                     KFLD           ABSHDK
+TCHK6C           K#FDL     SETLLABFDL02
+TCHK6C           *IN90     DOUEQ*ON
+TCHK6C           K#FDL     READEABFDL02                  90
+TCHK6C           *IN90     IFEQ *OFF
+TCHK6C           QASKJY    ANDEQ*BLANK
+TCHK6C                     MOVELQANONY    WNONY
+TCHK6C                     LEAVE
+TCHK6C                     END
+TCHK6C                     ENDDO
+TCHK6C           *IN90     IFEQ *ON
+TCHK6C           ABDOCK    SETLLABFDL02
+TCHK6C           *IN90     DOUEQ*ON
+TCHK6C           ABDOCK    READEABFDL02                  90
+TCHK6C           *IN90     IFEQ *OFF
+TCHK6C           QASKJY    ANDEQ*BLANK
+TCHK6C                     MOVELQANONY    WNONY
+TCHK6C                     LEAVE
+TCHK6C                     END
+TCHK6C                     ENDDO
+TCHK6C                     END
+TCHK6C                     END
+      *
+     C           K#FD3     KLIST
+     C                     KFLD           ABDOCK
+     C                     KFLD           ABSHDK
+     C                     KFLD           ABSTFC
+      *
+     C           ABSTFC    IFNE *BLANK
+     C           K#FD3     SETLLABFDL03
+     C           *IN90     DOUEQ*ON
+     C           K#FD3     READEABFDL03                  90
+     C           *IN90     IFEQ *OFF
+     C           QASKJY    ANDEQ*BLANK
+     C                     MOVELQANONY    WNONY
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C           *IN90     IFEQ *ON
+     C                     MOVE *BLANK    WNONY
+     C                     Z-ADD1         ERRCD
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *  CHECK PART CODE
+      *------------------------------------------------------
+     C           #PCHK     BEGSR
+      *
+     C                     MOVEAABPART    IUHN
+     C                     MOVE *BLANK    WUHN
+     C                     Z-ADD0         X       20
+     C                     Z-ADD0         Y       20
+     C           1         DO   40        X
+     C           IUHN,X    IFNE *BLANK
+     C           IUHN,X    ANDNE'-'
+     C                     ADD  1         Y
+     C                     MOVE IUHN,X    WUHN,Y
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     MOVEAWUHN      @MHIN  40
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *  CUM QTY   %0002 OMIT BY TUCKER
+      *------------------------------------------------------
+     C           #CUM      BEGSR
+      *
+     C                     Z-ADD*ZERO     WWCUM  100
+     C                     MOVE ABDOCK    K32
+     C                     MOVEL@MHIN     K33    12
+     C                     Z-ADDABCSDT    @@DAT6
+     C                     MOVE *LOVAL    K31     60
+     C           KEY3      SETGTABFPL0X
+     C           *IN90     DOUEQ*ON
+     C           KEY7      REDPEABFPL0X                  90
+     C           *IN90     IFEQ '0'
+     C           FBQTCD    ANDEQ'W'
+TCHK7C                     Z-ADDFBSIDT    W@SIDT
+TCHK7C           W@SIYY    IFEQ WDAYY
+     C                     Z-ADDFBQTY1    WWCUM
+     C                     LEAVE
+TCHK7C                     END
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           WWCUM     IFEQ *ZERO
+     C                     MOVEL@MHIN     WIPAR
+     C                     MOVELABDOCK    K@DOC
+     C           K#FA      SETLLABFAL01
+     C           *IN90     DOUEQ*ON
+     C           K#FA      READEABFAL01                  90
+     C           *IN90     IFEQ *OFF
+     C           CFCAMN    ANDNE*ZERO
+     C                     Z-ADDCFCAMN    WWCUM
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *  WRITE RECORDS TO ABFPP30
+      *------------------------------------------------------
+     C           #P30      BEGSR
+      *
+     C                     MOVE *BLANK    @OK     1
+     C                     MOVEL@MHIN     WIPAR
+     C                     MOVELABREL#    K@POR#
+     C           KEY8      CHAINABFPP301             91
+     C           *IN91     IFEQ '1'
+     C                     CLEARABFPP301
+     C                     Z-ADD*YEAR     CGUPDY
+     C                     Z-ADD*MONTH    CGUPDM
+     C                     Z-ADD*DAY      CGUPDD
+     C                     Z-ADDWTIHH     CGUPTH
+     C                     Z-ADDWTIMM     CGUPTM
+     C                     MOVE #USER     CGUPNM
+     C                     MOVE ABDOCK    CGDOCK
+     C                     MOVE WIPAR     CGPART
+     C                     MOVELABREL#    CGPOR#
+     C                     Z-ADDABSIDT    CGSIDT
+     C                     Z-ADDABHSDT    CGHSDT
+     C                     WRITEABFPP301
+     C*
+     C                     MOVE '1'       @OK     1
+     C                     ELSE
+      *
+      *  SCHEDULE ISSUDE DATE IS LATER
+      * OR
+      *  SCHEDULE ISSUDE DATE IS SAME & RELEASE # IS BIGGER
+     C           ABSIDT    IFGT CGSIDT
+     C           ABSIDT    OREQ CGSIDT
+     C           ABREL#    ANDGTCGPOR#
+     C                     Z-ADD*YEAR     CGUPDY
+     C                     Z-ADD*MONTH    CGUPDM
+     C                     Z-ADD*DAY      CGUPDD
+     C                     Z-ADDWTIHH     CGUPTH
+     C                     Z-ADDWTIMM     CGUPTM
+     C                     MOVE #USER     CGUPNM
+     C                     MOVELABREL#    CGPOR#
+     C                     Z-ADDABSIDT    CGSIDT
+     C                     Z-ADDABHSDT    CGHSDT
+     C                     UPDATABFPP301
+     C                     MOVE '1'       @OK     1
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *  WRITE RECORDS TO ABFPP10
+      *------------------------------------------------------
+     C           #P10      BEGSR
+      *
+     C                     CLEARABFPP101
+     C                     MOVELABREL#    FBREL#
+     C                     Z-ADDABHSDT    FBHSDT
+     C                     Z-ADDABHEDT    FBHEDT                       T DATE
+     C                     Z-ADDABSIDT    FBSIDT                       DATE
+     C                     MOVELABDOCK    FBDOCK                       UE DATE
+     C                     MOVELABPART    FBPART
+     C                     MOVEL@MHIN     FBIPAR
+     C                     MOVELABORD#    FBORD#
+     C                     MOVELABRDCD    FBRDCD
+     C                     MOVELABRD#     FBRD#
+     C                     MOVELABEXCD    FBEXCD
+     C                     MOVELABEX#     FBEX#
+     C                     Z-ADDABQTY1    FBQTY1
+     C                     Z-ADDWWQTY     FBQTY2                       T DATE
+     C           ABQTCD    IFEQ 'W'
+     C                     MOVE ABQTCD    FBQTCD                       DATE
+     C                     Z-ADDABCSDT    FBCEDT
+     C                     ELSE
+     C                     MOVE 'M'       FBQTCD
+     C                     Z-ADDABCSDT    FBCSDT                       UE DATE
+     C                     Z-ADDABCEDT    FBCEDT
+     C                     ENDIF
+      *
+     C                     Z-ADDABFIED    FBFIED
+     C                     Z-ADDABFIQT    FBFIQT
+     C                     Z-ADDABFISD    FBFISD
+     C                     Z-ADDABMTED    FBMTED
+     C                     Z-ADDABMTED    FBMTED
+     C                     Z-ADDABMTQT    FBMTQT
+     C                     Z-ADDABMTSD    FBMTSD
+     C                     Z-ADDABSHQT    FBSHQT
+     C                     Z-ADDABSHSD    FBSHSD
+     C                     Z-ADDABSHLD    FBSHLD
+     C                     Z-ADD*DATE     FBDATE
+     C                     Z-ADDWNONY     FBNONY
+     C                     TIME           FBTIME
+     C                     WRITEABFPP101
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *  WRITE RECORDS TO ABFPP20
+      *------------------------------------------------------
+     C           #P20      BEGSR
+      *
+     C                     Z-ADD0         @@CNT
+     C           K#11      SETLLABAEP11
+     C           *IN90     DOUEQ*ON
+     C           K#11      READEABAEP11                  90
+     C           *IN90     IFEQ *OFF
+     C                     CLEARABFPP201
+     C                     Z-ADDAESIDT    FDSIDT
+     C                     MOVELAEDOCK    FDDOCK
+     C                     MOVELAEPART    FDPART
+     C                     MOVEL@MHIN     FDIPAR
+     C                     ADD  1         @@CNT
+     C                     Z-ADD@@CNT     FDLIN#
+     C                     TIME           FDTIME
+     C                     Z-ADD*DATE     FDDATE
+     C                     MOVELAENOTE    FDNOTE
+     C                     WRITEABFPP201
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *  WRITE RECORDS TO FORECAST FILE
+      *------------------------------------------------------
+     C           #FCST     BEGSR
+      *
+     C                     Z-ADD0         B       20
+     C                     Z-ADD0         HYM
+     C                     Z-ADD0         WKAD    20
+     C                     Z-ADDABCSDT    WNYMD
+      * %0002
+     C           ABQTY1    IFLE ABSHQT
+     C                     Z-ADDABSHQT    WSURY  100
+     C                     ELSE
+     C                     Z-ADDABQTY1    WSURY  100
+     C                     END
+      * %0003
+B01  C***        WSURY     CABEQ*ZERO     @@FCST
+      *
+     C           KEY4      SETLLAGDPL121
+B01  C                     DO   7
+     C                     SETOF                     10
+     C                     READ AGDPL121                 10
+B02  C           *IN10     IFEQ '0'
+B03  C           F8HIRU    IFEQ *BLANK
+     C           F8YORU    ANDEQ*BLANK
+     C                     ADD  1         B
+     C                     ADD  1         WKAD
+     C                     Z-ADDF8KAHZ    HYM,B
+E03  C                     END
+E02  C                     END
+E01  C  N10                ENDDO
+      *
+     C                     MOVE *OFF      *IN20
+B01  C           WKAD      IFEQ *ZERO
+     C                     MOVE *ON       *IN20
+     C           KEY4      SETLLAGDPL121
+B01  C                     DO   7
+     C                     SETOF                     10
+     C                     READPAGDPL121                 10
+B02  C           *IN10     IFEQ '0'
+B03  C           F8HIRU    IFEQ *BLANK
+     C           F8YORU    ANDEQ*BLANK
+     C                     ADD  1         B
+     C                     ADD  1         WKAD
+     C                     Z-ADDF8KAHZ    HYM,B
+E03  C                     END
+E02  C                     END
+E01  C  N10                ENDDO
+      *
+     C                     SORTAHYM
+     C                     ENDIF
+      *
+     C           WSURY     SUB  WWCUM     WWQTY  100
+      *
+TCHK1C           WWQTY     IFLT *ZERO
+TCHK1C                     Z-ADD*ZERO     WWQTY
+TCHK1C                     END
+TCHK2C*
+TCHK4C           WKAD      IFNE *ZERO
+     C           WWQTY     DIV  WKAD      WKSUR   70
+%0001C                     MVR            WKSURX  73
+TCHK4C                     END
+      *
+     C                     Z-ADDWSURY     WWCUM
+      *
+TCHK5C           ABQTCD    IFEQ 'F'
+TCHK5C                     GOTO @@FCST
+TCHK5C                     END
+TCHK5C* %0001
+     C                     SETOF                     12
+     C                     Z-ADDWKSUR     WKSURS  70
+     C                     Z-ADD1         A       20
+B01  C           1         DO   7         A
+B02  C           HYM,A     IFNE 0
+     C                     Z-ADDHYM,A     @NYMD
+     C** %0001 ADD REMAINDER TO FIRST FORECAST
+     C           *IN12     IFEQ *OFF
+     C                     SETON                     12
+     C                     ADD  WKSURX    WKSUR
+     C                     ELSE
+     C                     Z-ADDWKSURS    WKSUR
+     C                     ENDIF
+     C**
+     C                     SETOF                     11
+     C           KEY2      CHAINABAWP10              11
+B03  C           *IN11     IFEQ '1'
+     C                     CLEARABAWP101
+     C                     MOVE ABCUST    ABTOKU
+     C                     Z-ADDWNONY     ABNONY
+     C                     MOVE ABFACT    ABNKOJ
+     C                     MOVE *BLANK    ABNUKE
+     C                     MOVE '0000'    ABSBAN
+     C                     MOVELWMHIN     ABMHIN
+     C                     Z-ADD@NYM      ABDATE
+     C                     Z-ADD0         HSU
+     C                     Z-ADDWKSUR     HSU,D
+     C                     XFOOTHSU       ABNNSU
+     C                     MOVE WNOKN     ABNOKN
+     C                     WRITEABAWP101
+     C                     ELSE
+      *
+     C           *IN20     IFEQ *OFF
+     C                     Z-ADDWKSUR     HSU,D
+     C                     ELSE
+     C                     ADD  WKSUR     HSU,D
+     C                     ENDIF
+      *
+     C                     XFOOTHSU       ABNNSU
+B04  C           ABNOKN    IFNE 'C'
+     C                     MOVE WNOKN     ABNOKN
+E04  C                     ENDIF
+      *
+     C                     UPDATABAWP101
+E03  C                     ENDIF
+E02  C                     ENDIF
+E01  C                     ENDDO
+      *
+     C           @@FCST    ENDSR
+     C*****************************************************************
+     C           *INZSR    BEGSR
+      *
+     C           KEY2      KLIST
+     C                     KFLD           WTOKU   40
+     C                     KFLD           WNONY   40
+     C                     KFLD           WNKOJ   1
+     C                     KFLD           #NUKE   4
+     C                     KFLD           WMHN1   5
+     C                     KFLD           WMHN2   5
+     C                     KFLD           WMHN3   5
+     C                     KFLD           WMHN4   5
+     C                     KFLD           @NYM
+      * FOR ABFPP10(SETGT)
+     C           KEY3      KLIST
+     C                     KFLD           K32     5
+     C                     KFLD           K33
+     C                     KFLD           @@DAT6  60
+     C                     KFLD           K31
+      * FOR ABFPP10(READPE)
+     C           KEY7      KLIST
+     C                     KFLD           K32
+     C                     KFLD           K33
+      *
+     C           KEY4      KLIST
+     C                     KFLD           WNYY
+     C                     KFLD           WNMM
+     C                     KFLD           WNDD
+      *
+     C           KEY5      KLIST
+     C                     KFLD           K@CUST  40
+     C                     KFLD           WNONY   40
+     C                     KFLD           ABFACT
+     C*                    KFLD           ABNUKE
+      *
+     C* KEY FILE ABFPP30
+     C           KEY8      KLIST
+     C                     KFLD           ABDOCK
+     C                     KFLD           WIPAR  12
+     C           KEY9      KLIST
+     C                     KFLD           ABDOCK
+     C                     KFLD           WIPAR
+     C                     KFLD           ABSIDT
+     C                     KFLD           K@POR#  6
+     C           K#25      KLIST
+     C                     KFLD           WTOKU   40
+     C                     KFLD           WNONY   40
+     C           K#FA      KLIST
+TCHK8C*                    KFLD           K@DOC   4
+TCHK8C                     KFLD           K@DOC   5
+     C                     KFLD           WIPAR  12
+     C           K#11      KLIST
+     C                     KFLD           ABPRTR
+     C                     KFLD           ABDOCK
+     C                     KFLD           K@PART 40
+      *
+     C                     TIME           WTMDT
+     C                     MOVE 'A'       #32
+     C                     MOVE *BLANK    #NUKE
+     C                     Z-ADD*ZERO     WNYMD
+      *
+     C                     ENDSR
+     C*****************************************************************
+     OOUTFILE EADD             DTL
+     O                         ABCUST     4
+     O                 77      ABDOCK     9
+     O                N77      WNONY      8
+     O                N77      ABFACT     9
+     O                         #NUKE     13
+     O                         WSBAN     17
+     O                         WMHIN     37
+     O                         WNYMD     45
+     O                         WSURY     55
+     O                         ERRCD     57
+     C*                                                                *********

@@ -1,0 +1,472 @@
+     H            Y.                                                      EMD050
+      ** AM#R450**************************************************
+      *    POST TOYOTA PACKING DETAILS TO SALES INVOICE DATA     *
+      *    LEC  2024/04/30                                       *
+      ************************************************************
+     FAM#PL29 IF  E           K        DISK
+     FAM#PL08BIF  E           K        DISK
+     FAL#PP21 IF  E           K        DISK
+     FAB#PL19BIF  E           K        DISK
+     FAB#PL1C IF  E           K        DISK
+     F            AB#PP101                          KRENAMEAB#PL1C1
+     FAB#PL75 UF  E           K        DISK
+     FAB#PL78 UF  E           K        DISK
+     FAB#WP32 O   E                    DISK                      A
+     FAB#PP78LO   E                    DISK
+      *
+      *                   nsdo = Namc,Supplier,Dock,Order#
+     E                    NSDO      200 24
+      * ----------------------------------------------------
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      * Truck Ticket
+     I            DS
+     I                                        1  25 TT
+     I                                        1   7 TTSURT
+     I                                        8  15 TTSHDT
+     I                                        8  11 TTSHYY
+     I                                       12  13 TTSHMM
+     I                                       14  15 TTSHDD
+     I                                       16  21 TTSHTM
+     I                                       16  17 TTSHHH
+     I                                       18  19 TTSHMN
+     I                                       20  21 TTSHSS
+     I                                        8  19 TTDTTM
+     I                                       22  25 TTFILR
+      * Manifest Barcode
+     I            DS
+     I                                        1  50 MFBC
+     I                                        1   5 MFNAMC
+     I                                        6   9 MFSIRE
+     I                                       10  10 MFSIRK
+     I                                        6  10 MFSUPP
+     I                                       11  12 MFNUKE
+     I                                       13  24 MFORD#
+     I                                        6  20 MFTMMC
+     I                                        1  24 MFNSDO
+     I                                       25  50 MFFILR
+      * System Time(6) + Date(8)
+     I            DS
+     I                                        1  140WSDTTM
+     I                                        1   60WTIME
+     I                                        7  140WDATE
+     I                                        7  100WYY
+     I                                       11  120WMM
+     I                                       13  140WDD
+      * Customer Part Number - Packing file
+     I            DS
+     I                                        1  20 R1MHIN
+     I                                        1   5 R1MHN1
+     I                                        6  10 R1MHN2
+     I                                       11  15 R1MHN3
+     I                                       16  20 R1MHN4
+      * Ship Date - Truck Load file
+     I            DS
+     I                                        1   8 R2SHID
+     I                                        1   40R2NOYY
+     I                                        5   60R2NOMM
+     I                                        7   80R2NODD
+      * Customer Part Number - Order file
+     I            DS
+     I                                        1  20 BAMHIN
+     I                                        1   5 BAMHN1
+     I                                        6  10 BAMHN2
+     I                                       11  15 BAMHN3
+     I                                       16  20 BAMHN4
+      *
+      * IAF Part Number - Order file
+     I            DS
+     I                                        1  12 BASHIN
+     I                                        1   5 BASHN1
+     I                                        6  10 BASHN2
+     I                                       11  12 BASHN3
+      *
+     C           TTKEY     KLIST
+     C                     KFLD           SURT
+     C                     KFLD           TTSHDT
+     C                     KFLD           TTSHTM
+      *
+     C           K#08      KLIST
+     C                     KFLD           C2NONY
+     C                     KFLD           R2NUKE
+     C                     KFLD           R2ORDN
+      *
+     C           K#19B     KLIST
+     C                     KFLD           C2TOKU
+     C                     KFLD           C2NONY
+     C                     KFLD           NUKE4   4
+     C                     KFLD           INVN   16
+     C                     KFLD           SKJY    1
+      *
+     C           K#1C      KLIST
+     C                     KFLD           ODRN   10
+     C                     KFLD           C2NONY
+     C                     KFLD           NUKE4   4
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           PWKCD   6
+     C                     PARM           PTT    19
+      *
+     C                     MOVELPTT       TT
+     C                     MOVELTTSURT    SURT    9
+      *
+      * if this an expedite route, blank out ship time
+      *    else fix ship time by adding seconds.
+     C           'EX-'     SCAN SURT:1    POS     30
+     C           POS       IFGT *ZERO
+     C                     MOVE *BLANKS   TTSHTM
+     C                     MOVE 'Y'       EXPDT   1
+     C                     ELSE
+     C                     MOVE '00'      TTSHSS
+     C                     ENDIF
+      *
+      **
+      *
+      * Process all Skids Scanned to Truck Ticket in Load file AM#PL29)
+      *
+      **
+     C                     TIME           WSDTTM
+      *
+     C           TTKEY     CHAINAM#PL29              50
+      *
+     C           *IN50     DOWEQ*OFF
+      *
+     C           R2SKJY    IFEQ *BLANK
+     C           R2HNTE    ANDEQ'OK'
+      *
+     C                     MOVELR22D      MFBC
+      *
+     C           MFNSDO    LOKUPNSDO                     55     found
+     C           *IN55     IFEQ *OFF
+     C                     ADD  1         X       40
+     C                     MOVELMFNSDO    NSDO,X
+     C                     EXSR #GET08
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     C           TTKEY     READEAM#PL29                  50
+     C                     ENDDO
+      *
+      **
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *
+      *****************************************************************
+      *  Get Skid data from Packing file (AM#PL08B)
+      *****************************************************************
+     C           #GET08    BEGSR
+      *
+      * get plant info...
+     C           R2NAMC    CHAINAL#PP21              51
+     C           *IN51     IFEQ *ON
+     C                     Z-ADD*ZERO     C2TOKU
+     C                     Z-ADD*ZERO     C2NONY
+     C                     MOVEL*BLANK    C2NKOJ
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANKS   SVMHN  12
+      *
+     C           K#08      CHAINAM#PL08B             51
+      *
+     C           *IN51     DOWEQ*OFF
+      *
+     C           R1SKJY    IFEQ *BLANK
+     C           R1HNTE    ANDEQ'OK'
+     C           R1SHME    ANDNE'SHORT'
+     C           R1SHME    ANDNE'CUT'
+     C           R1FLDA    ANDNE'POSTED'
+      *
+     C           R12HN     IFNE SVMHN
+     C           SVMHN     ANDNE*BLANK
+     C                     EXSR #WRT32
+     C                     EXSR #UPD
+     C                     Z-ADD*ZERO     ##CONT
+     C                     ENDIF
+      *
+     C                     MOVELR12HN     SVMHN
+     C                     ADD  1         ##CONT  70
+      *
+     C                     ENDIF
+      *
+     C           K#08      READEAM#PL08B                 51
+     C                     ENDDO
+      *
+     C           ##CONT    IFGT *ZERO
+     C                     EXSR #WRT32
+     C                     EXSR #UPD
+     C                     Z-ADD*ZERO     ##CONT
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *
+      *****************************************************************
+      *  Write record to Sales Post workfile
+      *****************************************************************
+     C           #WRT32    BEGSR
+      *
+     C                     MOVELSVMHN     R1MHIN
+     C                     MOVELMFNUKE    NUKE4
+      *
+      * get the rest of the order details...
+     C                     SELEC
+     C           MFSUPP    WHEQ '14060'
+     C                     EXSR #GET19
+     C           MFSUPP    WHEQ '1731B'
+     C                     EXSR #GET1L
+     C                     OTHER
+     C                     GOTO #END32
+     C                     ENDSL
+      *
+      * if no order detail was found, or it was already posted to sales
+      *    skip the write...
+     C           *IN51     IFEQ *ON
+     C           POSTED    OREQ 'Y'
+     C                     GOTO #END32
+     C                     ENDIF
+      *
+     C                     CLEARAB#WP321
+      *
+     C                     MOVELMFSIRE    W1SIRE
+     C                     MOVE MFSIRK    W1SIRK
+     C                     MOVELR1MHN1    W1THN1
+     C                     MOVELR1MHN2    W1THN2
+     C                     MOVELR1MHN3    W1THN3
+     C                     MOVELR1MHN4    W1THN4
+     C                     MOVE 'U'       W1USRI
+     C                     MOVE 'K'       W1ODKE
+     C                     MOVE *BLANK    W1TEIS
+     C                     Z-ADDC2TOKU    W1TOKU
+     C                     Z-ADDC2NONY    W1NONY
+     C                     MOVE C2NKOJ    W1NKOJ
+     C                     MOVELR2NUKE    W1NUKE
+     C                     MOVELR1MHN1    W1UHN1
+     C                     MOVELR1MHN2    W1UHN2
+     C                     MOVELR1MHN3    W1UHN3
+     C                     MOVELR1MHN4    W1UHN4
+     C                     MOVELBASHN1    W1SHN1
+     C                     MOVELBASHN2    W1SHN2
+     C                     MOVELBASHN3    W1SHN3
+      *
+     C                     MOVE *BLANK    W1KANR
+      *
+     C                     Z-ADD0         W1ODED
+     C                     MOVE 'C'       W1NOKB
+     C                     Z-ADDBANOYY    W1NOYY
+     C                     Z-ADDBANOMM    W1NOMM
+     C                     Z-ADDBANODD    W1NODD
+     C                     Z-ADDBANOBN    W1NOBI
+     C                     Z-ADDBANOTM    W1NOTM
+      *
+     C                     Z-ADDBATANK    W1TANK
+      *
+     C                     MOVE *BLANK    W1SENO
+     C                     MOVE *BLANK    W1TAKB
+     C                     MOVE 'C'       W1SUTN
+     C                     Z-ADD0         W1KING
+      *
+     C                     Z-ADDBANOYY    W1JYRY
+     C                     Z-ADDBANOMM    W1JYRM
+     C                     Z-ADDBANODD    W1JYRD
+      *
+     C                     MOVE '9'       W1JKKB
+     C                     MOVE *BLANK    W1KENS
+     C                     Z-ADD0         W1SEIY
+     C                     Z-ADD0         W1SEIM
+     C                     Z-ADD0         W1SEID
+     C                     Z-ADD0         W1SIMY
+     C                     Z-ADD0         W1SIMM
+     C                     Z-ADD0         W1SIMD
+     C                     MOVE *BLANK    W1JUNJ
+     C                     MOVE *BLANK    W1MACH
+     C                     Z-ADD0         W1MACY
+     C                     Z-ADD0         W1MACM
+     C                     Z-ADD0         W1MACD
+     C                     Z-ADD0         W1GETU
+     C                     MOVE *BLANK    W1KURK
+     C                     MOVELBASBAN    W1SEBN
+     C                     MOVELSVMHN     W1UHIN
+     C                     Z-ADD0         W1LTNO
+     C                     Z-ADD0         W1PANO
+     C                     MOVE *BLANK    W1MIKB
+     C                     Z-ADD0         W1MIHK
+     C                     Z-ADD0         W1MISU
+     C                     MOVE *BLANK    W1STKB
+     C                     Z-ADD0         W1RECN
+      *
+     C                     Z-ADDWYY       W1URIY
+     C                     Z-ADDWMM       W1URIM
+     C                     Z-ADDWDD       W1URID
+      *
+     C                     MOVE *BLANK    W1TKKB
+     C                     MOVE *BLANK    W1TUKA
+     C                     Z-ADD0         W1RATE
+     C                     MOVE *BLANK    W1BANK
+     C                     MOVE *BLANK    W1KOZN
+     C                     Z-ADD0         W1PAYY
+     C                     Z-ADD0         W1PAYM
+     C                     Z-ADD0         W1PAYD
+     C                     Z-ADD0         W1PKIN
+     C                     Z-ADD0         W1SAGK
+     C                     MOVEL'S'       W1SYBT
+     C                     MOVEL'4'       W1SOBT
+     C                     MOVEL'04'      W1GYOM
+     C                     MOVEL'M390'    W1CARD
+     C                     MOVELBAODRN    W1ODNO
+      *
+      *
+     C           MFSUPP    IFEQ '1731B'
+     C                     MOVELMFTMMC    W1NOBN
+     C                     ELSE
+     C                     MOVELMFORD#    W1NOBN
+     C                     ENDIF
+      *
+      *  # of containers packed...
+     C                     Z-ADD##CONT    W1HAKO
+      *
+      *  qpc...
+     C                     Z-ADDBASYOS    W1SYUY
+     C           BASYOS    IFEQ *ZERO
+     C                     Z-ADDBAUSYS    W1SYUY
+     C                     ENDIF
+      *
+     C           ##CONT    MULT W1SYUY    W1NOSU
+      *
+     C                     WRITEAB#WP321
+      *
+     C           #END32    ENDSR
+      *
+      *****************************************************************
+      *  Get Order Details for Non-Canada plants
+      *****************************************************************
+     C           #GET19    BEGSR
+      *
+     C                     MOVELMFORD#    INVN      P
+     C                     MOVE 'N'       POSTED  1
+      *
+      * get the rest of the order details...
+     C           K#19B     SETLLAB#PL19B
+     C           K#19B     READEAB#PL19B                 51
+     C           *IN51     DOWEQ*OFF
+     C           BAMHIN    IFEQ R1MHIN
+     C           BAURYY    IFNE *ZERO
+     C                     MOVE 'Y'       POSTED
+     C                     ENDIF
+     C                     LEAVE
+     C                     ENDIF
+     C           K#19B     READEAB#PL19B                 51
+     C                     ENDDO
+      *
+     C           *IN51     IFEQ *ON
+     C                     CLEARAB#PP101
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *
+      *****************************************************************
+      *  Get Order Details for Canada plant
+      *****************************************************************
+     C           #GET1L    BEGSR
+      *
+     C                     MOVELMFORD#    ODRN      P
+     C                     MOVE 'N'       POSTED
+      *
+      * get the rest of the order details...
+     C           K#1C      SETLLAB#PL1C
+     C           K#1C      READEAB#PL1C                  51
+     C           *IN51     DOWEQ*OFF
+     C           BAMHIN    IFEQ R1MHIN
+     C           BAURYY    IFNE *ZERO
+     C                     MOVE 'Y'       POSTED
+     C                     ENDIF
+     C                     LEAVE
+     C                     ENDIF
+     C           K#1C      READEAB#PL1C                  51
+     C                     ENDDO
+      *
+     C           *IN51     IFEQ *ON
+     C                     CLEARAB#PL1C1
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *
+      *****************************************************************
+      *  Update Packing List files.
+      *****************************************************************
+     C           #UPD      BEGSR
+      *
+      *
+     C           K#L7A     KLIST
+     C                     KFLD           BANOYY
+     C                     KFLD           BANOMM
+     C                     KFLD           BANODD
+     C                     KFLD           BATOKU
+     C                     KFLD           BANONY
+     C                     KFLD           BANKOJ
+     C                     KFLD           BANUKE
+     C                     KFLD           BANOBN
+     C                     KFLD           BADEYY
+     C                     KFLD           BADEMM
+     C                     KFLD           BADEDD
+     C           K#L7A     SETLLAB#PL75
+      *
+     C                     DO   *HIVAL
+     C           K#L7A     READEAB#PL75                  91
+     C   91                LEAVE
+     C           PUSKJY    IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+      *
+     C           PUODRN    IFNE *BLANK
+     C           PUODRN    IFNE BAODRN
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     Z-ADDWDATE     PUKODT
+     C                     Z-ADDWTIME     PUKOTN
+     C                     MOVEL#USER     PUKOME
+     C                     Z-ADDWDATE     PUSPDT
+     C                     UPDATAB#PP751
+      *
+     C           K#L7B     KLIST
+     C                     KFLD           PUNOYY
+     C                     KFLD           PUNOMM
+     C                     KFLD           PUNODD
+     C                     KFLD           PUCUST
+     C                     KFLD           PUNONY
+     C                     KFLD           PUNKOJ
+     C                     KFLD           PUNUKE
+     C                     KFLD           PUBINN
+     C                     KFLD           PURLYY
+     C                     KFLD           PURLMM
+     C                     KFLD           PURLDD
+     C                     KFLD           PUODRN
+     C           K#L7B     CHAINAB#PL78              92
+     C           *IN92     IFEQ *OFF
+     C           P8SKJY    ANDEQ*BLANK
+     C           P8SPDT    IFEQ *ZERO
+     C                     Z-ADDWDATE     P8KODT
+     C                     Z-ADDWTIME     P8KOTM
+     C                     MOVEL#USER     P8KONM
+     C                     Z-ADDWDATE     P8SPDT
+     C                     Z-ADDWTIME     P8SPTM
+     C                     MOVEL#USER     P8SPNM
+     C                     UPDATAB#PP781
+      * LOG
+     C                     MOVEL#PGM      P8KOPG
+     C                     MOVEL#PGM      P8SPPG
+     C                     WRITEAB#PP78R
+      *
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     LEAVE
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *
+      *****************************************************************

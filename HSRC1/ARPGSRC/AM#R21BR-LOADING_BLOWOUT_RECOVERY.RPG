@@ -1,0 +1,562 @@
+     H            Y.
+     F** AM#R21BR *******************************************
+     F* LOADING - BLOWOUT RECOVERY                          *
+     F*    LEC              2019.03.15                      *
+     F*    LEC  2019.03.20  ADD LOGIC FOR SHIP TIME         *
+     F*******************************************************
+     FAM#PW21BCF  E                    WORKSTN
+     FALBPL30 IF  E           K        DISK
+     FAM#PL05 IF  E           K        DISK
+     FAL#PP21 IF  E           K        DISK
+     FAM#PL21 UF  E           K        DISK                      A
+     FAM#PL22 IF  E           K        DISK
+     F            AM#PP211                          KRENAMEAM#PL22R
+     E                    ER      1  11 65
+     E                    TICK       12  1
+      *
+     IB2D         DS
+     I                                        1  19 BAR01
+      *
+      * TRUCK TICKET QR BARCODE
+     I            DS
+     I                                        1  25 TT
+     I                                        1   7 TTSURT
+     I                                        8  15 TTSHDT
+     I                                        8  11 TTSHYY
+     I                                       12  13 TTSHMM
+     I                                       14  15 TTSHDD
+     I                                       16  21 TTSHTM
+     I                                       16  17 TTSHHH
+     I                                       18  19 TTSHMN
+     I                                       20  21 TTSHSS
+     I                                        8  19 TTDTTM
+     I                                       22  25 TTFILR
+     IMAN         DS
+     I                                        1  25 MAN01
+     I                                       26  50 MAN02
+     I                                       44  44 MFSIDE
+      *
+      * 2D MANIFEST BARCODE
+     I            DS
+     I                                        1  50 MF
+     I                                        1   5 MFNAMC
+     I                                        3   5 MFTYPE
+     I                                        6  10 MFSUPP
+     I                                       11  12 MFDOCK
+     I                                       13  24 MFORD#
+     I                                       25  33 MFMRTE
+     I                                       34  36 MFSDCK
+     I                                       37  38 MFPALT
+     I                                       39  40 MFMROS
+     I                                       41  44 MFSKID
+     I                                       45  50 MFFILR
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        7  140SDATE
+     I                                        1   60STIME
+      *
+     I            DS
+     I                                        1  10 SHDT
+     I                                        1   4 SHYY
+     I I            '/'                       5   5 SLSH1
+     I                                        6   7 SHMM
+     I I            '/'                       8   8 SLSH2
+     I                                        9  10 SHDD
+      *
+     I            DS
+     I                                        1   8 SHTM
+     I                                        1   2 SHHH
+     I I            ':'                       3   3 COLN1
+     I                                        4   5 SHMN
+     I I            ':'                       6   6 COLN2
+     I                                        7   8 SHSS
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           WORKER  6
+     C                     PARM           WUSRID 10
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     EXSR #SB100
+     C           DSPSW     DOUEQ'99'
+     C                     EXSR #SB200
+     C                     ENDDO
+     C                     EXSR #SB300
+      *----------------------------------------------------*
+      * INZ                                                *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     MOVELWORKER    WKCD    60
+     C           WKCD      CHAINALBPL30              61
+     C           *IN61     IFEQ *ON
+     C                     MOVE *BLANKS   ALWKNM
+     C                     ENDIF
+      *
+     C                     TIME           WTIME
+     C                     MOVEL'01'      DSPSW   2
+     C                     MOVEL*BLANK    PCMD    2
+     C                     CLEARB2D
+      *
+     CSR         ESB100    ENDSR
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C           DSPSW     DOWEQ'01'
+     C                     EXSR #SB210
+     C                     ENDDO
+      *
+     C           DSPSW     DOWEQ'02'
+     C                     EXSR #SB220
+     C                     ENDDO
+      *
+     CSR         ESB200    ENDSR
+      *----------------------------------------------------*
+      *　⒳�痧���Ј灈�聭饎�　　　　　　　　　　　　�
+      *----------------------------------------------------*
+     CSR         #SB210    BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANK    MSG
+     C                     SETOF                     3199
+      *
+     C                     TIME           WTIME
+     C           *IN03     IFEQ '1'
+     C                     MOVEL'03'      PCMD    2
+     C                     MOVEL'99'      DSPSW   2
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C           B2D       IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,1      MSG
+     C                     EXSR #SB999
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C                     MOVELB2D       TT
+     C                     MOVE '00'      TTSHTM
+      *
+      * ｴｹｶｴｽ ﾔﾊﾕｴｽ ﾔｻｴｽｶﾔ ｵｲﾔｶ ｲﾀｵ ﾔｻｿｶ ｷﾁﾊ ｳｾｲﾀｽﾐ.
+      * ｻｷ ｵｲﾔｶ ｲﾀｵ ﾔｻｿｶ ｴﾁﾀﾔｲｻﾀﾐ ｲ ｳｾｲﾀｽ ｻﾔ'ﾐ ｻﾀﾖｲｾｻｵ.
+     C                     MOVE *BLANKS   TICK
+      *
+     C                     MOVEATTDTTM    TICK
+     C                     DO   12        X       30
+     C           TICK,X    IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,11     MSG
+     C                     EXSR #SB999
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     GOTO ESB210
+     C                     ENDIF
+     C                     ENDDO
+      *
+      *鼇����束
+     C                     EXSR #SB920
+     C                     MOVEL'Tﾊﾕｴｽ'   D1BIN
+     C                     MOVELTTSURT    D1IAFB
+      *
+     C                     MOVELTTSHYY    SHYY
+     C                     MOVELTTSHMM    SHMM
+     C                     MOVELTTSHDD    SHDD
+     C                     MOVELSHDT      D1SHDT
+      *
+     C                     MOVELTTSHHH    SHHH
+     C                     MOVELTTSHMN    SHMN
+     C                     MOVELTTSHSS    SHSS
+     C                     MOVELSHTM      D1SHTM
+      *
+     C                     MOVEL'02'      DSPSW   2
+     C                     CLEARMAN
+      *
+     CSR         ESB210    ENDSR
+      *----------------------------------------------------*
+      *　⒳�痧���樠肁瘌�沜�Č�　　　　　　　　　　�
+      *----------------------------------------------------*
+     CSR         #SB220    BEGSR
+      *
+     C                     EXFMTDSP02
+     C                     MOVEL*BLANK    MSG
+     C                     SETOF                     3199
+      *
+     C                     TIME           WTIME
+      *
+      * ｻｷ ｷ3, ﾔｹｶﾀ ｸﾁ ｳｲｴｽ ﾔﾁ ﾐｴﾊｶｶﾀ 1.
+     C           *IN03     IFEQ '1'
+     C                     CLEARB2D
+     C                     MOVEL'01'      DSPSW   2
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+      * ｻｷ ｷ4, ﾔｹｶﾀ ｵｻﾐﾂｾｲﾙ ｵｶｾｶﾔｶ ｿｲﾀｻｷｶﾐﾔ ﾐｴﾊｶｶﾀ ｲﾀｵ ﾊｶｴｲｾｴﾕｾｲﾔｶ ﾔﾁﾔｲｾﾐ.
+     C           *IN04     IFEQ *ON
+     C                     EXSR #SB400
+     C                     EXSR #SB920
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+      * ｴｹｶｴｽ ｿｲﾀｻｷｶﾐﾔ ﾐｴﾊｶｶﾀ ｷﾁﾊ ｶﾊﾊﾁﾊﾐ.
+     C           MAN       IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,2      MSG
+     C                     EXSR #SB999
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    WKHNTE  2
+     C                     MOVELMAN       MF
+      *
+      * ｴｹｶｴｽ ﾀｲｿｴ ｵｶﾐﾔｻﾀｲﾔｻﾁﾀ ｴﾁｵｶ ｶﾘｻﾐﾔﾐ ｻﾀ M/F ﾁﾊ ｻﾔ'ﾐ ｲﾀ Eﾘﾂﾁﾊﾔ.
+     C           MFNAMC    CHAINAL#PP21              44
+     C           *IN44     IFEQ *ON
+     C           MFTYPE    ANDNE'EXP'
+     C                     SETON                     3199
+     C                     MOVELER,9      MSG
+     C                     EXSR #SB999
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+      * ｴｹｶｴｽ ﾔﾁ ﾖｶﾊｻｷﾙ ﾔｹｻﾐ ｿｲﾀｻｷｶﾐﾔ ｹｲﾐ ﾀﾁﾔ ｲｾﾊｶｲｵﾙ ｳｶｶﾀ ｶﾀﾔｶﾊｶｵ.
+      * ﾔｹｶﾀ ｻｷ ｿｲﾀｻｷｶﾐﾔ ｻﾐ ﾀｶﾗ, ｴｹｶｴｽ ﾔﾁ ﾖｶﾊｻｷﾙ ｻｷ ｿｲﾀｻｷｶﾐﾔ ｻﾐ ｻﾀ ﾂｲｴｽｻﾀｸ ｷｻｾｶ.
+     C                     EXSR #SB710
+     C           *IN99     IFEQ *OFF
+     C                     EXSR #SB720
+     C                     ENDIF
+      *
+      * ﾔﾊｶｲﾔ ﾔｹｶﾐｶ ｶﾊﾊﾁﾊﾐ ｵｻｷｷｶﾊｶﾀﾔｾﾙ ｳｶｴｲﾕﾐｶ ﾔｹｶﾙ ﾀｶｶｵ ﾔﾁ ｹｲﾖｶ ﾔｹｶ ﾁﾂﾔｻﾁﾀ
+      * ﾔﾁ ﾁﾖｶﾊﾊｻｵｶ ﾔｹｶ ｶﾊﾊﾁﾊ ｲﾀｵ ｾｶﾔ ﾔｹｶｿ ｳｶ ｲｵｵｶｵ ｻｷ TL ﾐｲﾙﾐ ｻﾔ'ﾐ ﾁｽｲﾙ.
+      * ｴﾁﾕｾｵ ｳｶ ﾐﾕﾂﾂｾｶｿｶﾀﾔｲｾ ﾁﾊｵｶﾊ, ｾｲﾐﾔ ｿｻﾀﾕﾔｶ ｲｵｵ-ﾁﾀ.
+     C           *IN99     IFEQ *ON
+     C                     EXSR #SB999
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     CLEARMAN
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+      * ﾀﾁ ｶﾊﾊﾁﾊﾐ, ﾐﾁ ﾗﾊｻﾔｶ ﾔﾁ ｾﾁｲｵｻﾀｸ ﾁﾕﾔ-ｷｻｾｶ ｲﾀｵ ﾊｶｴｲｾｴﾕｾｲﾔｶ ﾔﾁﾔｲｾﾐ.
+     C           *IN99     IFEQ *OFF
+     C                     MOVEL'OK'      WKHNTE  2
+     C                     TIME           WTIME
+     C                     MOVEL*BLANK    MSG
+     C                     EXSR #SB500
+     C                     CLEARMAN
+     C                     EXSR #SB920
+     C                     ENDIF
+      *
+     CSR         ESB220    ENDSR
+      *----------------------------------------------------*
+      * WRITE ERROR TO LOADING OUT-FILE AND LOCK DISPLAY.  *
+      *----------------------------------------------------*
+     CSR         #SB229    BEGSR
+      *
+     C           WKHNTE    IFEQ 'NG'
+     C                     TIME           WTIME
+     C                     EXSR #SB500
+     C                     Z-ADD3         P1PGM
+     C                     MOVELMSG       P1ERR
+     C                     MOVELW#PGM     P1PID
+     C                     MOVELWORKER    P1KOME    P
+     C                     Z-ADD*ZERO     P1DTTM
+     C                     CALL 'AM#R09'                   LOCK
+     C                     PARM           P1PGM   20
+     C                     PARM           P1ERR  25
+     C                     PARM           P1PID  10
+     C                     PARM           P1KOME 10
+     C                     PARM           P1DTTM 140
+     C                     ELSE
+     C                     EXSR #SB999
+     C                     ENDIF
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     CLEARMAN
+      *
+     CSR         ESB229    ENDSR
+      *----------------------------------------------------*
+      *　⒳�痧���痡瘏�黬�砑ⓓ���鰖槖　　　　　　�
+      *----------------------------------------------------*
+     CSR         #SB400    BEGSR
+      *
+     C           *IN03     DOUEQ*ON
+      *
+     C                     EXFMTDSP04
+     C                     MOVEL*BLANK    MSG
+     C                     SETOF                     3199
+      *
+     C                     TIME           WTIME
+      * F3 ﾔﾁ ｴｲﾀｴｶｾ ｵｶｾｶﾔｶ ｲﾀｵ ｸﾁ ｳｲｴｽ ﾔﾁ ﾐｴﾊｶｶﾀ 2.
+     C           *IN03     IFEQ *ON
+     C                     MOVEL'02'      DSPSW
+     C                     CLEARMAN
+     C                     LEAVE
+     C                     ENDIF
+      *
+      * ﾖｶﾊｻｷﾙ ﾔｹｲﾔ ｿｲﾀｻｷｶﾐﾔ ｹｲﾐ ｳｶｶﾀ ﾐｴｲﾀﾀｶｵ ﾔﾁ ｾﾁｲｵ ﾁﾕﾔ-ｷｻｾｶ.
+     C           MAN       IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,2      MSG
+     C                     EXSR #SB999
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     CLEARMAN
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVE 'A'       MFSIDE
+     C                     MOVE *OFF      *IN26
+     C           MAN       SETLLAM#PL21
+     C           *IN26     DOWEQ*OFF
+     C           MAN       READEAM#PL21                  26
+     C           *IN26     IFEQ *OFF
+     C           R2SURT    ANDEQTTSURT
+     C           R2SHID    ANDEQTTSHDT
+     C           R2SHIT    ANDEQTTSHTM
+     C           R2SKJY    ANDEQ' '
+     C           R2HNTE    ANDEQ'OK'
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+      * ｻｷ ｿｲﾀｻｷｶﾐﾔ ﾗｲﾐ ﾀﾁﾔ ｷﾁﾕﾀｵ ｻﾀ ｾﾁｲｵｻﾀｸ ﾁﾕﾔ-ｷｻｾｶ, ｵｻﾐﾂｾｲﾙ ｶﾊﾊﾁﾊ.
+     C           *IN26     IFEQ *ON
+     C                     SETON                     3199
+     C                     MOVELER,8      MSG
+     C                     EXSR #SB999
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     CLEARMAN
+     C                     ITER
+     C                     ENDIF
+      *
+      * ｻｷ ｿｲﾀｻｷｶﾐﾔ ﾗｲﾐ ｷﾁﾕﾀｵ...
+     C           *IN26     IFEQ *OFF
+      *
+      *  ｲﾀｵ ｻﾔ ｿｲﾔｴｹｶﾐ ﾔｹｶ ﾊﾁﾕﾔｶ/ﾐｹｻﾂ ｵｲﾔｶ, ﾔｹｶﾀ ｵｶｾｶﾔｶ
+     C           R2SURT    IFEQ TTSURT
+     C           R2SHID    ANDEQTTSHDT
+     C           R2SHIT    ANDEQTTSHTM
+     C                     MOVEL'D'       R2SKJY
+     C                     Z-ADDSDATE     R2SKHZ
+     C                     UPDATAM#PP211
+     C                     CLEARMAN
+     C                     LEAVE
+     C                     ELSE
+      *  ｻｷ ｻﾔ ｵﾁｶﾐﾀ'ﾔ ｿｲﾔｴｹ, ﾔｹｶﾀ ﾕﾀｾﾁｴｽ ﾊｶｴﾁﾊｵ ｲﾀｵ ｵｻﾐﾂｾｲﾙ ｶﾊﾊﾁﾊ.
+     C                     UNLCKAM#PL21                31
+     C                     SETON                     3199
+     C                     MOVELER,8      MSG
+     C                     EXSR #SB999
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     CLEARMAN
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     CSR         ESB400    ENDSR
+      *----------------------------------------------------*
+      * ERROR ON SCREEN BUT NOT RECORDABLE.                *
+      *----------------------------------------------------*
+     CSR         #SB999    BEGSR
+      *
+     C                     MOVELMSG       P1ERR
+     C                     CALL 'AM#R08'
+     C                     PARM           P1ERR  25
+      *
+     CSR         ESB999    ENDSR
+      *----------------------------------------------------*
+      * END PROGRAM.                                       *
+      *----------------------------------------------------*
+     CSR         #SB300    BEGSR
+     C                     SETON                     LR
+     C                     RETRN
+     CSR         ESB300    ENDSR
+      *----------------------------------------------------*
+      * WRITE TO LOADING OUT-FILE AM#PP21.                 *
+      *----------------------------------------------------*
+     CSR         #SB500    BEGSR
+      *
+     C                     CLEARAM#PP211
+     C                     Z-ADDSDATE     R2KOHZ
+     C                     Z-ADDSTIME     R2KOTI
+     C                     MOVELWORKER    R2KOME
+     C                     MOVELW#PGM     R2KPGM
+     C                     Z-ADDSDATE     R2SSHZ
+     C                     Z-ADDSTIME     R2SSTI
+     C                     MOVELWORKER    R2USCD
+     C                     MOVELALWKNM    R2USNM
+     C                     MOVELWKHNTE    R2HNTE
+     C                     MOVELER,3      R2ERR
+      *
+     C                     MOVELTT        R2TICK
+     C                     MOVELTTSURT    R2SURT    P
+     C                     MOVELTTSHDT    R2SHID
+     C                     MOVELTTSHTM    R2SHIT
+      *
+     C                     MOVE 'A'       MFSIDE
+     C                     MOVELMAN       R22D
+     C                     MOVELMFNAMC    R2NAMC
+     C                     MOVELMFSUPP    R2SUPP
+     C                     MOVELMFDOCK    R2NUKE
+     C                     MOVELMFORD#    R2ORDN
+     C                     MOVELMFMRTE    R2MRTE
+     C                     MOVELMFSDCK    R2DOCK
+     C                     MOVELMFPALT    R2PLTC
+     C                     MOVELMFMROS    R2MRSO
+     C                     MOVELMFSKID    R2SKID
+     C                     MOVELMFFILR    R2FIL2
+      *
+     C                     MOVEL'Y'       R2F5OV
+     C                     MOVELR1SURT    R2PSUR
+     C                     MOVELR1SHID    R2PSHD
+     C                     MOVELR1SHIT    R2PSHT
+     C                     MOVEL'14'      R2EXCD
+      *
+     C                     WRITEAM#PP211
+      *
+     CSR         ESB500    ENDSR
+      *----------------------------------------------------*
+      *  CHECK TO VERIFY NOT ALREADY SCANNED.              *
+      *----------------------------------------------------*
+     CSR         #SB710    BEGSR
+      *
+     C                     MOVE 'A'       MFSIDE
+     C                     MOVE *OFF      *IN26
+      *
+     C           MAN       SETLLAM#PL21
+     C           *IN26     DOWEQ*OFF
+     C           MAN       READEAM#PL21                  26
+     C           *IN26     IFEQ *OFF
+     C           R2SKJY    ANDEQ' '
+     C           R2HNTE    ANDEQ'OK'
+     C           R2EXCD    ANDEQ'13'
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+      * ｻｷ ﾀﾁﾔ ﾐｴｲﾀﾀｶｵ ｲﾐ ｲ ｳｾﾁﾗﾁﾕﾔ, ﾐｶﾔ ｶﾊﾊﾁﾊ ｿｶﾐﾐｲｸｶ.
+     C           *IN26     IFEQ *ON
+     C                     SETON                     3199
+     C                     MOVELER,7      MSG
+     C                     GOTO ESB710
+     C                     ENDIF
+      *
+     C                     MOVE *OFF      *IN26
+      *
+     C           MAN       SETLLAM#PL21
+     C           *IN26     DOWEQ*OFF
+     C           MAN       READEAM#PL21                  26
+     C           *IN26     IFEQ *OFF
+     C           R2SURT    ANDEQTTSURT
+     C           R2SHID    ANDEQTTSHDT
+     C           R2SHIT    ANDEQTTSHTM
+     C           R2SKJY    ANDEQ' '
+     C           R2HNTE    ANDEQ'OK'
+     C           R2EXCD    ANDEQ'14'
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+      * ｻｷ ｲｾﾊｶｲｵﾙ ﾐｴｲﾀﾀｶｵ ｲﾐ ｲ ｳｾﾁﾗﾁﾕﾔ ﾊｶｴﾁﾖｶﾊﾙ, ﾐｶﾔ ｶﾊﾊﾁﾊ ｿｶﾐﾐｲｸｶ.
+     C           *IN26     IFEQ *OFF
+     C                     SETON                     3199
+     C                     MOVELER,5      MSG
+     C                     ENDIF
+      *
+     CSR         ESB710    ENDSR
+      *----------------------------------------------------*
+      *  CHECK TO VERIFY THIS MANIFEST WAS SCANNED IN      *
+      *  PACKING PROGRAM.                                  *
+      *----------------------------------------------------*
+     CSR         #SB720    BEGSR
+      *
+     C                     SETOF                     26
+     C                     MOVE 'A'       MFSIDE
+     C           MAN       SETLLAM#PL05
+     C           *IN26     DOWEQ*OFF
+     C           MAN       READEAM#PL05                  26
+      *
+     C           *IN26     IFEQ *OFF
+     C           R1SKJY    ANDEQ' '
+     C           R1HNTE    ANDEQ'OK'
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+      * ｻｷ ﾀﾁﾔ ﾐｴｲﾀﾀｶｵ ｻﾀ ﾂｲｴｽｻﾀｸ ﾁﾕﾔ-ｷｻｾｶ, ﾐｶﾔ ｶﾊﾊﾁﾊ ｿｶﾐﾐｲｸｶ.
+     C           *IN26     IFEQ *ON
+     C                     SETON                     3199
+     C                     MOVELER,6      MSG
+     C                     MOVE *BLANKS   R1SURT
+     C                     MOVE *BLANKS   R1SHID
+     C                     MOVE *BLANKS   R1SHIT
+     C                     GOTO ESB720
+     C                     ENDIF
+      *
+     CSR         ESB720    ENDSR
+      *----------------------------------------------------*
+      * NUMBER OF MANIFESTS                                *
+      *----------------------------------------------------*
+     CSR         #SB920    BEGSR
+      *
+     C           KEY01     KLIST
+     C                     KFLD           KKSURT  9
+     C                     KFLD           KKSHID  8
+      *
+     C                     MOVELTTSURT    KKSURT    P
+     C                     MOVELTTSHDT    KKSHID
+     C                     Z-ADD0         COUNT   30
+      *
+     C           KEY01     SETLLAM#PL22
+     C           KEY01     READEAM#PL22                  50
+     C           *IN50     DOWEQ*OFF
+      *
+     C           R2SKJY    IFEQ *BLANK
+     C           R2HNTE    ANDEQ'OK'
+     C           R2SHIT    ANDEQTTSHTM
+     C           R2EXCD    ANDEQ'14'
+     C                     ADD  1         COUNT
+     C                     ENDIF
+      *
+     C           KEY01     READEAM#PL22                  50
+     C                     ENDDO
+      *
+     C                     Z-ADDCOUNT     D1TOTL
+      *
+     CSR         ESB920    ENDSR
+      *----------------------------------------------------*
+**
+INPUT TRUCK TICKET.
+INPUT MANIFEST BARCODE.
+BLOWOUT RECOVERY
+ ER #4
+ALREADY SCANNED.
+MANIFEST NOT IN PACKING.
+SKID NOT A BLOWOUT.
+MAN# NOT SCANNED TO TRUCK.
+INVALID MANIFEST BARCODE.
+ ER #10
+INVALID TRUCK TICKET.

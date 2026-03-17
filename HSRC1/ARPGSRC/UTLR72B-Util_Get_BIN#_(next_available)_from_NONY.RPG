@@ -1,0 +1,194 @@
+     H            Y.
+     F** UTLR72B ***************************************************
+     F*  UTILITY- GET NEXT AVAILABLE BIN# FROM NONY.SHPDATE        *
+     F*  WRITTEN: JW (SRA)                                         *
+     F*           10/07/2020                                       *
+     F*------------------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UTLR72B'
+     F*                    PARM           $NONY   4
+     F*                    PARM           $NKOJ   1
+     F*                    PARM           $NUKE   4
+     F*                    PARM           $NOHZ   8
+     F*                    PARM           $BIN1   2
+     F*                    PARM           $BIN2   2
+     F*                    PARM           $RTN    1
+     F*   IN  $NONY   4   DELIVERY#
+     F*       $NKOJ   1   FACTORY
+     F*       $NUKE   4   DOCK
+     F*       $NOHZ   8   SHIP DATE
+     F*   OUT $BIN1   2   CASE1: UNIQUE BIN#
+     F*       $BIN2   2   CASE2: BIN#, IF PACK/LIST NOT PRINT YET
+     F*       $RTN    1   RETURN
+     F******************************************************
+     FAB#PL1J IF  E           K        DISK
+     FAB#PL80 IF  E           K        DISK
+      *--------------------------------------------------------
+     E                    DAT        10  1
+      *--------------------------------------------------------
+     I            DS
+     I                                        1   80KANOHZ
+     I                                        1   40KANOYY
+     I                                        5   60KANOMM
+     I                                        7   80KANODD
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *--------------------------------------------------------
+      *                    MAIN PROCESS
+      *--------------------------------------------------------
+     C                     EXSR #INZ
+      *
+     C                     Z-ADD0         @BIN1   20
+     C                     Z-ADD0         @BIN2   20
+      * BIN1 --------------------------------------------
+     C           1         DO   99        IX      20
+      *
+     C           IX        IFEQ 99
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     EXSR #PP101
+      *
+     C           ODFLG     IFEQ 'N'
+     C           @BIN1     ANDEQ0
+     C                     Z-ADDIX        @BIN1
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+      * BIN2 -----------------------------------------
+     C           1         DO   99        IY      20
+      *
+     C           IY        IFEQ 99
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     EXSR #PP102
+      *
+     C           ODFLG     IFEQ 'Y'
+     C           PLFLG     ANDEQ'N'
+     C           @BIN2     ANDEQ0
+     C                     Z-ADDIY        @BIN2
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *      -----------------------------------------
+      *
+     C           @BIN2     IFEQ 0
+     C                     Z-ADD@BIN1     @BIN2
+     C                     ENDIF
+      *
+     C           @BIN1     IFEQ 0
+     C                     MOVE '*'       $RTN
+     C                     ELSE
+     C                     MOVEL@BIN1     $BIN1
+     C                     MOVEL@BIN2     $BIN2
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *--------------------------------------------------------
+      * CHECK PP10 SERACHING ORDER NOT EXIST
+      *--------------------------------------------------------
+     C           #PP101    BEGSR
+      *
+     C                     MOVE 'N'       ODFLG   1
+     C                     Z-ADDIX        KANOBN
+      *
+     C           K#PL1J    SETLLAB#PL1J
+     C                     DO   *HIVAL
+     C           K#PL1J    READEAB#PL1J                  98
+     C   98                LEAVE
+      *
+      * COUNT DELETED ORDER TOO
+     C**         BASKJY    IFEQ 'D'
+     C**                   ITER
+     C**                   ENDIF
+      *
+     C                     MOVE 'Y'       ODFLG
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *--------------------------------------------------------
+      * CHECK PP10 SERACHING ORDER EXIST  BUT NOT PRINT P/L
+      *--------------------------------------------------------
+     C           #PP102    BEGSR
+      *
+     C                     MOVE 'N'       ODFLG   1
+     C                     MOVE 'N'       PLFLG   1
+     C                     Z-ADDIY        KANOBN
+      *
+     C           K#PL1J    SETLLAB#PL1J
+     C                     DO   *HIVAL
+     C           K#PL1J    READEAB#PL1J                  98
+     C   98                LEAVE
+      *
+     C           BASKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVE 'Y'       ODFLG
+     C                     EXSR #PP78
+     C           PLFLG     IFEQ 'N'
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *--------------------------------------------------------
+      * CHECK PP78
+      *--------------------------------------------------------
+     C           #PP78     BEGSR
+      *
+     C                     MOVE 'N'       PLFLG   1
+     C                     Z-ADDIY        KANOBN
+      *
+     C           K#PL1J    SETLLAB#PL80
+     C                     DO   *HIVAL
+     C           K#PL1J    READEAB#PL80                  97
+     C   97                LEAVE
+      *
+     C           P8SKJY    IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVE 'Y'       PLFLG
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *--------------------------------------------------------
+      * INITIAL SETTING
+      *--------------------------------------------------------
+     C           #INZ      BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $NONY   4
+     C                     PARM           $NKOJ   1
+     C                     PARM           $NUKE   4
+     C                     PARM           $NOHZ   8
+     C                     PARM           $BIN1   2
+     C                     PARM           $BIN2   2
+     C                     PARM           $RTN    1
+      *
+     C           K#PL1J    KLIST
+     C                     KFLD           KANONY  40
+     C                     KFLD           KANKOJ  1
+     C                     KFLD           KANUKE  4
+     C                     KFLD           KANOHZ  80
+     C                     KFLD           KANOBN  20
+      *
+     C                     MOVEL$NONY     KANONY
+     C                     MOVEL$NKOJ     KANKOJ
+     C                     MOVEL$NUKE     KANUKE
+     C                     MOVEL$NOHZ     KANOHZ
+      *
+     C                     MOVEL'00'      $BIN1
+     C                     MOVEL'00'      $BIN2
+     C                     MOVE *BLANK    $RTN
+      *
+     C                     ENDSR

@@ -1,0 +1,474 @@
+     H            Y.                                    1
+     H***AB#RBA ****************************************************************
+     H* NAPLD MASTER LABEL SCAN                                                *
+     H*       03/29/2004  TCH
+     H*       01/07/2005  TCH
+     H*                                                                *********
+     H* TCHK1 06/14/07 BUG FIX                                         *********
+     H* LEC   11/25/2019 ADD LOGIC FOR LOGGING SCAN ERRORS             *********
+     H**************************************************************************
+     FAB#PWBA CF  E                    WORKSTN
+     FAB#PL13 IF  E           K        DISK
+     FAB#PP66 UF  E           K        DISK                      A
+     FAB#PL67 IF  E           K        DISK
+     F            AB#PP661                          KRENAMEAB#66R
+     FAB#PP67 O   E           K        DISK                      A
+     F**************************************************************************
+     E                    ERR     1   6 15
+     I**************************************************************************
+     I            DS
+     I                                        1   8 BAR01
+     I            DS
+     I                                        1  15 K@MHIN
+     I                                        1  12 BAR02
+     I                                        1   5 K@MHN1
+     I                                        6  10 K@MHN2
+     I                                       11  15 K@MHN3
+     I            DS
+     I                                        1   80K@YMD
+     I                                        1   40K@YY
+     I                                        5   60K@MM
+     I                                        7   80K@DD
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           WORKER  6        CODE
+      *
+     C**************************************************************************
+     C*                    MAIN ROUTINE
+     C**************************************************************************
+     C           @@ID      DOWNE'99'
+     C           @@ID      CASEQ'01'      @SCRN1           MASTER LABEL
+     C           @@ID      CASEQ'02'      @SCRN2           PART NUMBER
+     C           @@ID      CASEQ'03'      @SCRN3           PART NUMBER
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+     C**************************************************************************
+     C*                    @INT
+     C**************************************************************************
+     C           *INZSR    BEGSR
+      *
+     C                     MOVE '01'      @@ID    2
+     C           K#KEY     KLIST
+     C                     KFLD           BAR01
+     C                     KFLD           K@MHN1
+     C                     KFLD           K@MHN2
+     C                     KFLD           K@MHN3
+     C           K#KEYX    KLIST
+     C                     KFLD           BAR01
+     C                     KFLD           BAMHN1
+     C                     KFLD           BAMHN2
+     C                     KFLD           BAMHN3
+     C           K#AB      KLIST
+     C                     KFLD           K@NONY  40
+     C                     KFLD           K@YY
+     C                     KFLD           K@MM
+     C                     KFLD           K@DD
+     C                     KFLD           K@NUKE  4
+     C                     KFLD           K@MHN1
+     C                     KFLD           K@MHN2
+     C                     KFLD           K@MHN3
+     C           K#ABX     KLIST
+     C                     KFLD           K@NONY  40
+     C                     KFLD           K@YY
+     C                     KFLD           K@MM
+     C                     KFLD           K@DD
+     C                     KFLD           K@NUKE  4
+     C           K#67      KLIST
+     C                     KFLD           BATOKU
+     C                     KFLD           BANONY
+     C                     KFLD           BANKOJ
+     C                     KFLD           BANUKE
+     C                     KFLD           K@YMD
+     C                     KFLD           BANOBN
+     C                     KFLD           BAODRN
+     C                     KFLD           BAMHN1
+     C                     KFLD           BAMHN2
+     C                     KFLD           BAMHN3
+     C                     KFLD           BAMHN4
+      *
+     C                     Z-ADD*DATE     K@YMD
+     C                     SUB  1         K@MM
+     C           K@MM      IFEQ 0
+     C                     ADD  12        K@MM
+     C                     SUB  1         K@YY
+     C                     ENDIF
+     C                     Z-ADDK@YMD     @@PVDT  80
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C           @SCRN1    BEGSR
+     C**************************************************************************
+      *
+     C                     EXFMTDSP01                      E-KANBAN
+     C*
+     C                     SELEC
+     C           *INKC     WHEQ *ON
+     C                     MOVE '99'      @@ID
+      *
+     C                     OTHER
+     C                     EXSR @CHK1
+     C           *IN30     IFEQ *ON
+     C                     EXSR LOGERR
+     C                     MOVE *BLANK    PARTNO
+     C                     EXFMTDSP98
+     C                     MOVE *BLANK    MSG
+     C                     MOVE *BLANK    BAR01
+     C                     ELSE
+     C                     MOVE *BLANK    BAR02
+     C                     MOVE '02'      @@ID
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *----------------------------------------------
+     C           @CHK1     BEGSR
+      *----------------------------------------------
+     C                     SETOF                     3033
+     C                     MOVE *BLANK    MSG
+      *
+     C           BAR01     IFEQ *BLANK
+     C                     SETON                     3033
+     C                     MOVE '01'      ESCRN   2
+     C                     MOVE ERR,1     MSG
+     C                     SETON                     3033
+     C                     GOTO #CHK1
+     C                     ELSE
+     C           BAR01     CHAINAB#PP661            N90
+     C           *IN90     IFEQ *ON
+     C                     MOVE '01'      ESCRN
+     C                     MOVE ERR,1     MSG
+     C                     SETON                     3033
+     C                     ELSE
+     C                     Z-ADDA6NONY    K@NONY
+     C                     MOVE A6NUKE    K@NUKE
+     C                     Z-ADDA6NYMD    K@YMD
+     C                     Z-ADDA6NBIN    @@NOBN  20
+     C                     Z-ADDA6TOKU    @@TOKU  40
+     C                     MOVE A6NKOJ    @@NKOJ  1
+TCHK1C                     MOVELA6ORDN    @@ORDN 10
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           #CHK1     ENDSR
+     C**************************************************************************
+     C           @SCRN2    BEGSR
+     C**************************************************************************
+      * PART NUMBER
+     C                     EXFMTDSP02
+     C*
+     C                     SELEC
+     C           *INKB     WHEQ *ON
+     C                     MOVE '01'      @@ID
+     C                     MOVE *BLANK    BAR01
+     C           *INKC     WHEQ *ON
+     C                     EXSR @FIN
+     C           *IN30     IFEQ *ON
+     C                     EXSR LOGERR
+     C                     EXFMTDSP98
+     C                     ELSE
+     C                     MOVE '99'      @@ID
+     C                     ENDIF
+     C           *INKD     WHEQ *ON
+     C                     MOVE '99'      @@ID
+     C           *INKE     WHEQ *ON
+     C                     MOVE '03'      @@ID
+     C*
+     C                     OTHER
+     C                     EXSR @CHK2
+     C           *IN30     IFEQ *ON
+     C                     MOVE *BLANK    PARTNO
+     C                     EXFMTDSP98
+     C                     MOVEL*BLANK    MSG
+     C                     CLEARDSP02
+     C                     ELSE
+     C                     EXSR @OUT
+     C                     ENDIF
+      *
+     C                     ENDSL
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @CHK2(PART NUMBER)
+     C**************************************************************************
+1    C           @CHK2     BEGSR
+      *
+     C                     SETOF                     3038
+     C                     MOVE *BLANK    MSG
+      *
+     C           BAR02     IFEQ *BLANK
+     C                     MOVE '02'      ESCRN
+     C                     MOVE ERR,1     MSG
+     C                     SETON                     30
+     C                     ELSE
+      *
+     C           K#KEY     SETLLAB#PP66
+     C           *IN90     DOUEQ*ON
+     C           K#KEY     READEAB#PP66             N    90
+     C           *IN90     IFEQ *OFF
+     C           A6NYMD    IFLE @@PVDT
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C*******    *IN90     IFEQ *ON
+     C*                    MOVE ERR,6     MSG
+     C*                    SETON                     30
+     C*******              ENDIF
+     C                     ENDIF
+      *
+     C           *IN30     IFEQ *OFF
+     C                     MOVE *OFF      *IN88
+     C           K#AB      SETLLAB#PL13
+     C           *IN90     DOUEQ*ON
+     C           K#AB      READEAB#PL13                  90
+     C           *IN90     IFEQ *OFF
+     C           BASKJY    ANDEQ*BLANK
+     C           BATOKU    ANDEQ@@TOKU
+     C           BANOBN    ANDEQ@@NOBN
+     C           BANKOJ    ANDEQ@@NKOJ
+TCHK1C           BAODRN    ANDEQ@@ORDN
+     C           K#67      CHAINAB#PL67              95
+     C           *IN95     IFEQ *OFF
+     C                     MOVE *ON       *IN88
+     C                     ITER
+     C                     ENDIF
+     C                     MOVE *OFF      *IN88
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+     C           *IN90     IFEQ *ON
+     C           *IN88     IFEQ *OFF
+     C                     MOVE '02'      ESCRN
+     C                     MOVE ERR,2     MSG
+     C                     SETON                     30
+     C                     ELSE
+     C*          K#67      CHAINAB#PL67              95
+     C*          *IN95     IFEQ *OFF
+     C                     MOVE ERR,5     MSG
+     C                     SETON                     30
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C           @SCRN3    BEGSR
+     C**************************************************************************
+      * CANCEL
+     C                     EXFMTDSP03
+     C*
+     C                     SELEC
+     C           *INKB     WHEQ *ON
+     C                     MOVE '02'      @@ID
+     C           *INKC     WHEQ *ON
+     C                     MOVE '99'      @@ID
+     C*
+     C                     OTHER
+     C                     EXSR @CHK3
+     C           *IN30     IFEQ *ON
+     C                     EXSR LOGERR
+     C                     MOVE *BLANK    PARTNO
+     C                     EXFMTDSP98
+     C                     MOVEL*BLANK    MSG
+     C                     CLEARDSP03
+     C                     ELSE
+     C                     EXSR @DEL
+     C                     EXFMTDSP97
+     C                     MOVE *BLANK    BAR02
+     C                     MOVE '02'      @@ID
+     C                     ENDIF
+      *
+     C                     ENDSL
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @CHK3(PART NUMBER)
+     C**************************************************************************
+     C           @CHK3     BEGSR
+      *
+     C                     SETOF                     3038
+     C                     MOVE *BLANK    MSG
+      *
+     C           BAR02     IFEQ *BLANK
+     C                     MOVE '03'      ESCRN
+     C                     MOVE ERR,1     MSG
+     C                     SETON                     30
+     C                     ELSE
+      *
+     C           K#KEY     SETLLAB#PP66
+     C           *IN90     DOUEQ*ON
+     C           K#KEY     READEAB#PP66             N    90
+     C           *IN90     IFEQ *OFF
+     C           A6NYMD    IFLE @@PVDT
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           *IN90     IFEQ *ON
+     C                     MOVE '03'      ESCRN
+     C                     MOVE ERR,4     MSG
+     C                     SETON                     30
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*     DELETE
+     C**************************************************************************
+     C           @DEL      BEGSR
+     C*
+     C           K#KEY     SETLLAB#PP66
+     C           *IN90     DOUEQ*ON
+     C           K#KEY     READEAB#PP66                  90
+     C           *IN90     IFEQ *OFF
+     C           A6NYMD    IFLE @@PVDT
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     DELETAB#PP661
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*     WRITE
+     C**************************************************************************
+     C           @OUT      BEGSR
+      *
+     C           K#AB      SETLLAB#PL13
+     C           *IN90     DOUEQ*ON
+     C           K#AB      READEAB#PL13                  90
+     C           *IN90     IFEQ *OFF
+     C           BASKJY    ANDEQ*BLANK
+     C           BATOKU    ANDEQ@@TOKU
+     C           BANOBN    ANDEQ@@NOBN
+     C           BANKOJ    ANDEQ@@NKOJ
+TCHK1C           BAODRN    ANDEQ@@ORDN
+     C           K#67      CHAINAB#PL67              95
+     C           *IN95     IFEQ *ON
+     C                     EXSR @WRT
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     CLEARDSP02
+      *
+      *****************    EXFMTDSP97
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*     WRITE
+     C**************************************************************************
+     C           @WRT      BEGSR
+     C*
+     C                     CLEARAB#PP661
+     C                     Z-ADD*DATE     A6KYMD
+     C                     TIME           A6KTIM
+     C                     Z-ADD@@TOKU    A6TOKU
+     C                     Z-ADDK@NONY    A6NONY
+     C                     MOVEL@@NKOJ    A6NKOJ
+     C                     MOVELK@NUKE    A6NUKE
+     C                     MOVELBAR01     A6MLBL
+     C                     MOVELK@MHN1    A6MHN1
+     C                     MOVELK@MHN2    A6MHN2
+     C                     MOVELK@MHN3    A6MHN3
+     C                     Z-ADDK@YMD     A6NYMD
+     C                     Z-ADD@@NOBN    A6NBIN
+     C                     Z-ADDBASRYO    A6SRYO
+     C           BAUSYS    IFNE *ZERO
+     C                     Z-ADDBAUSYS    A6QTYB
+     C                     ELSE
+     C                     Z-ADDBASYOS    A6QTYB
+     C                     ENDIF
+     C                     MOVE BASHN1    A6SHN1
+     C                     MOVE BASHN2    A6SHN2
+     C                     MOVE BASHN3    A6SHN3
+     C                     MOVE BAODRN    A6ORDN
+      *
+     C                     WRITEAB#PP661
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*       LAST CHECK
+     C**************************************************************************
+     C           @FIN      BEGSR
+      *
+     C                     SETOF                     3038
+     C                     MOVE *BLANK    MSG
+     C                     MOVE *BLANK    PARTNO
+      *
+     C           K#ABX     SETLLAB#PL13
+     C           *IN90     DOUEQ*ON
+     C           K#ABX     READEAB#PL13                  90
+     C           *IN90     IFEQ *OFF
+     C           BASKJY    ANDEQ*BLANK
+     C           BATOKU    ANDEQ@@TOKU
+     C           BANOBN    ANDEQ@@NOBN
+     C           BANKOJ    ANDEQ@@NKOJ
+TCHK1C           BAODRN    ANDEQ@@ORDN
+      *
+     C           K#67      SETLLAB#PL67
+     C           *IN95     DOUEQ*ON
+     C           K#67      READEAB#PL67                  95
+     C           *IN95     IFEQ *OFF
+     C           A6NYMD    IFLE @@PVDT
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           *IN95     IFEQ *ON
+     C                     MOVE 'F '      ESCRN
+     C                     MOVE ERR,4     MSG
+     C                     MOVELBAMHIN    PARTNO
+     C                     SETON                     3038
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+     C**************************************************************************
+     C*     WRITE TO ERROR LOG
+     C**************************************************************************
+     C           LOGERR    BEGSR
+      *
+     C                     CLEARAB#PP671
+     C                     Z-ADD*DATE     A7KYMD
+     C                     TIME           A7KTIM
+     C                     MOVELWORKER    A7WKCD
+     C                     MOVELBAR01     A7MLBL
+     C                     MOVELK@MHN1    A7MHN1
+     C                     MOVELK@MHN2    A7MHN2
+     C                     MOVELK@MHN3    A7MHN3
+     C                     MOVELMSG       A7EMSG
+     C                     MOVELESCRN     A7ESCR
+      *
+     C                     WRITEAB#PP671
+      *
+     C                     ENDSR
+     C**************************************************************************
+      *---------------------------------------------
+** ERR
+BAR CODE ERROR
+NO ORDER.
+ALREADY SCANND
+NOT SCANNED
+IN OTHER SKID

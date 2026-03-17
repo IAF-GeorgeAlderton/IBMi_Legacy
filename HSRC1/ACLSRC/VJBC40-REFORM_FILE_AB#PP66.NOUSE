@@ -1,0 +1,126 @@
+             PGM        PARM(&WFILE &WLIBR &WNUKI &WSKRE &WSKHI)
+             /** VJBC40 ********************************/
+             /*  REFORM FILE AB#PP66                   */
+             /*     T.SAKAKI          11/04/2015       */
+             /******************************** VJBC40  */
+             DCLF       FILE(VJBPW40)
+             DCL        VAR(&WFILE) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&WLIBR) TYPE(*CHAR) LEN(8)
+             DCL        VAR(&WNUKI) TYPE(*CHAR) LEN(8)
+             DCL        VAR(&WSKRE) TYPE(*CHAR) LEN(3)
+             DCL        VAR(&WSKHI) TYPE(*CHAR) LEN(3)
+             DCL        VAR(&WKTIM) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&WSTIM) TYPE(*CHAR) LEN(6)
+
+             DCL        VAR(&WSID)  TYPE(*CHAR) LEN(10)
+             DCL        VAR(&MBAN)  TYPE(*CHAR) LEN(4)
+             DCL        VAR(&KOTAE)  TYPE(*CHAR) LEN(1)
+             DCL        VAR(&USER)   TYPE(*CHAR) LEN(10)
+
+             DCL        VAR(&PLIB)   TYPE(*CHAR) LEN(8)
+             DCL        VAR(&WLIB)   TYPE(*CHAR) LEN(8)
+             DCL        VAR(&LIBL)   TYPE(*CHAR) LEN(10)
+
+             DCL        VAR(&CNT)    TYPE(*DEC) LEN(10 0)
+             DCL        VAR(&WKTIM)  TYPE(*CHAR) LEN(6)
+             DCL        VAR(&WKENS)  TYPE(*CHAR) LEN(9)
+             DCL        VAR(&WRECD) TYPE(*CHAR) LEN(9)
+
+             RTVJOBA    JOB(&WSID) USER(&USER)
+           /*--------------------------------------------*/
+           /*    CHECK ENVIRONMENT                        */
+           /*--------------------------------------------*/
+             CALL       PGM(ALBC01) PARM(&USER &PLIB &WLIB)
+
+           /*--------------------------------------------*/
+           /*    CHECK DATE 6 DIGITS TO 8 DIGITS          */
+           /*--------------------------------------------*/
+             CHGVAR     VAR(&PYMD) VALUE(&WNUKI)
+
+           /*--------------------------------------------*/
+           /*    ACTIVE CHECK                            */
+           /*--------------------------------------------*/
+             CHKOBJ     OBJ(&WLIB/VJBC40ACT) OBJTYPE(*DTAARA)
+             MONMSG     MSGID(CPF9801) EXEC(GOTO CMDLBL(VTP1))
+
+ VTP2:       SNDPGMMSG  MSG('( G ) OTHER MASTER FILES ARE BEING +
+                          REORGANIZED. PLEASE WAIT FOR A WHILE. ') +
+                          TOMSGQ(&WSID) MSGTYPE(*INQ) KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTAE)
+             IF         COND((&KOTAE *NE 'G') *AND (&KOTAE *NE 'g')) +
+                          THEN(GOTO CMDLBL(VTP2))
+             GOTO       SEND
+
+ VTP1:       CRTDTAARA  DTAARA(&WLIB/VJBC40ACT) TYPE(*CHAR) +
+                          LEN(10) TEXT('ACTIVE CHECK VJBC40') +
+                          AUT(*ALL)
+
+         /*----------------------------------*/
+         /* 窞�砭鯟�樝�　　　　　　　　　*/
+         /*----------------------------------*/
+             CALL       PGM(VJBR17) PARM(&WFILE &WFINM)
+             CHGVAR     VAR(&WFILI) VALUE(&WFILE)
+
+             CHGVAR     VAR(&IN99) VALUE('0')
+ STP1:
+                 SNDRCVF    DEV(&WSID) RCDFMT(VJBPW401)
+
+             IF         (&IN01 *EQ '1') GOTO END
+
+             IF         (&IN12 *EQ '1') DO
+             CHGVAR     VAR(&IN80) VALUE('1')
+             GOTO       STP1
+             ENDDO
+
+             CHGVAR     VAR(&IN99) VALUE('0')
+
+             IF         (&PYMD *EQ '        ') DO
+             CHGVAR     VAR(&IN99) VALUE('1')
+             CHGVAR     VAR(&MSG) VALUE('DATE IS INCORRECT')
+             GOTO       STP1
+             ENDDO
+
+             IF         (%SST(&PYMD 1 4) *LT '1995') GOTO STP2
+             IF         (%SST(&PYMD 5 2) *GT '12') GOTO STP2
+             IF         (%SST(&PYMD 5 2) *LT '01') GOTO STP2
+             IF         (%SST(&PYMD 7 2) *GT '31') GOTO STP2
+             IF         (%SST(&PYMD 7 2) *LT '01') GOTO STP2
+             GOTO       STP3
+ STP2:       CHGVAR     VAR(&IN99) VALUE('1')
+             CHGVAR     VAR(&MSG) VALUE('DATE IS INCORRECT')
+             GOTO       STP1
+
+ STP3:       IF         (&IN05 *EQ '0') GOTO STP1
+
+             RTVSYSVAL  SYSVAL(QTIME) RTNVAR(&WKTIM)
+
+         /*----------------------------------*/
+         /* 灝▴橕鯫�　　　　　　　　　　　*/
+         /*----------------------------------*/
+             CALL       PGM(VJBC12) PARM(&LIBL)
+
+         /*----------------------------------*/
+         /* �硠�橑胗�槈��　　　　　*/
+         /*----------------------------------*/
+             CRTDUPOBJ  OBJ(AB#PP66) FROMLIB(&PLIB) OBJTYPE(*FILE) +
+                          TOLIB(&LIBL)
+             MONMSG     MSGID(CPF2130)
+
+             OVRDBF     FILE(AB#PP66B) TOFILE(&LIBL/AB#PP66)
+             CALL       PGM(VJBR40) PARM(&PYMD &WRECD &WKENS)
+             DLTOVR     FILE(AB#PP66B)
+
+         /*----------------------------------*/
+         /*  RGZPFM                          */
+         /*----------------------------------*/
+             RGZPFM     FILE(&PLIB/AB#PP66)
+             MONMSG     MSGID(CPF2981)
+
+             RTVSYSVAL  SYSVAL(QTIME) RTNVAR(&WSTIM)
+
+             CALL       PGM(VJBR14) PARM(&WFILE &WNUKI &WKTIM &WSTIM +
+                          &WRECD &WKENS)
+
+ END:        DLTDTAARA  DTAARA(&WLIB/VJBC40ACT)
+ SEND:       ENDPGM

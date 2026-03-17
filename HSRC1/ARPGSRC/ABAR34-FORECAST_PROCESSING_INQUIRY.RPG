@@ -1,0 +1,415 @@
+     H            Y.
+     F** ABAR34 *************************************************************
+     F*  FORECAST PROCESS INQUIRY                                           *
+     F*                                                                     *
+"    F* JW    11/16/20 ADD HSP  (0390-1013)                                 *
+"    F* JW    06/16/21 ADD HSP  (0390-2050)                                 *
+     F***********************************************************************
+     FABAPW34 CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     F                                              KINFDS @INFDS
+     FABBPL52 IF  E           K        DISK
+     FABBPL61 IF  E           K        DISK
+     FABFPL13 IF  E           K        DISK
+     FABRPL17 IF  E           K        DISK
+     E*****************************************************************
+     E                    KEY     1   1 78
+JW   E                    NAM     1 205 70
+     I*****************************************************************
+     I@INFDS      DS
+     I                                     *STATUS  @STTS
+     I                                    B 370 3710@@LIN
+     I                                    B 378 3790@@REC
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      * SYSTEM TIME(6) + DATE(8)
+     I            DS
+     I                                        1  140WWTIME
+     I                                        1   60WTIME
+     I                                        1   40WTIM4
+     I                                        1   20WTIMHH
+     I                                        3   40WTIMMM
+     I                                        7  120WSDATE
+     I                                        9  120@@YM4
+     I                                        7  120@@YM6
+     I                                        7  140@@YMD
+     I                                        7  100@@YY
+     I                                       11  120@@MM
+     I                                       13  140@@DD
+     I*
+     I            DS
+     I                                        1  70 W@NAM
+     I                                        1   4 W@NAM1
+     I                                        5   5 W@NAM2
+     I                                        6  35 W@NAM3
+     I                                       36  36 W@NAM4
+     I                                       37  44 W@NAM5
+     I                                       45  45 W@NAM6
+     I                                       46  60 W@NAM7
+      *
+     I            DS
+     I                                        1   80ABKODT
+     I                                        1   40ABKOYY
+     I                                        5   60ABKOMM
+     I                                        7   80ABKODD
+      *------------------------------------------------------
+      *  MAIN ROUTINE
+      *------------------------------------------------------
+     C           W@ID      DOWNE'99'
+     C           W@ID      CASEQ'01'      #SCRN1
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *------------------------------------------------------
+     C* INITIAL ROUTINE
+      *------------------------------------------------------
+     C           *INZSR    BEGSR
+     C*
+     C                     TIME           WWTIME
+     C                     MOVE '01'      W@ID    2
+     C                     EXSR #SET
+     C*
+     C           *ENTRY    PLIST
+     C                     PARM           P@CLBL  1
+      *
+     C           P@CL41    PLIST
+     C                     PARM           P@AR41  1
+     C*
+     C                     ENDSR
+      *------------------------------------------------------
+     C* SET DATA
+      *------------------------------------------------------
+     C           #SET      BEGSR
+      *
+     C                     MOVE *ON       *IN52
+     C                     WRITECTL01
+     C                     MOVE *OFF      *IN52
+      *
+     C                     Z-ADD*ZERO     RRN1    40
+JW   C*JW        1         DO   154       X       30
+JWB  C           1         DO   205       IX      30
+     C                     CLEARSFL01
+     C                     MOVELNAM,IX    W@NAM
+     C                     MOVELW@NAM1    S@NONY
+     C                     MOVELW@NAM3    S@NONM
+     C                     MOVELW@NAM5    S@CYCL
+     C                     MOVELW@NAM7    S@METH
+      *
+     C                     SELEC
+      * FORD
+     C           S@NONY    WHEQ '5149'
+     C           *HIVAL    SETGTABFPL13
+     C                     READPABFPL13                  90
+     C           *IN90     IFEQ *OFF
+     C           20000000  ADD  FDDATE    S@UPDT
+     C                     ENDIF
+      * ANDROID
+     C           S@NONY    WHEQ '2855'
+     C           'AIW01'   SETGTABRPL17
+     C                     READPABRPL17                  90
+     C           *IN90     IFEQ *OFF
+     C           20000000  ADD  FBDATE    S@UPDT
+     C                     ENDIF
+      *
+     C           S@NONY    WHEQ *BLANK
+     C*
+     C                     OTHER
+     C                     MOVELS@NONY    K@NONY  40
+     C                     EXSR #DAT
+      *
+     C                     ENDSL
+      *
+     C                     MOVELS@NONY    H@NONY
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+     C* RECEIVED DATA
+      *------------------------------------------------------
+     C           #DAT      BEGSR
+      * FROM PP50
+     C           K@NONY    SETGTABBPL52
+     C                     DO   *HIVAL
+     C           K@NONY    REDPEABBPL52                  98
+     C   98                LEAVE
+      *
+     C           BBFLG1    IFEQ 'D'                        DELETE FLAG
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDBBRCDT    S@UPDT
+     C                     MOVEL'WEEKLY  'S@CYCL
+      * METHOD
+     C                     SELEC
+     C           BBFLG2    WHEQ 'E'
+     C                     MOVEL'EDI(830)'S@METH    P
+     C           BBFLG2    WHEQ 'I'
+     C                     MOVEL'IFS ENTR'S@METH    P
+     C           BBFLG2    WHEQ 'S'
+     C                     MOVEL'EXCEL   'S@METH    P
+     C           BBFLG2    WHEQ 'W'
+     C                     MOVEL'WEB     'S@METH    P
+     C                     OTHER
+     C                     MOVEL'UPLOAD  'S@METH    P
+     C                     ENDSL
+     C                     GOTO XDAT
+     C                     ENDDO
+      * FROM PP60
+     C           K@NONY    SETGTABBPL61
+     C                     DO   *HIVAL
+     C           K@NONY    REDPEABBPL61                  97
+     C   97                LEAVE
+      *
+     C           ABSKJY    IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     Z-ADDABKODT    S@UPDT
+     C                     MOVEL'MANUAL  'S@METH    P
+     C                     MOVEL'MONTHLY 'S@CYCL
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C           S@UPDT    IFEQ 0
+     C                     MOVE *BLANK    S@METH
+     C                     MOVE *BLANK    S@CYCL
+     C                     ENDIF
+      *
+     C           XDAT      ENDSR
+      *------------------------------------------------------
+     C* 1ST SCREEN
+      *------------------------------------------------------
+     C           #SCRN1    BEGSR
+      *
+     C                     MOVE KEY,1     D@CMD
+     C                     WRITEDSP99
+     C                     MOVE *ON       *IN51
+     C                     EXFMTCTL01
+     C                     MOVE *OFF      *IN51
+      *
+     C                     SELEC
+     C           *INKA     WHEQ *ON
+     C                     MOVE '99'      W@ID
+     C           *INKY     WHEQ *ON
+     C                     MOVEL'1'       P@AR41
+     C                     CALL 'ABAR41'  P@CL41
+     C                     OTHER
+     C                     ENDSL
+      *
+     C                     ENDSR
+     C***********************************************************
+     C* S@NONY(1-4), S@NONM(6-35), S@CYCL(37-44), S@METH(46-60)
+** KEY
+F1:END
+** NAM   1....+....2....+....3....+....4....+....5....+....6
+3220 TMMNK
+3226 TMMGT
+3347 TMMK
+3428 TMMMS
+3481 TMMBC
+3503 TMMC
+3764 TMMAL
+3804 TMMI
+3851 TMMTX
+3931 TMMWV
+3770 MTMUS
+3423 TABC
+3941 TBMNC
+3535 TMI(HARRODSBURG)
+3540 TMI(NICHOLASVILLE)
+3545 TMI(BARDSTOWN)
+3581 TMI(CANADA)
+
+5149 FORD
+5236 LMV AUTOMOTIVE
+
+0290 HMA GLA
+0294 HMA
+0391 HDM
+0396 HONDA GDL
+0390 HONDA HSP 0300
+0397 HONDA HSP 0397
+0398 HONDA HSP 0398
+0399 HONDA HSP 0399
+0404 HONDA MEXICO DSPS
+1012 HONDA HSP 1012
+1013 HONDA HSP 1013
+1014 HONDA HSP 1014 YAMADA
+1015 HONDA HSP 1015 EGT
+1057 HONDA HSP 1057 KIRCHHOFF
+1059 HONDA HSP 1059 PLASMAN
+0402 HDM(IPS)
+0405 HONDA HSP 0405
+0406 HONDA HSP 0406 NK INDUSTRIES
+0407 HONDA HSP 0407 EAKAS CORP.
+1620 HONDA TRADING
+1630 HONDA TRADING
+2021 HCM PLANT1
+2022 HCM PLANT2
+2025 HCM MARION IND
+2050 HSP STANLEY
+2044 HCM CELINA
+2037 HCM EG TRANSPIRE,CAN
+2030 HCM LISTOWEL TECH
+2038 HCM NISSIN PLANT2
+3128 ELP
+3131 HSP TOPRE WORLD
+3134 HMIN MARION IND
+3135 HMIN
+3136 HMIN SPECIAL
+3127 GLA ELP
+4126 MAP
+4127 GLA MAP
+3133 CHALLENGE MFG
+0411 CROWN PACKAGING(AHM)
+
+2023 SPS 3
+2024 F & P
+
+5910 FNG VENTRA KITCHENER, ON
+5912 FNG MASTERGURD, IN
+5913 FNG IL
+5915 FNG COVINGTON, IN
+5917 FNG VENTRA KITCHENER, ON
+5923 FNG PLASTICS, IL
+5924 FNG MX PLASTICO LAREDO, TX
+
+7448 PISTON
+7450 PISTON LOUSVILLE
+7451 PISTON NORTH KC
+7452 PISTON GROUP
+
+0940 TOWER BARDSTOWN KY
+5535 ACUMENT
+0332 MERIDIAN LIGHTWEIGHT
+0291 AMBRAKE
+
+0871 ASI KY
+0873 ASI MADISON
+0876 ASI SERVICE
+0878 ASI CANADA
+0879 ASI TX
+0880 ASI TN
+0881 ASI MEX
+
+3530 ATS
+0651 DTR
+0652 DTR OHIO
+
+0556 FUTABA CHICAGO(FIC)
+0567 FUTABA INDIANA(FIA)
+0579 FUTABA CANADA (FIO)
+0578 FUTABA TEXAS  (FIT)
+
+0972 HISADA
+3892 JTEKT TN
+3832 JTEKT TEXAS
+5253 LITENS
+3317 NHK SEATING
+5671 OHASHI
+5672 OHASHI TENN
+5674 OHASHI MEX
+0740 OTICS USA
+0741 OTICS TN
+0543 SIEGEL ROBERT
+0560 SR TN
+3094 TAC
+
+0701 TBA, IN  WEST PLANT
+3318 TBCA WOODSTOCK
+3319 TBA, IN  EAST PLANT
+
+0753 TIEM
+0754 SERVICE PARTS TIEM
+3201 ARJ/TBTN
+3316 TB DE MEXICO
+3953 HMM(HINO-ARK)
+3951 HMM USA(HINO)
+0478 AAC
+0479 AAC TN
+0465 ABI
+0966 AISIN
+0777 AISIN DRIVETRAIN
+0479 AISIN TN
+0987 AMI
+0492 AWNC
+
+3032 DENSO MI
+3062 DENSO MEXICO T1
+3063 DENSO MEXICO S2
+3070 DENSO MEXICO S1
+3076 DENSO CANADA
+3086 DENSO ARKANSAS
+
+3510 JASC
+3515 JATM
+0271 NAL
+0273 NAL FLORA
+0275 NAL SALEM,IL
+0276 NAL ALABAMA
+1431 NIFAST CANADA
+0203 NIFAST MI
+0681 PMO
+1301 RITATSU
+
+0645 TAKUMI OH
+0646 TAKUMI TX
+0647 TAKUMI CA
+0648 TAKUMI TX NORTH
+1201 TBDN
+
+0902 TG KENTUCKY
+0905 TG MISSOURI
+0906 TG MISSOURI2
+0907 TG INDIANA
+0908 TG TEXAS
+
+3511 TOYOTETSU TEXAS(TTTX)
+3512 TOYOTETSU CANADA(TTCA)
+3550 TOYOTETSU MID AMERICA(TTMA)
+3556 TOYOTETSU AMERICA(TTAI)
+4022 TOYOTETSU MADISON,AL (YKTA)
+3571 TOYOTETSU TTAI, COMPO, OH
+3513 TOYOTETSU MEXICO(TTMX)
+
+3712 TAKATA MEXICO
+3713 TAKATA PIQUA
+3842 TAKATA DEL RIO
+3682 TAKATA ARIZONA
+3714 TAKATA MONCLOVA
+
+4044 QUALITY SAF SYS
+6864 MERIDIAN TECHNOLOGY
+2000 PK U.S.A. INC.
+0260 TOYOTOMI
+4201 TRW VM SERVICE
+3611 SIA SUBARU
+8605 TAIHO MFG
+8054 REYES AUTOMOTIVE
+
+8450 VOLKSWAGEN
+
+5810 HITACHI
+5811 HITACHI MEXICO
+
+6022 THAI SUMMIT AMERICA
+
+0531 ISUZU SPARTAN
+7610 TRACE DIE CAST
+0260 TOYOTOMI
+
+5426 TSUSHO KY
+3514 TSUSHO TN1
+3517 TSUSHO TN2
+5427 TSUSHO CN
+5430 TSUSHO CA
+5433 TSUSHO MI2
+5434 TSUSHO MX
+

@@ -1,0 +1,179 @@
+     H            Y.
+     F** AZAR02 **********************************************************
+     F*  CREATE ANALYSIS DATA OF IMPORT DIE                              *
+     F*                                                                  *
+     F*  TCH 2001.03.29                                                  *
+     F*                                                                  *
+     F*  *IN90=1(NOT READ GDIPL18:ORDER FILE,ORDER DATE)                 *
+     F*  *IN91=1(NOT READ GCQPL01:DIE MASTER)                            *
+     F*  *IN92=1(NOT READ GDGPL18:ORDER FILE,ORDER NUMBER+PART)          *
+     F*  *IN93=1(NOT READ BTAPP41:ADJUSTMENT FILE)                       *
+     F********************************************************************
+     FGCQPL01 IF  E           K        DISK
+     FMBDPL01 IF  E           K        DISK
+     FBTAPP41 IF  E           K        DISK
+     FGDIPL18 IF  E           K        DISK                           UC
+     FAZAPP10 O   E                    DISK
+     FAZAPP01 O   E                    DISK
+     E********************************************************************
+     E                    ODR         7  6 0             ORDER NUMBER
+     E                    QTY         7  5 0             ORDER BOX
+     I********************************************************************
+     I* ACTUAL ORDERED QTY.(GDGPP15)
+     I            DS
+     I                                        1  350QTY
+     I                                        1   50AZODR1
+     I                                        6  100AZODR2
+     I                                       11  150AZODR3
+     I                                       16  200AZODR4
+     I                                       21  250AZODR5
+     I                                       26  300AZODR6
+     I                                       31  350AZODR7
+     I********************************************************************
+     C           *ENTRY    PLIST
+     C                     PARM           PUSR   10
+     C                     PARM           PNOHZ   6
+     C                     PARM           PFLAG   1
+     C******************************************************************
+     C* GDIPL18
+     C           K1        KLIST
+     C                     KFLD           K11              ORDER NUMBER
+     C                     KFLD           T6KAT1           KAT  1
+     C                     KFLD           T6KAT2                2
+     C                     KFLD           T6KAT3                3
+     C* BTAPP41
+     C           K2        KLIST
+     C                     KFLD           T6KAT1           PART 1
+     C                     KFLD           T6KAT2                2
+     C                     KFLD           T6KAT3                3
+     C******************************************************************
+     C                     MOVE PNOHZ     WNOHZ   60
+     C                     MOVE *BLANK    PFLAG
+     C                     Z-ADD*ZERO     I       20
+     C                     Z-ADD*ZERO     WTOTL   50
+     C                     Z-ADD*ZERO     ODR
+     C                     Z-ADD*ZERO     QTY
+     C                     Z-ADD*ZERO     W#KAN   52
+     C                     Z-ADD*ZERO     W#AKAN  72
+     C******************************************************************
+     C* CREATE TABLE(ORDER NUMBER)
+     C                     OPEN GDIPL18
+     C*
+     C           WNOHZ     SETLLGDIPL181
+     C                     READ GDIPL181                 90
+     C           *IN90     DOWEQ'0'
+     C*
+     C                     ADD  1         I
+     C                     Z-ADDICODER    ODR,I
+     C*
+     C           ICODER    SETGTGDIPL181
+     C                     READ GDIPL181                 90
+     C                     END
+     C*
+     C                     CLOSEGDIPL18
+     C******************************************************************
+     C                     OPEN GDGPL18
+     C* CREATE WORK FILE
+     C           *LOVAL    SETLLGCQPL011
+     C                     READ GCQPL011                 91
+B01  C           *IN91     DOWEQ'0'
+     C*
+B02  C           T6SKJY    IFNE ' '
+     C****       T6STYY    ORNE 9999
+     C                     GOTO #READ
+     C                     END
+     C*
+     C                     CLEARAZAPP021
+     C*
+     C* SET DATA FROM MASTER
+     C                     MOVE T6KAT1    AZKAT1           DIE  1
+     C                     MOVE T6KAT2    AZKAT2                2
+     C                     MOVE T6KAT3    AZKAT3                3
+     C                     MOVE T6TKR1    AZTKR1           NEW LOC 1
+     C                     MOVE T6TKR2    AZTKR2                   2
+     C                     MOVE T6TKR3    AZTKR3                   3
+     C                     MOVE T6TKR4    AZTKR4                   4
+     C                     Z-ADDT6SYOS    AZSYOS           QTY/CONT.
+     C                     Z-ADDT6KMAX    AZCKAN           KANBAN MASTER
+     C           T6SRYO    DIV  20        AZDKAN           KAN/DAY MASTER
+      *
+     C* SET DATA FROM ORDER FILE
+     C                     Z-ADD1         I
+     C                     Z-ADD*ZERO     WTOTL
+     C*
+     C                     DO   7         I
+     C                     MOVE ODR,I     K11     60
+     C           K1        CHAINGDGPL181             92
+     C           *IN92     IFEQ '0'
+     C           ICSKJY    ANDEQ' '
+     C                     Z-ADDICMAIS    QTY,I
+     C*****                ADD  ICMAIS    WTOTL
+     C*
+     C                     ELSE
+     C                     Z-ADD*ZERO     QTY,I
+     C                     END
+     C*
+     C                     END
+     C*****                Z-ADDWTOTL     AZOTOT
+     C*
+     C* SET DATA FROM BTAPP41
+     C           K2        SETLLBTAPP411
+     C           K2        READEBTAPP411                 93
+     C           *IN93     DOWEQ'0'
+      *
+     C           B4SKJY    IFEQ ' '
+     C                     ADD  B4MAIS    AZADJS
+     C                     END
+      *
+     C           K2        READEBTAPP411                 93
+     C                     END
+     C*
+     C* SET DATA FROM MBDPP01(STATISTICS FILE)
+     C           K2        SETLLMBDPL011
+     C           K2        READEMBDPL011                 94
+     C           *IN94     DOWEQ'0'
+      *
+     C           F3SKJY    IFEQ ' '
+     C                     ADD  F3TNSU    AZBKAN
+     C                     END
+      *
+     C           K2        READEMBDPL011                 94
+     C                     END
+     C*
+     C* CAL. ACTUAL QTY. PAR DAY
+     C                     DIV  20        AZBKAN
+     C*
+     C* CAL. ACTUAL # OF KANBAN PAR DAY
+     C           AZBKAN    DIV  AZSYOS    W#KAN
+     C           W#KAN     MULT T6LTIM    W#AKAN
+     C           W#AKAN    ADD  0.9       AZAKAN
+     C                     Z-ADDT6LTIM    AZLTIM
+     C*
+     C* CAL. # OF KANBAN VARIANCE (BETWEEN ACT&MASTER)
+     C****       AZAKAN    SUB  AZOTOT    AZACTQ
+      *
+     C                     WRITEAZAPP011
+     C                     MOVE '1'       PFLAG
+      *
+     C           #READ     TAG
+     C                     READ GCQPL011                 91
+     C                     END
+      *
+     C                     CLOSEGDGPL18
+     C*
+     C******************************************************************
+     C*
+     C                     CLEARAZAPP101
+     C                     MOVE ODR,1     AXODR1
+     C                     MOVE ODR,2     AXODR2
+     C                     MOVE ODR,3     AXODR3
+     C                     MOVE ODR,4     AXODR4
+     C                     MOVE ODR,5     AXODR5
+     C                     MOVE ODR,6     AXODR6
+     C                     MOVE ODR,7     AXODR7
+     C                     WRITEAZAPP101
+     C******************************************************************
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+     C*

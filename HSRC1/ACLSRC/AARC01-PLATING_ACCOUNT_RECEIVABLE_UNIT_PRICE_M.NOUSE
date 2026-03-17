@@ -1,0 +1,109 @@
+             PGM
+             /*** AARC01 *****************************/
+             /* PLATING ACCOUNT RECEIVABLE UNIT PRICE M/F DELETE */
+             /* A.IDOTA 1995.07.03 */
+             /***************************** AARC01 ***/
+             DCLF       FILE(AARPW01)
+             DCL        VAR(&USER) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&TYPE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&MBAN)   TYPE(*CHAR) LEN(4)
+             DCL        VAR(&KOTE)   TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PDEVT) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&PIGCD) TYPE(*CHAR) LEN(4)
+             RTVJOBA    JOB(&WSID) USER(&USER)
+
+             CALL       PGM(AGAR01) PARM(&WSID &PDEVT &PIGCD)
+
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+
+             CHGJOB     OUTQ(&PRTG)
+
+             CHKOBJ     OBJ(AAVACT) OBJTYPE(*DTAARA)
+             MONMSG     MSGID(CPF9801) EXEC(GOTO CMDLBL(SSTP1))
+
+ SSTP2:      SNDPGMMSG  MSG('( G ) UPDATE HANDLING FOR PART +
+                          INFORMATION M/F IS ACTIVE, WAIT FOR A +
+                          WHILE') TOMSGQ(&WSID) MSGTYPE(*INQ) +
+                          KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTE)
+             IF         COND((&KOTE *NE 'G') *AND (&KOTE *NE 'g')) +
+                          THEN(GOTO CMDLBL(SSTP2))
+             GOTO       END
+
+ SSTP1:      CRTDTAARA  DTAARA(AAVACT) TYPE(*CHAR) LEN(10) +
+                          TEXT('PLATING ACCOUNT RECEIVABLE UNP M/F +
+                          DELETE HANDLING') AUT(*ALL)
+
+ /* SCREEN CHECK */
+ STP1:       SNDRCVF    DEV(&WSID) RCDFMT(AARPW011)
+             IF         COND(&IN01 *EQ '1') THEN(DLTDTAARA +
+                          DTAARA(AAVACT))
+             IF         COND(&IN01 *EQ '1') THEN(GOTO CMDLBL(END))
+             IF         COND(&IN05 *EQ '0') THEN(GOTO CMDLBL(STP1))
+
+
+ /* WORK FILE CREATE AARWP01A */
+             DLTF       FILE(AARWP01A)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE1/AARWP01A) RCDLEN(52) +
+                          OPTION(*NOLIST *NOSRC) SIZE(1000 1000 3) +
+                          LVLCHK(*NO) AUT(*ALL)
+ /* WORK FILE CREATE AARWP01B */
+             DLTF       FILE(AARWP01B)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE1/AARWP01B) RCDLEN(52) +
+                          OPTION(*NOLIST *NOSRC) SIZE(1000 1000 3) +
+                          LVLCHK(*NO) AUT(*ALL)
+ /* WORK FILE CREATE AARWP02A */
+             DLTF       FILE(AARWP02A)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE1/AARWP02A) RCDLEN(52) +
+                          OPTION(*NOLIST *NOSRC) SIZE(1000 1000 3) +
+                          LVLCHK(*NO) AUT(*ALL)
+ /* WORK FILE CREATE AARWP02B */
+             DLTF       FILE(AARWP02B)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE1/AARWP02B) RCDLEN(52) +
+                          OPTION(*NOLIST *NOSRC) SIZE(1000 1000 3) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+
+ /* PLATING ACCOUNT RECEIVABLE UNIT PRICE M/F DELETE */
+             CALL       PGM(AARR01) PARM(&USER)
+
+
+ /* CHECK LIST SORT */
+             FMTDTA     INFILE((HWFILE1/AARWP01A)) +
+                          OUTFILE(HWFILE1/AARWP02A) SRCFILE(FMTSRC) +
+                          SRCMBR(AARS01) OPTION(*NOPRT)
+ /* ERROR LIST SORT */
+             FMTDTA     INFILE((HWFILE1/AARWP01B)) +
+                          OUTFILE(HWFILE1/AARWP02B) SRCFILE(FMTSRC) +
+                          SRCMBR(AARS01) OPTION(*NOPRT)
+
+
+ /* PLATING ACCOUNT RECEIVABLE UNIT PRICE M/F DELETE CHECK LIST CREATE */
+             OVRPRTF    FILE(QPRINT) DEVTYPE(&PDEVT) OVRFLW(60) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(K6H1) +
+                          IGCDTA(&PIGCD)
+             CALL       PGM(AARR02)
+
+
+ /* PLATING ACCOUNT RECEIVABLE UNIT PRICE M/F DELETE ERROR LIST CREATE */
+             CALL       PGM(AARR03)
+
+
+             DLTOVR     FILE(*ALL)
+             DLTF       FILE(AARWP01A)
+             DLTF       FILE(AARWP01B)
+             DLTF       FILE(AARWP02A)
+             DLTF       FILE(AARWP02B)
+             RGZPFM     FILE(AARNP01)
+
+             DLTDTAARA  DTAARA(AAVACT)
+
+ END:        ENDPGM

@@ -1,0 +1,503 @@
+     H            Y.
+      ** AB#R98 **********************************************
+      *  CUSTOMER SHIPPING STATUS INQ BY PART                *
+      *  J.WATANABE 2022.01.24                               *
+      ********************************************************
+     FAB#PW9B CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     F                                        RRN2  KSFILE SFL02
+     FAB#PL13 IF  E           K        DISK
+     FAB#WP9B UF  E           K        DISK                      A
+      ********************************************************
+     E                    MSG     1  12 60
+      *
+     I            DS
+     I                                        1   80K#NOHZ
+     I                                        1   40K#NOYY
+     I                                        5   60K#NOMM
+     I                                        7   80K#NODD
+      *
+     I            DS
+     I                                        1  20 S1MHIN
+     I                                        1   5 S1MHN1
+     I                                        6  10 S1MHN2
+     I                                       11  15 S1MHN3
+     I                                       16  20 S1MHN4
+      *
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *-----------------------------------------------------------*
+      *     M  A  I  N  L  I  N  E                                *
+      *-----------------------------------------------------------*
+      *
+     C                     EXSR #INIT
+      *
+     C           W@ID      DOWNE'99'
+     C           W@ID      CASEQ'01'      #DSP1
+     C           W@ID      CASEQ'02'      #SFL1
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *************************************************************
+      * DISPLAY 1ST SCREEN
+      *************************************************************
+     C           #DSP1     BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVE *OFF      *IN85
+     C                     MOVE *OFF      *IN41
+     C                     MOVE *OFF      *IN42
+     C                     MOVE *OFF      *IN43
+      * F1/F3: EXIT
+     C           *INKA     IFEQ *ON
+     C           *INKC     OREQ *ON
+     C                     MOVEL'99'      W@ID
+     C                     GOTO XDSP1
+     C                     ENDIF
+      *
+     C                     EXSR #CHK1
+      *
+     C           *IN85     IFEQ *OFF
+     C                     MOVEL'02'      W@ID
+     C                     ENDIF
+      *
+     C           XDSP1     ENDSR
+      *************************************************************
+      *  CHECK ENTRY DATA
+      *************************************************************
+     C           #CHK1     BEGSR
+      * CHECK DATE FROM
+     C           XFROM     IFEQ *BLANK
+     C                     MOVELMSG,6     XMSG
+     C                     SETON                     4185
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVE XFROM     $SRC
+     C                     CALL 'UTLR01A'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE1  8
+     C                     PARM           $TRUE2 10
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ *BLANK
+     C                     MOVEL$TRUE1    @FROM   80
+     C                     MOVEL$TRUE2    XFROM
+     C                     ELSE
+     C                     MOVELMSG,1     XMSG
+     C                     SETON                     4185
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * CHECK DATE TO
+     C           XTO       IFEQ *BLANK
+     C                     MOVELXFROM     XTO
+     C                     ENDIF
+      *
+     C           XTO       IFEQ *BLANK
+     C                     MOVELMSG,7     XMSG
+     C                     SETON                     4285
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XTO       IFEQ '99999999'
+     C                     Z-ADD99999999  @TO     80
+     C                     ELSE
+     C                     MOVE XTO       $SRC
+     C                     CALL 'UTLR01A'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE1  8
+     C                     PARM           $TRUE2 10
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ *BLANK
+     C                     MOVEL$TRUE1    @TO     80
+     C                     MOVEL$TRUE2    XTO
+     C                     ELSE
+     C                     MOVELMSG,2     XMSG
+     C                     SETON                     4285
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           @FROM     IFGT @TO
+     C                     MOVELMSG,3     XMSG
+     C                     SETON                     414285
+     C                     ENDIF
+      * DELIVERY#
+     C           XNONY     IFEQ 0
+     C                     MOVELMSG,8     XMSG
+     C                     SETON                     4385
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVELXNONY     $DLV
+     C                     CALL 'UTLR62'
+     C                     PARM           $DLV    4
+     C                     PARM           $GRP    3
+     C                     PARM           $NAME1 15
+     C                     PARM           $NAME2 50
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ '*'
+     C                     MOVELMSG,9     XMSG
+     C                     SETON                     4385
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     MOVEL$NAME1    XNAME
+      * IF NO ERROR
+     C                     MOVELXNONY     @NONY
+     C                     MOVELXMHIN     $FLD1     P
+     C                     CALL 'UUUR05'
+     C                     PARM           $FLD1  25
+     C                     PARM           $FLD2  25
+     C                     MOVEL$FLD2     @MHIN  20
+      *
+     C           *IN85     IFEQ *OFF
+     C                     EXSR #SETWF
+      *
+     C           RCNT      IFGT 0
+     C                     MOVEL'02'      W@ID
+     C                     ELSE
+     C                     MOVELMSG,4     XMSG
+     C                     SETON                     414285
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           XCHK1     ENDSR
+      *************************************************************
+      *  SET DATA IN SFL01
+      *************************************************************
+     C           #SETWF    BEGSR
+      * CLEAR WORK FILE
+     C           *LOVAL    SETLLAB#WP9B
+     C                     DO   *HIVAL
+     C                     READ AB#WP9B                  99
+     C   99                LEAVE
+     C                     DELETAB#WP9B1
+     C                     ENDDO
+      *
+     C                     MOVELXNONY     K#NONY
+     C                     MOVEL@FROM     K#NOHZ
+     C           K#PL13    SETLLAB#PL13
+      *
+     C                     DO   *HIVAL
+     C           @NONY     READEAB#PL13                  98
+     C   98                LEAVE
+      * END
+     C           BANOHZ    IFGT @TO
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           BASKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           XMHIN     IFNE *BLANK
+     C           BAMHIN    ANDNE@MHIN
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     CLEARAB#WP9B1
+     C                     Z-ADDBATOKU    W8TOKU
+     C                     Z-ADDBANONY    W8NONY
+     C                     MOVELBANKOJ    W8NKOJ
+     C                     MOVELBANUKE    W8NUKE
+     C                     Z-ADDBANOHZ    W8NOHZ
+     C                     Z-ADDBANOBN    W8NOBN
+     C                     MOVELBAMHIN    W8MHIN
+     C                     MOVELBAODRN    W8ODRN
+     C                     Z-ADDBASRYO    W8QTY
+     C                     Z-ADDBASYOS    W8QPC
+JW   C                     Z-ADDBATANK    W8TANK
+     C                     Z-ADDBAURHZ    W8URHZ
+     C                     MOVELBAEDIK    W8EDIK
+     C           BASYOS    IFEQ 0
+     C                     Z-ADD1         W8BOX
+     C                     ELSE
+     C           BASRYO    DIV  BASYOS    SHO     80
+     C                     MVR            REM     80
+     C           REM       IFGT 0
+     C                     ADD  1         SHO
+     C                     ENDIF
+     C                     ENDIF
+     C                     Z-ADDSHO       W8BOX
+      *
+     C                     ADD  1         RCNT
+     C                     WRITEAB#WP9B1
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      ************************************************************
+      *  SET DATA FOR SFL01
+      ************************************************************
+     C           #SET1     BEGSR
+      *
+     C                     EXSR #CLRS1
+      *
+     C                     Z-ADD0         RRN1
+     C                     MOVE 'Y'       FIRST
+     C           *LOVAL    SETLLAB#WP9B
+     C                     DO   *HIVAL
+     C                     READ AB#WP9B                  97
+     C   97                LEAVE
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELW8MHIN    SVMHIN
+     C                     MOVELW8NKOJ    SVNKOJ
+     C                     MOVELW8NUKE    SVNUKE
+     C                     ENDIF
+      * BREAK?
+     C           W8MHIN    IFNE SVMHIN
+     C           W8NKOJ    ORNE SVNKOJ
+     C           W8NUKE    ORNE SVNUKE
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * PROCESS
+     C                     ADD  W8QTY     SVQTY
+     C                     ADD  W8BOX     SVBOX
+     C                     Z-ADDW8QPC     SVQPC
+      *
+     C                     ENDDO
+      * LAST BREAK
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     ENDIF
+      *
+     C                     Z-ADDRRN1      COUNT   60
+      *
+     C                     ENDSR
+      ************************************************************
+      *  SFL BREAK
+      ************************************************************
+     C           #BRK1     BEGSR
+      *
+     C                     CLEARSFL01
+     C                     MOVELSVMHIN    S1MHIN
+     C                     MOVELSVNKOJ    S1NKOJ
+     C                     MOVELSVNUKE    S1NUKE
+     C                     Z-ADDSVQTY     S1QTY
+     C                     Z-ADDSVBOX     S1BOX
+     C                     Z-ADDSVQPC     S1QPC
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+      * RESET
+     C                     MOVELW8MHIN    SVMHIN
+     C                     MOVELW8NKOJ    SVNKOJ
+     C                     MOVELW8NUKE    SVNUKE
+     C                     Z-ADD0         SVQTY
+     C                     Z-ADD0         SVBOX
+     C                     Z-ADD0         SVQPC
+     C                     Z-ADD0         FCONT
+     C                     Z-ADD0         DCONT
+      *
+     C                     ENDSR
+      ************************************************************
+      *  DSPLAY 2ND SCREEN
+      ************************************************************
+     C           #SFL1     BEGSR
+      *
+     C                     EXSR #SET1
+      *
+     C                     WRITEDSP99
+     C                     MOVEL'1'       *IN70
+     C                     EXFMTCTL01
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVEL'0'       *IN85
+     C                     MOVEL'0'       *IN70
+      *
+     C                     SELEC
+      * F3: EXIT
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+      * F12: BACK
+     C           *INKL     WHEQ *ON
+     C                     MOVEL'01'      W@ID
+     C                     OTHER
+     C                     EXSR #CHK2
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *************************************************************
+      * CLEAR SUB FILE 01
+      *************************************************************
+     C           #CLRS1    BEGSR
+      *
+     C                     SETON                     71
+     C                     WRITECTL01
+     C                     SETOF                     71
+     C                     Z-ADD0         RRN1
+      *
+     C                     ENDSR
+      *************************************************************
+      * CLEAR SUB FILE 02
+      *************************************************************
+     C           #CLRS2    BEGSR
+      *
+     C                     SETON                     71
+     C                     WRITECTL02
+     C                     SETOF                     71
+     C                     Z-ADD0         RRN2
+     C                     Z-ADD0         XQTY
+     C                     Z-ADD0         XBOX
+      *
+     C                     ENDSR
+      *************************************************************
+      *  CHECK SUB FILE
+      *************************************************************
+     C           #CHK2     BEGSR
+      *
+      *
+     C           1         DO   COUNT     RRN1
+      *
+     C           RRN1      CHAINSFL01                50
+     C           *IN50     IFEQ *OFF
+     C           S1SEL     ANDNE' '
+     C                     EXSR #SFL2
+     C           *IN03     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     MOVE *BLANK    S1SEL
+     C                     UPDATSFL01
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *************************************************************
+      * DISPLAY SFL02 SCREEN
+      *************************************************************
+     C           #SFL2     BEGSR
+      *
+     C                     EXSR #SET2
+      *
+     C                     WRITEDSP99
+     C                     MOVEL'1'       *IN70
+     C                     EXFMTCTL02
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVEL'0'       *IN85
+     C                     MOVEL'0'       *IN70
+      *
+     C                     SELEC
+      * F3: EXIT
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+      * F12: BACK
+     C           *INKL     WHEQ *ON
+     C                     MOVEL'02'      W@ID
+     C                     OTHER
+     C                     EXSR #CHK3
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *************************************************************
+      * SET DATA FOR SFL02
+      *************************************************************
+     C           #SET2     BEGSR
+      *
+     C                     EXSR #CLRS2
+      *
+     C                     Z-ADD0         RRN2
+     C                     MOVELS1MHIN    K#MHIN
+     C                     Z-ADD0         K#NOHZ
+     C           K#W98     SETLLAB#WP9B
+     C                     DO   *HIVAL
+     C           K#W98B    READEAB#WP9B                  97
+     C   97                LEAVE
+      *
+     C                     MOVELS1MHN1    S2MHN1
+     C                     MOVELS1MHN2    S2MHN2
+     C                     MOVELS1MHN3    S2MHN3
+     C                     MOVELS1NKOJ    S2NKOJ
+     C                     MOVELS1NUKE    S2NUKE
+     C                     Z-ADDW8NOHZ    S2NOHZ
+     C                     Z-ADDW8NOBN    S2NOBN
+     C                     Z-ADDW8QTY     S2QTY
+     C                     ADD  W8QTY     XQTY
+     C                     Z-ADDW8BOX     S2BOX
+     C                     ADD  W8BOX     XBOX
+     C**                   Z-ADDW2QPC     S2QPC
+     C                     Z-ADDW8TANK    S2TANK
+     C                     Z-ADDW8URHZ    S2BILL
+     C                     MOVELW8EDIK    S2EDIK
+      *
+     C                     ADD  1         RRN2
+     C                     WRITESFL02
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *************************************************************
+      * CHECK SCREEN 3
+      *************************************************************
+     C           #CHK3     BEGSR
+      *
+     C                     ENDSR
+      *************************************************************
+      * INITIAL SETTING
+      *************************************************************
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $NONY   4
+      *
+     C           K#PL13    KLIST
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#NOYY
+     C                     KFLD           K#NOMM
+     C                     KFLD           K#NODD
+      *
+     C           K#W98     KLIST
+     C                     KFLD           K#NONY
+     C                     KFLD           K#MHIN 20
+     C                     KFLD           S1NKOJ
+     C                     KFLD           S1NUKE
+     C                     KFLD           K#NOHZ  80
+      *
+     C           K#W98B    KLIST
+     C                     KFLD           K#NONY
+     C                     KFLD           K#MHIN
+     C                     KFLD           S1NKOJ
+     C                     KFLD           S1NUKE
+      *
+     C                     MOVEL$NONY     XNONY
+     C                     TIME           SDATE
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVEL'01'      W@ID    2
+     C                     MOVELTODAY     LTR8    8
+     C                     MOVE '0101'    LTR8
+     C                     MOVELLTR8      XFROM     P
+     C                     MOVE '1231'    LTR8
+     C                     MOVELLTR8      XTO       P
+     C                     Z-ADD0         RRN1    40
+     C                     Z-ADD0         RRN2    40
+     C                     Z-ADD0         RCNT    40
+     C                     Z-ADD0         @NONY   40
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD0         SVQTY   80
+     C                     Z-ADD0         SVBOX   60
+     C                     Z-ADD0         SVQPC   60
+     C                     MOVE *BLANK    SVNKOJ  1
+     C                     MOVE *BLANK    SVNUKE  4
+     C                     MOVE *BLANK    SVMHIN 20
+     C                     Z-ADD0         FCONT   20
+     C                     Z-ADD0         DCONT   20
+      *
+     C                     ENDSR
+      *************************************************************
+** (ERR) (60A).....2.........3.........4.........5.........6
+FROM_DATE IS INCORRECT !                                     01
+TO_DATE IS INCORRECT !                                       02
+FROM_DATE > TO_DATE !                                        03
+NO DATA FOUND !                                              04
+PRESS F5 TO PROCESS...                                       05
+ENTER FROM_DATE !                                            06
+ENTER TO_DATE !                                              07
+ENTER DELIVERY CODE!                                         08
+DELIVERY CODE NOT FOUND IN MASTER!                           09
+                                                             10
+                                                             11
+                                                             12

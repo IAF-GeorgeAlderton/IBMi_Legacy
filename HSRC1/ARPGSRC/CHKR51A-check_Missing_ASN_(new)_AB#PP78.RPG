@@ -1,0 +1,293 @@
+     H            Y.
+     F***CHKR51A ***************************************************************
+     F*  PROGRAM    : CHECK MISSING ASN (NEW)                                  *
+     F*             : RUN IN FCKC00 (10:10AM BY JOBSCDE)                       *
+     F*  WRITTEN    : 2022.10.17                                               *
+     F*  WRITTEN BY : JW (SRA)                                                 *
+     F**************************************************************************
+     FAB#PL78 IF  E           K        DISK
+     FAB#PLAA IF  E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+     I            DS
+     I                                        1   80@SHIP
+     I                                        1   40K#NOYY
+     I                                        5   60K#NOMM
+     I                                        7   80K#NODD
+     I            DS
+     I                                        1   80P8NOHZ
+     I                                        1   40P8NOYY
+     I                                        5   60P8NOMM
+     I                                        7   80P8NODD
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *
+     I              '210905212'           C         CONT1
+     I              '221011227'           C         @PL01
+     I              '230207384'           C         @PL02
+     I              '230210421'           C         @PL03
+     I              '230304403'           C         @PL04
+     I              '230608430'           C         @PL05
+     I              '230710520'           C         @PL06
+     I              'ORD DELETED'         C         @TXT1
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+     C           K#PL78    SETLLAB#PL78
+     C                     DO   *HIVAL
+     C                     READ AB#PL78                  98
+     C   98                LEAVE
+      *
+     C           P8SKJY    IFEQ 'D'
+     C           P8SPDT    OREQ 0
+     C           P8ASDT    ORNE 0
+     C                     ITER
+     C                     ENDIF
+      * IGNORE
+     C           P8NONY    IFEQ 5181                       FORD RECV
+     C           P8NONY    OREQ 0567                       FUTABA
+     C                     ITER
+     C                     ENDIF
+      * IGNORE P/L#
+     C**         P8SERL    IFEQ @PL01                      FORD JCOM
+     C**         P8SERL    OREQ @PL02                      "
+     C**         P8SERL    OREQ @PL03                      "
+     C**         P8SERL    OREQ @PL04                      "
+     C           P8SERL    IFEQ @PL05                      "
+     C           P8SERL    OREQ @PL06                      AUM CANCEL PO
+     C                     ITER
+     C                     ENDIF
+      * IGNORE JCOM
+     C           P8FLD2    IFEQ 'JCOM'                     FORD JCOM
+     C                     ITER
+     C                     ENDIF
+      * TEMP STOP
+     C           P8CUST    IFEQ 3411                       TOYOTA
+     C           P8NONY    OREQ 0881                       SANGO AUTO MEX
+     C           P8NONY    OREQ 3320                       TBMS
+     C           P8NONY    OREQ 3581                       TOYOTA BOSH ELM
+     C           P8NONY    OREQ 0465                       ADVICS INDIANA
+     C           P8NONY    OREQ 0873                       ARVIN SANGO
+     C           P8NONY    OREQ 0879                       ARVIN SANGO TX
+     C           P8NONY    OREQ 0880                       ARVIN SANGO TN
+     C           P8NONY    OREQ 5672                       OHASHI TN
+     C           P8NONY    OREQ 5426                       TSUSHO
+     C           P8NONY    OREQ 0579                       FIO
+     C                     ITER
+     C                     ENDIF
+      * GET ASN TYPE
+     C                     EXSR #TYPE
+      *
+     C           ASNFLG    IFEQ 'Y'
+      *
+     C           P8NONY    OREQ 3063                       DENSO MX
+     C           @TYPE     ANDNE'M'                           EDIK<>'M'
+     C           @TYPE     ANDNE' '                           EDIK<>' '
+      *
+     C           P8NONY    OREQ 0966                       AISIN(AUM)
+     C           @TYPE     ANDNE'M'                           EDIK<>'M'
+     C           @TYPE     ANDNE' '                           EDIK<>' '
+     C           P8NOHZ    ANDGE20220731
+      *
+     C           P8NONY    OREQ 0777                       AISIN(ADI)
+     C           @TYPE     ANDNE'M'                           EDIK<>'M'
+     C           @TYPE     ANDNE' '                           EDIK<>' '
+     C           P8NOHZ    ANDGE20220816
+      *
+     C           P8NONY    OREQ 0479                       AISIN(TN)
+     C           @TYPE     ANDNE'M'                           EDIK<>'M'
+     C           @TYPE     ANDNE' '                           EDIK<>' '
+     C           P8NOHZ    ANDGE20221201
+      * USER NAME
+     C                     MOVE *BLANK    XXUSR
+     C                     MOVEL@CRME     $USER
+     C                     CALL 'UTLR31'
+     C                     PARM           $USER  10
+     C                     PARM           $NAME  15
+     C                     SELEC
+     C           @TYPE     WHEQ 'E'
+     C                     MOVEL'EDI'     XXUSR
+     C           @TYPE     WHEQ 'W'
+     C                     MOVEL'WEB DATA'XXUSR
+     C           @TYPE     WHEQ ' '
+     C                     MOVEL@TXT1     XXUSR
+     C                     OTHER
+     C                     MOVEL$NAME     XXUSR
+     C                     ENDSL
+      * ERROR MSG
+     C                     EXSR #PRINT
+     C                     Z-ADDP8NONY    SVNONY  40
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           SEQ#      IFNE 0
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  GET ASN TYPE                                      *
+      *----------------------------------------------------*
+     C           #TYPE     BEGSR
+      *
+     C                     MOVE *BLANK    ASNFLG  1
+     C                     MOVELP8SERL    $PL#
+     C                     CALL 'UEXR49A'
+     C                     PARM           $PL#    9
+     C                     PARM           $STT    1
+     C           $STT      IFEQ ' '
+     C                     MOVE 'Y'       ASNFLG
+     C                     ELSE
+     C                     MOVE 'N'       ASNFLG
+     C                     ENDIF
+      *
+     C                     MOVE *BLANK    @TYPE   1
+     C                     MOVE *BLANK    @INVN  16
+     C                     MOVE *BLANK    @CRME  10
+      *
+     C                     Z-ADDP8NOHZ    K#NOHZ
+     C                     Z-ADDP8BINN    K#NOBN
+     C                     Z-ADDP8NONY    K#NONY
+     C                     MOVELP8NKOJ    K#NKOJ
+     C                     MOVELP8NUKE    K#NUKE
+     C           K#PL1A    SETLLAB#PLAA
+     C                     DO   *HIVAL
+     C           K#PL1A    READEAB#PLAA                  97
+     C   97                LEAVE
+      *
+     C           BASKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           P8ODRN    IFEQ *BLANK
+     C                     MOVELBAEDIK    @TYPE
+     C                     MOVELBAINVN    @INVN
+     C                     MOVELBACRME    @CRME
+     C                     ELSE
+     C           P8ODRN    IFEQ BAODRN
+     C                     MOVELBAEDIK    @TYPE
+     C                     MOVELBAINVN    @INVN
+     C                     MOVELBACRME    @CRME
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      * GET CUSTOMER NAME
+     C                     MOVELP8NONY    $DLV
+     C                     CALL 'UTLR62'
+     C                     PARM           $DLV    4
+     C                     PARM           $GRP    3
+     C                     PARM           $NAME1 15
+     C                     PARM           $NAME2 50
+     C                     PARM           $RTN1   1
+     C                     MOVEL$NAME1    XNAME  15
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      *
+     C           P8NONY    IFNE SVNONY
+     C           SVNONY    ANDNE0
+     C                     EXCPT@DTL2
+     C                     ADD  1         LIN#
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $RTN    1
+      *
+     C           K#PL78    KLIST
+     C                     KFLD           K#NOYY
+     C                     KFLD           K#NOMM
+     C                     KFLD           K#NODD
+      *
+     C           K#PL1A    KLIST
+     C                     KFLD           K#NOHZ  80
+     C                     KFLD           K#NOBN  20
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#NKOJ  1
+     C                     KFLD           K#NUKE  4
+      *
+     C                     MOVE *BLANK    $RTN
+     C                     TIME           SDATE
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+     C                     MOVE *BLANK    XXUSR  11
+      * GET PREVIOUS 7 DAYS
+     C                     MOVELTODAY     $DT8
+     C                     MOVE '-'       $SIGN
+     C                     MOVEL'0007'    $DAYS
+     C                     MOVE 'Y'       $IAF
+     C                     CALL 'UTLR10'
+     C                     PARM           $DT8    8
+     C                     PARM           $SIGN   1
+     C                     PARM           $DAYS   4
+     C                     PARM           $IAF    1
+     C                     PARM           $TGT8   8
+     C                     PARM           $RTN2   1
+     C                     MOVEL$TGT8     @SHIP
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   40 '** MISSING ASN REPOR'
+     O                                   60 'T **                '
+     O                                   89 'DATE'
+     O                         TODAY     92 '    .  .  '
+     O                         NOW      102 '  :  :  '
+     O                                  106 'P.'
+     O                         PAGE  Z  110
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   10 'CUST'
+     O                                   15 'DELV'
+     O                                   31 'SHP_DATE'
+     O                                   36 'BN'
+     O                                   43 'ORDER#'
+     O                                   55 'SERIAL#'
+     O                                   67 'POST DATE'
+     O                                   73 'TIME'
+     O                                   90 '------------'
+     O                                  107 'ORD_CREATED'
+     O                                  113 'INV#'
+     O        E 1              @DTL
+     O                         SEQ#  1 +000
+     O                         P8CUST  +001
+     O                         P8NONY  +001
+     O                         P8NKOJ  +001
+     O                         P8NUKE  +001
+     O                         P8NOHZ  +001 '    /  /  '
+     O                         P8BINN  +001
+     O                         P8ODRN  +001
+     O                         P8SERL  +001
+     O                         P8SPDT  +001 '    /  /  '
+     O                         P8SPTM  +001 '0 :  :  '
+     O                         XNAME   +001
+     O                         @TYPE   +001
+     O                         XXUSR   +001
+     O                         @INVN   +002
+     O        E 1              @DTL2
+     O                                    1 '.'

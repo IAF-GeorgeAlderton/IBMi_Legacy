@@ -1,0 +1,217 @@
+     H            Y.
+     F** AO#R04  **********************************************
+     F*ＩＡＦトラック便をパレット種類で分割し、ＩＡＦ便＃を決定する
+     F*      ITS.        2016.03.21                           *
+     F*********************************************************
+     FAO#WP10 IF  E           K        DISK
+     FAL#PP00 IF  E           K        DISK
+     FAO#WP12 O   E                    DISK                      A
+     FAL#PL02 IF  E           K        DISK
+     FAL#PP91 IF  E           K        DISK
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60STIME
+     I                                        7  140SDATE
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+      *-----------------------------------------------------
+      *  MAIN ROUTINE
+      *-----------------------------------------------------
+     C                     TIME           WTIME
+      *通常
+     C                     Z-ADD12        PLTSTD  30
+     C                     MOVEL'PLTSTD'  KEY    10
+     C           KEY       CHAINAL#PP001             20
+     C           *IN20     IFEQ '0'
+     C                     Z-ADDC0VALU    PLTSTD
+     C                     ENDIF
+      *ＭＡＸ
+     C                     Z-ADD14        PLTMAX  30
+     C                     MOVEL'PLTMAX'  KEY    10
+     C           KEY       CHAINAL#PP001             20
+     C           *IN20     IFEQ '0'
+     C                     Z-ADDC0VALU    PLTMAX
+     C                     ENDIF
+      *
+     C                     Z-ADD0         MXEXTB  30
+     C                     Z-ADD0         WKIAFB  30
+     C                     READ AO#WP101                 81
+     C           *IN81     DOWEQ'0'
+     C                     EXSR #SB399
+     C                     READ AO#WP101                 81
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *-----------------------------------------------------
+      *
+      *-----------------------------------------------------
+     CSR         #SB399    BEGSR
+      *
+     C           W0EXTR    IFNE 000
+     C                     EXSR #SB910
+     C                     ENDIF
+      *ＭＡＸ以下は確定
+     C           W0KPLT    IFLE PLTMAX
+     C                     Z-ADDW0KPLT    WKCNT
+     C                     EXSR #SB500
+     C                     ELSE
+     C                     EXSR #SB400
+     C                     ENDIF
+      *
+     CSR         ESB399    ENDSR
+      *-----------------------------------------------------
+      *ＩＡＦトラック便に対してＩＡＦ便＃を振る
+      *　１つのＩＡＦ便＃で何種類のパレットを割り当てるかで
+      *　ＩＡＦ便＃がどれだけ必要かを計算する
+      *　パレット種類　１１種類　ＭＡＸ１４の場合
+      *  　１４以下なので
+      *  　１便あたりパレット種類１１で１便分作成
+      *　パレット種類　３６種類　ＭＡＸ１４の場合
+      *  　３６÷１４＝２(A)・・・８(B)
+      *  　２(A)＋１＝３(A)
+      *  　３６÷３(A)＝１２・・・０
+      *  　１便あたりパレット種類１２で３便分作成
+      *　パレット種類　４１種類　ＭＡＸ１４の場合
+      *  　４１÷１４＝２(A)・・・１３(B)
+      *  　２(A)＋１＝３(A)
+      *  　４１÷３(A)＝１３・・・２
+      *  　１便あたりパレット種類１４で２便分作成
+      *  　１便あたりパレット種類１３で１便分作成
+      *-----------------------------------------------------
+     CSR         #SB400    BEGSR
+      *
+     C                     Z-ADD0         WKCNT   80
+     C                     Z-ADD0         A       70
+     C                     Z-ADD0         B       70
+     C                     Z-ADD0         C       70
+     C                     Z-ADD0         D       70
+     C                     Z-ADD0         E       70
+     C                     Z-ADD0         PLT#    50
+      *トラック便当りのパレット種類数をＭＡＸ値で割る
+     C           W0KPLT    DIV  PLTMAX    A
+     C                     MVR            B
+     C           B         IFNE 0
+     C                     ADD  1         A
+     C                     ENDIF
+      *商がＩＡＦ便の取得回数
+     C                     Z-ADDA         KAIS    70
+      *１便当りのパレット数
+     C           W0KPLT    DIV  A         PLT#             パレット数
+     C                     MVR            C
+      *
+     C                     SELEC
+      * C = 0
+      *パレット数がＭＡＸ値の整数倍のとき
+     C           C         WHEQ 0
+     C                     Z-ADDPLT#      WKCNT
+     C                     Z-ADD1         X       30
+     C           X         DOWLEKAIS
+     C                     EXSR #SB500
+     C                     ADD  1         X
+     C                     ENDDO
+      * C <> 0
+      *パレット数がＭＡＸ値の整数倍でないとき
+     C                     OTHER
+      * 余りの数は＋１で余りの数分
+     C           PLT#      ADD  1         WKCNT
+     C                     Z-ADD1         X       30
+     C           X         DOWLEC
+     C                     EXSR #SB500
+     C                     ADD  1         X
+     C                     ENDDO
+      * 商ー余りの回数分
+     C                     Z-ADDPLT#      WKCNT
+     C                     Z-ADD1         X       30
+     C                     SUB  C         KAIS
+     C           X         DOWLEKAIS
+     C                     EXSR #SB500
+     C                     ADD  1         X
+     C                     ENDDO
+      *
+     C                     ENDSL
+      *
+     CSR         ESB400    ENDSR
+      *-----------------------------------------------------
+      *  AO#WP12
+      *-----------------------------------------------------
+     CSR         #SB500    BEGSR
+      *
+     C                     CLEARAO#WP121
+     C                     MOVELW0SURT    W2SURT
+     C                     MOVELW0NONY    W2NONY
+     C                     MOVELW0PPUL    W2PPUL
+     C                     MOVELW0EXTR    W2EXTR
+     C                     MOVELW0TRKB    W2TRKB
+     C           W0EXTR    IFEQ 000
+     C                     ADD  1         WKIAFB
+     C                     MOVE WKIAFB    W2IAFB
+     C                     ELSE
+     C                     MOVE WKEXTB    W2IAFB
+     C                     ADD  1         WKEXTB
+     C                     Z-ADDWKEXTB    MXEXTB
+     C                     ENDIF
+     C                     Z-ADDWKCNT     W2KPLT
+     C                     WRITEAO#WP121
+      *
+     CSR         ESB500    ENDSR
+      *-----------------------------------------------------
+      *エクストラの場合のＩＡＦ便＃
+      *通常で同じトラック便のＩＡＦ便＃を使う
+      *-----------------------------------------------------
+     CSR         #SB910    BEGSR
+      *
+     C                     Z-ADD0         WKEXTB  30
+     C                     MOVEL'999'     ##IAFB  3
+     C                     MOVEL'0'       GET     1
+     C           KEYCA     KLIST
+     C                     KFLD           W0FIXD
+     C                     KFLD           W0FIXT
+      *通常で同じトラック便のＩＡＦ便＃を使う　小さいものを探す
+     C           KEYCA     SETLLAL#PL021
+     C           KEYCA     READEAL#PL021                 89
+     C           *IN89     DOWEQ'0'
+     C           CASKJY    IFEQ 'D'
+     C           CASKHZ    ANDLESDATE
+     C                     ELSE
+     C           CASURT    IFEQ W0SURT                     同じトラック便
+     C           CAEXTR    ANDEQ0                          通常データ
+     C           CANONY    ANDEQW0NONY                     納入先同じ
+     C           CAIAFB    IFLT ##IAFB
+     C                     MOVE CAIAFB    ##IAFB
+     C                     MOVEL'1'       GET
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+     C           KEYCA     READEAL#PL021                 89
+     C                     ENDDO
+      *
+     C                     MOVE ##IAFB    WKEXTB
+      *通常データがないときは、初回発行日の続き
+     C           GET       IFEQ '0'
+     C                     MOVEL'000'     ##IAFB  3
+     C           KEYCA     SETLLAL#PP911
+     C           KEYCA     READEAL#PP911                 89
+     C           *IN89     DOWEQ'0'
+     C           C9SKJY    IFEQ 'D'
+     C           C9SKHZ    ANDLESDATE
+     C                     ELSE
+     C                     MOVE C9IAFB    ##IAFB
+     C                     ENDIF
+     C           KEYCA     READEAL#PP911                 89
+     C                     ENDDO
+     C                     MOVE ##IAFB    WKEXTB
+     C                     ADD  1         WKEXTB
+     C                     ENDIF
+      *
+     C           WKEXTB    IFLT MXEXTB
+     C                     Z-ADDMXEXTB    WKEXTB
+     C                     ENDIF
+      *
+     CSR         ESB910    ENDSR

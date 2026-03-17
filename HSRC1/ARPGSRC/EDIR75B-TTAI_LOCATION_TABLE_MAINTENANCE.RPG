@@ -1,0 +1,324 @@
+     H            Y/                                    1
+     H* EDIR75B *******************************************************
+     H* TTAI LOCATION TABLE MAINTENANCE                               *
+     H* J.W       2020.12.11                                          *
+     H*****************************************************************
+     FEDIPW75BCF  E                    WORKSTN
+     FFGBPL01 IF  E           K        DISK
+     FEDIPP46 UF  E           K        DISK                      A
+      *================================================================
+     E                    MSG     1  20 60
+      *================================================================
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1  20 P@MHIN
+     I                                        1   5 P@MHN1
+     I                                        6  10 P@MHN2
+     I                                       11  15 P@MHN3
+     I                                       16  20 P@MHN4
+     I            DS
+     I                                        1  20 D1MHIN
+     I                                        1   5 D1MHN1
+     I                                        6  10 D1MHN2
+     I                                       11  15 D1MHN3
+     I                                       16  20 D1MHN4
+      *
+     I           SDS
+     I                                     *PROGRAM #PGM
+     I                                      244 271 #WSID
+     I                                      254 263 #USER
+     I                                      264 269 #JBNO
+      *===============================================================
+      *  START  PROGRAM
+      *===============================================================
+     C                     EXSR #INIT
+      *
+     C           @STP1     DOUEQ'END'
+      *  DISPLAY (DSP01)
+      *
+     C                     EXFMTDSP01
+     C                     SETOF                     414243
+     C                     SETOF                     4445
+     C                     MOVE *OFF      *IN85
+     C                     MOVE *BLANK    XMSG
+      *
+     C                     SELEC
+     C*  < F1 >  END JOB
+     C           *INKA     WHEQ *ON
+     C                     MOVE 'END'     @STP1   3
+      *
+     C*  < F5  >  CONTINUE
+     C           *INKE     WHEQ *ON
+     C                     EXSR #CHK1
+     C           *IN85     IFEQ *OFF
+     C                     EXSR #DSP2
+     C                     ENDIF
+      *
+      *  < F12 >  TABLE INQUIRY
+     C           *INKL     WHEQ *ON
+     C                     CALL 'EDIR75C'
+     C                     PARM           P@NONY  4
+     C                     PARM           P@MHIN 20
+     C           P@MHIN    IFNE *BLANK
+     C                     MOVELP@MHIN    D1MHIN
+     C                     MOVELP@NONY    D1NONY
+     C                     MOVE *BLANK    XMSG
+     C                     ENDIF
+      *
+      *  < ENTR >
+     C                     OTHER
+     C                     EXSR #CHK1
+      *
+     C                     ENDSL
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *===============================================================
+      * CHECK SCREEN 1
+      *===============================================================
+     C           #CHK1     BEGSR
+     C                     MOVE *BLANK    D1NAME
+     C                     MOVE *OFF      *IN85
+     C* D1MODE
+     C           D1MODE    IFNE '0'
+     C           D1MODE    ANDNE'1'
+     C           D1MODE    ANDNE'2'
+     C                     SETON                     4185
+     C                     MOVELMSG,1     XMSG
+     C                     GOTO #CHK1X
+     C                     ENDIF
+     C* D1NONY
+     C           D1NONY    IFEQ 0
+     C                     SETON                     4385
+     C                     MOVELMSG,3     XMSG
+     C                     GOTO #CHK1X
+     C                     ENDIF
+      *
+     C           D1NONY    IFNE 3556
+     C                     SETON                     4385
+     C                     MOVELMSG,10    XMSG
+     C                     GOTO #CHK1X
+     C                     ENDIF
+      *
+     C           D1NONY    CHAINFGBPL01             N90
+     C           *IN90     IFEQ *ON
+     C           *IN90     OREQ *OFF
+     C           B2SKJY    ANDEQ'D'
+     C                     SETON                     4385
+     C                     MOVELMSG,4     XMSG
+     C                     GOTO #CHK1X
+     C                     ENDIF
+     C                     MOVELB2SMEI    D1NAME
+     C* D1MHN
+     C           D1MHN1    IFEQ *BLANK
+     C           D1MHN2    ANDEQ*BLANK
+     C           D1MHN3    ANDEQ*BLANK
+     C           D1MHN4    ANDEQ*BLANK
+     C                     SETON                     4285
+     C                     MOVELMSG,2     XMSG
+     C                     GOTO #CHK1X
+     C                     ENDIF
+      * ADD/CHG/DLT
+     C                     Z-ADDD1NONY    KNONY
+     C                     MOVELD1MHIN    KMHIN
+     C           K#PP46    CHAINEDIPP46             N99
+     C           *IN99     IFEQ *OFF
+     C           E6SKJY    ANDEQ'D'
+     C                     MOVE *ON       *IN99
+     C                     ENDIF
+      *
+     C                     SELEC
+     C           *IN99     WHEQ *ON
+     C           D1MODE    ANDNE'2'
+     C                     SETON                     4185
+     C                     MOVELMSG,8     XMSG
+     C                     GOTO #CHK1X
+      *
+     C           *IN99     WHEQ *OFF
+     C           D1MODE    ANDEQ'2'
+     C                     SETON                     4185
+     C                     MOVELMSG,9     XMSG
+     C                     GOTO #CHK1X
+     C                     ENDSL
+      * IF NO ERROR.......
+     C           *IN85     IFEQ *OFF
+     C                     MOVELMSG,6     XMSG
+      *
+     C                     SELEC
+     C           D1MODE    WHEQ '0'
+     C                     MOVEL'DELETE ' D1MODN
+     C                     MOVE *ON       *IN45
+     C           D1MODE    WHEQ '1'
+     C                     MOVEL'CAHNGE ' D1MODN
+     C           D1MODE    WHEQ '2'
+     C                     MOVEL'ADD    ' D1MODN
+     C                     ENDSL
+      *
+     C           *IN99     IFEQ *OFF
+     C                     MOVELE6LOC     D2LOC
+     C                     ELSE
+     C                     MOVE *BLANK    D2LOC
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     C           #CHK1X    ENDSR
+      *===============================================================
+      * DISPLAY SCREEN 2
+      *===============================================================
+     C           #DSP2     BEGSR
+     C                     MOVE *BLANK    @STP2   3
+      *
+     C           @STP2     DOUEQ'END'
+      *  DISPLAY (DSP02)
+     C                     EXFMTDSP02
+     C                     MOVE *OFF      *IN44
+     C                     MOVE *OFF      *IN86
+     C                     MOVE *BLANK    XMSG
+      *
+     C                     SELEC
+     C*  < F3 >  END JOB
+     C           *INKC     WHEQ *ON
+     C                     MOVE 'END'     @STP2
+     C                     MOVE *BLANK    XMSG
+     C*  < F5 >  UPDATE
+     C           *INKE     WHEQ *ON
+     C                     EXSR #CHK2
+     C           *IN86     IFEQ *OFF
+     C                     EXSR #UPDAT
+     C                     MOVE 'END'     @STP2
+     C                     MOVE *BLANK    XMSG
+     C                     ENDIF
+      *  < ENTR >
+     C                     OTHER
+     C                     EXSR #CHK2
+      *
+     C                     ENDSL
+     C                     ENDDO
+      *
+      *
+     C           #DSP2X    ENDSR
+      *===============================================================
+      * CHECK SCREEN 2
+      *===============================================================
+     C           #CHK2     BEGSR
+      * D2LOC
+     C           D2LOC     IFEQ *BLANK
+     C                     MOVE *ON       *IN44
+     C                     MOVE *ON       *IN86
+     C                     MOVELMSG,2     XMSG
+     C                     GOTO #CHK2X
+     C                     ENDIF
+      * IF NO ERROR...
+     C           *IN86     IFEQ *OFF
+     C                     MOVELMSG,7     XMSG
+     C                     ENDIF
+      *
+     C           #CHK2X    ENDSR
+      *===============================================================
+      *  UPDATE PROCESS
+      *===============================================================
+     C           #UPDAT    BEGSR
+      *
+     C           K#PP46    CHAINEDIPP46              99
+      * DELETE
+     C                     SELEC
+     C           *IN99     WHEQ *OFF
+     C           D1MODE    ANDEQ'0'
+     C                     TIME           @TIME
+     C                     MOVE 'D'       E6SKJY
+     C                     Z-ADDTODAY     E6SKHZ
+     C                     Z-ADDNOW       E6SKTM
+     C                     MOVEL#USER     E6SKME
+     C**                   MOVEL#PGM      E6SKPG
+     C                     UPDATEDIPP461
+      * CHANGE
+     C           *IN99     WHEQ *OFF
+     C           D1MODE    ANDEQ'1'
+     C                     TIME           @TIME
+     C                     MOVELD2LOC     E6LOC
+     C                     Z-ADDTODAY     E6KOHZ
+     C                     Z-ADDNOW       E6KOTM
+     C                     MOVEL#USER     E6KOME
+     C                     MOVEL#PGM      E6KOPG
+     C                     MOVE *BLANK    E6SKJY
+     C                     Z-ADD0         E6SKHZ
+     C                     Z-ADD0         E6SKTM
+     C                     MOVE *BLANK    E6SKME
+     C                     UPDATEDIPP461
+      * ADD 1
+     C           *IN99     WHEQ *OFF
+     C           D1MODE    ANDEQ'2'
+     C           E6SKJY    ANDEQ'D'
+     C                     TIME           @TIME
+     C                     MOVELD2LOC     E6LOC
+     C                     Z-ADDTODAY     E6CRHZ
+     C                     Z-ADDNOW       E6CRTM
+     C                     MOVEL#USER     E6CRME
+     C                     MOVEL#PGM      E6CRPG
+     C                     MOVE *BLANK    E6SKJY
+     C                     Z-ADD0         E6SKHZ
+     C                     Z-ADD0         E6SKTM
+     C                     MOVE *BLANK    E6SKME
+     C                     Z-ADD0         E6KOHZ
+     C                     Z-ADD0         E6KOTM
+     C                     MOVE *BLANK    E6KOME
+     C                     UPDATEDIPP461
+      * ADD 2
+     C           *IN99     WHEQ *ON
+     C           D1MODE    ANDEQ'2'
+     C                     TIME           @TIME
+     C                     MOVELD1MHIN    E6MHIN
+     C                     Z-ADDD1NONY    E6NONY
+     C                     MOVELD2LOC     E6LOC
+     C                     Z-ADDTODAY     E6CRHZ
+     C                     Z-ADDNOW       E6CRTM
+     C                     MOVEL#USER     E6CRME
+     C                     MOVEL#PGM      E6CRPG
+     C                     MOVE *BLANK    E6SKJY
+     C                     Z-ADD0         E6SKHZ
+     C                     Z-ADD0         E6SKTM
+     C                     MOVE *BLANK    E6SKME
+     C                     Z-ADD0         E6KOHZ
+     C                     Z-ADD0         E6KOTM
+     C                     MOVE *BLANK    E6KOME
+     C                     WRITEEDIPP461
+      *
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *===============================================================
+      *   << INIT >>
+      *===============================================================
+     C           #INIT     BEGSR
+      *
+     C           K#PP46    KLIST
+     C                     KFLD           KNONY   40
+     C                     KFLD           KMHIN  20
+      *
+     C                     TIME           @TIME
+     C                     MOVE '1'       D1MODE
+     C                     Z-ADD0         D1NONY
+     C                     MOVE *BLANK    D1MHN1
+     C                     MOVE *BLANK    D1MHN2
+     C                     MOVE *BLANK    D1MHN3
+     C                     MOVE *BLANK    D1MHN4
+     C                     MOVE *BLANK    XMSG
+      *
+     C                     ENDSR
+      *===============================================================
+** MSG(60).........2.........3.........4.........5.........6
+ERROR: MAINTENANCE MODE SHOULD BE 0, 1 OR 2 !                01
+ERROR: ENTER LOCATION !                                      02
+ERROR: ENTER DELIVERY CODE !                                 03
+ERROR: DELIVERY CODE NOT FOUND !                             04
+ERROR:                                                       05
+MSG: PRESS F5 TO CONTINUE...                                 06
+MSG: PRESS F5 TO UPDATE...                                   07
+ERROR: TABLE NOT FOUND !                                     08
+ERROR: TABLE ALREADY EXIST !                                 09
+ERROR: DELIVERY CODE SHOULD BE 3556!                         10

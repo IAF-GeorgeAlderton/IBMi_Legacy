@@ -1,0 +1,120 @@
+     H            Y
+     F** ALCRS5 *******************************************************
+     F*  GET SORT/SHIPPING SCAN DATE/TIME                             *
+     F*  (COPIED FROM AJSR1Z)                                         *
+     F*  J.WATANABE  2018.02.22                                       *
+JW1  F*  J.WATANABE  2018.10.18 CHG SORT SCAN DATE/TIME               *
+JW2  F*  J.WATANABE  2018.12.13 ADD SHIPPING AS A 2ND BARCODE         *
+     F*  LEC         2024.01.11 ADD SHIPPING PRIORITY BARCODE         *
+     F*---------------------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'ALCRS5'
+     F*                    PARM           $SHN1   5
+     F*                    PARM           $SHN2   5
+     F*                    PARM           $SHN3   2
+     F*                    PARM           $ORD    3
+     F*                    PARM           $IDAT   8
+     F*                    PARM           $SDAT   8
+     F*                    PARM           $STIM   6
+     F*                    PARM           $STK    1
+     F*                    PARM           $RTN    1
+     F*  IN  $SHN1 :  5A IAF PART1
+     F*      $SHN2 :  5A IAF PART2
+     F*      $SHN3 :  2A IAF PART3
+     F*      $ORD  :  3A ORD# (TEHI)
+     F*      $IDAT :  8A ISSUE DATE
+     F*  OUT $SDAT :  8A SCAN DATE
+     F*      $STIM :  6A SCAN TIME
+     F*      $STK  :  1A STOCK Y/N
+     F*      $RTN  :  1A RETURN CODE (BLANK/*)
+     F*****************************************************************
+      *  SORTING SCAN RESULTS FILE
+     FALCPL07 IF  E           K        DISK
+     FNZUPL02 IF  E           K        DISK
+      *===============================================================
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W$WSID
+     I                                      254 263 W$USER
+     I                                      264 269 W$JBNO
+      *
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60@SYSTM
+     I                                        7  140@SYSHZ
+      *===============================================================
+     C           *ENTRY    PLIST
+     C* IN ------
+     C                     PARM           P@SHN1  5        PART 1
+     C                     PARM           P@SHN2  5        PART 2
+     C                     PARM           P@SHN3  2        PART 3
+     C                     PARM           P@TEHI  3        PRODUCT ORDER
+     C                     PARM           P@IDAT  8        ISSUE DATE
+     C* OUT ------
+     C                     PARM           P@SDAT  8        SCAN DATE
+     C                     PARM           P@STIM  6        SCAN TIME
+     C                     PARM           P@STK   1        STOCK Y/N
+     C                     PARM           P@RTN   1        RETURN
+      *------------------------*
+     C           K@ALC     KLIST
+     C                     KFLD           P@SHN1
+     C                     KFLD           P@SHN2
+     C                     KFLD           P@SHN3
+     C                     KFLD           P@TEHI
+     C           K@NZU     KLIST
+     C                     KFLD           P@SHN1
+     C                     KFLD           P@SHN2
+     C                     KFLD           P@SHN3
+     C                     KFLD           N@IDAT
+      *===============================================================
+     C                     MOVE *BLANK    P@SDAT
+     C                     MOVE *BLANK    P@STIM
+     C                     MOVE 'N'       P@STK
+     C                     MOVE '*'       P@RTN
+JW1  C                     MOVELP@IDAT    N@IDAT  80
+      * GET SCAN DATE/TIME
+     C           K@ALC     SETLLALCPL07
+      *
+     C           *IN90     DOWEQ*OFF
+     C           K@ALC     READEALCPL07                  90
+      *
+     C           *IN90     IFEQ *OFF
+JW1  C           A8DATE    ANDGEN@IDAT
+      *
+     C                     MOVELA8BRC2    LTR3    3
+     C                     MOVELA8BRC2    LTR8    8
+JW2  C           LTR3      IFEQ 'SRT'
+"    C           LTR8      OREQ 'SHIPPING'
+     C           LTR8      OREQ 'SH PRIOR'
+     C                     MOVELA8DATE    P@SDAT
+     C                     MOVELA8TIME    P@STIM
+     C                     MOVE *BLANK    P@RTN
+      ***************      LEAVE
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      *
+      * shipping priority parts will be displayed in pink...
+     C           LTR8      IFEQ 'SH PRIOR'
+     C                     MOVE 'P'       P@STK
+     C                     ENDIF
+      *
+      * GET STOCK INFO
+     C**JW1                MOVELP@IDAT    N@IDAT  80
+     C           K@NZU     SETLLNZUPL02
+      *
+     C           *IN91     DOWEQ*OFF
+     C           K@NZU     READENZUPL02                  91
+     C           *IN91     IFEQ *OFF
+     C           N2TEHI    ANDEQP@TEHI
+     C           N2NYHZ    IFNE 0
+     C           N2DEHZ    ORNE 0
+     C                     MOVE 'Y'       P@STK
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *===============================================================

@@ -1,0 +1,202 @@
+     H            Y.
+     F** ECSR91 *******************************************
+     F*  RESTRICTION QUANTITY GETTING PROGRAM             *
+     F*          2017.09.12  ITS.  T.MITSUI               *
+     F*****************************************************
+     F*          FILE DEFINITION                          *
+     F*****************************************************
+     F*==< AOYAMA PRODUCTION PLACE CALENDAR FILE >==*
+     FAGDPL11 IF  E           K        DISK
+     F*
+     F*==< RESTRICTION QUANTITY ON TAKING OUT DIE >==*
+     FECSPP90 IF  E           K        DISK
+     F*
+     F*==< DIE STORE IN/OUT RESULT FILE >==*
+     FECSPL84 IF  E           K        DISK
+     F*
+     I*****************************************************
+     I*          DATA STRUCTURE                           *
+     I*****************************************************
+     I*==< ECSPL84 >==*
+     I            DS
+     I                                        1  140E8IODT
+     I                                        1   80E8IOHZ
+     I                                        9  140E8IOJK
+     I*==< WORK >==*
+     I*         ( START )
+     I            DS
+     I                                        1  140W@STDT
+     I                                        1   80W@STDY
+     I                                        1   40W@STYY
+     I                                        5   60W@STMM
+     I                                        7   80W@STDD
+     I                                        9  140W@STTM
+     I*         ( STOP )
+     I            DS
+     I                                        1  140W@SPDT
+     I                                        1   80W@SPDY
+     I                                        9  140W@SPTM
+     I*
+     C*****************************************************
+     C*          PARAMETERS LIST                          *
+     C*****************************************************
+     C           *ENTRY    PLIST
+     C*                   ( IN )
+     C                     PARM           P@DATE  80        DATE
+     C                     PARM           P@TIME  60        TIME
+     C                     PARM           P@KAT1  2         DIE NO.1
+     C                     PARM           P@KAT2  4         DIE NO.2
+     C                     PARM           P@KAT3  1         DIE NO.3
+     C                     PARM           P@KAT4  1         DIE NO.4
+     C                     PARM           P@KIBN  3         MACHINE NO.
+     C*                   ( OUT )
+     C                     PARM           P@REQT  30        RESTRICTION QUANTITY
+     C                     PARM           P@GIQT  30        GOODS ISSUE QUANTITY
+     C*
+     C*****************************************************
+     C*          KEY LIST                                 *
+     C*****************************************************
+     C*==< AGDPL11 : AOYAMA PRODUCTION PLACE CALENDAR FILE >==*
+     C           K@AG11    KLIST
+     C                     KFLD           K@KAYY  40
+     C                     KFLD           K@KAMM  20
+     C                     KFLD           K@KADD  20
+     C*
+     C*==< ECSPP90 : DIE STORE OUT RESTRICTION QUANTITY SETTING >==*
+     C           K@CS90    KLIST
+     C                     KFLD           K@KAT1  2         DIE NO.1
+     C                     KFLD           K@KAT2  4         DIE NO.2
+     C                     KFLD           K@KAT3  1         DIE NO.3
+     C                     KFLD           K@KAT4  1         DIE NO.4
+     C*
+     C*==< ECSPL84 : DIE STORE IN/OUT RESULT FILE >==*
+     C           K@CS80    KLIST
+     C                     KFLD           K@IOHZ  80        IN/OUT DATE
+     C                     KFLD           K@IOJK  60        IN/OUT TIME
+     C*
+     C*****************************************************
+     C*          MAIN ROUTINE                             *
+     C*****************************************************
+     C*==< INITIAL PROCESSING >==*
+     C                     EXSR #INIT
+     C*
+     C*==< GET PROCESSING >==*
+     C                     EXSR #REQT
+     C                     EXSR #GIQT
+     C*
+     C*==< FINAL PROCESSING >==*
+     C                     SETON                     LR
+     C                     RETRN
+     C*
+     C*****************************************************
+     C*  #INIT   INITIAL PROCESSING                       *
+     C*****************************************************
+     C           #INIT     BEGSR
+     C*
+     C*==< INITIAL >==*
+     C                     Z-ADD*ZERO     P@REQT            RESTRICTION QUANTITY
+     C                     Z-ADD*ZERO     P@GIQT            GOODS ISSUE QUANTITY
+     C*
+     C*==< 1DAYS BEFORE >==*
+     C                     Z-ADDP@DATE    W@STDY            DATE
+     C                     Z-ADDP@TIME    W@STTM            TIME
+     C                     Z-ADDW@STYY    K@KAYY
+     C                     Z-ADDW@STMM    K@KAMM
+     C                     Z-ADDW@STDD    K@KADD
+     C*                    ____________
+     C           K@AG11    SETLLAGDPL11
+     C                     READPAGDPL11                  91
+     C*                    ~~~~~~~~~~~~
+I----C           *IN91     IFEQ '0'
+|    C                     Z-ADDF8KAYY    W@STYY
+|    C                     Z-ADDF8KAMM    W@STMM
+|    C                     Z-ADDF8KADD    W@STDD
++----C                     ELSE
+|    C                     SUB  1         W@STDD
+E----C                     ENDIF
+     C*
+     C                     Z-ADDP@DATE    W@SPDY
+     C                     Z-ADDP@TIME    W@SPTM
+     C*
+     C           #INITE    ENDSR
+     C*****************************************************
+     C*  #REQT   GETPPROCESSING                           *
+     C*          --> RESTRICTION QUANTITY                 *
+     C*****************************************************
+     C           #REQT     BEGSR
+     C*
+     C                     MOVELP@KAT1    K@KAT1            DIE NO.1
+     C                     MOVELP@KAT2    K@KAT2            DIE NO.2
+     C                     MOVELP@KAT3    K@KAT3            DIE NO.3
+     C                     MOVELP@KAT4    K@KAT4            DIE NO.4
+     C*
+     C                     EXSR #PP90
+I----C           *IN92     IFEQ '1'
+|    C                     MOVEL*BLANK    K@KAT4            DIE NO.4
+|    C                     EXSR #PP90
+|I---C           *IN92     IFEQ '1'
+||   C                     MOVEL*BLANK    K@KAT3            DIE NO.3
+||   C                     EXSR #PP90
+||I--C           *IN92     IFEQ '1'
+|||  C                     MOVEL*BLANK    K@KAT2            DIE NO.2
+|||  C                     EXSR #PP90
+|||I-C           *IN92     IFEQ '1'
+|||| C                     Z-ADD*ZERO     E9REQT            RESTRICTION QUANTITY
+|||E-C                     ENDIF
+||E--C                     ENDIF
+|E---C                     ENDIF
+E----C                     ENDIF
+     C*
+     C                     Z-ADDE9REQT    P@REQT            RESTRICTION QUANTITY
+     C*
+     C           #REQTE    ENDSR
+     C*===================================================*
+     C*  #PP90   ECSPP90 CHAIN                            *
+     C*===================================================*
+     C           #PP90     BEGSR
+     C*                    ____________
+     C           K@CS90    CHAINECSPP90              92
+     C*                    ~~~~~~~~~~~~
+I----C           *IN92     IFEQ '0'
+|    C           E9SKJY    ANDEQ'D'
+|    C           E9SKHZ    ANDLEP@DATE
+|    C                     SETON                     92
+E----C                     ENDIF
+     C*
+     C           #PP90E    ENDSR
+     C*****************************************************
+     C*  #GIQT   GETPPROCESSING                           *
+     C*          --> GOODS ISSUE QUANTITY                 *
+     C*****************************************************
+     C           #GIQT     BEGSR
+     C*
+     C                     Z-ADDW@STDY    K@IOHZ            IN/OUT DATE
+     C                     Z-ADDW@STTM    K@IOJK            IN/OUT TIME
+     C*                    ____________
+     C           K@CS80    SETLLECSPL84
+     C                     READ ECSPL84                  93
+     C*                    ~~~~~~~~~~~~
+D----C           *IN93     DOWEQ'0'
+|    C           E8IODT    ANDLEW@SPDT
+|I---C           E8SKJY    IFEQ 'D'
+||   C           E8SKHZ    ANDLEP@DATE
+||   C*                    |
+|+---C                     ELSE
+||I--C           E8IOKB    IFEQ 'O'
+|||  C           E8KAT1    ANDEQP@KAT1
+|||  C           E8KAT2    ANDEQP@KAT2
+|||  C*          E8KAT3    ANDEQP@KAT3
+|||  C*          E8KAT4    ANDEQP@KAT4
+|||  C           E8KIBN    ANDEQP@KIBN
+|||  C           E8HNTE    ANDEQ'OK'
+|||  C           E8GSKB    ANDEQ'H'
+|||  C                     ADD  E8KOSU    P@GIQT            GOODS ISSUE QUANTITY
+||E--C                     ENDIF
+|E---C                     ENDIF
+|    C*                    ____________
+|    C                     READ ECSPL84                  93
+|    C*                    ~~~~~~~~~~~~
+E----C                     ENDDO
+     C*
+     C           #GIQTE    ENDSR
+     C*

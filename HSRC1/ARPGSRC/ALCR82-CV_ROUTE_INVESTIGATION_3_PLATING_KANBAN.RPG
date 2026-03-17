@@ -1,0 +1,360 @@
+     H            Y.
+     F** ALCR82 *******************************************************
+     F* CV ROUTE INVESTIGATION <3:PLATING KANBAN>
+     F*   KIRI                                               2019.10.28
+     F*****************************************************************
+      *
+      * PLATING KANBAN M/F
+     FAAFPL03 IF  E           K        DISK
+      * < PROCESS M/F > 1PROCESS .1RECORD                     *
+     FGHCTL21 IF  E           K        DISK
+      *
+     FALCWP80 O   F    1024            DISK
+      *================================================================
+     E                    @BM        15  4
+     E                    @KB        15  3
+     E                    @TK        15  6
+     E                    @SH        15  1
+     E                    @KT        15  3
+     E                    @HB        15 12
+      *================================================================
+      *
+      *---------------------------------------------
+      *
+      *
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60@SYSTM
+     I                                        7  140@SYSHZ
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     I              'PRODUCTION'          C         @TYP$A
+     I              'HT        '          C         @TYP$B
+     I              'ST        '          C         @TYP$C
+     I              'RETRIEVAL '          C         @TYP$E
+     I              'POS       '          C         @TYP$Z
+      *================================================================
+      * MAINLINE                                           *
+      *================================================================
+     C                     TIME           @TIME
+     C                     MOVE '1'       OPNCLS  1         1=OPEN
+     C                     MOVE ' '       @1ST    1
+      *
+      *-------------------------*
+     C                     DO   *HIVAL
+     C                     READ AAFPL03                  90
+     C   90                LEAVE
+     C*
+     C           A3SKJY    IFEQ 'D'
+     C           A3SKHZ    ANDLE@SYSHZ
+     C                     ITER
+     C                     ENDIF
+     C           A3UKHZ    IFGT @SYSHZ                     EFFECTIVE DATE
+     C                     ITER
+     C                     ENDIF
+     C           A3STHZ    IFLT @SYSHZ                     LAPSE DATE
+     C                     ITER
+     C                     ENDIF
+     C*
+     C                     EXSR #EDIT
+     C*
+     C                     ENDDO
+      *-------------------------*
+     C           OPNCLS    IFEQ '0'
+     C                     MOVE '9'       OPNCLS  1
+     C                     EXSR #CALL2
+     C                     ENDIF
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+      *================================================================
+      *
+      *================================================================
+     C           #EDIT     BEGSR
+      *
+      * 04 'PARTS#'
+     C                     MOVE A31HB5    P@HIN1  5
+     C                     MOVE A32HB5    P@HIN2  5
+     C                     MOVE A33HB2    P@HIN3  2
+     C                     EXSR #CALL1
+     C                     MOVE P@HIN     A3SHN  14
+      *
+      * 06 'SET#/DAY'
+     C********** A3KTSU    DIV  20        $$SETN  80
+     C                     Z-ADDA3KTSU    $$SETN  80
+      *
+      * 08 'BOX/DAY'
+     C                     Z-ADD0         $$HIAT  52
+     C           A3SSYS    IFNE 0
+     C           A3KTSU    DIV  A3SSYS    $$HIAT    H
+     C                     ENDIF
+      *
+      * 05 'PARTS#(FINISHED)'
+     C* < PROCESS M/F > 1PROCESS .1RECORD                     *
+     C           KEY01     KLIST
+     C                     KFLD           A3ATK1
+     C                     KFLD           A3ATK2
+     C                     KFLD           A3ATK3
+     C                     KFLD           A3ATK4
+     C*
+     C                     MOVE *BLANK    MMJHN  14
+     C*********** CHECK COUNT **
+     C           KEY01     SETLLGHCTL21
+     C                     Z-ADD0         $$KEN   20
+     C                     DO   *HIVAL
+     C           KEY01     READEGHCTL21                  91
+     C   91                LEAVE
+     C                     ADD  1         $$KEN
+     C                     ENDDO
+     C***********
+S1   C           $$KEN     IFEQ 0
+     C                     MOVE A31HB5    P@HIN1  5
+     C                     MOVE A32HB5    P@HIN2  5
+     C                     MOVE A33HB2    P@HIN3  2
+     C*
+     C                     EXSR ##NEXT
+     C*
+X1   C                     ELSE
+     C***********
+     C           KEY01     SETLLGHCTL21
+ S2  C                     DO   *HIVAL
+     C           KEY01     READEGHCTL21                  91
+     C   91                LEAVE
+     C*
+     C                     MOVE MDJHN1    P@HIN1  5
+     C                     MOVE MDJHN2    P@HIN2  5
+     C                     MOVE MDJHN3    P@HIN3  2
+     C                     EXSR #CALL1
+     C           P@HIN     IFNE A3SHN
+     C           $$KEN     ORGT 1
+     C                     MOVE P@HIN     MMJHN
+     C                     ENDIF
+     C*
+     C                     EXSR ##NEXT
+     C*
+ E2  C                     ENDDO
+E1   C                     ENDIF
+     C***********
+     C                     ENDSR
+      *================================================================
+      *
+      *================================================================
+     C           ##NEXT    BEGSR
+      *
+      * 11-18: NEXT,PRE
+     C                     EXSR #CALL2
+     C                     MOVE '0'       OPNCLS  1
+     C                     MOVEAOUTBMN    @BM
+     C                     MOVEAOUTKBN    @KB
+     C                     MOVEAOUTTKR    @TK
+     C                     MOVEAOUTSHR    @SH
+     C                     MOVEAOUTKOT    @KT
+     C                     MOVEAOUTHBN    @HB
+     C                     MOVE *BLANK    $$KIBN  3
+     C                     MOVE *BLANK    $$NXKT  3
+     C                     MOVE *BLANK    $$NXBM  4
+     C                     MOVE *BLANK    $$NXKB  3
+     C                     MOVE *BLANK    $$NXSH  1
+     C                     MOVE *BLANK    $$NXTK  6
+     C                     MOVE *BLANK    $$NXPR 10
+     C                     MOVE *BLANK    $$PRKT  3
+     C                     MOVE *BLANK    $$JIKT  3        自工程工程
+     C                     MOVE *BLANK    $$JIBM  4        自工程部門
+     C*-------------------------*
+S1   C                     DO   15        Z       20
+ S2  C           @TK,Z     IFEQ A3ATKR
+     C*         *
+     C                     MOVE @KT,Z     $$JIKT           自工程工程
+     C                     MOVE @BM,Z     $$JIBM           自工程部門
+     C                     MOVE @KB,Z     $$KIBN
+     C*         *
+     C                     Z-ADDZ         X       20
+  S3 C           X         DOWGT1
+     C                     SUB  1         X
+     C           @TK,X     IFNE '------'
+     C                     MOVE @KT,X     $$PRKT
+     C                     LEAVE
+     C                     ENDIF
+  E3 C                     ENDDO
+     C*         *
+  S3 C           Z         DOWLT15
+     C                     ADD  1         Z
+     C           $$NXKT    IFEQ *BLANK
+     C                     MOVE @KT,Z     $$NXKT
+     C                     MOVE @BM,Z     $$NXBM
+     C                     MOVE @KB,Z     $$NXKB
+     C                     ENDIF
+     C           @TK,Z     IFNE '------'
+     C                     MOVE @SH,Z     $$NXSH
+     C                     MOVE @TK,Z     $$NXTK
+     C                     LEAVE
+     C                     ENDIF
+  E3 C                     ENDDO
+     C                     LEAVE
+     C*         *
+ E2  C                     ENDIF
+E1   C                     ENDDO
+     C*-------------------------*
+     C                     MOVE *BLANK    $$NXPR
+     C                     SELEC
+     C           $$NXSH    WHEQ 'A'
+     C                     MOVEL@TYP$A    $$NXPR
+     C           $$NXSH    WHEQ 'B'
+     C                     MOVEL@TYP$B    $$NXPR
+     C           $$NXSH    WHEQ 'C'
+     C                     MOVEL@TYP$C    $$NXPR
+     C           $$NXSH    WHEQ 'E'
+     C                     MOVEL@TYP$E    $$NXPR
+     C           $$NXSH    WHEQ 'Z'
+     C                     MOVEL@TYP$Z    $$NXPR
+     C                     ENDSL
+     C*
+     C           2         SUBST$$NXTK:2  $$NXL1  2
+     C           2         SUBST$$NXTK:4  $$NXL2  2
+     C*
+     C*
+     C           @1ST      IFEQ ' '
+     C                     EXCPT$HED
+     C                     MOVE '*'       @1ST
+     C                     ENDIF
+     C*
+     C                     EXCPT$DATA
+     C*
+     C                     ENDSR
+      *================================================================
+     C           #CALL1    BEGSR
+     C                     CALL 'APLR30'
+     C                     PARM           P@HIN1  5
+     C                     PARM           P@HIN2  5
+     C                     PARM           P@HIN3  2
+     C                     PARM           P@HIN  14
+     C                     ENDSR
+      *================================================================
+     C           #CALL2    BEGSR
+     C                     CALL 'AAMRSB'
+     C* INPUT
+     C                     PARM           P@HIN1  5
+     C                     PARM           P@HIN2  5
+     C                     PARM           P@HIN3  2
+     C                     PARM           OPNCLS  1
+     C* OUTPUT
+     C                     PARM           OUTBMN 60
+     C                     PARM           OUTKBN 45
+     C                     PARM           OUTTKR 90
+     C                     PARM           OUTSHR 15
+     C                     PARM           OUTKOT 45
+     C                     PARM           OUTHBN180
+     C                     PARM           STATUS  1
+     C                     ENDSR
+      *================================================================
+      *================================================================
+     OALCWP80 E                $HED
+     O                                      'OWN PROCESS INFORMATION'
+     O                                      ',,,,,,,,,,,,'
+     O                                      'NEXT PROCESS'
+     O                                      ',,,,,'
+     O                                      'PRE PROCESS'
+     O                                      ','
+     O*        *
+     O        E                $HED
+01   O                                      'PRE'
+     O                                      ','
+02   O                                      'ROW#'
+     O                                      ','
+03   O                                      'PROCESS'
+     O                                      ','
+04   O                                      'DEPT'
+     O                                      ','
+05   O                                      'MACHINE'
+     O                                      ','
+06   O                                      'PARTS#'
+     O                                      ','
+07   O                                      'PARTS#(FINISHED)'
+     O                                      ','
+08   O                                      'SET#/DAY'
+     O                                      ','
+09   O                                      'QPC'
+     O                                      ','
+10   O                                      'BOX/DAY'
+     O                                      ','
+11   O                                      'LOT'
+     O                                      ','
+12   O                                      '# OF KANBAN'
+     O                                      ','
+     O*
+13   O                                      'NEXT KANBAN TYPE'
+     O                                      ','
+14   O                                      'NEXT PROCESS'
+     O                                      ','
+15   O                                      'NEXT MCN #'
+     O                                      ','
+16   O                                      'NEXT DEPT'
+     O                                      ','
+17   O                                      'NEXT LOCATION'
+     O                                      ','
+     O*
+18   O                                      'PRE PROCESS'
+     O                                      ','
+19   O                                      'ROW#'
+     O                                      ','
+20   O                                      'LOCATION'
+     O                                      ','
+      **
+      **
+      **
+     O        E                $DATA
+     O                                      '="'
+01   O                         A3ATK2
+     O                                      '-'
+     O                         A3ATK3
+     O                                      '",="'
+02   O                         A3ATK2
+     O                                      '",'
+03   O                         $$JIKT
+     O                                      ',="'
+04   O                         $$JIBM
+     O                                      '",'
+05   O                         $$KIBN
+     O                                      ','
+06   O                         A3SHN
+     O                                      ','
+07   O                         MMJHN
+     O                                      ','
+08   O                         $$SETN
+     O                                      ','
+09   O                         A3SSYS
+     O                                      ','
+10   O                         $$HIAT       ' 0 .  '
+     O                                      ','
+11   O                         A3BARA
+     O                                      ','
+12   O                         A3KMAX
+     O                                      ','
+     O*
+13   O                         $$NXPR
+     O                                      ','
+14   O                         $$NXKT
+     O                                      ','
+15   O                         $$NXKB
+     O                                      ',="'
+16   O                         $$NXBM
+     O                                      '",="'
+17   O                         $$NXL1
+     O                                      '-'
+     O                         $$NXL2
+     O                                      '",'
+     O*
+18   O                         $$PRKT
+     O                                      ',="'
+19   O                         A3MTK2
+     O                                      '",="'
+20   O                         A3MTK2
+     O                                      '-'
+     O                         A3MTK3
+     O                                      '",'
+      *================================================================

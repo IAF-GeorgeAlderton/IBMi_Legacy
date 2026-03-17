@@ -1,0 +1,80 @@
+             PGM        PARM(&TOEMAIL &SUBJECT &STMF)
+
+ /* SEND TO EMAIL ADDRESS                                              */
+             DCL        VAR(&TOEMAIL) TYPE(*CHAR) LEN(100)
+ /* SUBJECT OF EMAIL                                                   */
+             DCL        VAR(&SUBJECT) TYPE(*CHAR) LEN(100)
+ /* IFS ADDRESS                                                        */
+             DCL        VAR(&STMF)    TYPE(*CHAR) LEN(100)
+ /* FILE NAME                                                          */
+             DCL        VAR(&FILN)    TYPE(*CHAR) LEN(30)
+
+             DCL        VAR(&BODY)    TYPE(*CHAR) LEN(5000)
+             DCL        VAR(&LINE)    TYPE(*CHAR) LEN(200)
+             DCL        VAR(&EOF)     TYPE(*LGL)  VALUE('0')
+             DCL        VAR(&CURRLEN) TYPE(*DEC)  LEN(5 0) VALUE(0)
+             DCL        VAR(&LINLEN)  TYPE(*DEC)  LEN(5 0)
+             DCL        VAR(&PLUSLEN) TYPE(*DEC)  LEN(5 0)
+             DCL        VAR(&CRLF)    TYPE(*CHAR) LEN(1) VALUE(X'25')
+
+             DCLF       FILE(HFILE1/EDIBUF)
+
+             CHGVAR     VAR(&FILN)    VALUE('ATT00001.CSV')
+
+ /* COPY IFS TEXT FILE INTO THE PF AS ONE RECORD PER LINE. */
+ /* RCDDLM(*ALL) HANDLES CR/LF/CRLF; ADJUST STMFCODPAG IF NEEDED. */
+             CPYFRMIMPF FROMSTMF(&STMF *TCAT '/' *TCAT &FILN) +
+                          TOFILE(HFILE1/EDIBUF) MBROPT(*REPLACE) +
+                          FROMCCSID(*FILE) RCDDLM(*CRLF) +
+                          STRDLM(*DBLQUOTE) DATFMT(*USA) +
+                          TIMFMT(*USA) ERRRCDOPT(*REPLACE)
+
+             MONMSG     MSGID(CPF9898) EXEC(DO)
+             SNDPGMMSG  MSGID(CPF9898) MSGF(QCPFMSG) +
+             MSGDTA('FAILED TO COPY STREAM FILE &STMF') MSGTYPE(*ESCAPE)
+             ENDDO
+
+             OVRDBF     FILE(EDIBUF) TOFILE(HFILE1/EDIBUF)
+
+             CHGVAR     VAR(&BODY) VALUE('   ')
+
+   READLOOP: RCVF
+
+ /* END OF FILE                                                    */
+             MONMSG     MSGID(CPF0864) EXEC(DO)
+             CHGVAR   VAR(&EOF) VALUE('1')
+             ENDDO
+
+             IF         COND(&EOF) THEN(GOTO CMDLBL(SENDIT))
+
+             CHGVAR     VAR(&LINE) VALUE(&XBUF)
+
+             CHGVAR     VAR(&LINLEN) VALUE(78)
+
+ /* COMPUTE LENGTH IF WE ADD THIS LINE + NEWLINE (X'25')                   */
+              CHGVAR     VAR(&PLUSLEN) VALUE(&CURRLEN + 1 + 200)
+
+ /* SAFER PRECISE CALC: FIND LAST NON-BLANK CHAR IN &LINE TO AVOID OVERFLOW */
+
+/* BECAUSE CL LACKS INTRINSIC TRIM LENGTH, WE'LL APPROXIMATE BY            */
+/* ADDING ENTIRE 200 AND IT STILL                                          */
+/* STAYS WELL UNDER 5000 FOR TYPICAL REPORTS. IF YOU HAVE VERY LONG FILES, */
+/* CONSIDER TRIMMING OR REDUCING RCDLEN.                                   */
+
+             IF         COND(&PLUSLEN *GT 5000) THEN(GOTO CMDLBL(SENDIT))
+
+/* APPEND LINE AND NEWLINE (X'25')                                         */
+             CHGVAR     VAR(&BODY) VALUE(&BODY *TCAT &LINE *TCAT &CRLF)
+
+             CHGVAR     VAR(&CURRLEN) VALUE(&CURRLEN + 200 + 1)
+
+             GOTO       CMDLBL(READLOOP)
+
+  SENDIT:    /* SEND THE EMAIL WITH THE COLLECTED BODY CONTENT */
+
+             SNDSMTPEMM RCP((&TOEMAIL1 *PRI) (&TO2 *CC)) +
+                          SUBJECT(&SUBJECT) NOTE(&BODY) CONTENT(*PLAIN)
+
+             DLTOVR     FILE(EDIBUF)
+
+             ENDPGM

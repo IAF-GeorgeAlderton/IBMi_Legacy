@@ -1,0 +1,426 @@
+     H            Y.
+     F** FOAR14 ************************************************
+     F*     出庫票作成　                                     *
+     F*     MSK.......                    2006.03.02           *
+     F************************************************ FOAR14 **
+     FFOAPP10 UF  E           K        DISK
+     FFOAPR14 O   E             55     PRINTER
+     FFOAPPNO UF  E           K        DISK                      A
+      *
+      *
+     E                    MAK         2  1
+     E                    KAT         2  9
+     E                    SRY         2  5 0
+     E                    TKS         2  1
+     E                    TAB1    1   5  4   TAB2   12
+     E                    ATM     1   3 25
+      *
+     I            DS
+     I                                        1   2 MAK
+     I                                        1   1 @MARK1
+     I                                        2   2 @MARK2
+     I            DS
+     I                                        1  18 KAT
+     I                                        1   9 @KATB1
+     I                                       10  18 @KATB2
+     I            DS
+     I                                        1  10 SRY
+     I                                        1   50@KOSU1
+     I                                        6  100@KOSU2
+     I            DS
+     I                                        1   9 @@KAT
+     I                                        1   2 @@KT1
+     I                                        3   3 WKF1
+     I                                        4   7 @@KT2
+     I                                        8   8 WKF2
+     I                                        9   9 @@KT3
+      *
+     I            DS
+     I                                        1   80OBSKHZ
+     I                                        1   40OBSKYY
+     I                                        5   60OBSKMM
+     I                                        7   80OBSKDD
+      *
+     I            DS
+     I                                        1  14 B@BAR
+     I                                        1  14 B@SHKN
+     I                                        1   4 B@KOJO
+     I                                        5  10 B@HYM
+     I                                       11  130@@SEQ
+     I                                       14  14 BLANK
+      *---------------------------------------------------------*
+      *   PARAMETER TRANCFER                                    *
+      *---------------------------------------------------------*
+     C           *ENTRY    PLIST
+     C                     PARM           PKOJO   4
+      *---------------------------------------------------------*
+      *   KEY LIST                                              *
+      *---------------------------------------------------------*
+     C           KEYOZ1    KLIST
+     C                     KFLD           #KSKBN  1
+     C                     KFLD           #KKOJO  4
+     C                     KFLD           #KSCOD 10
+      *=======================================================*
+      *  再生工場分のみ処理                                 *
+      *=======================================================
+      *---------------------------------------*
+      *  特殊品区分検索　　　　           *
+      *---------------------------------------*
+     C                     MOVE *ALL' '   TKS
+     C           *LOVAL    SETLLFOAPP101
+     C                     SETOF                     19  81
+     C                     DO   *HIVAL
+     C                     READ FOAPP101                 81
+     C   81                LEAVE
+     C           OBSKJY    IFEQ 'D'
+     C           OBSKHZ    ANDLE*DATE
+     C                     ITER
+     C                     END
+      *
+     C           OBIKSK    IFEQ '2'
+     C                     ITER
+     C                     END
+      *
+     C           OBZAKB    IFNE *BLANK
+     C                     SETON                         19
+     C                     LEAVE
+     C                     END
+     C                     ENDDO
+      *---------------------------------------------------------*
+      *  合計箱数を求める（再生工場分）                       *
+      *---------------------------------------------------------*
+     C                     Z-ADD0         @TOTL   60
+     C           *LOVAL    SETLLFOAPP101
+     C                     SETOF                         81
+     C                     DO   *HIVAL
+     C                     READ FOAPP101                 81
+     C   81                LEAVE
+     C           OBSKJY    IFEQ 'D'
+     C           OBSKHZ    ANDLE*DATE
+     C                     ITER
+     C                     END
+      *
+     C           OBIKSK    IFEQ '2'
+     C                     ITER
+     C                     END
+      *---------------------------------------------------------*
+      *  出庫№取得
+      *---------------------------------------------------------*
+     C           *IN90     IFEQ '0'
+     C                     Z-ADD*DATE     @DATE
+     C                     TIME           @TIME
+      *  出庫№取得　                                         *
+     C                     MOVE 'UNU0'    PKOJO
+     C                     MOVE 'S'       #KSKBN
+     C                     MOVE PKOJO     #KKOJO
+     C                     MOVEL*DATE     HYM     60
+     C                     MOVELHYM       #KSCOD
+     C                     Z-ADD0         @@SEQ   30
+     C                     SETOF                     21
+     C           KEYOZ1    CHAINFOAPPNO1             21
+     C           *IN21     IFEQ '1'
+     C                     CLEARFOAPPNO1
+     C                     MOVE 'S'       OZSKBN
+     C                     MOVE PKOJO     OZKOJO
+     C                     MOVELHYM       OZSCOD
+     C                     Z-ADD1         OZSEQN
+     C                     Z-ADD1         @@SEQ
+     C                     ELSE
+     C                     ADD  1         OZSEQN
+     C           OZSEQN    IFGT 999
+     C                     Z-ADD1         OZSEQN
+     C                     END
+     C                     Z-ADDOZSEQN    @@SEQ
+     C                     END
+      *
+     C  N21                UPDATFOAPPNO1
+     C   21                WRITEFOAPPNO1
+      *-------------------*
+     C                     SETOF                     21
+     C           PKOJO     LOKUPTAB1      TAB2           21
+     C   21                MOVELTAB2      @KOJNM
+      *
+     C                     MOVE PKOJO     B@KOJO
+     C                     MOVEL*DATE     B@HYM
+     C                     SETON                     90
+      *
+     C                     END
+      *
+     C                     ADD  OBSRYO    @TOTL
+     C                     ENDDO
+      *---------------------------------------------------------*
+      *  明細編集＆出力 （再生工場分）                      *
+      *---------------------------------------------------------*
+     C                     MOVE *ALL' '   MAK
+     C                     MOVE *ALL' '   KAT
+     C                     MOVE *ALL'0'   SRY
+     C                     MOVE '0'       FRTSW   1
+     C                     MOVE *BLANK    WKIKSK  1
+     C           *LOVAL    SETLLFOAPP101
+     C                     SETOF                         81
+     C                     Z-ADD0         X       20
+     C                     DO   *HIVAL
+     C                     READ FOAPP101                 81
+     C   81                LEAVE
+     C           OBSKJY    IFEQ 'D'
+     C           OBSKHZ    ANDLE*DATE
+     C                     ITER
+     C                     END
+      *
+     C           OBIKSK    IFEQ '2'
+     C                     ITER
+     C                     END
+      *
+     C                     MOVELB@BAR     OBSKNO
+     C                     UPDATFOAPP101
+      *
+     C           OBIKSK    IFNE WKIKSK
+     C           OBIKSK    IFEQ '1'
+     C                     MOVELATM,1     @ATENM
+     C                     END
+     C           OBIKSK    IFEQ '2'
+     C                     MOVELATM,2     @ATENM
+     C                     END
+     C           OBIKSK    IFEQ ' '
+     C                     MOVELATM,3     @ATENM
+     C                     END
+     C                     WRITEFOAPR141
+     C                     END
+      *
+     C                     MOVE '1'       FRTSW
+     C                     MOVE OBIKSK    WKIKSK
+     C                     ADD  1         X
+     C                     CLEAR@@KAT
+     C                     MOVE OBKAT1    @@KT1
+     C                     MOVE '-'       WKF1
+     C                     MOVE OBKAT2    @@KT2
+     C                     MOVE '-'       WKF2
+     C                     MOVE OBKAT3    @@KT3
+     C           OBKAT3    IFEQ *BLANK
+     C                     MOVE ' '       WKF2
+     C                     END
+      *
+     C                     MOVEL@@KAT     KAT,X
+     C           OBZAKB    IFNE *BLANK
+     C                     MOVEL'*'       MAK,X
+     C                     END
+     C                     Z-ADDOBSRYO    SRY,X
+      *
+     C           X         IFEQ 2
+     C                     ADD  0         @KOSU1     60
+     C                     ADD  0         @KOSU2     61
+     C                     WRITEFOAPR142
+     C           *IN55     IFEQ '1'
+     C                     WRITEFOAPR141
+     C                     END
+     C                     MOVE *ALL' '   MAK
+     C                     MOVE *ALL' '   KAT
+     C                     MOVE *ALL'0'   SRY
+     C                     Z-ADD0         X
+     C                     END
+      *
+     C                     ENDDO
+      *
+     C           X         IFNE 0
+     C                     ADD  0         @KOSU1     60
+     C                     ADD  0         @KOSU2     61
+     C                     WRITEFOAPR142
+     C           *IN55     IFEQ '1'
+     C                     WRITEFOAPR141
+     C                     END
+     C                     END
+      *
+     C                     MOVE *ALL' '   MAK
+     C                     MOVE *ALL' '   KAT
+     C                     MOVE *ALL'0'   SRY
+     C                     SETOF                       90
+      *
+      *=======================================================*
+      *  メーカー分のみ処理                                 *
+      *=======================================================
+      *---------------------------------------*
+      *  特殊品区分検索　　　　           *
+      *---------------------------------------*
+     C                     MOVE *ALL' '   TKS
+     C           *LOVAL    SETLLFOAPP101
+     C                     SETOF                     19  81
+     C                     DO   *HIVAL
+     C                     READ FOAPP101                 81
+     C   81                LEAVE
+     C           OBSKJY    IFEQ 'D'
+     C           OBSKHZ    ANDLE*DATE
+     C                     ITER
+     C                     END
+      *
+     C           OBIKSK    IFEQ '1'
+     C                     ITER
+     C                     END
+      *
+     C           OBZAKB    IFNE *BLANK
+     C                     SETON                         19
+     C                     LEAVE
+     C                     END
+     C                     ENDDO
+      *---------------------------------------------------------*
+      *  合計箱数を求める（再生工場分）                       *
+      *---------------------------------------------------------*
+     C                     Z-ADD0         @TOTL   60
+     C           *LOVAL    SETLLFOAPP101
+     C                     SETOF                         81
+     C                     DO   *HIVAL
+     C                     READ FOAPP101                 81
+     C   81                LEAVE
+     C           OBSKJY    IFEQ 'D'
+     C           OBSKHZ    ANDLE*DATE
+     C                     ITER
+     C                     END
+      *
+     C           OBIKSK    IFEQ '1'
+     C                     ITER
+     C                     END
+      *---------------------------------------------------------*
+      *  出庫№取得
+      *---------------------------------------------------------*
+     C           *IN90     IFEQ '0'
+     C                     Z-ADD*DATE     @DATE
+     C                     TIME           @TIME
+      *  出庫№取得　                                         *
+     C                     MOVE 'UNU0'    PKOJO
+     C                     MOVE 'S'       #KSKBN
+     C                     MOVE PKOJO     #KKOJO
+     C                     MOVEL*DATE     HYM     60
+     C                     MOVELHYM       #KSCOD
+     C                     Z-ADD0         @@SEQ   30
+     C                     SETOF                     21
+     C           KEYOZ1    CHAINFOAPPNO1             21
+     C           *IN21     IFEQ '1'
+     C                     CLEARFOAPPNO1
+     C                     MOVE 'S'       OZSKBN
+     C                     MOVE PKOJO     OZKOJO
+     C                     MOVELHYM       OZSCOD
+     C                     Z-ADD1         OZSEQN
+     C                     Z-ADD1         @@SEQ
+     C                     ELSE
+     C                     ADD  1         OZSEQN
+     C           OZSEQN    IFGT 999
+     C                     Z-ADD1         OZSEQN
+     C                     END
+     C                     Z-ADDOZSEQN    @@SEQ
+     C                     END
+      *
+     C  N21                UPDATFOAPPNO1
+     C   21                WRITEFOAPPNO1
+      *-------------------*
+     C                     SETOF                     21
+     C           PKOJO     LOKUPTAB1      TAB2           21
+     C   21                MOVELTAB2      @KOJNM
+      *
+     C                     MOVE PKOJO     B@KOJO
+     C                     MOVEL*DATE     B@HYM
+     C                     SETON                     90
+      *
+     C                     END
+      *
+     C                     ADD  OBSRYO    @TOTL
+     C                     ENDDO
+      *---------------------------------------------------------*
+      *  明細編集＆出力 （再生工場分）                      *
+      *---------------------------------------------------------*
+     C                     MOVE *ALL' '   MAK
+     C                     MOVE *ALL' '   KAT
+     C                     MOVE *ALL'0'   SRY
+     C                     MOVE '0'       FRTSW   1
+     C                     MOVE *BLANK    WKIKSK  1
+     C           *LOVAL    SETLLFOAPP101
+     C                     SETOF                         81
+     C                     Z-ADD0         X       20
+     C                     DO   *HIVAL
+     C                     READ FOAPP101                 81
+     C   81                LEAVE
+     C           OBSKJY    IFEQ 'D'
+     C           OBSKHZ    ANDLE*DATE
+     C                     ITER
+     C                     END
+      *
+     C           OBIKSK    IFEQ '1'
+     C                     ITER
+     C                     END
+      *
+     C                     MOVELB@BAR     OBSKNO
+     C                     UPDATFOAPP101
+      *
+     C           OBIKSK    IFNE WKIKSK
+     C           OBIKSK    IFEQ '1'
+     C                     MOVELATM,1     @ATENM
+     C                     END
+     C           OBIKSK    IFEQ '2'
+     C                     MOVELATM,2     @ATENM
+     C                     END
+     C           OBIKSK    IFEQ ' '
+     C                     MOVELATM,3     @ATENM
+     C                     END
+     C                     WRITEFOAPR141
+     C                     END
+      *
+     C                     MOVE '1'       FRTSW
+     C                     MOVE OBIKSK    WKIKSK
+     C                     ADD  1         X
+     C                     CLEAR@@KAT
+     C                     MOVE OBKAT1    @@KT1
+     C                     MOVE '-'       WKF1
+     C                     MOVE OBKAT2    @@KT2
+     C                     MOVE '-'       WKF2
+     C                     MOVE OBKAT3    @@KT3
+     C           OBKAT3    IFEQ *BLANK
+     C                     MOVE ' '       WKF2
+     C                     END
+      *
+     C                     MOVEL@@KAT     KAT,X
+     C           OBZAKB    IFNE *BLANK
+     C                     MOVEL'*'       MAK,X
+     C                     END
+     C                     Z-ADDOBSRYO    SRY,X
+      *
+     C           X         IFEQ 2
+     C                     ADD  0         @KOSU1     60
+     C                     ADD  0         @KOSU2     61
+     C                     WRITEFOAPR142
+     C           *IN55     IFEQ '1'
+     C                     WRITEFOAPR141
+     C                     END
+     C                     MOVE *ALL' '   MAK
+     C                     MOVE *ALL' '   KAT
+     C                     MOVE *ALL'0'   SRY
+     C                     Z-ADD0         X
+     C                     END
+      *
+     C                     ENDDO
+      *
+     C           X         IFNE 0
+     C                     ADD  0         @KOSU1     60
+     C                     ADD  0         @KOSU2     61
+     C                     WRITEFOAPR142
+     C           *IN55     IFEQ '1'
+     C                     WRITEFOAPR141
+     C                     END
+     C                     END
+      *
+     C                     MOVE *ALL' '   MAK
+     C                     MOVE *ALL' '   KAT
+     C                     MOVE *ALL'0'   SRY
+      *
+      *---------------------------------------------------------*
+      *   終了処理                                            *
+      *---------------------------------------------------------*
+     C                     SETON                       LR
+     C                     RETRN
+**
+UNU0 IAF
+CNC0 ACZ
+SNS0 AFS
+BNB0 ATCS
+RNR0 ATCR
+**
+=> REPRODUCTION FACTORY
+=> TYPE MAKER
+=> OTHERS

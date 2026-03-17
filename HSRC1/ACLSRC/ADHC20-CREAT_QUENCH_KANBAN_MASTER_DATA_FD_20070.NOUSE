@@ -1,0 +1,48 @@
+             PGM
+             /** ADHC20 ****************************/
+             /* CREAT QUENCH KANBAN MASTER DATA FD */
+             /*  I-HASADA              2000.07.04  */
+             /**************************** ADHC20 **/
+             DCLF       FILE(ADHPW20)
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&USER) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&TYPE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&MBAN) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&KOTAE) TYPE(*CHAR) LEN(1)
+
+             RTVJOBA    JOB(&WSID) USER(&USER)
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+             CHGJOB     OUTQ(&PRTG)
+
+ STP1:       SNDRCVF    DEV(&WSID) RCDFMT(ADHPW201)
+
+             IF         COND(&IN01 *EQ '1') THEN(GOTO CMDLBL(END))
+             IF         (&IN05 *EQ '0') GOTO STP1
+
+             CHGMSGQ    MSGQ(&WSID) DLVRY(*BREAK)
+
+             DLTF       FILE(ADHWP20)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE1/ADHWP20) RCDLEN(128) +
+                          OPTION(*NOLIST) SIZE(10000 1000 3) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CALL       PGM(ADHR20)
+
+ STP3:       SNDPGMMSG  MSG('AFTER SETTING FD, EXECUTE QUENCHING +
+                          KANBAN MASTER TRANSMITE AFTER +
+                          TRANSMISSION, RESPOND WITH ( G )') +
+                          TOMSGQ(&WSID) MSGTYPE(*INQ) KEYVAR(&MBAN)
+
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTAE)
+
+             IF         (&KOTAE *NE 'G') GOTO STP3
+
+ END:        DLTF       FILE(ADHWP20)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             DLTOVR     FILE(*ALL)
+
+             ENDPGM

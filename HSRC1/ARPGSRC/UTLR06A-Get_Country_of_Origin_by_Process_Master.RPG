@@ -1,0 +1,93 @@
+     H            Y.
+     F** UTLR06A *******************************************
+     F*  PROGRAM: GET COUNTRY OF ORIGIN BY PROCESS MASTER  *
+     F*  WRITTEN: JW (SRA)  2024.05.01                     *
+     F*----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UTLR06A'
+     F*                    PARM           $PART  20
+     F*                    PARM           $NONY   4
+     F*                    PARM           $PTYP   1
+     F*                    PARM           $CO     3
+     F*  IN  $PART  : 20A IAF OR USER PART#
+     F*      $NONY  :  4A DELIVERY CODE (FOR USER PART)
+     F*      $PTYP  :  1A PART# TYPE (I:IAF PART, U:USER PART)
+     F*  OUT $CO    :  3A COUNTRY OF ORIGIN  (US/JP)
+     F*  **  IF $PTYP=I, $NONY IS NOT NEEDED
+     F******************************************************
+     FGHCPL21 IF  E           K        DISK
+      *--------------------------------------------------------
+     I            DS
+     I                                        1  12 SHIN
+     I                                        1   5 SHIN1
+     I                                        6  10 SHIN2
+     I                                       11  12 SHIN3
+      *********************************************************
+      *                    MAIN PROCESS                       *
+      *********************************************************
+     C                     EXSR #INIT
+      *
+      * GET FROM IAF  PART ----------------------------
+     C           $PTYP     IFEQ 'I'
+     C                     MOVEL$PART     SHIN
+     C                     ELSE
+      * GET FROM CUSTOMER PART -----------------------
+      * GET IAF PART
+     C                     MOVEL$NONY     $NONY1
+     C                     MOVEL$PART     $MHIN1
+     C                     CALL 'UTLR61A'
+     C                     PARM           $NONY1  4
+     C                     PARM           $MHIN1 20
+     C                     PARM           $SHIN1 12
+      *
+     C                     MOVEL$SHIN1    SHIN
+     C                     ENDIF
+      *
+     C                     EXSR #GET
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *=============================================================
+      * GET COUNTRY OF ORIGIN
+      *=============================================================
+     C           #GET      BEGSR
+      *
+     C                     Z-ADD1         K7KSEQ
+     C           KEY1      CHAINGHCPL21              91
+     C           *IN91     IFEQ *ON
+     C                     GOTO XGET
+     C                     ENDIF
+      *
+     C           M7MBMN    IFEQ 8990
+     C                     MOVEL'JP '     $CO
+     C                     GOTO XGET
+     C                     ENDIF
+      *
+     C           M7MBMN    IFEQ 0111
+     C           M7MKTE    ANDEQ'HN'
+     C                     MOVEL'JP '     $CO
+     C                     GOTO XGET
+     C                     ENDIF
+      *
+     C           XGET      ENDSR
+      *=============================================================
+      *                    INITIAL PROCESS
+      *=============================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $PART  20
+     C                     PARM           $NONY   4
+     C                     PARM           $PTYP   1
+     C                     PARM           $CO     3
+      *
+     C           KEY1      KLIST
+     C                     KFLD           SHIN1
+     C                     KFLD           SHIN2
+     C                     KFLD           SHIN3
+     C                     KFLD           K7KSEQ  20
+      *
+     C                     MOVE *OFF      *IN91
+     C                     MOVEL'US '     $CO
+      *
+     C                     ENDSR

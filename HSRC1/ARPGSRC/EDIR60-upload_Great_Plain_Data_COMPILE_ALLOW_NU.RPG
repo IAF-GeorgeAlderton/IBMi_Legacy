@@ -1,0 +1,465 @@
+     H            Y.
+     F** EDIR60 ******************************************************
+     F*  PROGRAM    : UPLOAD GREAT PLAIN DATA                        *
+     F*  WRITTEN    : 11/10/2016                                     *
+     F*  WRITTEN BY : JW (SRA)                                       *
+     F*  FUNCTION   : READ EDIWP60(CSV) AND VALIDATE FIELDS          *
+     F*             : IF ERROR, CREATE ERROR REPORT                  *
+     *  ATTENTION  : COMPILE WITH OPTION - ALLOW NULL VALUES *YES   *
+     F****************************************************************
+     FEDIWP60 IF  E                    DISK
+     FEDIPP60 O   E                    DISK
+     FQPRINT  O   F     132     OF     PRINTER
+      *---------------------------------------------------------------
+     E                    CSV        80  1
+     E                    FLD        15  1
+     E                    MV1        20  1
+     E                    MV2        20  1
+     E                    MSG     1  11 80
+      *---------------------------------------------------------------
+      *
+     I            DS
+     I                                        1  15 W@FL15
+     I                                        1  155W@NM15
+      *
+     I              '0123456789'          C         WKCKSU
+      *
+     I              'abcdefghijklmnopqrst-C         AB1
+     I              'uvwxyz'
+     I              'ABCDEFGHIJKLMNOPQRST-C         AB2
+     I              'UVWXYZ'
+      *
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      ******************************************************
+      *                    MAIN PROCESS
+      ******************************************************
+      * Initial Process
+     C                     EXSR #INIT
+      *
+     C                     EXSR #MAIN
+      * Print Footer
+     C           NM@CNT    ADD  ER@CNT    TTL#
+      *
+     C           SEQ       IFEQ 0
+      * If No Error
+     C                     MOVE *OFF      #STS
+     C                     MOVE MSG,6     FLD37  37
+     C                     MOVELWR@CNT    FLD37
+     C                     MOVE MSG,6     FLD42  52
+     C                     MOVELDAT#      FLD42
+     C                     MOVELMSG,6     #MSG1
+     C                     MOVE FLD42     #MSG1
+     C                     MOVE FLD37     #MSG1
+     C                     ELSE
+      * If Error
+     C                     MOVE *ON       #STS
+     C                     EXCPTFOT1
+     C                     MOVE MSG,7     FLD36  36
+     C                     MOVELOK@CNT    FLD36
+     C                     MOVE MSG,7     FLD46  46
+     C                     MOVELWR@CNT    FLD46
+     C                     MOVE MSG,7     FLD61  61
+     C                     MOVELER@CNT    FLD61
+     C                     MOVELMSG,7     #MSG2
+     C                     MOVE FLD61     #MSG2
+     C                     MOVE FLD46     #MSG2
+     C                     MOVE FLD36     #MSG2
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      ******************************************************
+      *          MAIN ROUTINE
+      ******************************************************
+     C           #MAIN     BEGSR
+     C                     MOVE *OFF      *IN80
+      *
+     C           *IN80     DOWEQ*OFF
+     C                     READ EDIWP60                  80
+     C           *IN80     IFEQ *OFF
+     C                     ADD  1         LIN#
+     C                     EXSR #CHK1
+      * If Header, Skip
+     C           #HDFLG    IFEQ *ON
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ADD  1         DAT#
+     C           #ERFLG    IFEQ *OFF
+     C                     ADD  1         OK@CNT
+     C                     EXSR #WRT
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           XMAIN     ENDSR
+      ******************************************************
+      *          WRITE EDIPP60
+      ******************************************************
+     C           #WRT      BEGSR
+      *
+     C                     CLEAREDIPP601
+     C                     Z-ADD#6EDDT    E6EDDT
+     C                     Z-ADD#6MDDT    E6MDDT
+     C                     MOVE D6VPH1    LTR19
+     C                     MOVELLTR19     E6VPH1
+     C                     MOVE D6VFAX    LTR19
+     C                     MOVELLTR19     E6VFAX
+     C                     MOVELD6PO#     E6PO#
+     C                     MOVE D6HOLD    LTR9
+     C                     MOVELLTR9      E6HOLD
+     C                     Z-ADD#6DCDT    E6DCDT
+     C                     MOVE D6REV#    LTR9
+     C                     MOVELLTR9      E6REV#
+     C                     MOVELD6SHMD    E6SHMD
+     C                     MOVELD6PYTM    E6PYTM
+     C                     MOVELD6BYID    E6BYID
+     C                     MOVELD6VNAM    E6VNAM
+     C                     MOVELD6VAD1    E6VAD1
+     C                     MOVELD6VAD2    E6VAD2
+     C                     MOVELD6VAD3    E6VAD3
+     C                     MOVELD6VCTY    E6VCTY
+     C                     MOVELD6VSTT    E6VSTT
+      *
+     C                     MOVELD6VZIP    LTR1    1
+     C           LTR1      IFEQ HIP
+     C                     MOVE D6VZIP    LTR10  10
+     C                     MOVELLTR10     E6VZIP
+     C                     ELSE
+     C                     MOVELD6VZIP    E6VZIP
+     C                     ENDIF
+      *
+     C                     Z-ADD#6RQDT    E6RQDT
+     C                     MOVE D6PHN1    LTR19
+     C                     MOVELLTR19     E6PHN1
+     C                     MOVE D6FAX     LTR19
+     C                     MOVELLTR19     E6FAX
+     C                     MOVELD6DESC    E6DESC
+      *
+     C                     MOVELD6VHIN    LTR1
+     C           LTR1      IFEQ HIP
+     C                     MOVE D6VHIN    LTR29  29
+     C                     MOVELLTR29     E6VHIN
+     C                     ELSE
+     C                     MOVELD6VHIN    E6VHIN
+     C                     ENDIF
+      *
+     C                     MOVELD6VDSC    E6VDSC
+     C                     MOVE D6FOB     LTR9    9
+     C                     MOVELLTR9      E6FOB
+     C                     MOVELD6UM      LTR9
+      * CONVERT CAPITAL
+     C           AB1:AB2   XLATELTR9      E6UM
+      *
+     C                     Z-ADD#6ODQT    E6ODQT
+     C                     Z-ADD#6UP      E6UP
+     C                     Z-ADD#6EXT     E6EXT
+     C                     MOVELD6COM1    E6COM1
+     C                     MOVELD6COM2    E6COM2
+     C                     MOVELD6COM3    E6COM3
+     C                     MOVELD6COM4    E6COM4
+     C                     MOVELD6VID     E6VID
+     C                     MOVE D6CID     LTR19  19
+     C                     MOVELLTR19     E6CID
+     C                     MOVELD6VADC    E6VADC
+     C                     MOVELD6WLOC    E6WLOC
+     C                     MOVELD6WNM     E6WNM
+     C                     MOVELD6WACD    E6WACD
+     C                     MOVELD6WCCD    E6WCCD
+     C                     MOVELD6WAD1    E6WAD1
+     C                     MOVELD6WAD2    E6WAD2
+     C                     MOVELD6WAD3    E6WAD3
+     C                     MOVELD6WCTY    E6WCTY
+     C                     MOVELD6WCOT    E6WCOT
+     C                     MOVELD6WSTT    E6WSTT
+      *
+     C                     MOVELD6WZIP    LTR1    1
+     C           LTR1      IFEQ HIP
+     C                     MOVE D6WZIP    LTR10  10
+     C                     MOVELLTR10     E6WZIP
+     C                     ELSE
+     C                     MOVELD6WZIP    E6WZIP
+     C                     ENDIF
+      *
+     C                     MOVELD6WCRY    E6WCRY
+      *
+     C                     Z-ADD@DATE     E6CRDT
+     C                     Z-ADD@TIME     E6CRTM
+     C                     MOVEL#USER     E6CRID
+      *
+     C                     WRITEEDIPP601
+      *
+     C                     ENDSR
+      ******************************************************
+      *          CHECK INPUT FIELDS
+      ******************************************************
+     C           #CHK1     BEGSR
+     C                     MOVE *OFF      #HDFLG  1        HEADER FLAG
+     C                     MOVE *OFF      #ERFLG           ERROR FLAG
+     C                     MOVE *BLANK    XMSG   35
+      *
+      *   IF EDIT DATE = 'LSTEDTDT', THEN IT IS HEADER
+     C           D6EDDT    IFEQ 'LSTEDTDT'
+     C                     MOVE *ON       #HDFLG
+     C                     GOTO XGET
+     C                     ENDIF
+      * A: VALIDATE EDIT DATE -------------------------
+     C                     MOVELD6EDDT    @VLDAT
+     C                     CALL 'UTLR01'
+     C                     PARM           @VLDAT 10
+     C                     PARM           #TRUE   8
+     C                     PARM           #RTN    1
+     C           #RTN      IFEQ *BLANK
+     C                     MOVEL#TRUE     #6EDDT  80
+     C                     ELSE
+      *     Print Err Report: ERROR - EDIT DATE IS NOT IN CALENDAR..
+     C                     ADD  1         ER@CNT
+     C                     MOVE *ON       #ERFLG
+     C                     MOVELMSG,9     XMSG
+     C                     EXSR @PRINT
+     C                     ENDIF
+      * B: VALIDATE MODIFIED DATE ---------------------
+     C                     MOVELD6MDDT    @VLDAT
+     C                     CALL 'UTLR01'
+     C                     PARM           @VLDAT 10
+     C                     PARM           #TRUE   8
+     C                     PARM           #RTN    1
+     C           #RTN      IFEQ *BLANK
+     C                     MOVEL#TRUE     #6MDDT  80
+     C                     ELSE
+      *     Print Err Report: ERROR - MODIFIED DATE IS NOT IN CALENDAR..
+     C                     ADD  1         ER@CNT
+     C                     MOVE *ON       #ERFLG
+     C                     MOVELMSG,10    XMSG
+     C                     EXSR @PRINT
+     C                     ENDIF
+      * G: VALIDATE DOCUMENT DATE ---------------------
+     C                     MOVELD6DCDT    @VLDAT
+     C                     CALL 'UTLR01'
+     C                     PARM           @VLDAT 10
+     C                     PARM           #TRUE   8
+     C                     PARM           #RTN    1
+     C           #RTN      IFEQ *BLANK
+     C                     MOVEL#TRUE     #6DCDT  80
+     C                     ELSE
+      *     Print Err Report: ERROR - DOCUMENT DATE IS NOT IN CALENDAR..
+     C                     ADD  1         ER@CNT
+     C                     MOVE *ON       #ERFLG
+     C                     MOVELMSG,2     XMSG
+     C                     EXSR @PRINT
+     C                     ENDIF
+      * P: VALIDATE VENDOR REQ DATE -------------------
+     C                     MOVELD6RQDT    @VLDAT
+     C                     CALL 'UTLR01'
+     C                     PARM           @VLDAT 10
+     C                     PARM           #TRUE   8
+     C                     PARM           #RTN    1
+     C           #RTN      IFEQ *BLANK
+     C                     MOVEL#TRUE     #6RQDT  80
+     C                     ELSE
+      *     Print Err Report: ERROR - VENDOR REQ DATE IS NOT IN CALENDAR..
+     C                     ADD  1         ER@CNT
+     C                     MOVE *ON       #ERFLG
+     C                     MOVELMSG,3     XMSG
+     C                     EXSR @PRINT
+     C                     ENDIF
+      * AA: VALIDATE ORDER QTY -------------------------
+     C                     MOVE D6ODQT    LTR19  19
+     C                     EXSR @CNV1
+     C           @ERR      IFEQ *OFF
+     C                     Z-ADD$N155     #6ODQT 124
+     C                     ELSE
+      *     Print Err Report: ERROR - ORDER QTY IS INVALD..
+     C                     ADD  1         ER@CNT
+     C                     MOVE *ON       #ERFLG
+     C                     MOVELMSG,4     XMSG
+     C                     EXSR @PRINT
+     C                     ENDIF
+      * AB: VALIDATE UNIT PRICE -------------------------
+     C                     MOVE D6UP      LTR19  19
+     C                     EXSR @CNV1
+     C           @ERR      IFEQ *OFF
+     C                     Z-ADD$N155     #6UP   125
+     C                     ELSE
+      *     Print Err Report: ERROR - UNIT PRICE IS INVALD..
+     C                     ADD  1         ER@CNT
+     C                     MOVE *ON       #ERFLG
+     C                     MOVELMSG,5     XMSG
+     C                     EXSR @PRINT
+     C                     ENDIF
+      * AC: VALIDATE EXT. PRICE -------------------------
+     C                     MOVE D6EXT     LTR19  19
+     C                     EXSR @CNV1
+     C           @ERR      IFEQ *OFF
+     C                     Z-ADD$N155     #6EXT  125
+     C                     ELSE
+      *     Print Err Report: ERROR - EXT. PRICE IS INVALD..
+     C                     ADD  1         ER@CNT
+     C                     MOVE *ON       #ERFLG
+     C                     MOVELMSG,6     XMSG
+     C                     EXSR @PRINT
+     C                     ENDIF
+      *
+     C           XGET      TAG
+     C                     ENDSR
+      ******************************************************
+      *          @CNV1 : CONVERT NUMERIC
+      ******************************************************
+     C           @CNV1     BEGSR
+      * SEARCH DECIMAL
+     C                     MOVE *OFF      @ERR    1
+     C                     CLEARCSV
+     C                     MOVEALTR19     CSV
+     C                     Z-ADD1         IX      20
+     C           ' '       LOKUPCSV,IX                   98
+     C           *IN98     IFEQ *OFF
+     C                     MOVE *ON       @ERR
+     C                     GOTO XCNV1
+     C                     ENDIF
+      *
+     C                     Z-ADD16        IY      20
+     C                     MOVEL*ALL'0'   FLD
+      *
+     C                     DO   *HIVAL
+     C                     SUB  1         IX
+     C           IX        IFLE 0
+     C                     LEAVE
+     C                     ENDIF
+     C           CSV,IX    IFEQ '.'
+     C                     ITER
+     C                     ENDIF
+     C                     SUB  1         IY
+     C                     MOVELCSV,IX    FLD,IY
+     C                     ENDDO
+      *
+     C                     MOVEAFLD       W@FL15
+      * CHECK NUMERIC
+     C           WKCKSU    CHECKW@FL15                   99
+     C           *IN99     IFEQ *OFF
+     C                     Z-ADDW@NM15    $N154  154
+     C                     Z-ADDW@NM15    $N155  155
+     C                     ELSE
+      *     Print Err Report: ERROR - ORDER QTY IS INVALD..
+     C                     ADD  1         ER@CNT
+     C                     MOVE *ON       #ERFLG
+     C                     MOVELMSG,4     XMSG
+     C                     EXSR @PRINT
+     C                     ENDIF
+      *
+     C           XCNV1     ENDSR
+      ******************************************************
+      *          @PRINT: PRINT ERROR REPORT
+      ******************************************************
+     C           @PRINT    BEGSR
+      *
+     C   OF                EXCPTHDR1
+     C   OF                SETOF                     OF
+     C                     ADD  1         SEQ
+      *
+     C                     EXCPTDTL1
+      *
+     C                     ENDSR
+      ******************************************************
+      *                  INITIAL ROUTINE
+      ******************************************************
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           #STS    1
+     C                     PARM           #MSG1  80
+     C                     PARM           #MSG2  80
+      *
+     C                     Z-ADD*DATE     @DATE   80
+     C                     TIME           @TIME   60
+     C                     MOVE *ON       #ERFLG  1
+     C                     Z-ADD0         SEQ     50
+     C                     Z-ADD0         ER@CNT  50
+     C                     Z-ADD0         WR@CNT  50
+     C                     Z-ADD0         OK@CNT  50
+     C                     Z-ADD0         NM@CNT  50
+     C                     Z-ADD0         WR@CNT  50
+     C                     Z-ADD0         DAT#    50
+     C                     Z-ADD0         TTL#    50
+     C                     Z-ADD0         LIN#    50
+     C                     MOVELMSG,1     @TITL  43
+     C                     MOVELMSG,11    HIP     1
+      *
+     C                     ENDSR
+      *************************************************************
+      *                    OUTPUT                                 *
+      *************************************************************
+     OQPRINT  E  102           HDR1
+     O                                    8 'PROGRAM:'
+     O                         #PGM      17
+     O                         @TITL     80
+     O                                  100 'DATE'
+     O                         @DATE    111 '    .  .  '
+     O                         @TIME    120 '  :  :  '
+     O                         PAGE  Z  130
+     O                                  126 'PAGE'
+     O        E  1             HDR1
+     O                                    4 'ERR'
+     O                                   11 'LINE#'
+     O                                   20 'EDT-DATE'
+     O                                   30 'MOD-DATE'
+     O                                   40 'DOC-DATE'
+     O                                   50 'REQ-DATE'
+     O                                   60 'ORD-QTY'
+     O                                   70 'U/PRICE'
+     O                                   80 'E/PRICE'
+     O                                  100 'ERROR MSG'
+     O        E  1             HDR1
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+     O                                  130 '----------'
+      *
+     O        E  1             DTL1
+     O                         SEQ   Z    5
+     O                         LIN#  Z   11
+     O                         D6EDDT  +  1
+     O                         D6MDDT  +  1
+     O                         D6DCDT  +  1
+     O                         D6RQDT  +  1
+     O                         D6ODQT  +  1
+     O                         D6UP    +  1
+     O                         D6EXT   +  2
+     O                         XMSG     132
+      *
+     O        E  1             FOT1
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+     O                                  130 '----------'
+      *
+     O        E  1             FOT1
+     O                                   18 '** TOTAL RECORDS:'
+     O                         DAT#  3   23
+     O                                   31 ', ERROR:'
+     O                         ER@CNT3   36
+     O                                   46 ', WARNED: '
+     O                         WR@CNT3   51
+     O                                   56 ', OK:'
+     O                         OK@CNT3   61
+** (MSG)
+ ** GREAT PLAIN UPLOAD ERROR REPORT **
+ERR2- DOCUMENT DATE IS NOT IN CALENDAR..
+ERR3- VENDOR REQ DATE IS NOT IN CALENDAR..
+ERR4- ORDER QTY IS INVALD..
+ERR5- UNIT PRICE IS INVALD..
+ERR6- EXT. PRICE IS INVALD..
+Error Does Not Exist. Total:xxxxx (Warning:xxxxx). Enter G:Update or C:Cancel.
+Error Found! Error:xxxxx, Warning:xxxxx, OK:xxxxx. Enter G:Update or C:Cancel.
+ERR9- EDIT DATE IS NOT IN CALENDAR..
+ER10- MODIFIED DATE IS NOT IN CALENDAR..
+'

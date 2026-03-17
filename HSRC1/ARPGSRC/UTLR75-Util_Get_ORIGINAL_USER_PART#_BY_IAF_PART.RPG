@@ -1,0 +1,179 @@
+     H            Y.
+     F** UTLR75 ***********************************************************
+     F*  UTILITY- GET ORIGINAL USER PART# BY IAF PART#
+     F*----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UTLR75'
+     F*                    PARM           $IPART 12
+     F*                    PARM           $NONY   4
+     F*                    PARM           $UPART 20
+     F*                    PARM           $RTN    1
+     F*   IN  $IPART 12A   IAF PART
+     F*       $NONY   4A   DELIVERY CODE
+     F*   OUT $UPART 20A   USER PART
+     F*       $RTN    1A   RETURN (BLANK: OK, *: ERROR)
+     F******************************************************************
+     FAB#PLA9 IF  E           K        DISK
+     FFAAPL13 IF  E           K        DISK
+     F******************************************************************
+     I            DS
+     I                                        1  12 ##SHIN
+     I                                        1   5 ##SHN1
+     I                                        6  10 ##SHN2
+     I                                       11  12 ##SHN3
+     I            DS
+     I                                        1  20 UPART2
+     I                                        1   5 B7MHN1
+     I                                        6  10 B7MHN2
+     I                                       11  15 B7MHN3
+     I                                       16  20 B7MHN4
+     I            DS
+     I                                        1  20 WKMHIN
+     I                                        1   5 WKMHN1
+     I                                        6  10 WKMHN2
+     I                                       11  15 WKMHN3
+     I                                       16  20 WKMHN4
+     I            DS
+     I                                        1  23 W1MHIN
+     I                                        1   5 W1MHN1
+     I                                        6   6 W1HP1
+     I                                        7  11 W1MHN2
+     I                                       12  12 W1HP2
+     I                                       13  17 W1MHN3
+     I                                       18  18 W1HP3
+     I                                       19  23 W1MHN4
+      *----------------------------------------------------
+      * MAIN ROUTINE
+      *----------------------------------------------------
+     C                     EXSR #INIT
+      *
+      * GET PART FROM ORDER FILE (AB#PPA1)
+     C                     EXSR #PPA1
+     C           *IN85     IFEQ *OFF
+     C                     MOVEL#UPART    $UPART
+     C                     GOTO ENDP
+     C                     ENDIF
+      *
+      * GET PART FROM COMMON MASTER
+     C                     EXSR #FAAP
+      *
+     C           *IN85     IFEQ *OFF
+     C                     MOVEL#UPART    $UPART
+     C                     EXSR #MKUP
+     C                     GOTO ENDP
+     C                     ENDIF
+      *
+     C           ENDP      TAG
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------
+      * GET PART FROM ORDER FILE (AB#PPA1)
+      *----------------------------------------------------
+     C           #PPA1     BEGSR
+      *
+     C                     MOVE '*'       $RTN
+     C                     MOVE *ON       *IN85
+     C                     MOVE *BLANK    #UPART
+     C                     MOVEL$NONY     K#NONY  40
+     C                     MOVEL$IPART    ##SHIN
+     C                     MOVEL##SHN1    K#SHN1
+     C                     MOVEL##SHN2    K#SHN2
+     C                     MOVEL##SHN3    K#SHN3
+     C           K#PPA1    SETLLAB#PLA9
+     C                     DO   *HIVAL
+     C           K#PPA1    READEAB#PLA9                  98
+     C   98                LEAVE
+      *
+     C           BAFLD2    IFNE *BLANK
+     C                     MOVE *BLANK    $RTN
+     C                     MOVE *OFF      *IN85
+     C                     MOVELBAFLD2    #UPART
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------
+      * GET PART FROM COMMON PART MASTER
+      *----------------------------------------------------
+     C           #FAAP     BEGSR
+      *
+     C                     MOVE '*'       $RTN
+     C                     MOVE *ON       *IN85
+     C                     MOVE *BLANK    #UPART
+     C                     MOVEL$NONY     K#NONY  40
+     C                     MOVEL$IPART    ##SHIN
+     C                     MOVEL##SHN1    K#SHN1
+     C                     MOVEL##SHN2    K#SHN2
+     C                     MOVEL##SHN3    K#SHN3
+     C           K#FAAP    SETLLFAAPL13
+     C                     DO   *HIVAL
+     C           K#FAAP    READEFAAPL13                  98
+     C   98                LEAVE
+      *
+     C                     MOVE *BLANK    $RTN
+     C                     MOVE *OFF      *IN85
+     C                     MOVELUPART2    #UPART
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------
+      * MAKE UP USER PART ($UPART)
+      *----------------------------------------------------
+     C           #MKUP     BEGSR
+      * 5555 --> 5-5-5-5
+     C           $NONY     IFEQ 'TEST'
+     C                     MOVEL$UPART    WKMHIN
+     C                     MOVELWKMHN1    W1MHN1
+     C                     MOVELWKMHN2    W1MHN2
+     C                     MOVELWKMHN3    W1MHN3
+     C                     MOVELWKMHN4    W1MHN4
+     C           WKMHN2    IFEQ *BLANK
+     C                     MOVE ' '       W1HP1
+     C                     ELSE
+     C                     MOVE '-'       W1HP1
+     C                     ENDIF
+     C           WKMHN3    IFEQ *BLANK
+     C                     MOVE ' '       W1HP2
+     C                     ELSE
+     C                     MOVE '-'       W1HP2
+     C                     ENDIF
+     C           WKMHN4    IFEQ *BLANK
+     C                     MOVE ' '       W1HP3
+     C                     ELSE
+     C                     MOVE '-'       W1HP3
+     C                     ENDIF
+     C                     MOVELW1MHIN    $UPART
+     C                     ENDIF
+      *
+     C                     ENDSR
+      **************
+      * INITIAL SET
+      **************
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $IPART 12
+     C                     PARM           $NONY   4
+     C                     PARM           $UPART 20
+     C                     PARM           $RTN    1
+      *
+     C           K#PPA1    KLIST
+     C                     KFLD           K#SHN1  5
+     C                     KFLD           K#SHN2  5
+     C                     KFLD           K#SHN3  2
+     C                     KFLD           K#NONY  40
+      *
+     C           K#FAAP    KLIST
+     C                     KFLD           K#NONY
+     C                     KFLD           K#SHN1
+     C                     KFLD           K#SHN2
+     C                     KFLD           K#SHN3
+      *
+     C                     MOVEL$IPART    $UPART    P
+     C                     MOVE *BLANK    $RTN
+     C                     MOVE *BLANK    #UPART 20
+      *
+     C                     ENDSR

@@ -1,0 +1,128 @@
+             PGM
+             /** GDGC60 *****************/
+             /*  YEARLY UPDAT HANDLING  */
+             /*   G.B.C      97/03/06   */
+             /***************** GDGC60 **/
+             DCLF       FILE(GDGPW60)
+             DCL        VAR(&USER)  TYPE(*CHAR) LEN(10)
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&TYPE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&DATE)  TYPE(*CHAR) LEN(6)
+             DCL        VAR(&DATE2) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&DY0)   TYPE(*CHAR) LEN(2)
+             DCL        VAR(&DY1)   TYPE(*CHAR) LEN(2)
+             DCL        VAR(&SNDA)  TYPE(*CHAR)  LEN(4)
+             DCL        VAR(&RCVA)  TYPE(*CHAR)  LEN(1)
+             DCL        VAR(&GO)    TYPE(*CHAR)  LEN(2)
+             DCL        VAR(&WLIB)  TYPE(*CHAR) LEN(8)
+             DCL        VAR(&FLIB)  TYPE(*CHAR) LEN(8)
+            /*-------------------------------------------------------*/
+             RTVJOBA    JOB(&WSID) USER(&USER) DATE(&DATE)
+
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+             /* TEST MODE CHECK */
+             CHGVAR     VAR(&FLIB) VALUE('HFILE1  ')
+             CALL       PGM(ALBC00) PARM(&USER &WLIB)
+             IF         COND(&WLIB *EQ 'TWFILE1 ') THEN(DO)
+             CHGVAR     VAR(&FLIB) VALUE('TFILE1  ')
+             ENDDO
+             /* *************** */
+
+             CHGVAR     VAR(&DY1) VALUE(%SST(&DATE 1 2))
+             CHGVAR     VAR(&DY0) VALUE('19')
+
+             IF         COND(&DY1 *LE '90') THEN(CHGVAR VAR(&DY0) +
+                          VALUE('20'))
+
+             CHGVAR     VAR(%SST(&DATE2 1 2)) VALUE(&DY0)
+             CHGVAR     VAR(%SST(&DATE2 3 2)) VALUE(&DY1)
+
+             CHGVAR     VAR(&D#MSG) VALUE(' ')
+             CHGVAR     VAR(&IN99) VALUE('0')
+
+             DLTOVR     FILE(*ALL)
+             MONMSG     MSGID(CPF0000)
+
+             CHGVAR     VAR(&D1YY) VALUE(&DATE2)
+             CHGVAR     VAR(&IN11) VALUE('0')
+
+ DSP1:       CHGVAR     VAR(&IN01) VALUE('0')
+             CHGVAR     VAR(&IN05) VALUE('0')
+
+             SNDRCVF    RCDFMT(DSP01)
+             IF         (&IN01 = '1') GOTO END
+             CHGVAR     VAR(&IN99) VALUE('0')
+
+             CHGVAR     VAR(&DATE2) VALUE(&D1YY)
+             IF         (&DATE2 *EQ '    ') GOTO ERR1
+
+             IF         (&IN05 = '0') GOTO DSP1
+             GOTO       JOB1
+
+ ERR1:
+             CHGVAR     VAR(&IN11) VALUE('1')
+             CHGVAR     VAR(&IN99) VALUE('1')
+             CHGVAR     VAR(&D#MSG) VALUE('INCORRECT DATA.')
+             GOTO       DSP1
+
+ ERR2:
+             CHGVAR     VAR(&IN11) VALUE('1')
+             CHGVAR     VAR(&IN99) VALUE('1')
+             CHGVAR     VAR(&D#MSG) VALUE('THERE IS NOT DATA. PUSH CMD-1')
+             GOTO       DSP1
+
+ JOB1:
+             DLTF       FILE(GDGWP60)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/GDGWP60) SRCFILE(HSRC1/ADDSSRC) +
+                          SRCMBR(GDGPP20) OPTION(*NOLIST *NOSRC) +
+                          SIZE(50000 10000) LVLCHK(*NO) AUT(*ALL)
+             MONMSG     CPF0000
+
+             /* ﾌﾞｮhaｮﾎﾟF ﾅhﾈb */
+             CHGVAR     VAR(&GO) VALUE('NG')
+
+             CALL       PGM(GDGR60) PARM(&USER &DATE2 &GO)
+             IF         (&GO = 'NG') GOTO ERR2
+
+ SYSM:       SNDPGMMSG  MSG('PLAY THE ORDERING DATA 8MM +
+                          TAPE. (G.C)') +
+                          TOMSGQ(QSYS/QSYSOPR) MSGTYPE(*INQ) +
+                          KEYVAR(&SNDA)
+             RCVMSG     MSGTYPE(*RPY)   MSGKEY(&SNDA) +
+                        WAIT(*MAX)      MSG(&RCVA)
+
+             IF         COND((&RCVA = 'G') *OR (&RCVA = 'g')) +
+                          THEN(GOTO CMDLBL(SYSM1))
+             IF         COND((&RCVA = 'C') *OR (&RCVA = 'c')) +
+                          THEN(GOTO CMDLBL(END))
+             GOTO       SYSM
+
+ SYSM1:      INZTAP     DEV(TAP04) NEWVOL(IAF) CHECK(*NO)
+             SAVOBJ     OBJ(GDGWP60) LIB(&FLIB) DEV(TAP04) +
+                          ENDOPT(*UNLOAD)
+
+ SYSM2:      SNDPGMMSG  MSG('TAKE OUT THE ORDERING DATA 8MM +
+                          TAPE. (G)') +
+                          TOMSGQ(QSYS/QSYSOPR) MSGTYPE(*INQ) +
+                          KEYVAR(&SNDA)
+             RCVMSG     MSGTYPE(*RPY)   MSGKEY(&SNDA) +
+                        WAIT(*MAX)      MSG(&RCVA)
+
+             IF         COND((&RCVA = 'G') *OR (&RCVA = 'g')) +
+                          THEN(GOTO CMDLBL(JOB2))
+             GOTO       SYSM2
+
+ JOB2:       /* iﾞlﾆﾞ ﾌｮkｬcF ﾅhﾆﾞｭ */
+             CALL       PGM(GDGR61) PARM(&USER &DATE2)
+
+     /*    月次発注データファイル        */
+             RGZPFM     FILE(GDGPP20)
+             MONMSG     CPF0000
+
+             DLTF       FILE(GDGWP60)
+             MONMSG     CPF0000
+
+ END:        ENDPGM

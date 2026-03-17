@@ -1,0 +1,310 @@
+     H            Y.
+      ** AB#R2CB *******************************************
+      *  CREATE MASTER LABEL AB#WP2O FROM AB#PP71          *
+      *  JW   2024.12.02                                   *
+      ******************************************************
+     FAB#PL71AIF  E           K        DISK
+     FAB#NP30 UF  E           K        DISK                      A
+     FAB#WP2O O   E                    DISK
+     FAB#XP01AO   E                    DISK
+      *-----------------------------------------------------
+     E                    MSG     1   5 50
+     I            DS
+     I                                        1  20 MPMHIN
+     I                                        1   5 MPMHN1
+     I                                        6  10 MPMHN2
+     I                                       11  15 MPMHN3
+     I                                       16  20 MPMHN4
+     I            DS
+     I                                        1  12 MPSHIN
+     I                                        1   5 MPSHN1
+     I                                        6  10 MPSHN2
+     I                                       11  12 MPSHN3
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *-----------------------------------------------------
+      * MAIN ROUTINE
+      *-----------------------------------------------------
+     C                     EXSR #INIT
+      *
+     C           $SERL#    SETLLAB#PL71A
+     C                     DO   *HIVAL
+     C           $SERL#    READEAB#PL71A                 98
+     C   98                LEAVE
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     EXSR #FIRST
+     C                     ENDIF
+      * OUTPUT AB#WP2O
+     C                     EXSR #WP2O
+      * LOG
+     C                     CLEARAB#XP1A1
+ |   C                     MOVEL'AB#WP2O 'IXWRKF    P
+ |   C                     EXSR #XP01                      =>AB#XP01
+      *
+     C                     ENDDO
+      *
+     C                     MOVEL*ON       *INLR
+     C                     RETRN
+      *-----------------------------------------------------
+      * FIRST PROCESS
+      *-----------------------------------------------------
+     C           #FIRST    BEGSR
+      * ADDRESS
+     C                     MOVELMPNONY    PNONY
+     C                     CALL 'AB#R2C2'
+     C                     PARM           PNONY   4
+     C                     PARM *BLANK    P@ADR1 50
+     C                     PARM *BLANK    P@ADR2 50
+     C                     PARM *BLANK    P@ADR3 50
+     C                     PARM *BLANK    P@ADR4 50
+     C                     PARM *BLANK    P@ADR5 50
+     C                     PARM *BLANK    P@ADR6 50
+     C                     PARM *BLANK    P@SKJY  1
+      * CUSTOMER NAME
+     C                     MOVELMPNONY    PMNONY
+     C                     MOVE 'D'       PMOPT
+     C                     CALL 'UTLR16'
+     C                     PARM           PMNONY  4
+     C                     PARM           PMOPT   1
+     C                     PARM           PMNAME 20
+     C                     PARM           PTOKU   4
+     C                     PARM           PMRTN   1
+      * SUPPLIER
+     C                     MOVELMPNONY    $NONY
+     C                     CALL 'UTLR62C'
+     C                     PARM           $NONY   4
+     C                     PARM           $SUPP  10
+      *
+     C                     ENDSR
+      *-----------------------------------------------------
+      * OUTPUT AB#WP2O
+      *-----------------------------------------------------
+     C           #WP2O     BEGSR
+      *
+     C                     CLEARAB#WP2O1
+      * GET USER PART#
+     C                     MOVELMPMHIN    $IPART
+     C                     MOVELMPNONY    $NONY
+     C                     CALL 'UTLR75B'
+     C                     PARM           $IPART 20
+     C                     PARM           $NONY   4
+     C                     PARM           $UPART 20
+     C                     PARM           $RTN    1
+      *
+     C           $RTN      IFEQ ' '
+     C                     MOVEL$UPART    O2PART           20A PART#
+     C                     ELSE
+     C                     MOVELMPMHIN    O2PART
+     C                     ENDIF
+      * GET SBAN
+     C           MPSBAN    IFEQ *BLANK
+     C                     CALL 'UTLR33C'
+     C                     PARM           $NONY   4
+     C                     PARM           $NKOJ   1
+     C                     PARM           $NUKE   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $NOHZ   8
+     C                     PARM           $SBAN   6
+     C                     MOVEL$SBAN     O2SBAN            4A KANBAN#
+     C                     ELSE
+     C                     MOVELMPSBAN    O2SBAN
+     C                     ENDIF
+      *
+     C           O2SBAN    IFEQ *BLANK
+     C                     MOVE '0000'    O2SBAN
+     C                     ENDIF
+      *
+     C                     Z-ADDMPSRYO    $PIN
+     C                     CALL 'EDTR04'
+     C                     PARM           $PIN   300
+     C                     PARM           $POUT  30
+     C                     MOVEL$POUT     O2QTY             7A QTY
+      *
+     C                     MOVELMPNUKE    O2DOCK            4A DOCK
+      * PALLET#
+     C                     MOVEL'   /   ' LTR7    7
+     C                     MOVELMPPAL#    LTR7
+     C                     MOVE MPTPAL    LTR7
+     C                     MOVELLTR7      O2ADDR           15A PALLET#/TOTAL PAL
+      *
+     C                     MOVELMPNONY    O2SIRE            4A SUPPLIER
+      * PART NAME
+     C           MPNONY    IFEQ 5426                       TSUSHO,KY
+     C                     MOVELMSG,1     O2PNAM           30A 'MASTER LABEL'
+     C                     ELSE
+     C                     MOVELMPSHIN    $SHIN
+     C                     CALL 'UTLR31C'
+     C                     PARM           $SHIN  12
+     C                     PARM           $NAME  15
+     C                     MOVEL$NAME     O2PNAM
+     C                     ENDIF
+      *
+     C                     MOVELMPSHIN    O2IPAR           20A IAF PART#
+     C                     MOVELMPNOHZ    O2SHDT            8A SHIP DATE
+     C                     MOVE *BLANK    O2SEQ#            4A SEQUENCE#
+     C                     MOVELMPODRN    O2ORDR           10A ORDER#
+      *
+     C                     MOVELMPLOC1    O2LOC1            1A LOCATION 1
+     C                     MOVELMPLOC2    O2LOC2            2A LOCATION 2
+     C                     MOVELMPLOC3    O2LOC3            2A LOCATION 3
+     C                     MOVELMPLOC4    O2LOC4            1A LOCATION 4
+     C                     MOVELMPNONY    O2DELY            4A DELIVERY CODE
+     C                     MOVELMPNKOJ    O2FACT            1A FACTORY
+     C                     MOVE *BLANK    O2ZETI            4A ITEM#
+      * EDIT QPC
+     C                     Z-ADDMPSYOS    $PIN
+     C                     CALL 'EDTR04'
+     C                     PARM           $PIN   300
+     C                     PARM           $POUT  30
+     C                     MOVEL$POUT     O2UNIT            5A QPC
+      *
+     C                     MOVELPMNAME    O2CNAM            10A CUSTOMER NAME
+      * WEIGHT
+     C                     MOVELMPSHIN    $IPAR
+     C                     MOVE *BLANK    $NONY
+     C                     CALL 'UTLR33B'
+     C                     PARM           $IPAR  12
+     C                     PARM           $NONY   4
+     C                     PARM           $NET    7
+     C                     PARM           $MSC    7
+     C                     MOVEL$NET      @NET    72
+     C                     MOVEL$MSC      @MSC    72
+     C           @NET      MULT MPSRYO    NUM10  102
+     C           NUM10     DIV  1000      NUM72   72
+     C           @MSC      MULT MPHAKO    @WGT    72
+     C                     ADD  NUM72     @WGT
+      * EDIT @WGT
+     C                     Z-ADD@WGT      $PIN
+     C                     CALL 'EDTR04'
+     C                     PARM           $PIN   300
+     C                     PARM           $POUT  30
+     C                     MOVEL$POUT     O2WEIT            4A WEIGHT
+      * SERIAL#
+     C                     EXSR #NMBR
+     C                     MOVELN3NMBR    O2SERL           18A SERIAL#
+     C                     MOVELMPNONY    O2SERL
+     C                     MOVE N3NMBR    O2DUMY            5A DUMMY
+      *
+     C                     MOVEL$SERL#    O2FILR           20A PACKING LIST#
+     C                     MOVEL$SUPP     O2FLDA           20A SPUPPLIER
+      * SUPPLIER CODE
+     C           O2FLDA    IFEQ *BLANK
+     C                     SELEC
+     C           MPNONY    WHEQ 7448
+     C                     MOVEL'5IAFAV'  O2FLDA 20
+     C           MPNONY    WHEQ 7449
+     C                     MOVEL'8IAFAK'  O2FLDA
+     C           MPNONY    WHEQ 7450
+     C                     MOVEL'2IAFAV'  O2FLDA
+     C           MPNONY    WHEQ 7451
+     C                     MOVEL'10IAFA'  O2FLDA
+     C           MPNONY    WHEQ 7452
+     C                     MOVEL'7INDIA'  O2FLDA
+     C           MPNONY    WHEQ 5426
+     C                     MOVEL'94695564'LTR9    9
+     C                     MOVE '8'       LTR9
+     C                     MOVELLTR9      O2FLDA    P
+     C                     ENDSL
+     C                     ENDIF
+      *
+     C                     MOVELPMNAME    O2FLDB           50A CUST NAME
+     C                     MOVELP@ADR2    O2FLDC           50A ADDR 1
+     C                     MOVELP@ADR3    O2FLDD           50A ADDR 2
+      *
+     C                     WRITEAB#WP2O1
+      *
+     C                     ENDSR
+      *-----------------------------------------------------
+      * SET SERIAL #
+      *-----------------------------------------------------
+     C           #NMBR     BEGSR
+      *
+     C                     MOVE *ALL'9'   @@14   140
+     C           MPNONY    CHAINAB#NP30              97
+     C           *IN97     IFEQ *ON
+     C                     Z-ADD1         N3NMBR
+     C                     Z-ADDTODAY     N3UDAT
+     C                     Z-ADDNOW       N3UTIM
+     C                     MOVEL#PGM      N3UPGM
+     C                     MOVEL#USER     N3UUSR
+     C                     MOVEL#WSID     N3UWIS
+     C                     Z-ADDMPNONY    N3NONY
+     C                     WRITEAB#NP301
+     C                     GOTO XNMBR
+     C                     ENDIF
+      *
+     C                     ADD  1         N3NMBR
+      *
+     C           N3NMBR    IFEQ @@14
+     C                     Z-ADD1         N3NMBR
+     C                     ENDIF
+      *
+     C                     Z-ADDTODAY     N3UDAT
+     C                     Z-ADDNOW       N3UTIM
+     C                     MOVEL#PGM      N3UPGM
+     C                     MOVEL#USER     N3UUSR
+     C                     MOVEL#WSID     N3UWIS
+     C                     UPDATAB#NP301
+      *
+     C           XNMBR     ENDSR
+      *================================================================
+      * LABEL DATA ISSUE LOG
+      *================================================================
+     C           #XP01     BEGSR
+      *
+     C                     Z-ADDTODAY     IXKOHZ           TODAY
+     C                     Z-ADDNOW       IXKOTM           NOW
+     C                     MOVELMPTOKU    IXTOKU           CUSTOMER
+     C                     MOVELO2DELY    IXNONY           DELIVERY
+     C                     MOVELO2FACT    IXNKOJ           FACTORY
+     C                     MOVELO2DOCK    IXNUKE           DOCK
+     C                     MOVELO2ORDR    IXODRN           ORDER #
+     C                     MOVELO2SERL    IXSERL           SERIAL NUMBER
+     C                     MOVELO2SHDT    IXDEDT           SHIP DATE
+     C                     MOVELMPNOBN    IXNOBN           BIN#
+      *
+     C                     MOVELO2FILR    IXPL#
+     C                     MOVEL#USER     IXKOUS
+     C                     MOVEL#WSID     IXKOWS
+     C                     MOVEL#PGM      IXKOPG
+      *
+     C                     MOVELO2PART    IXMHIN
+     C                     MOVELO2IPAR    IXSHIN
+     C                     MOVELO2PNAM    IXINVN
+     C                     Z-ADDMPSRYO    IXSRYO
+     C                     Z-ADD0         IXUSYS
+     C                     Z-ADDMPSYOS    IXSYOS
+     C                     Z-ADDMPHAKO    IXFIL3           BOX
+     C                     MOVELO2ADDR    IXFIL2           PALLET#
+      *
+     C                     WRITEAB#XP1A1
+      *
+     C           XXP01     ENDSR
+      *-----------------------------------------------------
+      * INITIAL SETTING
+      *-----------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $SERL#  9        PACKING LIST#
+      *
+     C                     TIME           SDATE
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD0         CNT     30
+      *
+      *
+     C                     ENDSR
+** MSG ..1.........2.........3.........4..........5
+MASTER LABEL                                         01
+                                                     02
+                                                     03
+                                                     04
+                                                     05

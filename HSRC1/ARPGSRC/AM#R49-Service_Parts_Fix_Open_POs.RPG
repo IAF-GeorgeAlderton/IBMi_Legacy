@@ -1,0 +1,343 @@
+     H            Y.
+     F** AM#R49 *********************************************
+     F* SERVICE PARTS - FIX OPEN POS                        *
+     F*    LEC.  2022.12.21                                 *
+     F*  ---------------------
+     F*******************************************************
+     FAM#PW49 CF  E                    WORKSTN
+     FAB#PL10AUF  E           K        DISK                      A
+     FAM#PL43CIF  E           K        DISK
+     FAB#PPA1 O   E                    DISK
+     FAB#PL44 O   E           K        DISK                      A
+     FALDWP29 O   E                    DISK                      A
+     E                    ER      1   5 65
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        7  140SDATE
+     I                                        7  14 CSDAT
+     I                                        7  100SDYY
+     I                                       11  120SDMM
+     I                                       13  140SDDD
+     I                                        1   60STIME
+     I                                        1   6 CSTIM
+     I                                        1   20STHH
+     I                                        3   40STMM
+      *
+     I            DS
+     I                                        1   8 ODSHID
+     I                                        1   4 ODNOYY
+     I                                        5   6 ODNOMM
+     I                                        7   8 ODNODD
+      *
+     I            DS
+     I                                        1  10 M1ODDD
+     I                                        1   4 ODYY
+     I                                        5   5 DASH1
+     I                                        6   7 ODMM
+     I                                        8   8 DASH2
+     I                                        9  10 ODDD
+      *
+     I            DS
+     I                                        1  20 MHIN
+     I                                        1   5 BAMHN1
+     I                                        6  10 BAMHN2
+     I                                       11  15 BAMHN3
+     I                                       16  20 BAMHN4
+      *
+     I            DS
+     I                                        1   80NWNOHZ
+     I                                        1   40NWNOYY
+     I                                        5   60NWNOMM
+     I                                        7   80NWNODD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           WORKER  6
+     C                     PARM           WUSRID 10
+     C                     PARM           WCMD    1
+      **
+     C           K#10A     KLIST
+     C                     KFLD           ODRN10 10
+     C                     KFLD           MHN20  20
+      *
+     C           K#43C     KLIST
+     C                     KFLD           D1ODRN
+     C                     KFLD           D1MHN
+      *
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     EXSR #SB100
+     C                     EXSR NWSHID
+      *
+     C           DSPSW     DOWNE'99'
+     C                     EXSR #SB200
+     C                     ENDDO
+     C                     EXSR #SB300
+      *----------------------------------------------------*
+      * INZ                                                *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     TIME           WTIME
+     C                     MOVELWORKER    USRCD   6
+     C                     CLEARDSP01
+     C                     CLEARDSP01A
+      *
+     CSR         ESB100    ENDSR
+      *----------------------------------------------------*
+      * GET NEW SHIP DATE FOR ORDER                        *
+      *----------------------------------------------------*
+     CSR         NWSHID    BEGSR
+      *
+     C           *IN99     DOWEQ*OFF
+     C                     EXFMTDSP01A
+     C                     MOVEL*BLANK    MSG
+     C                     SETOF                     3099
+      *
+     C           *IN03     IFEQ *ON
+     C                     MOVEL'99'      DSPSW
+     C                     MOVEL'1'       WCMD
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     MOVELD1SHID    $SRC
+      *
+      * check for valid new ship date...
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+      *
+     C           $RTN      IFEQ *BLANK
+     C                     MOVEL'01'      DSPSW   2
+     C                     LEAVE
+     C                     ELSE
+     C                     MOVELER,1      MSG
+     C                     SETON                     3099
+     C                     EXSR #SB999
+     C                     SETOF                     3099
+     C                     MOVEL*BLANK    MSG
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     CSR                   ENDSR
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANK    MSG
+     C                     SETOF                     313299
+      *
+     C                     TIME           WTIME
+     C           *IN03     IFEQ *ON
+     C                     MOVEL'99'      DSPSW   2
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+     C                     EXSR #CHK01
+      *
+     C           *IN99     IFEQ *OFF
+     C                     EXSR #SB600
+     C                     EXSR #SB500
+     C                     CLEARAB#PL1A1
+     C                     CLEARAB#PP441
+     C                     CLEARALDWP291
+      *
+     C                     ADD  1         D1SHRT
+     C                     ELSE
+     C                     EXSR #SB999
+     C                     SETOF                     313299
+     C                     MOVEL*BLANK    MSG
+     C                     ENDIF
+      *
+     C                     CLEARD1ODRN
+     C                     CLEARD1MHN
+      *
+     CSR         ESB200    ENDSR
+      *----------------------------------------------------*
+      *瀗疢�⒳�痧�　　　　　　　　　　　　　　　　　　�
+      *----------------------------------------------------*
+     CSR         #CHK01    BEGSR
+      *
+      * check order number not blank...
+     C           D1ODRN    IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,2      MSG
+     C                     GOTO ECHK01
+     C                     ENDIF
+      *
+      * check part number not blank...
+     C           D1MHN     IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,3      MSG
+     C                     GOTO ECHK01
+     C                     ENDIF
+      *
+      *
+      * check order/part is in order file...
+     C                     MOVELD1ODRN    ODRN10
+     C                     MOVELD1MHN     MHN20
+     C           K#10A     CHAINAB#PL10A            N50
+      *
+     C           *IN50     IFEQ *ON
+     C                     SETON                     313299
+     C                     MOVELER,4      MSG
+     C                     GOTO ECHK01
+     C                     ENDIF
+      *
+      * check order/part is in open po file...
+     C           K#43C     CHAINAM#PL43C             50
+      *
+     C           *IN50     IFEQ *ON
+     C                     SETON                     313299
+     C                     MOVELER,5      MSG
+     C                     GOTO ECHK01
+     C                     ENDIF
+      *
+     CSR         ECHK01    ENDSR
+      *----------------------------------------------------*
+      * Display Error Message                              *
+      *----------------------------------------------------*
+     CSR         #SB999    BEGSR
+      *
+     C                     MOVELMSG       P1ERR
+     C                     CALL 'AM#R08'
+     C                     PARM           P1ERR  25
+      *
+     CSR         ESB999    ENDSR
+      *----------------------------------------------------*
+      * End the Program                                    *
+      *----------------------------------------------------*
+     CSR         #SB300    BEGSR
+     C                     SETON                     LR
+     C                     RETRN
+     CSR         ESB300    ENDSR
+      *----------------------------------------------------*
+      * Write to Shortage Reversal Workfile - ALDWP29      *
+      *----------------------------------------------------*
+     C           #SB500    BEGSR
+      *
+     C                     MOVELWORKER    W1KOME
+     C                     MOVELW#PGM     W1KPGM
+     C                     Z-ADDSDATE     W1SSHZ
+     C                     Z-ADDSTIME     W1SSTI
+      *
+     C                     MOVELODYY      ODNOYY
+     C                     MOVELODMM      ODNOMM
+     C                     MOVELODDD      ODNODD
+     C                     MOVELODSHID    W1SHID
+      *
+     C                     Z-ADDBANONY    W1NONY
+     C                     MOVELBANUKE    W1NUKE
+     C                     MOVELD1ODRN    W1ORD#
+     C                     MOVELD1MHN     W1MHN
+     C                     MOVELBAUSYS    W1QPC
+     C                     MOVELBALIN#    W1LINE
+     C                     MOVELBALIN#    W1LIN#
+     C                     MOVELD1SHID    W1RDA
+     C                     MOVELBAHPOS    W1HPOS
+     C                     Z-ADDBAIAF#    W1IAF#
+      *
+     C                     Z-ADDM1UQTY    W1ODER
+      *
+     C                     MOVELBANOBN    W1NOBN
+     C                     MOVELBANOBN    W1NWBN
+     C                     WRITEALDWP291
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * Write New Order to AB#PP10 and AB#PP44             *
+      *----------------------------------------------------*
+     C           #SB600    BEGSR
+      *
+      *  write new order record with new ship date and new bin#...
+      *
+     C                     MOVEL*BLANKS   BASKJY
+     C                     Z-ADD*ZERO     BASKYY
+     C                     Z-ADD*ZERO     BASKMM
+     C                     Z-ADD*ZERO     BASKDD
+     C                     Z-ADDSDYY      BAKOYY
+     C                     Z-ADDSDMM      BAKOMM
+     C                     Z-ADDSDDD      BAKODD
+     C                     Z-ADDSTHH      BAKOHH
+     C                     Z-ADDSTMM      BAKOSS
+     C                     MOVELWORKER    BAKOME    P
+     C                     Z-ADDD1SHID    NWNOHZ
+     C                     Z-ADDNWNOYY    BANOYY
+     C                     Z-ADDNWNOMM    BANOMM
+     C                     Z-ADDNWNODD    BANODD
+      *
+      * get IAF internal part# because it may have changed since being shorted..
+     C                     MOVELBATOKU    TOKU    4
+     C                     MOVELBANONY    NONY    4
+     C                     CALL 'BBHR50'
+     C                     PARM           TOKU
+     C                     PARM           NONY
+     C                     PARM           BANKOJ
+     C                     PARM           BANUKE
+     C                     PARM           MHIN   20
+     C                     PARM           SHIN   12
+     C                     PARM           FLAG    1
+      *
+     C           FLAG      IFEQ *BLANK
+     C           5         SUBSTSHIN:1    BASHN1
+     C           5         SUBSTSHIN:6    BASHN2
+     C           2         SUBSTSHIN:11   BASHN3
+     C                     ENDIF
+      *
+      * ADDITIONAL FIELDS
+     C                     MOVELSDATE     $DATE
+     C                     MOVE 'Y'       $UPD
+     C                     CALL 'UTLR56C'
+     C                     PARM           $DATE   8
+     C                     PARM           $UPD    1
+     C                     PARM           $IAF#  10
+     C                     MOVEL$IAF#     BAIAF#
+     C                     Z-ADDSDATE     BACRHZ
+     C                     Z-ADDSTIME     BACRTM
+     C                     MOVELW#PGM     BACRPG
+     C                     MOVELW#USER    BACRME
+      *
+     C                     WRITEAB#PL1A1
+     C                     WRITEAB#PPA11
+      *
+      *  write new order record with new ship date and new bin#...
+     C                     Z-ADDSDATE     DAKYMD
+     C                     Z-ADDSTIME     DAKTIM
+     C                     Z-ADDBATOKU    DATOKU
+     C                     Z-ADDBANONY    DANONY
+     C                     MOVELBANKOJ    DANKOJ
+     C                     MOVELBANUKE    DANUKE
+     C                     Z-ADDD1SHID    DANYMD
+     C                     Z-ADDBANOBN    DANOBN
+     C                     MOVELBAMHN1    DAMHN1
+     C                     MOVELBAMHN2    DAMHN2
+     C                     MOVELBAMHN3    DAMHN3
+     C                     MOVELBAMHN4    DAMHN4
+     C                     MOVELBAODRN    DAORDN
+     C                     MOVELBAHPOS    DAHOME
+     C                     MOVELBALIN#    DALINE
+JW   C                     MOVELBAINVN    LTR5    5
+JW   C                     MOVELLTR5      DASUNM    P
+      *
+     C                     WRITEAB#PP441
+      *
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+**
+INVALID DATE.
+ENTER ORDER NUMBER.
+ENTER PART NUMBER.
+NO ORDER DATA.
+NO OPEN PO DATA.

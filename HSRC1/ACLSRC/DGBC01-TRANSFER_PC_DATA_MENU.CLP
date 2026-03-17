@@ -1,0 +1,120 @@
+             PGM
+/** DGBC01 ************************************************/
+/*  ＰＣデータ転送用総合メニュー                        */
+/*        M-OKUDA      03.07.02                           */
+/*                                                        */
+/* TCHK1 06/17/09 CREATE                                  */
+/************************************************ DGBC01 **/
+             DCLF       FILE(DGBPW01)
+             DCL        VAR(&WS) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&US) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&TYPE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT) TYPE(*CHAR) LEN(7)
+             RTVJOBA    JOB(&WS) USER(&US)
+             CALL       PGM(AGAR00) PARM(&WS &PRT &TYPE &PRTG)
+ STEP00:     CHGVAR     VAR(&IN01) VALUE('0')
+             CHGVAR     VAR(&IN02) VALUE('0')
+             CHGVAR     VAR(&IN05) VALUE('0')
+             CHGVAR     VAR(&NO) VALUE(0)
+
+ STEPSS:     SNDRCVF    DEV(&WS) RCDFMT(DGBPW011)
+             CHGVAR     VAR(&IN99) VALUE('0')
+             IF         (&IN01 *EQ '1') GOTO END
+/* TCHK1     IF         (&IN02 *EQ '1') GOTO STEPSP */
+/* TCHK1     IF         (&IN05 *EQ '1') GOTO STEPNE */
+
+             IF         (&NO *EQ 1) GOTO STEP01
+/* TCHK1     IF         (&NO *EQ 2) GOTO STEP02     */
+/* TCHK1     IF         (&NO *EQ 3) GOTO STEP03     */
+/* TCHK1     IF         (&NO *EQ 4) GOTO STEP04     */
+/* TCHK1     IF         (&NO *EQ 5) GOTO STEP05     */
+/* TCHK1     IF         (&NO *EQ 6) GOTO STEP06     */
+/* TCHK1     IF         (&NO *EQ 7) GOTO STEP07     */
+/* TCHK1     IF         (&NO *EQ 8) GOTO STEP08     */
+/* TCHK1     IF         (&NO *EQ 9) GOTO STEP09     */
+/* TCHK1     IF         (&NO *EQ 10) GOTO STEP10    */
+/* TCHK1     IF         (&NO *EQ 11) GOTO STEP11    */
+/* TCHK1     IF         (&NO *EQ 12) GOTO STEP12    */
+/* TCHK1     IF         (&NO *EQ 13) GOTO STEP13    */
+/* TCHK1     IF         (&NO *EQ 14) GOTO STEP14    */
+/* TCHK1     IF         (&NO *EQ 15) GOTO STEP15    */
+/* TCHK1     IF         (&NO *EQ 16) GOTO STEP16    */
+/* TCHK1     IF         (&NO *EQ 17) GOTO STEP17    */
+/* TCHK1     IF         (&NO *EQ 18) GOTO STEP18    */
+/* TCHK1     IF         (&NO *EQ 19) GOTO STEP19    */
+/* TCHK1     IF         (&NO *EQ 20) GOTO STEP20    */
+             CHGVAR     VAR(&IN03) VALUE('1')
+             CHGVAR     VAR(&IN99) VALUE('1')
+             CHGVAR     VAR(&MSG) +
+                          VALUE('INVALID MENU#')
+             GOTO       STEPSS
+
+             /*次のメニュー　　　　　　*/
+ STEPNE:     CALL       DGBC02
+             GOTO       STEP00
+             /*ＯＵＴＱの表示　　　　　*/
+ STEPSP:     WRKOUTQ    OUTQ(&PRTG)
+             GOTO       STEP00
+             /*部品、メッキ、トンネル、引取り*/
+ STEP01:     CALL       FCDC21
+             GOTO       STEP00
+             /*部品、ＯＱ、指示かんばん　　 */
+ STEP02:     CALL       FCDC25
+             GOTO       STEP00
+             /*部品、調達かんばん５種類　 */
+ STEP03:     CALL       FCDC31
+             GOTO       STEP00
+             /*工程内かんばんと部品マスター */
+ STEP04:     CALL       ABHC41
+             GOTO       STEP00
+             /*構成品メッキ・トンネル・引取りＭ */
+ STEP05:     CALL       FCDC15
+             GOTO       STEP00
+             /*型１０年実績と作業日報情報 */
+ STEP06:     CALL       MFJC35
+             GOTO       STEP00
+             /*型１０年実績と生産時間など */
+ STEP07:     CALL       MFJC31
+             GOTO       STEP00
+             /*設備の条件抜出し　　　　　 */
+ STEP08:     CALL       MFBC56
+             GOTO       STEP00
+             /*設備稼働状況　　　　　 */
+ STEP09:     CALL       MFBC26
+             GOTO       STEP00
+             /*Ｚコート品番  */
+ STEP10:     CALL       AAMC81
+             GOTO       STEP00
+             /*ＧＣ品番抜出し　　　　 */
+ STEP11:     CALL       AAMC82
+             GOTO       STEP00
+             /*工程内ＯＱ内示　　　　　 */
+ STEP12:     CALL       AAMC43
+             GOTO       STEP00
+             /*外注ＯＱ内示　　　　　　 */
+ STEP13:     CALL       AAMC36
+             GOTO       STEP00
+             /*作業日報明細の条件指定抜出し*/
+ STEP14:     CALL       FCDC46
+             GOTO       STEP00
+             /*納入先・工場・受入別売上統計から抜き出し */
+ STEP15:     CALL       FCDC35
+             GOTO       STEP00
+             /*部品Ｍで選択し売上統計明細の出力 */
+ STEP16:     CALL       MBDC71
+             GOTO       STEP00
+             /*機番別の月別消費実績　　　　*/
+ STEP17:     CALL       NCQC08
+             GOTO       STEP00
+             /*個当り型費のワースト　　　　*/
+ STEP18:     CALL       NCQC01
+             GOTO       STEP00
+             /*ＩＮＪの負荷時間　　　　 */
+ STEP19:     CALL       MFBC27
+             GOTO       STEP00
+             /*条件指定で売上数量　　　　 */
+ STEP20:     CALL       MBDC68
+             GOTO       STEP00
+ END:        RETURN
+             ENDPGM

@@ -1,0 +1,407 @@
+     H            Y.
+      ** UAAR03 **********************************************
+      *  COMMON PART MASTER INQUIRY                          *
+      *  K.KASHIWAGI 05.11.2001                              *
+      *------------------------------------                  *
+      *  H.AMANO     01.20.2003  *INKL -> ENTER KEY
+JW1   *  JW       2021.11.24 ADD F12: BACK
+JW1   *  JW       2021.11.30 ADD F10: INQ
+JW1   *  JW       2025.04.30 ADD F07: LOG INQ
+      ********************************* UAAR03 ***************
+     FUAAPW03ACF  E                    WORKSTN
+     F                                        RRN   KSFILE SFL01
+     FFAAPL05 IF  E           K        DISK
+     FALAPL01 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+      *
+     E                    MSGTBL  1  20 60
+     I            DS
+     I                                        1   80DATE
+     I                                        1   20W@CT
+     I                                        3   40W@YY
+     I                                        5   60W@MM
+     I                                        7   80W@DD
+     I            DS
+     I                                        1   80DATE2
+     I                                        1   40W@YY2
+     I                                        5   60W@MM2
+     I                                        7   80W@DD2
+     I            DS
+     I                                        1  12 P@HINB
+     I                                        1   5 P@HIN1
+     I                                        6  10 P@HIN2
+     I                                       11  12 P@HIN3
+     I            DS
+     I                                        1   80A2TAHZ
+     I                                        1   40A2TAYY
+     I                                        5   60A2TAMM
+     I                                        7   80A2TADD
+     I            DS
+     I                                        1   80KDATE2
+     I                                        1   40KW@YY
+     I                                        5   60KW@MM
+     I                                        7   80KW@DD
+     I            DS
+     I                                        1  120#TIME
+     I                                        1   20W@HH
+     I                                        3   40W@MIN
+     I                                        5   60W@SS
+     C*
+     C           KEY1      KLIST
+     C                     KFLD           KMHN1   5        USER PART1
+     C                     KFLD           KMHN2   5        USER PART2
+     C                     KFLD           KMHN3   5        USER PART3
+     C                     KFLD           KMHN4   5        USER PART4
+     C*
+     C           KEY2      KLIST
+     C                     KFLD           KTOKU   40       CUSTOMER
+     C                     KFLD           KNONY   40       DELIVERY
+      *--------------*
+      * MAIN ROUTINE *
+      *--------------*
+     C                     EXSR @INTR
+     C           W@ID      DOWNE'99'
+     C           W@ID      CASEQ'01'      @DSP1
+     C           W@ID      CASEQ'02'      @DSP2
+     C                     ENDCS
+     C                     ENDDO
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+      *---------------*
+      * INITIALIZATION
+      *---------------*
+     C           @INTR     BEGSR
+     C                     MOVEL*BLANKS   @MSG1
+     C                     MOVEL'01'      W@ID    2
+     C                     TIME           #TIME
+     C                     MOVE *DATE     DATE
+     C                     Z-ADD2000      W@YY4   40
+     C                     ADD  W@YY      W@YY4
+     C                     Z-ADD0         RRN     60
+     C                     ENDSR
+      *--------------*
+      * FIRST SCREEN *
+      *--------------*
+     C           @DSP1     BEGSR
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANKS   @MSG1
+     C                     MOVEL'0'       *IN98
+     C*
+     C                     SELEC
+      * F1: EXIT
+     C           *INKA     WHEQ '1'
+     C                     MOVEL'99'      W@ID
+JW1  C* F7: CPM MAINT LOG
+ .   C           *INKG     WHEQ '1'
+ .   C                     CALL 'FAAC24 '
+ .   C                     MOVEL'01'      W@ID
+JW1  C* F10: INQ
+ .   C           *INKJ     WHEQ '1'
+ .   C                     CALL 'UAAC03Q'
+ .   C                     MOVEL'01'      W@ID
+      *
+     C                     OTHER
+     C                     MOVELDMHN1     KMHN1
+     C                     MOVELDMHN2     KMHN2
+     C                     MOVELDMHN3     KMHN3
+     C                     MOVELDMHN4     KMHN4
+     C*
+     C           DMHN1     IFEQ *BLANK
+     C           DMHN2     ANDEQ*BLANK
+     C           DMHN3     ANDEQ*BLANK
+     C           DMHN4     ANDEQ*BLANK
+     C                     MOVELMSGTBL,3  @MSG1
+     C                     SETON                     98
+     C                     GOTO ESB
+     C                     ENDIF
+      *  WRITE SUBFILE
+     C                     EXSR @WTSFL
+     C           RRN       IFGT 0
+     C                     MOVELDMHN1     CMHN1
+     C                     MOVELDMHN2     CMHN2
+     C                     MOVELDMHN3     CMHN3
+     C                     MOVELDMHN4     CMHN4
+     C                     MOVEL'02'      W@ID
+     C                     ELSE
+     C                     MOVELMSGTBL,1  @MSG1
+     C                     SETON                     98
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C           ESB       ENDSR
+      *---------------*
+      * WRITE SUBFILE
+      *---------------*
+     C           @WTSFL    BEGSR
+      * CLEAR SFL
+JW1  C                     EXSR @CLRSR
+ .   C                     MOVE *BLANK    XCMT
+      *
+     C           KEY1      SETLLFAAPL051
+     C           KEY1      READEFAAPL051                 90
+     C           *IN90     DOWEQ'0'
+     C*
+     C           B7SKBN    IFNE 'D'
+     C                     Z-ADDB7TOKU    STOKU
+     C                     Z-ADDB7NONY    SNONY
+     C                     MOVELB7NKJO    SNKJO
+     C                     MOVELB7NUKE    SNUKE
+     C                     MOVELB7SHN1    SSHN1
+     C                     MOVELB7SHN2    SSHN2
+     C                     MOVELB7SHN3    SSHN3
+     C* GET CUSTOMER NAME
+     C                     SETOF                     55    GET NAME
+     C                     Z-ADDB7TOKU    KTOKU
+     C                     Z-ADDB7NONY    KNONY
+     C           KEY2      CHAINALAPL011             55    GET NAME
+     C           *IN55     IFEQ '1'
+     C                     ELSE
+     C                     ENDIF
+     C*
+     C                     EXSR #FCE
+     C*
+JW1  C                     ADD  1         RRN
+     C                     WRITESFL01
+     C                     ENDIF
+     C*
+     C           KEY1      READEFAAPL051                 90
+     C           *IN90     IFEQ '1'
+     C                     GOTO STEP1
+     C                     ENDIF
+     C                     ENDDO
+     C*
+     C                     SETON                         51
+     C*
+JW1  C                     MOVEL*BLANK    STOKU
+ .   C                     MOVEL*BLANK    SNONY
+ .   C                     MOVEL*BLANK    SNKJO
+ .   C                     MOVEL*BLANK    SNUKE
+ .   C                     MOVELKMHN1     SSHN1
+ .   C                     MOVELKMHN2     SSHN2
+ .   C                     MOVELKMHN3     SSHN3
+ .   C                     EXSR #FCE
+ .   C                     ADD  1         RRN     60
+JW1  C                     WRITESFL01
+      * COMMENT
+     C                     MOVELMSGTBL,4  XCMT
+     C*
+     C           STEP1     TAG
+     C                     ENDSR
+     C*
+      *---------------*
+      * SECOND SCREEN *
+      *---------------*
+     C           @DSP2     BEGSR
+     C                     WRITEFMT90
+     C                     MOVEL'1'       *IN70
+     C                     EXFMTSFLCTL
+     C                     MOVEL*BLANKS   @MSG1
+     C                     MOVEL'0'       *IN70
+     C* F1: EXIT
+     C           *INKA     IFEQ '1'
+     C                     MOVEL'99'      W@ID
+     C                     GOTO EDSP2
+     C                     ENDIF
+JW1  C* F12: BACK
+ .   C           *INKL     IFEQ '1'
+ .   C                     MOVEL'01'      W@ID
+ .   C                     GOTO EDSP2
+JW1  C                     ENDIF
+     C*
+     C                     EXSR #SB100
+     C*
+     C           EDSP2     ENDSR
+     C****************
+     C* CLEAR SFL
+     C****************
+     C           @CLRSR    BEGSR
+     C                     SETON                     71
+     C                     WRITESFLCTL
+     C                     SETOF                     71
+JW1  C**                   CLEARUAAPW031
+     C                     Z-ADD0         RRN
+     C                     ENDSR
+     C*****************************************************************
+     C           #SB100    BEGSR
+     C*
+     C                     Z-ADD0         @W      40
+     C                     Z-ADD0         X       40
+     C                     MOVEL*BLANK    SLCT    1
+      *
+     C                     DO   *HIVAL
+     C                     ADD  1         X
+     C           X         CHAINSFL01                88
+     C   88                LEAVE
+     C*
+     C                     SETOF                     30
+     C           S1SEL     IFEQ ' '
+     C           S1SEL     OREQ '1'
+     C           S1SEL     OREQ '2'
+     C           S1SEL     OREQ '3'
+     C           S1SEL     OREQ '4'
+     C           S1SEL     OREQ '5'
+     C                     ELSE
+     C                     ITER
+     C                     ENDIF
+     C*
+     C                     SELEC
+     C           S1SEL     WHEQ '1'
+     C                     EXSR #SB101
+     C           S1SEL     WHEQ '2'
+     C                     EXSR #SB102
+     C           S1SEL     WHEQ '3'
+     C                     EXSR #SB103
+     C           S1SEL     WHEQ '4'
+     C                     EXSR #SB104
+     C           S1SEL     WHEQ '5'
+     C                     EXSR #SB105
+     C                     ENDSL
+     C*
+     C                     MOVEL*BLANK    S1SEL
+     C                     UPDATSFL01
+     C*
+     C                     ENDDO
+     C*
+     C           ESB100    ENDSR
+     C*****************************************************************
+     C           #SB101    BEGSR
+     C                     MOVELDATE      PKYM
+     C                     MOVEL'1'       P@MODE
+     C                     MOVELSSHN1     P@HIN1
+     C                     MOVELSSHN2     P@HIN2
+     C                     MOVELSSHN3     P@HIN3
+     C*
+     C                     CALL 'AKAR30'
+JW1  C**                   CALL 'AKAR30A'
+     C                     PARM           PKYM    6
+     C                     PARM           P@MODE  1
+     C                     PARM           P@HIN1  5
+     C                     PARM           P@HIN2  5
+     C                     PARM           P@HIN3  2
+     C*
+     C                     ENDSR
+     C*
+     C*****************************************************************
+     C           #SB102    BEGSR
+     C                     MOVELSSHN1     P@HIN1
+     C                     MOVELSSHN2     P@HIN2
+     C                     MOVELSSHN3     P@HIN3
+     C                     MOVEL*BLANK    P@YYYY
+     C*
+     C                     CALL 'MBER71'
+     C                     PARM           P@HIN1  5
+     C                     PARM           P@HIN2  5
+     C                     PARM           P@HIN3  2
+     C                     PARM           P@YYYY  4
+     C*
+     C                     ENDSR
+     C*****************************************************************
+     C           #SB103    BEGSR
+     C                     MOVELSSHN1     P@HIN1
+     C                     MOVELSSHN2     P@HIN2
+     C                     MOVELSSHN3     P@HIN3
+      *
+     C                     MOVEL*BLANK    P@MPAR 20
+     C                     MOVEL*BLANK    P@TOKU  4
+     C                     MOVEL*BLANK    P@NONY  4
+     C                     MOVEL*BLANK    P@NKOJ  1
+     C                     MOVEL*BLANK    P@NUKE  4
+     C                     MOVEL*BLANK    P@SEBN  4
+     C*
+     C**                   CALL 'ABBR25'
+JW   C                     CALL 'ABBR25A'
+     C                     PARM           P@HINB 12
+     C                     PARM           P@MPAR 20
+     C                     PARM           P@TOKU  4
+     C                     PARM           P@NONY  4
+     C                     PARM           P@NKOJ  1
+     C                     PARM           P@NUKE  4
+     C                     PARM           P@SEBN  4
+     C*
+     C                     ENDSR
+     C*
+     C*****************************************************************
+     C           #SB104    BEGSR
+     C                     MOVELSSHN1     P@HIN1
+     C                     MOVELSSHN2     P@HIN2
+     C                     MOVELSSHN3     P@HIN3
+     C                     MOVEL'1'       P@FLG
+     C*
+     C                     CALL 'MRHR62'
+     C                     PARM           P@HIN1  5
+     C                     PARM           P@HIN2  5
+     C                     PARM           P@HIN3  2
+     C                     PARM           P@FLG   1
+     C*
+     C                     ENDSR
+     C*
+     C*****************************************************************
+     C           #SB105    BEGSR
+     C                     MOVELSSHN1     P@HIN1
+     C                     MOVELSSHN2     P@HIN2
+     C                     MOVELSSHN3     P@HIN3
+     C                     MOVEL*BLANK    PCMD3   1
+     C                     MOVEL*BLANK    PER     1
+     C                     MOVEL'X'       PSNO    1
+     C*
+     C                     CALL 'AKAR27'
+     C                     PARM           PCMD3
+     C                     PARM           PER
+     C                     PARM           P@HINB
+     C                     PARM           PSNO
+     C*
+     C           PCMD3     IFNE '1'
+     C           PER       ANDEQ*BLANK
+     C                     CALL 'AKAR28'
+     C                     PARM           PCMD3
+     C                     PARM           PSNO
+     C                     PARM           PER
+     C                     PARM           P@HIN1
+     C                     PARM           P@HIN2
+     C                     PARM           P@HIN3
+     C                     ENDIF
+     C*
+     C                     ENDSR
+     C*****************************************************************
+     C           #FCE      BEGSR
+     C* FCEPP01 READ
+     C*
+     C                     MOVEL*BLANK    STEHI
+     C                     Z-ADD0         STAHZ
+     C                     Z-ADD0         SSSYS
+     C                     MOVEL*BLANK    SKTRB
+     C*
+     C           FCEKEY    KLIST
+     C                     KFLD           SSHN1
+     C                     KFLD           SSHN2
+     C                     KFLD           SSHN3
+     C                     SETOF                     77
+     C           FCEKEY    CHAINFCEPL01              77
+     C           *IN77     IFEQ '0'
+     C           A2GSKD    ANDEQ'D'
+     C                     SETON                     77
+     C                     ENDIF
+     C*
+     C           *IN77     IFEQ '0'
+     C                     MOVELA2TEHI    STEHI
+     C                     Z-ADDA2TAHZ    STAHZ
+     C                     Z-ADDA2SSYS    SSSYS
+     C                     MOVEL*BLANK    ##STRB  9
+     C                     CALL 'APLR40'
+     C                     PARM           A2STRK
+     C                     PARM           A2STRT
+     C                     PARM           A2STRR
+     C                     PARM           A2STRD
+     C                     PARM           ##STRB
+     C                     MOVEL##STRB    SKTRB
+     C                     ENDIF
+     C*
+     C                     ENDSR
+     C*
+     C*
+** MSGTBL(60A) ....2.........3.........4.........5.........6
+E-01 CUSTOMER PART NOT FOUND IN COMMON PART MASTER!          01
+E-02                                                         02
+E-03 ENTER PART NO.!                                         03
+THIS PART IS NOT IN COMMON PART MASTER!                      04

@@ -1,0 +1,205 @@
+     H            Y/                                    1
+     H* MNTR01 ********************************************************
+     H* SUBARU AUTHORIZATION# TABLE MAINTENANCE                       *
+     H* JW     2025.03.03                                             *
+     H*****************************************************************
+     FMNTPW01 CF  E                    WORKSTN
+     FAB#PP2S UF  E           K        DISK                      A
+      *================================================================
+     E                    MSG     1  20 60
+      *================================================================
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                     *PROGRAM #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *===============================================================
+      *  START  PROGRAM
+      *===============================================================
+     C                     EXSR #INIT
+      *
+     C                     DO   *HIVAL
+     C                     EXFMTDSP01
+     C                     SETOF                     414285
+     C                     MOVE *BLANK    XMSG
+      * F1: END
+     C           *INKA     IFEQ *ON
+     C           *INKC     OREQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     EXSR #CHK1
+     C           *IN85     IFEQ *OFF
+     C                     EXSR #DSP02
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *===============================================================
+      * VALIDATE 1ST SCREEN
+      *===============================================================
+     C           #CHK1     BEGSR
+      * UPD CODE
+     C           XKBN      IFNE '0'
+     C           XKBN      ANDNE'1'
+     C           XKBN      ANDNE'2'
+     C                     SETON                     41  85
+     C                     MOVELMSG,1     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     SELEC
+     C           XKBN      WHEQ '0'
+     C                     MOVEL'0-CANCEL'XKBNN
+     C           XKBN      WHEQ '1'
+     C                     MOVEL'1-CHANGE'XKBNN
+     C           XKBN      WHEQ '2'
+     C                     MOVEL'2-ADD   'XKBNN
+     C                     OTHER
+     C                     SETON                     41  85
+     C                     MOVELMSG,1     XMSG
+     C                     GOTO XCHK1
+     C                     ENDSL
+     C*--------------------
+     C           XSERL     IFEQ *BLANK
+     C                     SETON                     42  85
+     C                     MOVELMSG,2     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C*--------------------
+     C           XSERL     CHAINAB#PP2S             N99
+      *
+     C           *IN99     IFEQ *ON
+     C           XKBN      IFEQ '0'                        DLT
+     C           XKBN      OREQ '1'                        CHG
+     C                     SETON                     42  85
+     C                     MOVELMSG,3     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           *IN99     IFEQ *OFF
+     C           XKBN      ANDEQ'2'                        ADD
+     C                     SETON                     42  85
+     C                     MOVELMSG,4     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * IF NO ERROR...
+     C           XKBN      IFEQ '0'
+     C           XKBN      OREQ '1'
+     C                     MOVELS2A#      DAUTH
+     C                     ELSE
+     C                     MOVE *BLANK    DAUTH
+     C                     ENDIF
+      *
+     C           XKBN      IFEQ '0'
+     C                     MOVE *ON       *IN44
+     C                     ELSE
+     C                     MOVE *OFF      *IN44
+     C                     ENDIF
+      *
+     C           XCHK1     ENDSR
+      *===============================================================
+      * DISPLAY 2ND SCREEN
+      *===============================================================
+     C           #DSP02    BEGSR
+      *
+     C                     DO   *HIVAL
+     C                     EXFMTDSP02
+     C                     SETOF                     43  85
+     C                     MOVE *BLANK    XMSG
+      * < F3 >  BACK
+     C           *INKC     IFEQ *ON
+     C           *INKL     OREQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      * <F5> UPDATE
+     C                     EXSR #CHK2
+     C           *IN85     IFEQ *OFF
+     C           *INKE     IFEQ *ON
+     C                     EXSR #UPD
+     C                     LEAVE
+     C                     ELSE
+     C                     MOVELMSG,5     XMSG
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *===============================================================
+      * VALIDATE 2ND SCREEN
+      *===============================================================
+     C           #CHK2     BEGSR
+      *
+     C           DAUTH     IFEQ *BLANK
+     C                     SETON                     43  85
+     C                     MOVELMSG,7     XMSG
+     C                     GOTO XCHK2
+     C                     ENDIF
+      *
+     C           XCHK2     ENDSR
+      *===============================================================
+      * UPDATE
+      *===============================================================
+     C           #UPD      BEGSR
+      *
+     C           XSERL     CHAINAB#PP2S              99
+      * DELETE
+     C                     SELEC
+     C           XKBN      WHEQ '0'
+     C           *IN99     ANDEQ*OFF
+     C                     DELETAB#PP2S1
+     C                     MOVELMSG,8     XMSG
+      * CHANGE
+     C           XKBN      WHEQ '1'
+     C           *IN99     ANDEQ*OFF
+     C                     MOVELDAUTH     S2A#
+     C                     Z-ADDTODAY     S2KOHZ
+     C                     Z-ADDNOW       S2KOTM
+     C                     MOVEL#USER     S2KOUS
+     C                     UPDATAB#PP2S1
+     C                     MOVELMSG,8     XMSG
+      * ADD
+     C           XKBN      WHEQ '2'
+     C           *IN99     ANDEQ*ON
+     C                     CLEARAB#PP2S1
+     C                     MOVELXSERL     S2SERL
+     C                     MOVELDAUTH     S2A#
+     C                     Z-ADDTODAY     S2CRHZ
+     C                     Z-ADDNOW       S2CRTM
+     C                     MOVEL#USER     S2CRUS
+     C                     WRITEAB#PP2S1
+     C                     MOVELMSG,8     XMSG
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *===============================================================
+      *   << INITIAL SET >>
+      *===============================================================
+     C           #INIT     BEGSR
+      *
+     C                     TIME           SDATE
+     C                     MOVE '1'       XKBN
+     C                     MOVE *BLANK    XSERL
+     C                     MOVE *BLANK    XMSG
+      *
+     C                     ENDSR
+      *===============================================================
+** MSG(60A) .......2.........3.........4.........5.........6
+ENTER UPDATE CODE 0, 1 OR 2!                                  1
+ENTER PACKING LIST# !                                         2
+PACKING LIST# NOT FOUND!                                      3
+PACKING LIST# ALREADY EXISTS!                                 4
+PRESS F5 TO UPDATE...                                         5
+                                                              6
+ENTER AUTHORIZATION# !                                        7
+DATA HAS BEEN UPDATED...                                      8
+                                                              9
+                                                             10

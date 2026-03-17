@@ -1,0 +1,442 @@
+     H            Y.
+     F** AL#R9B *******************************************************
+     F* DELETE TOYOTA WEB DATA
+     F*   KIRI                                               2019.11.22
+     F*****************************************************************
+     FAL#PW9B CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFREC1
+     F                                              KINFDS INFDS
+      *
+      * WEB ORDER DATA                             *
+     FAL#PL0B UF  E           K        DISK
+      *
+      *===============================================================
+     E                    ER      1  10 60
+      *===============================================================
+     IINFDS       DS
+     I                                    B 378 3790$$RRN
+     I****************************
+      *プログラム状況データ構造*
+     I****************************
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W$WSID
+     I                                      254 263 W$USER
+     I                                      264 269 W$JBNO
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60@SYSTM
+     I                                        7  140@SYSHZ
+      *
+      * RECEIVE DATE
+     I            DS
+     I                                        1  120C$WRDT
+     I                                        1   80CAWBRD
+     I                                        9  140CAWBRT
+      * SHIP DATE
+     I            DS
+     I                                        1   8 S$SHID
+     I                                        1   80S1SHID
+      * SHIP TIME
+     I            DS
+     I                                        1   6 S$SHIT
+     I                                        1   40S1SHIT
+     I*
+      * DATE START
+     I            DS
+     I                                        1  120D$WR1
+     I                                        1   80D1WRD1
+     I                                        9  120D1WRT1
+     I                                       13  140D1WRS1
+     I                                        9  140D$WRT1
+      * DATE EXIT
+     I            DS
+     I                                        1  120D$WR2
+     I                                        1   80D1WRD2
+     I                                        9  120D1WRT2
+     I                                       13  140D1WRS2
+     I                                        9  140D$WRT2
+      *
+      *--------------------------------------------
+      *--------------------------------------------
+      *
+     I              '0123456789'          C         DIGITS
+     C*===============================================================
+     C*
+      *===============================================================
+      *  START  PROGRAM
+      *===============================================================
+     C                     MOVE '#INIT   '@STEP   8
+      *
+     C           @STEP     DOUEQ'#END    '
+     C           @STEP     CASEQ'#INIT   '#INIT            初期処理
+     C           @STEP     CASEQ'#DSP1   '#DSP1
+     C           @STEP     CASEQ'#CHK1   '#CHK1
+     C           @STEP     CASEQ'#DSP2   '#DSP2
+     C           @STEP     CASEQ'#CHK2   '#CHK2
+     C           @STEP     CASEQ'#CHK2 F5'#CHK2
+     C           @STEP     CASEQ'#DLT    '#DLT
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *===============================================================
+      * 初期ﾈｮmb
+      *===============================================================
+     C           #INIT     BEGSR
+     C                     MOVEA*ALL'0'   *IN
+     C                     TIME           @TIME
+      *
+     C                     CLEARDSP01
+     C                     MOVE '#DSP1   '@STEP
+      *
+     C                     ENDSR
+      *===============================================================
+      *  指示画面
+      *===============================================================
+     C           #DSP1     BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     SETOF                     99
+     C                     MOVEA'00000000'*IN,31           31-38
+     C                     MOVE *BLANK    D1ERR
+      *
+     C                     SELEC
+     C* < F1 >
+     C           *INKA     WHEQ *ON
+     C                     MOVE '#END    '@STEP
+     C* <    >
+     C                     OTHER
+     C                     MOVE '#CHK1   '@STEP
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *===============================================================
+      *  指示画面チェック
+      *===============================================================
+     C           #CHK1     BEGSR
+      *
+      * RECIVING DATE  START (31)
+      *
+     C           D1WRD1    IFNE 0
+     C                     MOVE D1WRD1    P$DATE
+     C                     CALL 'DATR10'
+     C                     PARM           P$DATE  8
+     C                     PARM           P$RTN   1
+     C           P$RTN     IFEQ '1'
+     C                     SETON                     3199
+     C                     MOVELER,1      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C                     ENDIF
+      *
+      * RECIVING DATE  EXIT (33)
+      *
+     C           D1WRD2    IFNE 0
+     C           D1WRD2    ANDNE99999999
+     C                     MOVE D1WRD2    P$DATE
+     C                     CALL 'DATR10'
+     C                     PARM           P$DATE  8
+     C                     PARM           P$RTN   1
+     C           P$RTN     IFEQ '1'
+     C                     SETON                     3399
+     C                     MOVELER,2      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C                     ENDIF
+     C*
+     C           D1WRD2    IFEQ 0
+     C                     Z-ADD99999999  D1WRD2
+     C                     ENDIF
+     C*
+     C           D$WR1     IFGT D$WR2
+     C                     SETON                     313233
+     C                     SETON                     34  99
+     C                     MOVELER,3      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C*
+     C                     Z-ADD0         D1WRS1
+     C                     Z-ADD0         D1WRS2
+      *
+     C           KEY01     KLIST
+     C                     KFLD           D1WRD1
+     C                     KFLD           D$WRT1
+      *
+      *サブファイル作成
+      *
+     C           KEY01     SETLLAL#PL0B
+     C                     EXSR #SFSET
+      *
+     C           ENDRRN    IFEQ 0
+     C                     MOVEA'1111'    *IN,31           31-34
+     C           D1NONY    COMP 0                    3535
+     C           D1NKOJ    COMP ' '                  3636
+     C           D1NUKE    COMP '    '               3737
+     C                     SETON                     99
+     C                     MOVELER,4      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+      *-------------------------*
+     C           $CHK1Z    TAG
+      *-------------------------*
+     C           *IN99     IFEQ *OFF
+     C                     Z-ADD1         @RRN1
+     C                     MOVE '#DSP2   '@STEP
+     C                     ELSE
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDIF
+     C                     ENDSR
+      *===============================================================
+      *  照会画面作成(PAGE UP/DOWN)
+      *===============================================================
+     C           #SFSET    BEGSR
+     C*
+     C                     SETON                     73    SFLCLR
+     C                     WRITESFCTL1
+     C                     SETOF                     73  41
+     C*
+     C                     Z-ADD0         RRN1    40
+     C                     Z-ADD0         ENDRRN  40
+     C*
+     C           KEY02     KLIST
+     C                     KFLD           S1WBRD           RECEIVE DATE')
+     C                     KFLD           S1WBRT           RECEIVE TIME
+     C                     KFLD           S$SHID           SHIP DATE
+     C                     KFLD           S$SHIT           SHIP TIME
+     C                     KFLD           S1SURT           SUB ROUTE
+     C                     KFLD           S1NONY           DELIVERY CODE
+     C                     KFLD           S1NKOJ           DELIVERY FACTORY
+     C                     KFLD           S1NUKE           DELIVERY RECEIVING
+     C*-------------------------
+      * SHIPPING SHORTAGE FILE                         *
+     C*-------------------------
+S1   C                     DO   *HIVAL
+     C                     READ AL#PL0B                  90
+     C* RECEIVE DATE-TIME
+     C  N90      C$WRDT    IFGT D$WR2
+     C                     SETON                     90
+     C                     ENDIF
+     C   90                LEAVE
+     C*
+     C                     EXSR #SEL
+     C           @NG       IFEQ '*'
+     C                     ITER
+     C                     ENDIF
+     C*
+     C                     MOVE *BLANK    S1SEL
+     C                     Z-ADDCAWBRD    S1WBRD           RECEIVE DATE')
+     C                     Z-ADDCAWBRT    S1WBRT           RECEIVE TIME
+     C                     MOVELCASHID    S$SHID           SHIP DATE
+     C                     MOVELCASHIT    S$SHIT           SHIP TIME
+     C                     MOVELCASURT    S1SURT           SUB ROUTE
+     C                     Z-ADDCANONY    S1NONY           DELIVERY CODE
+     C                     MOVELCANKOJ    S1NKOJ           DELIVERY FACTORY
+     C                     MOVELCANUKE    S1NUKE           DELIVERY RECEIVING
+     C*
+     C                     Z-ADDCAFIXD    S$FIXD           PALLET FIX DATE
+     C                     Z-ADDCAKADT    S$KADT           KANBAN ISSUE DATE
+     C*---------------
+     C* # OF COUNT
+     C*---------------
+     C                     Z-ADD0         S1KENS           # OF COUNT
+     C*
+     C           KEY02     SETLLAL#PL0B
+     C                     DO   *HIVAL
+     C           KEY02     READEAL#PL0B                  91
+     C   91                LEAVE
+     C                     ADD  1         S1KENS           # OF COUNT
+     C                     ENDDO
+     C*---------------
+     C                     SETOF                     4849
+     C           S$FIXD    IFNE 0                          PALLET FIX DATE
+     C           S$KADT    IFNE 0                          KANBAN ISSUE DATE
+     C                     SETON                     49
+     C                     ELSE
+     C                     SETON                     48
+     C                     ENDIF
+     C                     ENDIF
+     C*
+     C                     ADD  1         RRN1
+     C                     WRITESFREC1
+     C*
+     C           KEY02     SETGTAL#PL0B
+     C*
+E1   C                     ENDDO
+     C*-------------------------
+     C*-------------------------
+     C                     Z-ADDRRN1      ENDRRN  40
+     C*--------------------
+     C                     ENDSR
+      *===============================================================
+      *選択
+      *===============================================================
+     C           #SEL      BEGSR
+      *
+     C                     MOVE ' '       @NG     1
+      *  DELIVERY CODE
+     C           D1NONY    IFNE 0
+     C           D1NONY    ANDNECANONY
+     C                     MOVE '*'       @NG
+     C                     GOTO $SELZ
+     C                     ENDIF
+      *
+      * DELIVERY FACTORY
+      *
+     C           D1NKOJ    IFNE ' '
+     C           D1NKOJ    ANDNECANKOJ
+     C                     MOVE '*'       @NG
+     C                     GOTO $SELZ
+     C                     ENDIF
+      *
+      * DELIVERY RECEIVING
+      *
+     C           D1NUKE    IFNE *BLANK
+     C           D1NUKE    ANDNECANUKE
+     C                     MOVE '*'       @NG
+     C                     GOTO $SELZ
+     C                     ENDIF
+      *
+      * CHECK KANBAN ISSUE DATE & PALLET FIX DATE
+      *
+     C           CAKADT    IFEQ 0
+     C           CAFIXD    ANDEQ0
+     C                     ELSE
+     C                     MOVE '*'       @NG
+     C                     GOTO $SELZ
+     C                     ENDIF
+      *
+     C           $SELZ     ENDSR
+      *===============================================================
+      *===============================================================
+      *  画面２　表示
+      *===============================================================
+     C           #DSP2     BEGSR
+     C*
+     C                     WRITEDSP02
+     C*
+     C                     SETON                     7172
+     C                     EXFMTSFCTL1
+     C                     SETOF                     717299
+     C                     MOVE *BLANK    D2ERR
+     C                     Z-ADD$$RRN     @RRN1
+     C*
+      *
+S1   C                     SELEC
+     C*
+     C*  < F3 > BACK
+     C           *INKC     WHEQ *ON
+     C                     MOVE '#DSP1   '@STEP
+     C*
+     C*  < F5 > DELETE
+     C           *INKE     WHEQ *ON
+     C                     MOVE '#CHK2 F5'@STEP
+     C*  < 51.52 > PAGE UP DOWN
+     C           *IN51     WHEQ *ON
+     C           *IN52     OREQ *ON
+     C                     MOVE '#DSP2   '@STEP
+     C*  <           >
+-1   C                     OTHER
+     C                     MOVE '#CHK2   '@STEP
+E1   C                     ENDSL
+      *
+     C                     ENDSR
+      *===============================================================
+      *
+      *===============================================================
+     C           #CHK2     BEGSR
+     C                     Z-ADD0         @@KEN   40
+      *-------------------------
+      *-------------------------
+S1   C                     DO   ENDRRN    RRN1
+     C           RRN1      CHAINSFREC1               91
+     C   91                LEAVE
+     C                     SETOF                     41
+     C*
+     C           S1SEL     IFNE *BLANK
+     C           S1SEL     IFEQ '0'
+     C                     ADD  1         @@KEN
+     C                     ELSE
+     C                     SETON                     41  99
+     C                     MOVELER,5      D2ERR
+     C                     Z-ADDRRN1      @RRN1
+     C                     ENDIF
+     C                     ENDIF
+     C*
+     C                     SETOF                     4849
+     C           S$FIXD    IFNE 0                          PALLET FIX DATE
+     C           S$KADT    IFNE 0                          KANBAN ISSUE DATE
+     C                     SETON                     49
+     C                     ELSE
+     C                     SETON                     48
+     C                     ENDIF
+     C                     ENDIF
+     C*
+     C                     UPDATSFREC1
+     C*
+E1   C  N99                ENDDO
+      *-------------------------
+      *-------------------------
+     C  N99      @STEP     IFEQ '#CHK2 F5'
+     C           @@KEN     IFEQ 0
+     C                     SETON                     99
+     C                     MOVELER,6      D2ERR
+     C                     ELSE
+     C                     MOVE '#DLT    '@STEP
+     C                     GOTO $CHK2Z
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     MOVE '#DSP2   '@STEP
+      *-------------------------*
+     C           $CHK2Z    TAG
+      *-------------------------*
+     C                     ENDSR
+      *===============================================================
+      *
+      *===============================================================
+     C           #DLT      BEGSR
+      *
+      *-------------------------
+      *-------------------------
+S1   C                     DO   ENDRRN    RRN1
+     C           RRN1      CHAINSFREC1               91
+     C   91                LEAVE
+     C                     SETOF                     41
+     C*
+     C           S1SEL     IFEQ '0'
+     C                     EXSR #DELET
+     C                     ENDIF
+     C*
+E1   C                     ENDDO
+      *-------------------------
+      *-------------------------
+      *
+     C                     MOVE '#DSP1   '@STEP
+      *
+     C                     ENDSR
+      *===============================================================
+      *===============================================================
+      *===============================================================
+     C           #DELET    BEGSR
+      *
+     C           KEY02     SETLLAL#PL0B
+     C*-------------------------
+     C                     DO   *HIVAL
+     C           KEY02     READEAL#PL0B                  91
+     C   91                LEAVE
+     C                     MOVE 'D'       CASKJY           DELETE CODE D
+     C                     Z-ADD@SYSHZ    CASKHZ           DELETE DUE DATE
+     C                     UPDATAL#PL0B1
+     C                     ENDDO
+     C*-------------------------
+     C                     ENDSR
+      *===============================================================
+**  ER  (ERROR MESSAGE )
+E-01 RECEIVING DATE FROM ISN'T RIGHT
+E-02 RECEIVING DATE TO ISN'T RIGHT
+E-03 DATE TIME ERROR  FROM > TO
+E-04 THERE ISN'T DATA.
+E-05 INPUT '0'
+E-06 NO SELECT DATA.

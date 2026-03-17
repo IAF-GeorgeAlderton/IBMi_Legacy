@@ -49,25 +49,6 @@ class Config:
         # r'.*_BAK$',   # Backup files
         # r'.*_OLD$',   # Old versions
     ]
-    
-    # File extensions by source type
-    EXTENSIONS = {
-        'RPGLE': 'rpgle',
-        'SQLRPGLE': 'sqlrpgle',
-        'RPGLEINC': 'rpgleinc',
-        'CLLE': 'clle',
-        'CLEINC': 'cleinc',
-        'CMD': 'cmd',
-        'DSPF': 'dspf',
-        'PRTF': 'prtf',
-        'LF': 'lf',
-        'PF': 'pf',
-        'SQL': 'sql',
-        'C': 'c',
-        'H': 'h',
-        'BND': 'bnd',
-        'TXT': 'txt',
-    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -192,11 +173,10 @@ def sanitize_text_for_filename(text: str, max_length: int = Config.TEXT_MAX_LENG
     if not text:
         return ""
     
-    # Convert to lowercase and replace problematic characters
-    safe = text.lower()
-    safe = re.sub(r'[^a-z0-9]+', '_', safe)  # Replace non-alphanumeric with underscore
-    safe = re.sub(r'_+', '_', safe)          # Collapse multiple underscores
-    safe = safe.strip('_')                   # Remove leading/trailing underscores
+    # Replace problematic characters while preserving case and special chars (#, (), &, @)
+    safe = re.sub(r'[^a-zA-Z0-9#()&@]+', '_', text)  # Replace unsafe chars with underscore
+    safe = re.sub(r'_+', '_', safe)                  # Collapse multiple underscores
+    safe = safe.strip('_')                           # Remove leading/trailing underscores
     
     # Truncate if needed
     if len(safe) > max_length:
@@ -207,11 +187,11 @@ def sanitize_text_for_filename(text: str, max_length: int = Config.TEXT_MAX_LENG
 
 def build_target_filename(member: str, member_type: str, member_text: str) -> str:
     """Build target filename with optional member text"""
-    # Determine extension
-    ext = Config.EXTENSIONS.get(member_type.upper(), 'txt')
+    # Use member type directly as extension (default to TXT if blank)
+    ext = member_type.upper() if member_type else 'TXT'
     
     # Base filename
-    filename = member.lower()
+    filename = member.upper()
     
     # Add member text if configured
     if Config.INCLUDE_MEMBER_TEXT and member_text:
@@ -265,7 +245,8 @@ def sync_source_file(
     target_dir: Path,
     dry_run: bool = False,
     verbose: bool = False,
-    conn = None
+    conn = None,
+    files_remaining: int = 0
 ) -> Dict[str, int]:
     """
     Sync one source file to target directory.
@@ -291,20 +272,25 @@ def sync_source_file(
     
     # Track exported filenames for cleanup
     exported_files: Set[str] = set()
+    total_members = len(members)
     
     # Process each member
-    for member_data in members:
+    for idx, member_data in enumerate(members):
         member = member_data['name']
         member_type = member_data['type']
         member_text = member_data['text']
         
         stats['scanned'] += 1
+        members_remaining = total_members - idx
+        progress = f"{files_remaining:03d} {members_remaining:05d}"
         
         # Check exclusions
         if should_exclude_member(member):
             stats['excluded'] += 1
             if verbose:
-                print(f"   ⊘  {member} (excluded)")
+                # Build filename for display
+                temp_filename = build_target_filename(member, member_type, member_text)
+                print(f"   ⊘  {progress} {srcfile}.{member}.{member_type.upper()} -> {temp_filename} (excluded)")
             continue
         
         # Build target filename
@@ -316,7 +302,7 @@ def sync_source_file(
         temp_path = export_member_to_temp(library, srcfile, member)
         if not temp_path:
             stats['failed'] += 1
-            print(f"   ✗  {member} → {target_filename} (export failed)")
+            print(f"   ✗  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename} (export failed)")
             continue
         
         try:
@@ -331,7 +317,7 @@ def sync_source_file(
                 if files_are_identical(temp_path, str(target_path)):
                     stats['unchanged'] += 1
                     if verbose:
-                        print(f"   =  {member} → {target_filename} (unchanged)")
+                        print(f"   =  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename} (unchanged)")
                     continue
             
             # Content differs or file is new - copy it
@@ -339,15 +325,14 @@ def sync_source_file(
             
             if dry_run:
                 action = "would create" if is_new else "would update"
-                print(f"   ⋯  {member} → {target_filename} ({action})")
+                print(f"   ⋯  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename} ({action})")
             else:
                 target_dir.mkdir(parents=True, exist_ok=True)
                 with open(temp_path, 'r', encoding='utf-8') as src:
                     with open(target_path, 'w', encoding='utf-8') as dst:
                         dst.write(src.read())
                 
-                action = "created" if is_new else "updated"
-                print(f"   ✓  {member} → {target_filename}")
+                print(f"   ✓  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename}")
             
             if is_new:
                 stats['added'] += 1
@@ -365,13 +350,14 @@ def sync_source_file(
         orphaned = existing_files - exported_files - {'.metadata.json'}  # Keep metadata
         
         if orphaned:
+            progress = f"{files_remaining:03d} 00000"
             for filename in orphaned:
                 orphan_path = target_dir / filename
                 if dry_run:
-                    print(f"   ⊗  {filename} (would delete - no matching member)")
+                    print(f"   ⊗  {progress} {filename} (would delete - no matching member)")
                 else:
                     orphan_path.unlink()
-                    print(f"   ⊗  {filename} (deleted - no matching member)")
+                    print(f"   ⊗  {progress} {filename} (deleted - no matching member)")
                 stats['deleted'] += 1
     
     return stats
@@ -444,9 +430,11 @@ def sync_library(
     }
     
     files_processed = 0
-    for srcfile in source_files:
+    total_files = len(source_files)
+    for file_idx, srcfile in enumerate(source_files):
+        files_remaining = total_files - file_idx
         target_dir = target_base / srcfile.upper()
-        stats = sync_source_file(library, srcfile, target_dir, dry_run, verbose, conn)
+        stats = sync_source_file(library, srcfile, target_dir, dry_run, verbose, conn, files_remaining)
         
         # Only count files that had members
         if stats['scanned'] > 0:

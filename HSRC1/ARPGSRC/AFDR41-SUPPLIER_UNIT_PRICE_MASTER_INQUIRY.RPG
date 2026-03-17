@@ -1,0 +1,202 @@
+     H            Y/                                    1
+     H** AFDR41 *******************************************************
+     H*  SUPPLIER UNIT PRICE MASTER INQUIRY
+     H*
+     H*  JW     2018.06.01
+     H*---------------------------------
+     F*  CALLING SEQ.
+     F*                    CALL 'AFDR41'
+     F*                    PLIST
+     F*                    PARM           P@SUPP  4
+     F*                    PARM           P@SHN1  5
+     F*                    PARM           P@SHN2  5
+     F*                    PARM           P@SHN3  2
+     F*                    PARM           P@TKHZ  80
+     F*                    PARM           P@RTN   1
+     F*   IN  P@SUPP  4A  SUPPLIER
+     F*   OUT P@SHN1  5A  IAF PART1
+     F*       P@SHN2  5A  IAF PART2
+     F*       P@SHN3  2A  IAF PART3
+     F*       P@TKHZ  8,0 EFFECTIVE DATE
+     F*       P@RTN   1A  RETURN CODE (*=CONTAINS INQ INFORMATION)
+     H*****************************************************************
+     FAFDPW41 CF  E                    WORKSTN
+     F                                              KINFDS INFDS
+     F                                        RRN1  KSFILE SFL01
+     FAFDPP80 IF  E           K        DISK
+     FFGBPL01 IF  E           K        DISK
+      *================================================================
+     IINFDS       DS
+     I                                    B 378 3790$$RRN
+      *
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60TODAY
+     I                                        7  140NOW
+      *
+     I           SDS
+     I                                     *PROGRAM W@PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     I                                      264 269 #JBNO
+     C*===============================================================
+     C           *ENTRY    PLIST
+     C                     PARM           P@SUPP  4        IN
+     C                     PARM           P@SHN1  5        OUT
+     C                     PARM           P@SHN2  5        "
+     C                     PARM           P@SHN3  2        "
+     C                     PARM           P@TKHZ  80       "
+     C                     PARM           P@RTN   1        "
+     C*===============================================================
+     C*  START  PROGRAM
+     C*===============================================================
+     C                     MOVE '#INIT   '@STEP   8
+      *
+     C           @STEP     DOUEQ'#END    '
+     C           @STEP     CASEQ'#INIT   '#INIT
+     C           @STEP     CASEQ'#DSP1   '#DSP1
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+     C*===============================================================
+     C*   << INIT >>
+     C*===============================================================
+     C           #INIT     BEGSR
+     C                     TIME           @TIME
+     C                     MOVE *BLANK    P@SHN1
+     C                     MOVE *BLANK    P@SHN2
+     C                     MOVE *BLANK    P@SHN3
+     C                     Z-ADD0         P@TKHZ
+     C                     MOVE *BLANK    P@RTN
+      * CLEAR SUBFILE
+     C                     SETON                     72
+     C                     WRITESFLCTL
+     C                     SETOF                     72
+     C                     Z-ADD0         RRN1    40
+     C                     Z-ADD0         ENDRRN  40
+     C                     MOVE *BLANK    XSUPN
+      *
+      * SET HEADER
+     C                     MOVELP@SUPP    XSUPP
+     C           P@SUPP    IFEQ *BLANK
+     C                     MOVEL'*ALL'    XSUPN     P
+     C                     ELSE
+     C                     MOVELP@SUPP    NUM4    40
+     C           NUM4      CHAINFGBPL01              99
+     C           *IN99     IFEQ *OFF
+     C                     MOVELB2SMEI    XSUPN     P
+     C                     ELSE
+     C                     MOVEL'???'     XSUPN     P
+     C                     ENDIF
+     C                     ENDIF
+      *
+      * SET DETAIL DATA
+     C                     MOVE *BLANK    SVSHN1  5
+     C                     MOVE *BLANK    SVSHN2  5
+     C                     MOVE *BLANK    SVSHN3  2
+     C           P@SUPP    SETLLAFDPP80
+     C                     DO   *HIVAL
+     C           P@SUPP    READEAFDPP80                  90
+     C   90                LEAVE
+      *
+     C           A8SKJY    IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+      * BREAK?
+     C           SVSHN1    IFNE *BLANK
+     C           A8SHN1    IFNE SVSHN1
+     C           A8SHN2    ORNE SVSHN2
+     C           A8SHN3    ORNE SVSHN3
+     C                     EXSR #BRK
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     MOVE *BLANK    S1SEL
+     C                     MOVELA8SUPP    S1SUPP
+     C                     MOVELA8SHN1    S1SHN1
+     C                     MOVELA8SHN2    S1SHN2
+     C                     MOVELA8SHN3    S1SHN3
+     C                     Z-ADDA8OTAN    S1OTAN
+     C                     MOVELA8TANU    S1TANU
+     C                     Z-ADDA8TKHZ    S1TKHZ
+     C                     Z-ADDA8TSHZ    S1TSHZ
+     C                     Z-ADDA8MINQ    S1MINQ
+     C                     Z-ADDA8MINA    S1MINA
+     C                     MOVELA8MINU    S1MINU
+     C                     MOVE *OFF      *IN41
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+      * SAVE PART
+     C                     MOVELA8SHN1    SVSHN1
+     C                     MOVELA8SHN2    SVSHN2
+     C                     MOVELA8SHN3    SVSHN3
+     C                     ENDDO
+      *-----------------------------------
+     C                     Z-ADDRRN1      ENDRRN
+     C                     Z-ADD1         RRN1
+     C                     MOVE '#DSP1   '@STEP
+     C*
+     C                     ENDSR
+      *===============================================================
+      *  BREAK PROCESS
+      *===============================================================
+     C           #BRK      BEGSR
+      *
+     C                     CLEARSFL01
+     C                     MOVE *ON       *IN41
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+      *
+     C                     ENDSR
+      *===============================================================
+      *  DISPLAY SCREEN
+      *===============================================================
+     C           #DSP1     BEGSR
+      *
+     C                     SETON                     70
+     C           ENDRRN    IFNE 0
+     C                     SETON                     71
+     C                     ENDIF
+     C                     WRITEDSP99
+     C                     EXFMTSFLCTL
+     C                     SETOF                     7071
+     C                     Z-ADD$$RRN     RRN1
+     C*----------
+     C                     SELEC
+     C* < F3 > EXIT
+     C           *INKC     WHEQ *ON
+     C                     EXSR #CHKSF
+     C                     MOVE '#END    '@STEP
+     C* < PAGE UP/DOWN >
+     C           *IN73     WHEQ *ON
+     C           *IN73     OREQ *ON
+     C                     MOVE '#DSP1   '@STEP
+     C* <ENTR>
+     C                     OTHER
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *===============================================================
+      *  CHECK SUBFILE
+      *===============================================================
+     C           #CHKSF    BEGSR
+      *
+     C           ENDRRN    IFNE 0
+     C           1         DO   ENDRRN    RRN1
+     C           RRN1      CHAINSFL01                95
+     C           *IN95     IFEQ *OFF
+     C           S1SEL     ANDNE*BLANK
+     C                     MOVELS1SHN1    P@SHN1
+     C                     MOVELS1SHN2    P@SHN2
+     C                     MOVELS1SHN3    P@SHN3
+     C                     Z-ADDS1TKHZ    P@TKHZ
+     C                     MOVE '*'       P@RTN
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *===============================================================

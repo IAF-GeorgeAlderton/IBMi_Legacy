@@ -1,0 +1,83 @@
+     H            Y.
+      ** VRFR24 ****************************************
+      *  REFORMATION FOR ALDPP25                       *
+      *  J-WATANABE  CRT 2017.04.06                    *
+      *  LEC   2023.08.25 - UPD DELETE LOGIC TO CHECK  *
+      *                   IF IT SHIPPED OUT BEFORE     *
+      *                   PURGE DATE.                  *
+      **************************************************
+     FALDPL28 UF  E           K        DISK         KINFDS INF1
+     FNZUPL01 IF  E           K        DISK
+     FALDPP25BO   E                    DISK
+     F            ALDPP251                          KRENAMEALDPP25X
+      ***************************************************
+     IINF1        DS
+     I                                    B 156 1590RCNT
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *
+     I            DS
+     I                                        1  140@SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *
+      ***************************************************
+     C           *ENTRY    PLIST
+     C                     PARM           PDATE   8
+     C                     PARM           PREC1   9
+     C                     PARM           PREC2   9
+     C                     MOVE PDATE     XDATE   80
+      *
+     C           KEY       KLIST
+     C                     KFLD           A9AZET
+     C                     KFLD           A9TEHA
+     C                     KFLD           A9PAGE
+      *
+     C                     TIME           @SDATE
+      *
+      * MAIN LOOP
+     C           *LOVAL    SETLLALDPL28
+     C           *IN90     DOWEQ*OFF
+     C                     READ ALDPL28                  90
+      *
+     C           *IN90     IFEQ *OFF
+      * NG...
+     C           A9OKNG    IFEQ 'NG'
+      *
+     C           A9KODT    IFLT XDATE
+     C                     ADD  1         WDEL    90
+     C                     WRITEALDPP25X
+     C                     DELETALDPP251
+     C                     ENDIF
+      * OK...
+     C                     ELSE
+      * if the kanban has been scanned out (shipped) then delete from
+      * final location...
+     C           KEY       CHAINNZUPL01              51
+     C           *IN51     DOWEQ*OFF
+     C           N2NYHZ    IFEQ A9CODT
+     C           N2DEHZ    ANDGT*ZERO
+     C           N2DEHZ    ANDLTXDATE
+     C                     ADD  1         WDEL
+     C                     WRITEALDPP25X
+     C                     DELETALDPP251
+     C                     LEAVE
+     C                     ENDIF
+     C           KEY       READENZUPL01                  51
+     C                     ENDDO
+      *
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     C                     ENDDO
+      * FOOT
+     C                     Z-ADDRCNT      WREC1   90
+     C                     MOVE WREC1     PREC1
+     C           WREC1     SUB  WDEL      WREC2   90
+     C                     MOVE WREC2     PREC2
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN

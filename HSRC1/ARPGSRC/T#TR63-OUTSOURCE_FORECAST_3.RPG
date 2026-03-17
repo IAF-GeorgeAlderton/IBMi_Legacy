@@ -1,0 +1,215 @@
+     H            Y.
+     F** T#TR63 ********************************************************
+     F* OUTSOURCE FORECAST                                             *
+     F*             ITS.           2015.07.16                          *
+     F*  %0001      T.SAKAKI       2015.12.05                          *
+     F*----------------------------------------------------------------*
+     F* 2016/02/01 | JW (SRA)    | JW1 | CHG ADD 1 DAY TO RECEIVE DATE *
+     F******************************************************************
+     FT#TWP63 UF  E                    DISK
+     FT#TPP50 IF  E           K        DISK
+     FAGDPL12 IF  E           K        DISK
+     E                    @I          5  1
+     E                    @O          5  1
+     E                    @L          5  1 0
+      *
+     I            DS
+     I                                        1   5 @I
+     I                                        1   1 T5IMON
+     I                                        2   2 T5ITUE
+     I                                        3   3 T5IWED
+     I                                        4   4 T5ITHU
+     I                                        5   5 T5IFRI
+      *
+     I            DS
+     I                                        1   5 @O
+     I                                        1   1 T5OMON
+     I                                        2   2 T5OTUE
+     I                                        3   3 T5OWED
+     I                                        4   4 T5OTHU
+     I                                        5   5 T5OFRI
+      *
+     I            DS
+     I                                        1   50@L
+     I                                        1   10T5LMON
+     I                                        2   20T5LTUE
+     I                                        3   30T5LWED
+     I                                        4   40T5LTHU
+     I                                        5   50T5LFRI
+      *
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60WTIME
+     I                                        7  140WDATE
+      *
+     I            DS
+     I                                        1   80F8KA
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+      *
+     I            DS
+     I                                        1   80WKDATE
+     I                                        1   40WKDAYY
+     I                                        5   60WKDAMM
+     I                                        7   80WKDADD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           P1BMON  40
+     C                     PARM           P9CMD   2
+      *----------------------------------------------------*
+      *   K  E  Y   L  I  S  T                             *
+      *----------------------------------------------------*
+      *
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     TIME           SDATE
+     C                     MOVELP1BMON    WKBMON  4
+      *
+     C                     READ T#TWP631                 80
+     C           *IN80     DOWEQ'0'
+     C                     EXSR #SB400
+JW1   * ADD 1 DAY TO RECEIVE DATE
+JW1  C                     MOVELW3DATE    $DT8
+JW1  C                     MOVEL'+'       $SIGN
+JW1  C                     MOVEL'0001'    $DAYS
+JW1  C                     MOVEL'Y'       $IAF
+JW1  C                     CALL 'UTLC10'
+JW1  C                     PARM           $DT8    8
+JW1  C                     PARM           $SIGN   1
+JW1  C                     PARM           $DAYS   4
+JW1  C                     PARM           $IAF    1
+JW1  C                     PARM           $TGT8   8
+JW1  C                     PARM           $RTN    1
+JW1  C           $RTN      IFEQ *BLANK
+JW1  C                     MOVEL$TGT8     W3DATE
+JW1  C                     ENDIF
+      *
+     C                     UPDATT#TWP631
+     C                     READ T#TWP631                 80
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *                                                    *
+      *----------------------------------------------------*
+     CSR         #SB400    BEGSR
+      *
+     C           P1BMON    IFEQ 9999
+     C                     MOVELW3BMON    WKBMON
+     C                     ENDIF
+      *
+     C           WKBMON    CHAINT#TPP501             20
+     C           *IN20     IFEQ '0'
+     C           T5SKJY    ANDEQ'D'
+     C           T5SKDT    ANDLE*DATE
+     C                     SETON                     20
+     C                     ENDIF
+     C           *IN20     IFEQ '0'
+     C                     EXSR #SB410
+     C                     ENDIF
+      *
+     CSR         ESB400    ENDSR
+      *----------------------------------------------------*
+      *入荷予定日                                        *
+      *----------------------------------------------------*
+     CSR         #SB410    BEGSR
+      *オーダー日の曜日
+     C                     Z-ADD0         WKYOBI  10
+     C                     SETOF                     33
+     C           KEYF8     KLIST
+     C                     KFLD           WKDAYY
+     C                     KFLD           WKDAMM
+     C                     KFLD           WKDADD
+     C                     Z-ADDW3ODHZ    WKDATE
+     C           KEYF8     CHAINAGDPL121             20
+     C           *IN20     IFEQ '0'
+     C                     Z-ADDF8YOBI    WKYOBI
+     C                     ENDIF
+      *オーダー日の記号（Ａ～Ｅ）
+     C                     MOVEL*BLANK    WWKIGO  1
+     C           WKYOBI    IFGE 1
+     C           WKYOBI    ANDLE5
+     C                     MOVEL@O,WKYOBI WWKIGO  1
+     C                     ENDIF
+      *オーダー日の記号と同じ記号を入荷から探し、ＬＴを取得
+     C           WWKIGO    IFEQ *BLANK
+      * %0001 IF NOT IN MASTER, USE NEXT ORDER DATE
+     C***                  Z-ADDW3ODHZ    W3DATE
+     C                     Z-ADDWKYOBI    Y       10
+      * FRIDAY TO MONDAY
+     C           Y         IFEQ 5
+     C                     Z-ADD1         Y
+     C                     SETON                     33
+     C                     ENDIF
+      *
+     C           Y         DO   5
+     C           @O,Y      IFNE *BLANK
+     C                     MOVEL@O,Y      WWKIGO  1
+     C                     LEAVE
+     C                     ENDIF
+     C                     ADD  1         Y
+     C                     ENDDO
+      *
+     C           WWKIGO    IFEQ *BLANK
+     C                     Z-ADD1         Y
+     C                     SETON                     33
+     C           Y         DO   5
+     C           @O,Y      IFNE *BLANK
+     C                     MOVEL@O,Y      WWKIGO  1
+     C                     LEAVE
+     C                     ENDIF
+     C*
+     C                     ADD  1         Y
+     C                     ENDDO
+     C*
+     C                     ENDIF
+     C*
+     C                     ENDIF
+     C*
+     C***                  ELSE
+     C*
+     C                     Z-ADD1         X       30
+     C           WWKIGO    LOKUP@I,X                     29
+     C           *IN29     IFEQ '1'
+     C                     Z-ADDX         YOBI    10
+     C                     Z-ADD@L,X      WKLT    30
+     C* %0001 OVER 1 WEEK
+     C           *IN33     IFEQ *ON
+     C                     ADD  1         WKLT
+     C                     ENDIF
+     C*
+     C                     EXSR #SB411
+     C                     ENDIF
+     C***                  ENDIF
+      *
+     CSR         ESB410    ENDSR
+      *----------------------------------------------------*
+      *入荷予定日                                        *
+      *----------------------------------------------------*
+     CSR         #SB411    BEGSR
+      *
+     C                     Z-ADD0         W3DATE
+     C           KEYF8     SETLLAGDPL121
+     C                     READ AGDPL121                 84
+     C           *IN84     DOWEQ'0'
+     C           W3DATE    ANDEQ0
+     C           F8YOBI    IFEQ 7
+     C                     SUB  1         WKLT
+     C                     ENDIF
+     C           WKLT      IFLE 0
+     C           F8YOBI    ANDEQYOBI
+     C                     Z-ADDF8KA      W3DATE
+     C                     ENDIF
+     C                     READ AGDPL121                 84
+     C                     ENDDO
+      *
+     CSR         ESB411    ENDSR

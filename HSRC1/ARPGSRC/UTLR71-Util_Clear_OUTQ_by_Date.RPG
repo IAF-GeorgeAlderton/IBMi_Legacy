@@ -1,0 +1,107 @@
+     H            Y.
+     F** UTLR70 ******************************************************
+     F*  PROGRAM    : MOVE SPOOL FILE                                *
+     F*  WRITTEN    : 02/07/2019                                     *
+     F*  WRITTEN BY : JW (SRA)                                       *
+     F****************************************************************
+     FTXT132  IF  E                    DISK
+      *---------------------------------------------------------------
+     E                    TB1         6  1
+     E                    TB2         6  1
+     I            DS
+     I                                        1 132 WTXT
+     I                                        2   8 WFIL7
+     I                                        2  11 WFILE
+     I                                       13  22 WUSER
+     I                                       73  78 WFL#
+     I                                       84  93 WJOB
+     I                                       95 100 WNO
+     I                                      102 103 WYY1
+     I                                      105 106 WMM1
+     I                                      108 109 WDD1
+     I            DS
+     I                                        1   8 WDATE2
+     I                                        1   2 W20
+     I                                        3   4 WYY2
+     I                                        5   6 WMM2
+     I                                        7   8 WDD2
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     I              '0123456789'          C         NUM
+      ******************************************************
+      *                    MAIN PROCESS
+      ******************************************************
+      * INITIAL SET
+     C                     EXSR #INIT
+      * LOOP
+     C           *IN91     DOWEQ*OFF
+     C                     READ TXT132                   91
+      * Iｷ RECORD EXISTS
+     C           *IN91     IFEQ *OFF
+     C                     MOVELFLD132    WTXT
+     C                     MOVELWYY1      WYY2
+     C                     MOVELWMM1      WMM2
+     C                     MOVELWDD1      WDD2
+      * IGNORE HEADER
+     C           WFIL7     IFEQ '5770SS1'
+     C           WFIL7     OREQ 'File   '
+     C           WFIL7     OREQ '       '
+     C                     ITER
+     C                     ENDIF
+      * CHECK DATE
+     C           NUM       CHECKWDATE2                   99
+     C           *IN99     IFEQ *ON
+     C           WDATE2    ORGT '21000101'
+     C                     ITER
+     C                     ENDIF
+      * CHECK NO
+     C           NUM       CHECKWNO                      99
+     C           *IN99     IFEQ *ON
+     C           WNO       ORGT '999999'
+     C                     ITER
+     C                     ENDIF
+      * CONVERT FILE#
+     C                     Z-ADD0         IY      10
+     C                     MOVEAWFL#      TB1
+     C                     MOVEA*BLANK    TB2
+     C           1         DO   6         IX      10
+     C           TB1,IX    IFNE *BLANK
+     C                     ADD  1         IY
+     C                     MOVELTB1,IX    TB2,IY
+     C                     ENDIF
+     C                     ENDDO
+     C                     MOVEATB2       WFL#
+      *
+     C           WDATE2    IFLE $MDATE
+     C                     CALL 'UTLC71A '
+     C                     PARM           WFILE
+     C                     PARM           WNO
+     C                     PARM           WUSER
+     C                     PARM           WJOB
+     C                     PARM           WFL#
+     C                     PARM           $LIB2
+     C                     PARM           $OUT2
+      *
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      ******************************************************
+      *                  INITIAL ROUTINE
+      ******************************************************
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $MDATE  8
+     C                     PARM           $LIB2  10
+     C                     PARM           $OUT2  10
+      *
+     C                     MOVEL'20'      W20
+     C                     Z-ADD*DATE     @DATE   80
+     C                     TIME           @TIME   60
+      *
+     C                     ENDSR

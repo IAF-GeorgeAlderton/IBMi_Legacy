@@ -1,0 +1,510 @@
+     H            Y.
+     F** ALCR75 *******************************************************
+     F* REPLACE SCAN INQUIRY
+     F*   KIRI                                               2019.09.16
+     F*****************************************************************
+     FALCPW75 CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFREC1
+     F                                              KINFDS INFDS
+      *
+      * REPLACE SCAN                             *
+     FALCPL70 IF  E           K        DISK
+      *
+      * WORKER CD MASTER FILES.           *
+     FALBPL30 IF  E           K        DISK
+      *
+      *===============================================================
+     E                    ER      1  10 60
+     E                    KN1     1  10  1   KN2    25
+      *===============================================================
+     IINFDS       DS
+     I                                    B 378 3790$$RRN
+     I****************************
+      *プログラム状況データ構造*
+     I****************************
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W$WSID
+     I                                      254 263 W$USER
+     I                                      264 269 W$JBNO
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60@SYSTM
+     I                                        7  140@SYSHZ
+      *
+      * SCAN DATE START
+     I            DS
+     I                                        1  120A$SCDT
+     I                                        1   80A7SCDT
+     I                                        9  140A7SCTM
+     I*
+     I            DS
+     I                                        1  120D$SHTM
+     I                                        1   80D1SHIZ
+     I                                        9  120D1STIM
+     I                                        1   40D1SHYY
+     I                                        5   60D1SHMM
+     I                                        7   80D1SHDD
+     I                                        9  100D1STMH
+     I                                       11  120D1STMM
+     I                                       13  140D1STMS
+     I                                        9  140D$STIM
+      * SCAN DATE EXIT
+     I            DS
+     I                                        1  120D$EHTM
+     I                                        1   80D1EHIZ
+     I                                        9  120D1ETIM
+     I                                        1   40D1EHYY
+     I                                        5   60D1EHMM
+     I                                        7   80D1EHDD
+     I                                        9  100D1ETMH
+     I                                       11  120D1ETMM
+     I                                       13  140D1ETMS
+     I                                        9  140D$ETIM
+      *
+      *--------------------------------------------
+      *--------------------------------------------
+      *
+     I              '0123456789'          C         DIGITS
+     C*===============================================================
+     C*
+      *===============================================================
+      *  START  PROGRAM
+      *===============================================================
+     C                     MOVE '#INIT   '@STEP   8
+      *
+     C           @STEP     DOUEQ'#END    '
+     C           @STEP     CASEQ'#INIT   '#INIT            初期処理
+     C           @STEP     CASEQ'#DSP1   '#DSP1
+     C           @STEP     CASEQ'#CHK1   '#CHK1
+     C           @STEP     CASEQ'#DSP2   '#DSP2
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *===============================================================
+      * 初期ﾈｮmb
+      *===============================================================
+     C           #INIT     BEGSR
+     C                     MOVEA*ALL'0'   *IN
+     C                     TIME           @TIME
+      *
+     C                     CLEARDSP01
+     C                     MOVE '#DSP1   '@STEP
+      *
+     C                     ENDSR
+      *===============================================================
+      *  指示画面
+      *===============================================================
+     C           #DSP1     BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     SETOF                     99
+     C                     MOVEA'00000000'*IN,31           31-38
+     C                     MOVE *BLANK    D1ERR
+      *
+     C                     SELEC
+     C* < F1 >
+     C           *INKA     WHEQ *ON
+     C                     MOVE '#END    '@STEP
+     C* <    >
+     C                     OTHER
+     C                     MOVE '#CHK1   '@STEP
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *===============================================================
+      *  指示画面チェック
+      *===============================================================
+     C           #CHK1     BEGSR
+      *
+      * SCAN DATE START (31)
+      *
+     C           D1SHIZ    IFNE 0
+     C                     MOVE D1SHIZ    P$DATE
+     C                     CALL 'DATR10'
+     C                     PARM           P$DATE  8
+     C                     PARM           P$RTN   1
+     C           P$RTN     IFEQ '1'
+     C                     SETON                     3199
+     C                     MOVELER,1      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C                     ENDIF
+      *
+      * SCAN DATE EXIT  (33)
+      *
+     C           D1EHIZ    IFNE 0
+     C           D1EHIZ    ANDNE99999999
+     C                     MOVE D1EHIZ    P$DATE
+     C                     CALL 'DATR10'
+     C                     PARM           P$DATE  8
+     C                     PARM           P$RTN   1
+     C           P$RTN     IFEQ '1'
+     C                     SETON                     3399
+     C                     MOVELER,3      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C                     ENDIF
+     C*
+     C           D$EHTM    IFEQ 0
+     C                     Z-ADD99999999  D1EHIZ
+     C                     Z-ADD9999      D1ETIM
+     C                     ELSE
+     C           D1EHIZ    IFEQ 0
+     C                     Z-ADD99999999  D1EHIZ
+     C                     ENDIF
+     C                     ENDIF
+     C*
+     C           D$SHTM    IFGT D$EHTM
+     C                     SETON                     313233
+     C                     SETON                     34  99
+     C                     MOVELER,3      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+      *
+     C                     Z-ADD0         D1STMS
+     C                     Z-ADD99        D1ETMS
+      *
+     C           KEY01     KLIST
+     C                     KFLD           D1SHIZ
+     C                     KFLD           D$STIM
+     C           KEY02     KLIST
+     C                     KFLD           D1EHIZ
+     C                     KFLD           D$ETIM
+      *
+      *サブファイル作成
+      *
+     C           KEY01     SETLLALCPL70
+     C                     Z-ADD15        @@MAX   40
+     C                     SETON                     91
+     C                     MOVE '        '@STEP
+     C                     EXSR #SFSET
+      *
+     C           ENDRRN    IFEQ 0
+     C                     MOVEA'1111'    *IN,31           31-34
+     C                     SETON                     99
+     C                     MOVELER,4      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+      *-------------------------*
+     C           $CHK1Z    TAG
+      *-------------------------*
+     C           *IN99     IFEQ *OFF
+     C                     MOVE '#DSP2   '@STEP
+     C                     ELSE
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDIF
+     C                     ENDSR
+      *===============================================================
+      *  照会画面作成(PAGE UP/DOWN)
+      *===============================================================
+     C           #SFSET    BEGSR
+     C*
+     C                     SETON                     73    SFLCLR
+     C                     WRITESFCTL1
+     C                     SETOF                     73
+     C*
+     C                     Z-ADD0         RRN1    40
+     C                     Z-ADD0         ENDRRN  40
+     C*-------------------------
+      * SHIPPING SHORTAGE FILE                         *
+     C*-------------------------
+S1   C                     DO   *HIVAL
+     C                     READ ALCPL70                  90
+     C* SCAN DATE-TIME
+     C  N90      A$SCDT    IFGT D$EHTM
+     C                     SETON                     90
+     C                     ENDIF
+     C   90                LEAVE
+     C*
+     C                     EXSR #SEL
+     C           @NG       IFEQ '*'
+     C                     ITER
+     C                     ENDIF
+     C*
+     C                     MOVE *BLANK    S1OP
+     C                     Z-ADDA7SCDT    S1SCDT           SVAN DATE
+     C                     Z-ADDA7SCTM    S1SCTM           SCAN TIME
+     C                     MOVELA7HNTE    S1HNTE           OK/NG
+     C                     MOVELA7TACD    S1TACD           USER CODE
+      *=== 1ST KANBAN
+     C                     CALL 'APLR30'
+     C                     PARM           A7PA11           PART #1
+     C                     PARM           A7PA12           PART #2
+     C                     PARM           A7PA13           PART #3
+     C                     PARM           S1SHN1           1ST PART#
+     C                     MOVELA7ZET1    S1ZET1           1ST ABSO #
+     C*
+     C                     MOVEL*BLANK    S1BQR1
+     C           A7QR1     IFEQ *BLANK
+     C                     MOVELA7BCD1    S1BQR1
+     C                     ELSE
+     C                     MOVELA7QR1     S1BQR1
+     C                     ENDIF
+     C*
+     C                     CALL 'APLR40'
+     C                     PARM           A7LC11           LOC.1
+     C                     PARM           A7LC12           LOC.2
+     C                     PARM           A7LC13           LOC.3
+     C                     PARM           A7LC14           LOC.4
+     C                     PARM           S1LOC1           1ST LOC.
+     C                     MOVELA7THI1    S1THI1           LOT #
+     C                     MOVELA7PAG1    S1PAG1           PAGE #
+     C                     MOVEL*BLANK    S1UPD1           UPD INST1
+     C           A7UPD1    IFGE '0'
+     C           A7UPD1    ANDLE'9'
+     C                     MOVELA7UPD1    S1UPD1           UPD INST1
+     C                     ENDIF
+      *=== 2ND KANBAN
+     C                     CALL 'APLR30'
+     C                     PARM           A7PA21           PART #1
+     C                     PARM           A7PA22           PART #2
+     C                     PARM           A7PA23           PART #3
+     C                     PARM           S1SHN2           2ST PART#
+     C                     MOVELA7ZET2    S1ZET2           2ST ABSO #
+     C*
+     C                     MOVEL*BLANK    S1BQR2
+     C           A7QR2     IFEQ *BLANK
+     C                     MOVELA7BCD2    S1BQR2
+     C                     ELSE
+     C                     MOVELA7QR2     S1BQR2
+     C                     ENDIF
+     C*
+     C                     CALL 'APLR40'
+     C                     PARM           A7LC21           LOC.1
+     C                     PARM           A7LC22           LOC.2
+     C                     PARM           A7LC23           LOC.3
+     C                     PARM           A7LC24           LOC.4
+     C                     PARM           S1LOC2           1ST LOC.
+     C                     MOVELA7THI2    S1THI2           LOT #
+     C                     MOVELA7PAG2    S1PAG2           PAGE #
+     C           A7UPD2    IFGE '0'
+     C           A7UPD2    ANDLE'9'
+     C                     MOVELA7UPD2    S1UPD2           UPD INST1
+     C                     ENDIF
+     C*
+     C                     EXSR #NAME
+     C*
+     C                     EXSR #KIND
+     C*---------------
+     C*
+     C                     ADD  1         RRN1
+     C           S1HNTE    COMP 'NG'                     88:EQ
+     C                     WRITESFREC1
+     C           RRN1      IFGE @@MAX
+     C                     LEAVE
+     C                     ENDIF
+     C*---------------
+E1   C                     ENDDO
+     C*-------------------------
+     C*-------------------------
+     C                     Z-ADDRRN1      ENDRRN  40
+     C*--------------------
+     C                     ENDSR
+      *===============================================================
+      *選択
+      *===============================================================
+     C           #SEL      BEGSR
+      *
+     C                     MOVE ' '       @NG     1
+      *
+      * USER CODE
+      *
+     C           D1TACD    IFNE 0
+     C           D1TACD    ANDNEA7TACD
+     C                     MOVE '*'       @NG
+     C                     GOTO $SELZ
+     C                     ENDIF
+      *
+      * PART #
+      *
+     C           D1PA11    IFNE *BLANK
+     C           D1PA11    ANDNEA7PA11
+     C                     MOVE '*'       @NG
+     C                     GOTO $SELZ
+     C                     ENDIF
+     C           D1PA12    IFNE *BLANK
+     C           D1PA12    ANDNEA7PA12
+     C                     MOVE '*'       @NG
+     C                     GOTO $SELZ
+     C                     ENDIF
+     C           D1PA13    IFNE *BLANK
+     C           D1PA13    ANDNEA7PA13
+     C                     MOVE '*'       @NG
+     C                     GOTO $SELZ
+     C                     ENDIF
+      *
+      * JUDGE'
+      *
+     C           D1OKNG    IFEQ '1'
+     C           A7HNTE    ANDNE'OK'
+     C                     MOVE '*'       @NG
+     C                     GOTO $SELZ
+     C                     ENDIF
+     C*
+     C           D1OKNG    IFEQ '2'
+     C           A7HNTE    ANDNE'NG'
+     C                     MOVE '*'       @NG
+     C                     GOTO $SELZ
+     C                     ENDIF
+      *
+      *
+     C           $SELZ     ENDSR
+      *===============================================================
+      *===============================================================
+      *  画面２　表示
+      *===============================================================
+     C           #DSP2     BEGSR
+     C*
+     C                     WRITEDSP02
+     C*
+     C                     SETON                     71
+     C           ENDRRN    IFNE 0
+     C                     SETON                     72
+     C                     ENDIF
+     C                     EXFMTSFCTL1
+     C                     SETOF                     717299
+     C                     MOVE *BLANK    D2ERR
+     C*
+      *
+S1   C                     SELEC
+     C*
+     C*  < F3 > 前画面
+     C           *INKC     WHEQ *ON
+     C                     MOVE '#DSP1   '@STEP
+     C*
+     C*  < ROLL/UP >
+-1   C           *IN75     WHEQ *ON
+ S2  C           *IN90     IFEQ *ON
+     C                     MOVELER,06     D2ERR            エラー
+     C                     SETON                     99
+ X2  C                     ELSE
+     C                     EXSR #SFSET
+     C                     SETOF                     91
+  S3 C           ENDRRN    IFEQ 0
+     C                     EXSR #DOWN
+     C                     SETON                     90  99
+     C                     MOVELER,06     D2ERR            エラー
+  E3 C                     ENDIF
+ E2  C                     ENDIF
+     C                     MOVE '#DSP2   '@STEP
+     C*
+     C*  < ROLL/DOWN >
+-1   C           *IN76     WHEQ *ON
+ S2  C           *IN91     IFEQ *ON
+     C                     MOVELER,05     D2ERR            エラー
+     C                     SETON                     99
+ X2  C                     ELSE
+     C                     EXSR #DOWN
+     C                     MOVE '#DSP2   '@STEP
+ E2  C                     ENDIF
+     C*
+     C*  <           >
+-1   C                     OTHER
+     C*
+     C                     DO   ENDRRN    RRN1
+     C           RRN1      CHAINSFREC1               95
+     C           S1OP      IFNE *BLANK
+     C                     MOVE *BLANK    S1OP
+     C                     MOVE *OFF      *INKC
+     C           *INKC     DOWEQ*OFF
+     C                     EXFMTDSP03
+     C                     ENDDO
+     C           S1HNTE    COMP 'NG'                     88:EQ
+     C                     UPDATSFREC1
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+     C*
+     C                     MOVE '#DSP2   '@STEP
+E1   C                     ENDSL
+      *
+     C                     ENDSR
+      *===============================================================
+      *
+      *===============================================================
+     C           #DOWN     BEGSR
+     C           ENDRRN    ADD  @@MAX     @@BACK  40
+     C                     Z-ADD0         @@KEN   40
+     C*
+     C   90                ADD  1         @@BACK
+     C   90      KEY02     SETGTALCPL70
+     C   90                SETOF                     90
+      *-------------------------
+      *-------------------------
+S1   C           @@KEN     DOUEQ@@BACK
+     C                     READPALCPL70                  91
+     C* SCAN DATE-TIME
+     C  N90      A$SCDT    IFLT D$SHTM
+     C                     SETON                     91
+     C                     ENDIF
+     C   91                LEAVE
+     C*
+     C                     EXSR #SEL
+     C           @NG       IFEQ '*'
+     C                     ITER
+     C                     ENDIF
+     C*
+     C*
+     C                     ADD  1         @@KEN
+E1   C                     ENDDO
+      *-------------------------
+      *-------------------------
+     C   91      KEY01     SETLLALCPL70
+     C                     EXSR #SFSET
+     C                     ENDSR
+      *===============================================================
+      *===============================================================
+     C           #NAME     BEGSR
+      *
+      * WORKER CD MASTER FILES.           *
+      *
+     C                     MOVEL*BLANK    S1TANM
+     C           S1TACD    SETGTALBPL30
+     C                     DO   *HIVAL
+     C           S1TACD    REDPEALBPL301                 98
+     C   98                LEAVE
+     C           ALSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+     C                     MOVELALWKNM    S1TANM
+     C                     ENDDO
+      *
+     C           $NAMEZ    ENDSR
+      *===============================================================
+     C           #KIND     BEGSR
+      *
+     C                     MOVE A7KCD1    $$KCD   1
+     C                     EXSR ##KIND
+     C                     MOVE $$KIND    S1KID1
+     C                     MOVE A7KCD2    $$KCD
+     C                     EXSR ##KIND
+     C                     MOVE $$KIND    S1KID2
+     C                     ENDSR
+      *===============================================================
+     C           ##KIND    BEGSR
+     C                     Z-ADD1         ZZ      20
+     C                     MOVE *BLANK    $$KIND 25
+     C           $$KCD     LOKUPKN1,ZZ                   50
+     C   50                MOVELKN2,ZZ    $$KIND
+     C                     ENDSR
+      *===============================================================
+**  ER  (ERROR MESSAGE )
+E-01 SCAN DATE FROM ISN'T RIGHT
+E-02 SCAN DATE TO ISN'T RIGHT
+E-03 DATE TIME ERROR  FROM > TO
+E-04 THERE ISN'T SCAN DATA.
+E-06 THE FIRST DATA.
+E-07 THE LAST DATA.
+**  KN1(1) KN2(22) (KANBANBAN KIND )
+APRODUCTION KANBAN
+BHEAT TREATMENT KANBAN
+CPLATING KANBAN(A-PICS)
+@PLATING KANBAN(PLASTIC)
+EPART WITHDRAWAL KANBAN
+PPILOT KANBAN
+0PT KANBAN
+3PT WASHER KANBAN
+6BPT KANBAN

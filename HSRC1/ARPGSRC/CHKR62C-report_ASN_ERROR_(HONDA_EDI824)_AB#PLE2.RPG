@@ -1,0 +1,196 @@
+     H            Y.
+     F** CHKR62C ******************************************************
+     F*  PROGRAM    : REPORT ASN ERROR (HONDA EDI824)                 *
+     F*               * PRINT ERRORS AFTER THE START DATE             *
+     F*  WRITTEN    : JW (SRA) 2024.05.20                             *
+     F*****************************************************************
+     FAB#PLE2 IF  E           K        DISK
+     FAB#EL59TIF  E           K        DISK
+     FAB#EP68SIF  E           K        DISK
+     FQPRINT  O   F     198     OF     PRINTER
+      *****************************************************************
+     I            DS
+     I                                        1   80BANOHZ
+     I                                        1   40BANOYY
+     I                                        5   60BANOMM
+     I                                        7   80BANODD
+     I            DS
+     I                                        1  60 M6FSER
+     I                                        5  41 M6MSG1
+     I            DS
+     I                                        1  80 M6ADER
+     I                                        1  21 M6MSG2
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+     C           @DATE     SETLLAB#PLE2
+     C                     DO   *HIVAL
+     C                     READ AB#PLE2                  98
+     C   98                LEAVE
+      * SELECT
+     C           M6PTRN    IFNE 'HONDA'
+     C           M6DATE    ORLT @DATE
+     C           M6ACKC    ORNE 'TR'
+     C           M6RSUS    ORNE 'ACCEPTED'
+     C                     ITER
+     C                     ENDIF
+      * SOLVED
+     C           M6RSUS    IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     EXSR #WP62
+      *
+     C                     ENDDO
+      *
+     C           SEQ#      IFNE 0
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      * CHECK ASN DATA                                     *
+      *----------------------------------------------------*
+     C           #WP62     BEGSR
+      *
+     C                     Z-ADDM6CRDT    XXDATE  80
+     C                     Z-ADDM6CRTM    XXTIME  60
+     C                     MOVELM6SHID    XXSHID  8
+     C                     MOVELM6ACKC    XXACKC  2
+     C                     MOVELM6PTRN    XXPTRN 10
+     C                     MOVELM6MSG1    XXMSG1 35
+     C                     MOVELM6MSG2    XXMSG2 20
+      * FROM EP59S ------------------------------------
+     C                     MOVELM6SHID    K1ASN
+     C                     Z-ADDM6CRDT    K1CRDT
+     C           K#59      SETLLAB#EL59T
+     C                     DO   *HIVAL
+     C           K1ASN     READEAB#EL59T                 97
+     C   97                LEAVE
+      *
+     C           E1DATE    IFNE M6CRDT
+     C           E1TIME    ORGT M6CRTM
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELE1SHID    @@SHID 10
+     C                     MOVELE1TOKU    XXTOKU  4
+     C                     MOVELE1NONY    XXNONY  4
+     C                     MOVELE1NOHZ    XXNOHZ  80
+     C                     MOVELE1NBIN    XXNOBN  2
+     C                     MOVELE1CRUS    XXUSR   5
+     C                     LEAVE
+     C                     ENDDO
+      * FROM EP68S -----------------------------------
+     C           @@SHID    SETLLAB#EP68S
+     C                     DO   *HIVAL
+     C           @@SHID    READEAB#EP68S                 97
+     C   97                LEAVE
+      *
+     C           E8MHIN    IFEQ M6MSG2
+     C                     MOVELE8ORDN    XXODRN 10
+     C                     MOVELE8MHIN    XXMHIN 20
+     C                     Z-ADDE8SRYO    XXSRYO  60
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      * PRINT
+     C                     EXSR #PRINT
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT QPRINT                                      *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $DATE   8        START DATE
+     C                     PARM           $RTN    1        RETURN
+      *
+     C           K#59      KLIST
+     C                     KFLD           K1ASN  10
+     C                     KFLD           K1CRDT  80
+      *
+     C                     TIME           SDATE
+     C           $DATE     IFEQ *BLANK
+     C           $DATE     OREQ *ZERO
+     C                     MOVE TODAY     @DATE   80
+     C                     ELSE
+     C                     MOVEL$DATE     @DATE
+     C                     ENDIF
+      *
+     C                     MOVE *BLANK    $RTN
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   40 '** REJECTED ASN - PL'
+     O                                   60 'EASE FOLLOW UP **   '
+     O                                   89 'DATE'
+     O                         TODAY     92 '    .  .  '
+     O                         NOW      102 '  :  :  '
+     O                                  106 'P.'
+     O                         PAGE  Z  110
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   14 'ASN_DATE'
+     O                                   21 'TIME'
+     O                                   30 'USER'
+     O                                   36 'ASN#'
+     O                                   43 'ID'
+     O                                   48 'EDI '
+     O                                   64 'ERROR_MSG'
+     O                                   96 'PART#'
+     O                                  116 'CUST'
+     O                                  121 'DELV'
+     O                                  131 'SHIP_DATE'
+     O                                  135 'BN'
+     O                                  146 'USER_PART#'
+     O                                  164 'QTY'
+     O                                  171 'ORDER#'
+     O        E 1              @DTL
+     O                         SEQ#  1 +000
+     O                         XXDATE  +001 '    /  /  '
+     O                         XXTIME  +001 '0 :  :  '
+     O                         XXUSR   +001
+     O                         XXSHID  +001
+     O                         XXACKC  +001
+     O                         XXPTRN  +001
+     O                         XXMSG1  +001
+     O                         XXMSG2  +001
+      *
+     O                         XXTOKU  +001
+     O                         XXNONY  +001
+     O                         XXNOHZ  +001 '    /  /  '
+     O                         XXNOBN  +001
+     O                         XXMHIN  +001
+     O                         XXSRYO1 +001
+     O                         XXODRN  +001
+      *

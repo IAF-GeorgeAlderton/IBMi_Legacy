@@ -1,0 +1,343 @@
+     H            Y.
+     F** AM#R45N ********************************************
+     F* PALLET RETURN SCAN                                  *
+     F*    LEC              2019.10.30                      *
+     F*******************************************************
+     FAM#PW45NCF  E                    WORKSTN
+     FALBPL30 IF  E           K        DISK
+     FAL#PP21 IF  E           K        DISK
+     FGADPL15 IF  E           K        DISK
+     FAM#PP45 UF  E           K        DISK                      A
+     FAM#WP45GUF  E           K        DISK                      A
+     E                    ER      1   3 40
+      *
+     ITOY         DS
+     I I            'TOYOTA-NO MANIFEST'      1  20 TOYNM
+      *
+     IMAN         DS
+     I                                        1  25 MAN1
+     I                                       26  50 MAN2
+      *
+      * 2D MANIFEST BARCODE
+     I            DS
+     I                                        1  50 MF
+     I                                        1   5 MFNAMC
+     I                                        3   5 MFTYPE
+     I                                        6  10 MFSUPP
+     I                                       11  12 MFNUKE
+     I                                       13  24 MFORD#
+     I                                       25  33 MFMRTE
+     I                                       34  36 MFSDCK
+     I                                       37  38 MFPALT
+     I                                       39  40 MFMRSO
+     I                                       41  44 MFSKID
+     I                                       44  44 MFSIDE
+     I                                       45  50 MFFILR
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        7  140SDATE
+     I                                        1   60STIME
+     I                                        1   40HHMM
+     I                                        1   20HR
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           WORKER  6
+     C                     PARM           WUSRID 10
+      *----------------------------------------------------*
+      *   M  A  I  N  L  I  N  E                           *
+      *----------------------------------------------------*
+     C                     EXSR #INIT
+     C           DSPSW     DOUEQ'99'
+     C                     EXSR #MAIN
+     C                     ENDDO
+     C                     EXSR #END
+      *----------------------------------------------------*
+      * INITIALIZE                                         *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C                     MOVELWORKER    WKCD    60
+     C           WKCD      CHAINALBPL30              61
+     C           *IN61     IFEQ *ON
+     C                     MOVE *BLANKS   ALWKNM
+     C                     ENDIF
+     C                     MOVELWORKER    SCWKCD
+     C                     MOVELALWKNM    SCWKNM
+     C                     MOVELW#PGM     #PGM
+      *
+     C                     TIME           WTIME
+     C                     Z-ADDSDATE     SCSTDT
+     C                     Z-ADDHHMM      SCSTTM
+     C                     MOVELHR        STHR    2
+      *
+     C                     MOVEL'01'      DSPSW   2
+     C                     CLEARMAN
+      *
+     C           #GAD15    KLIST
+     C                     KFLD           C2NONY
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C           #MAIN     BEGSR
+      *
+     C           DSPSW     DOWEQ'01'
+     C                     EXSR #SB100
+     C                     ENDDO
+      *
+     C           DSPSW     DOWEQ'02'
+     C                     EXSR #SB200
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *　⒳�痧���饛�黬�砑ⓓ�濰�　　　　　　　　　�
+      *----------------------------------------------------*
+     C           #SB100    BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANK    MSG
+     C                     SETOF                     3199
+      *
+     C                     TIME           WTIME
+     C           *IN01     IFEQ *ON
+     C                     MOVEL'99'      DSPSW   2
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+     C           *IN05     IFEQ *ON
+     C           *IN12     OREQ *ON
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+     C           *IN09     IFEQ *ON
+     C                     CALL 'AM#R45G'
+     C                     PARM           STHR
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+     C           MAN       IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,1      MSG
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+     C                     MOVELMAN       MF
+      *
+      * if it's a tier 1 pallet or it's a toyota pallet w/o manifest
+      *    it's okay...
+     C                     MOVE *BLANK    NOMANF  1
+     C                     SELEC
+      ***  tier 1 customer pallet
+     C           MFNAMC    WHEQ 'TIER1'
+     C                     MOVEL'TIER 1'  MFNAME    P
+     C                     MOVEL'11111'   MFSUPP
+     C                     MOVE '02'      DSPSW
+     C                     MOVE 'Y'       NOMANF           NO MANIFEST
+     C                     GOTO ESB100
+      ***  toyota pallet with no manifest
+     C           MFNAMC    WHEQ 'TM-NM'
+     C                     MOVELTOYNM     MFNAME
+     C                     MOVEL'14060'   MFSUPP
+     C                     MOVE '02'      DSPSW
+     C                     MOVE 'Y'       NOMANF           NO MANIFEST
+     C                     GOTO ESB100
+     C                     ENDSL
+      *
+     C           MFNAMC    CHAINAL#PP21              55
+     C           *IN55     IFEQ *OFF
+     C           #GAD15    CHAINGADPL15              55
+     C           *IN55     IFEQ *OFF
+     C                     MOVELB5KMEI    MFNAME 20
+     C                     ELSE
+     C                     MOVELER,2      MSG
+     C                     SETON                     3199
+     C                     GOTO ESB100
+     C                     ENDIF
+     C                     ELSE
+     C                     MOVELER,2      MSG
+     C                     SETON                     3199
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+     C                     MOVE '02'      DSPSW
+      *
+     C           ESB100    ENDSR
+      *----------------------------------------------------*
+      *　⒳�痧���瘏痱黿��Ğ�ġ�槖�樚鯟�　　　　�
+      *----------------------------------------------------*
+     C           #SB200    BEGSR
+      *
+     C                     EXFMTDSP02
+     C                     MOVEL*BLANK    MSG
+     C                     SETOF                     3199
+      *
+     C                     SELEC
+      *
+      * if f1, then go back to screen 1.
+     C           *IN01     WHEQ *ON
+     C                     CLEARMAN
+     C                     MOVEL'01'      DSPSW
+     C                     GOTO ESB200
+      *
+      * if f5, then write good pallet...
+     C           *IN05     WHEQ *ON
+     C                     MOVE *BLANK    SCDAMG  1
+     C           NOMANF    IFEQ 'Y'
+     C                     EXSR #SB500
+     C                     ELSE
+     C                     EXSR #WRT
+     C                     ENDIF
+     C                     CALL 'AM#C45D'
+     C                     PARM           SCDAMG
+      *
+      * if f12, then write bad pallet...
+     C           *IN12     WHEQ *ON
+     C                     MOVEL'Y'       SCDAMG
+     C           NOMANF    IFEQ 'Y'
+     C                     EXSR #SB500
+     C                     ELSE
+     C                     EXSR #WRT
+     C                     ENDIF
+     C                     CALL 'AM#C45D'
+     C                     PARM           SCDAMG
+      *
+     C                     OTHER
+     C                     GOTO ESB200
+     C                     ENDSL
+      *
+     C                     CLEARMAN
+      *
+     C                     MOVEL'01'      DSPSW
+      *
+     C           ESB200    ENDSR
+      *----------------------------------------------------*
+      *　ヸ脋�Ⓜ聱�樠肁瘌�胕硠��樝��　　　　　　�
+      *----------------------------------------------------*
+     C           #WRT      BEGSR
+      *
+      *   check to see if manifest already scanned to file...
+     C                     EXSR #CHKMF
+      *
+      *   if already scanned to file, then update...
+     C           FOUND     IFEQ 'Y'
+     C                     MOVELWORKER    D1USCD
+     C                     MOVELALWKNM    D1USNM
+     C                     MOVE SCDAMG    D1DAMG
+      *
+     C                     UPDATAM#PP451
+      *
+     C                     MOVELMFNAME    LSNAME
+     C                     MOVELMFORD#    LSORD#
+     C                     MOVELMFNUKE    LSNUKE
+     C                     MOVELMFPALT    LSPALT
+     C                     MOVELMFMRSO    LSMRSO
+      *
+     C           SCDAMG    IFEQ 'Y'
+     C                     MOVEL'Damaged 'LSCOND
+     C                     ELSE
+     C                     MOVEL'Good    'LSCOND
+     C                     ENDIF
+      *
+      *  else write new record to skid manifest file...
+     C                     ELSE
+     C                     EXSR #SB500
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *　瀗疢�▦�疴��黬�砑ⓓ�鰚疙玦�濰�疤　　　　�
+      *----------------------------------------------------*
+     C           #CHKMF    BEGSR
+      *
+     C                     MOVE 'N'       FOUND   1
+     C                     MOVE *BLANK    MFSIDE
+      *
+     C           MF        CHAINAM#PP45              55
+     C           *IN55     IFEQ *OFF
+     C                     MOVE 'Y'       FOUND
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * WRITE TO PALLET RETURN SCAN FILE ---- AM#PP45.     *
+      *----------------------------------------------------*
+     C           #SB500    BEGSR
+      *
+     C                     CLEARAM#PP451
+     C                     Z-ADDSDATE     D1SSHZ
+     C                     Z-ADDSTIME     D1SSTI
+     C                     MOVELWORKER    D1USCD
+     C                     MOVELALWKNM    D1USNM
+      *
+     C                     MOVELMF        D12D
+     C                     MOVELMFNAMC    D1NAMC
+     C                     MOVELMFNAME    D1NAME
+     C                     MOVELMFSUPP    D1SUPP
+     C           D1SUPP    IFEQ '14060'
+     C           D1SUPP    OREQ '1731B'
+     C                     MOVEL'IAF'     D1SNAM
+     C                     ELSE
+     C                     MOVEL'OFFRT'   D1SNAM
+     C                     ENDIF
+     C                     MOVELMFNUKE    D1NUKE
+     C                     MOVELMFORD#    D1ORD#
+     C                     MOVELMFPALT    D1PALT
+     C                     MOVELMFMRSO    D1MRSO
+     C                     MOVEL'Y'       D1RECV
+     C                     MOVELSCDAMG    D1DAMG
+      *
+     C                     WRITEAM#PP451
+     C                     ADD  1         SCTOTP
+     C                     EXSR #SB550
+      *
+     C                     MOVELMFNAME    LSNAME
+     C                     MOVELMFORD#    LSORD#
+     C                     MOVELMFNUKE    LSNUKE
+     C                     MOVELMFPALT    LSPALT
+     C                     MOVELMFMRSO    LSMRSO
+     C           SCDAMG    IFEQ 'Y'
+     C                     MOVEL'Damaged 'LSCOND
+     C                     ELSE
+     C                     MOVEL'Good    'LSCOND
+     C                     ENDIF
+      *
+     C           ESB500    ENDSR
+      *
+      *----------------------------------------------------*
+      * WRITE TO PALLET RETURN GRAPH W/F ---- AM#PP45G.    *
+      *----------------------------------------------------*
+     C           #SB550    BEGSR
+      *
+     C           HR        CHAINAM#WP45G             57
+     C           *IN57     IFEQ *OFF
+     C                     ADD  1         WKCNT
+     C                     UPDATAM#WP451
+     C                     ELSE
+     C                     MOVELHR        WKHRS
+     C                     Z-ADD1         WKCNT
+     C                     WRITEAM#WP451
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *
+      *----------------------------------------------------*
+      * END PROGRAM.                                       *
+      *----------------------------------------------------*
+     C           #END      BEGSR
+     C                     SETON                     LR
+     C                     RETRN
+     C                     ENDSR
+      *----------------------------------------------------*
+**
+INPUT MANIFEST BARCODE.
+INVALID MANIFEST BARCODE.
+INVALID, ENTER Y OR N

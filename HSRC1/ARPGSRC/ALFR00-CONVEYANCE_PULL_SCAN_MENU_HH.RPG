@@ -1,0 +1,204 @@
+     H            Y.
+     F** ALFR00 *********************************************
+     F* CONVEYANCE PULL SCAN MENU
+     F*    LEC.             2018.01.29                      *
+JW1  F*    JW   2020.09.15  ADD DUMMY (TO DETECT INDIRECT CALL) *
+     F*    LEC. 2021.10.21  ADD OPTION 5 FOR OUTSOURCE SCAN
+     F*    LEC. 2025.06.27  ADD OPTION 6 FOR WIRE RECEIVE SCAN
+     F*    LEC. 2025.06.27  ADD OPTION 7 FOR WIRE STORAGE SCAN
+     F***********************************************************
+     FALFPW00 CF  E                    WORKSTN
+     FALBPL30 IF  E           K        DISK
+     E                    ER      1  11 65
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        7  14 SDATE
+     I                                        1   6 STIME
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           WORKER  6
+     C                     PARM           WUSRID 10
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     EXSR #SB100
+     C           DSPSW     DOUEQ'99'
+     C                     EXSR #SB200
+     C                     ENDDO
+     C                     EXSR #SB300
+      *----------------------------------------------------*
+      * INZ                                                *
+      *----------------------------------------------------*
+     C           #SB100    BEGSR
+      *
+     C                     TIME           WTIME
+     C                     MOVEL'01'      DSPSW   2
+     C                     MOVELWORKER    USRCD
+     C                     Z-ADD0         D1SEL
+JW1  C                     GOTO ESB100
+ |    ****************************************
+ |    * UN-PROCESS LINE (FOR INDIRECT CALL)  *
+ |    ****************************************
+ |   C                     CALL 'ALFR01'                   D1SEL=1
+ |   C                     CALL 'GDMR810'                  D1SEL=2
+ |   C                     CALL 'ALFR40'                   D1SEL=3
+JW1  C                     CALL 'ALFR41'                   D1SEL=4
+LEC  C                     CALL 'AFAR80'                   D1SEL=5
+LEC  C                     CALL 'IZAR71'                   D1SEL=6
+LEC  C                     CALL 'ALFR73'                   D1SEL=7
+LEC  C                     CALL 'IWAC78CV'                 D1SEL=8
+LEC  C                     CALL 'IWAC79CV'                 D1SEL=9
+      *
+     C           ESB100    ENDSR
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C           #SB200    BEGSR
+      *
+     C           DSPSW     DOWEQ'01'
+     C                     EXSR #SB210
+     C                     ENDDO
+      *
+     C           ESB200    ENDSR
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C           #SB210    BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANK    MSG
+     C                     MOVEL*BLANK    WPGM    8
+     C                     MOVEL*BLANK    P2PGM  10
+     C                     SETOF                     3199
+      *
+     C                     TIME           WTIME
+     C           *IN03     IFEQ '1'
+     C                     MOVEL'99'      DSPSW   2
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C           P1        PLIST
+     C                     PARM           POPR    6
+     C                     PARM           PUSR   10
+      *
+     C           P2        PLIST
+     C                     PARM           POPR
+      *
+     C           P3        PLIST
+     C                     PARM           POPR
+     C                     PARM           W1USNM
+      *
+     C                     MOVE WORKER    POPR    6        SET WORKER ID
+     C                     MOVE WORKER    POPR2   60       SET WORKER ID
+      *
+     C                     SETOF                     98
+     C           POPR2     SETGTALBPL301
+     C                     DO   *HIVAL
+     C           POPR2     REDPEALBPL301                 98
+     C   98                LEAVE
+     C           ALSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+     C                     MOVELALWKNM    W1USNM 20
+     C                     ENDDO
+      *
+     C                     MOVELW#USER    PUSR   10        SET WORKER ID
+     C                     MOVEL*BLANK    PSUPP   4
+      *
+     C                     SELEC
+      * conveyance washer pull scan
+     C           D1SEL     WHEQ 1
+     C                     MOVEL'ALFR01'  WPGM
+      * asj washer inprocess scan
+     C           D1SEL     WHEQ 2
+     C                     MOVEL'GDMR810' WPGM
+      * wire pull from location scan
+     C           D1SEL     WHEQ 3
+     C                     MOVEL'ALFR40'  WPGM
+      * wire pull into location scan
+     C           D1SEL     WHEQ 4
+     C                     MOVEL'ALFR41'  WPGM
+      * outsource scan system
+     C           D1SEL     WHEQ 5
+     C                     MOVEL'AFAR80'  WPGM
+      * wire receive into inventory scan
+     C           D1SEL     WHEQ 6
+     C                     MOVEL'IZAR71'  WPGM
+      * wire store to virtual location scan
+     C           D1SEL     WHEQ 7
+     C                     MOVEL'ALFR73'  WPGM
+      * outsource washer store in
+     C           D1SEL     WHEQ 8
+     C                     MOVEL'IWAC78CV'WPGM
+      * outsource washer pull
+     C           D1SEL     WHEQ 9
+     C                     MOVEL'IWAC79CV'WPGM
+      *
+     C                     OTHER
+     C                     SETON                     3199
+     C                     MOVELER,1      MSG
+     C                     EXSR #SB999
+     C                     GOTO ESB210
+     C                     ENDSL
+      *
+      * CREATE SIGN-ON INFO
+     C                     MOVELWPGM      P2PGM  10
+     C                     MOVE WORKER    P2WKR   6
+     C                     MOVELW1USNM    P2WKN  20
+     C                     CALL 'ALDRZ6'
+     C                     PARM           P2PGM
+     C                     PARM           P2WKR
+     C                     PARM           P2WKN
+      * CALL PROCESS
+     C                     SELEC
+     C           D1SEL     WHGE 1
+     C           D1SEL     ANDLE5
+     C                     CALL WPGM      P1
+     C           D1SEL     WHEQ 6
+     C                     CALL WPGM      P2
+     C           D1SEL     WHEQ 7
+     C                     CALL WPGM      P3
+     C           D1SEL     WHEQ 8
+     C           D1SEL     OREQ 9
+     C                     CALL WPGM      P1
+     C                     ENDSL
+      *
+     C                     Z-ADD0         D1SEL
+      *
+      * DELETE SIGN-ON INFO
+     C                     CALL 'ALDRZ7'
+      *
+     CSR         ESB210    ENDSR
+      *----------------------------------------------------*
+      * END                                                *
+      *----------------------------------------------------*
+     CSR         #SB300    BEGSR
+      *
+     C                     SETON                     LR
+     C                     RETRN
+     CSR         ESB300    ENDSR
+      *----------------------------------------------------*
+      * ERR                                                *
+      *----------------------------------------------------*
+     CSR         #SB999    BEGSR
+      *
+     C                     MOVELMSG       P1ERR
+     C                     CALL 'AM#R08'
+     C                     PARM           P1ERR  25
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+      *
+     CSR         ESB999    ENDSR
+**
+INPUT NO. ERR
+
+
+
+

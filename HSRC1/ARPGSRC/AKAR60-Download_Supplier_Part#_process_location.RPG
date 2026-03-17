@@ -1,0 +1,498 @@
+     H            Y/
+     F*** AKAR60 *********************
+     F* Download for Supplier>Part# process location
+     F*
+TCH67F* TCH67 06/28/05 ADDED 2 FIELDS
+     F******************** AKAR60 ***
+     FIZAPL04 IF  E           K        DISK
+     FAFAPL80 IF  E           K        DISK
+     FAFDPL12 IF  E           K        DISK
+     F*
+     FAKBPL04 IF  E           K        DISK
+     FAAMPL11 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+     FFCEPL02 IF  E           K        DISK
+     F* delivery statistics
+     FMBDPL01 IF  E           K        DISK
+     F* calendar
+     FAGDPL11 IF  E           K        DISK
+TCH67FAAFTL06 IF  E           K        DISK
+     F* download work
+     FAKAWP60 O   E           K        DISK
+     I*-----------------------------------------------------
+     I* status data structure
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     I            DS
+     I                                        1  12 WASH1
+     I                                        1   5 A21HB5
+     I                                        6  10 A22HB5
+     I                                       11  12 A23HB2
+     I            DS
+     I                                        1  12 WASH2
+     I                                        1   5 A24HB5
+     I                                        6  10 A25HB5
+     I                                       11  12 A26HB2
+     I            DS
+     I                                        1  12 WASH3
+     I                                        1   5 A27HB5
+     I                                        6  10 A28HB5
+     I                                       11  12 A29HB2
+     I            DS
+     I                                        1  12 WASH4
+     I                                        1   5 A210H5
+     I                                        6  10 A211H5
+     I                                       11  12 A212H2
+     I* system date
+     I            DS
+     I                                        1   80#YMD
+     I                                        1   40#YY
+     I                                        5   60#MM
+     I                                        7   80#DD
+     I* today's date
+     I            DS
+     I                                        1  180W#TDAT
+     I                                        1   40W#TDYY
+     I                                        1   20W#TDY1
+     I                                        3   40W#TDY2
+     I                                        5   60W#TDMM
+     I                                        7   80W#TDDD
+     I* part# for edit
+     I            DS
+     I                                        1  14 W#PART
+     I                                        1   5 W#PAR1
+     I I            '-'                       6   6 W#PARA
+     I                                        7  11 W#PAR2
+     I I            '-'                      12  12 W#PARB
+     I                                       13  14 W#PAR3
+     I* location for edit
+     I            DS
+     I                                        1   9 W#LOC
+     I                                        1   1 W#LOC1
+     I I            '-'                       2   2 W#LOCA
+     I                                        3   4 W#LOC2
+     I I            '-'                       5   5 W#LOCB
+     I                                        6   7 W#LOC3
+     I I            '-'                       8   8 W#LOCC
+     I                                        9   9 W#LOC4
+TCH67I            DS
+     I                                        1  15 AWPART
+     I                                        1   5 KPAR1
+     I                                        7  11 KPAR2
+TCH67I                                       13  14 KPAR3
+     C******************************************************
+     C*  Main : main control                               *
+     C******************************************************
+     C                     EXSR @INT
+     C* creat from IZAPP01
+     C                     EXSR @IZAP
+     C* creat from AFAPP80
+     C                     EXSR @AFAP
+     C* creat from AFDPP10
+     C                     EXSR @AFDP
+     C*
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+     C******************************************************
+     C*  @INT : initial set                                *
+     C******************************************************
+     C           @INT      BEGSR
+     C*
+     C                     Z-ADD*DATE     #YMD
+     C                     Z-ADD#YMD      W#TDAT
+TANE C                     Z-ADD20        W#TDY1
+     C* previous month
+     C           *LIKE     DEFN W#TDYY    K#PDYY
+     C           *LIKE     DEFN W#TDMM    K#PDMM
+     C                     Z-ADDW#TDYY    K#PDYY
+     C                     Z-ADDW#TDMM    K#PDMM
+     C                     SUB  1         K#PDMM
+     C           K#PDMM    IFLE *ZERO
+     C                     SUB  1         K#PDYY
+     C                     Z-ADD12        K#PDMM
+     C                     END
+     C* count previous month bussiness days from calendar
+     C           K#AGDP    KLIST
+     C                     KFLD           K#PDYY
+     C                     KFLD           K#PDMM
+     C           K#AGDP    SETLLAGDPL111
+     C*
+     C                     Z-ADD*ZERO     W#DAYS  20
+     C                     DO   *HIVAL
+     C*
+     C           K#AGDP    READEAGDPL111                 98
+     C   98                LEAVE
+     C*
+     C                     ADD  1         W#DAYS
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+     C******************************************************
+     C*  @IZAP : create from IZAPPL04(IZAPP01)            *
+     C******************************************************
+     C           @IZAP     BEGSR
+     C*
+     C           *LOVAL    SETLLIZAPP011
+     C*
+     C                     DO   *HIVAL
+     C*
+     C                     READ IZAPP011                 99
+     C   99                LEAVE
+     C           ZCSKJY    IFEQ 'D'
+     C                     ITER
+     C                     END
+     C*
+     C                     MOVELZCKAKE    W#KAKE  4
+     C*
+     C           K#FCEP    KLIST
+     C                     KFLD           ZCZAIS
+     C                     KFLD           ZCZAIK
+     C           K#FCEP    SETLLFCEPL021
+     C*
+     C                     DO   *HIVAL
+     C*
+     C           K#FCEP    READEFCEPL021                 98
+     C   98                LEAVE
+     C           A2GSKD    IFEQ 'D'
+     C                     ITER
+     C                     END
+     C*
+     C                     CLEARAKAWP601
+     C*
+     C                     EXSR @EDIT
+     C*
+     C                     WRITEAKAWP601
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+     C******************************************************
+     C*  @AFAP : create from AFAPPL80(AFAPP80)            *
+     C******************************************************
+     C           @AFAP     BEGSR
+     C*
+     C           *LIKE     DEFN A8SUPP    W#A8SP
+     C           *LIKE     DEFN A8PAR1    W#A8P1
+     C           *LIKE     DEFN A8PAR2    W#A8P2
+     C           *LIKE     DEFN A8PAR3    W#A8P3
+     C                     MOVEL*BLANK    W#A8SP
+     C                     MOVEL*BLANK    W#A8P1
+     C                     MOVEL*BLANK    W#A8P2
+     C                     MOVEL*BLANK    W#A8P3
+     C*
+     C           *LOVAL    SETLLAFAPL801
+     C*
+     C                     DO   *HIVAL
+     C*
+     C                     READ AFAPL801                 99
+     C   99                LEAVE
+     C           A8SKJY    IFEQ 'D'
+     C                     ITER
+     C                     END
+     C           A8SUPP    IFEQ W#A8SP
+     C           A8PAR1    ANDEQW#A8P1
+     C           A8PAR2    ANDEQW#A8P2
+     C           A8PAR3    ANDEQW#A8P3
+     C                     ITER
+     C                     END
+     C                     MOVELA8SUPP    W#A8SP
+     C                     MOVELA8PAR1    W#A8P1
+     C                     MOVELA8PAR2    W#A8P2
+     C                     MOVELA8PAR3    W#A8P3
+     C*
+     C           K#FCE1    KLIST
+     C                     KFLD           A8PAR1
+     C                     KFLD           A8PAR2
+     C                     KFLD           A8PAR3
+     C           K#FCE1    CHAINFCEPL011             98
+     C   98                ITER
+     C           A2GSKD    IFEQ 'D'
+     C                     ITER
+     C                     END
+     C*
+     C                     MOVELA8SUPP    W#KAKE  4
+     C*
+     C                     CLEARAKAWP601
+     C*
+     C                     EXSR @EDIT
+     C*
+     C                     WRITEAKAWP601
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+     C******************************************************
+     C*  @AFDP : create from AFDPL12(AFDPP101)             *
+     C******************************************************
+     C           @AFDP     BEGSR
+     C*
+     C           *LIKE     DEFN ADSUPP    W#ADSP
+     C           *LIKE     DEFN ADPAR1    W#ADP1
+     C           *LIKE     DEFN ADPAR2    W#ADP2
+     C           *LIKE     DEFN ADPAR3    W#ADP3
+     C                     MOVEL*BLANK    W#ADSP
+     C                     MOVEL*BLANK    W#ADP1
+     C                     MOVEL*BLANK    W#ADP2
+     C                     MOVEL*BLANK    W#ADP3
+     C*
+     C           *LOVAL    SETLLAFDPP101
+     C*
+     C                     DO   *HIVAL
+     C*
+     C                     READ AFDPP101                 99
+     C   99                LEAVE
+     C           ADSKJY    IFEQ 'D'
+     C                     ITER
+     C                     END
+     C           ADSUPP    IFEQ W#ADSP
+     C           ADPAR1    ANDEQW#ADP1
+     C           ADPAR2    ANDEQW#ADP2
+     C           ADPAR3    ANDEQW#ADP3
+     C                     ITER
+     C                     END
+     C                     MOVELADSUPP    W#ADSP
+     C                     MOVELADPAR1    W#ADP1
+     C                     MOVELADPAR2    W#ADP2
+     C                     MOVELADPAR3    W#ADP3
+     C*
+     C           K#FCE2    KLIST
+     C                     KFLD           ADPAR1
+     C                     KFLD           ADPAR2
+     C                     KFLD           ADPAR3
+     C           K#FCE2    CHAINFCEPL011             98
+     C   98                ITER
+     C           A2GSKD    IFEQ 'D'
+     C                     ITER
+     C                     END
+     C*
+     C                     MOVELADSUPP    W#KAKE  4
+     C*
+     C                     CLEARAKAWP601
+     C*
+     C                     EXSR @EDIT
+     C*
+     C                     WRITEAKAWP601
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+     C******************************************************
+     C*  @EDIT : edit download file from any file          *
+     C******************************************************
+     C           @EDIT     BEGSR
+     C*
+     C                     MOVELW#KAKE    AWSUPP
+     C*
+     C                     MOVELA2BHB1    W#PAR1
+     C                     MOVELA2BHB2    W#PAR2
+     C                     MOVELA2BHB3    W#PAR3
+     C                     MOVELW#PART    AWPART    P
+     C*
+     C                     MOVELA2ZANM    AWZANM
+     C                     Z-ADDA2KAZI    AWKAZI
+     C                     Z-ADDA2KASI    AWKASI
+     C                     Z-ADDA2GEKN    AWGEKN
+     C                     MOVELWASH1     AWWSH1
+     C                     MOVELWASH2     AWWSH2
+     C                     MOVELWASH3     AWWSH3
+     C                     MOVELWASH4     AWWSH4
+     C* set washer location
+     C           *LIKE     DEFN A21HB5    K#1HB5
+     C           *LIKE     DEFN A22HB5    K#2HB5
+     C           *LIKE     DEFN A23HB2    K#3HB2
+     C           K#AKBP    KLIST
+     C                     KFLD           K#1HB5
+     C                     KFLD           K#2HB5
+     C                     KFLD           K#3HB2
+     C*
+     C           A21HB5    IFNE *BLANK
+     C*          A22HB5    ORNE *BLANK
+     C*          A23HB2    ORNE *BLANK
+     C                     MOVELA21HB5    K#1HB5
+     C                     MOVELA22HB5    K#2HB5
+     C                     MOVELA23HB2    K#3HB2
+     C                     MOVEL*OFF      W#AKBP  1
+     C                     EXSR @GWASH
+     C           W#AKBP    IFEQ *ON
+     C                     MOVELW#LOC     AWWLC1
+     C                     END
+     C                     END
+     C           A24HB5    IFNE *BLANK
+     C*          A25HB5    ORNE *BLANK
+     C*          A26HB2    ORNE *BLANK
+     C                     MOVELA24HB5    K#1HB5
+     C                     MOVELA25HB5    K#2HB5
+     C                     MOVELA26HB2    K#3HB2
+     C                     MOVEL*OFF      W#AKBP
+     C                     EXSR @GWASH
+     C           W#AKBP    IFEQ *ON
+     C                     MOVELW#LOC     AWWLC2
+     C                     END
+     C                     END
+     C           A27HB5    IFNE *BLANK
+     C*          A28HB5    ORNE *BLANK
+     C*          A29HB2    ORNE *BLANK
+     C                     MOVELA27HB5    K#1HB5
+     C                     MOVELA28HB5    K#2HB5
+     C                     MOVELA29HB2    K#3HB2
+     C                     MOVEL*OFF      W#AKBP
+     C                     EXSR @GWASH
+     C           W#AKBP    IFEQ *ON
+     C                     MOVELW#LOC     AWWLC3
+     C                     END
+     C                     END
+     C           A210H5    IFNE *BLANK
+     C*          A211H5    ORNE *BLANK
+     C*          A212H2    ORNE *BLANK
+     C                     MOVELA210H5    K#1HB5
+     C                     MOVELA211H5    K#2HB5
+     C                     MOVELA212H2    K#3HB2
+     C                     MOVEL*OFF      W#AKBP
+     C                     EXSR @GWASH
+     C           W#AKBP    IFEQ *ON
+     C                     MOVELW#LOC     AWWLC4
+     C                     END
+     C                     END
+     C* get previous month actual shipped qty
+     C                     Z-ADD*ZERO     W#TNSU  90
+     C                     EXSR @GMBDP
+     C                     Z-ADDW#TNSU    AWTNSU
+     C                     Z-ADDA2SSYS    AWQPC
+     C           W#TNSU    DIV  A2SSYS    W#WCPD  72
+     C           W#WCPD    DIV  W#DAYS    AWCPD
+     C* get process location
+     C                     EXSR @GAAMP
+TCH67C* GET SAFETY/NEW KANBAN
+     C           KEY3      KLIST
+     C                     KFLD           KPAR1
+     C                     KFLD           KPAR2
+     C                     KFLD           KPAR3
+     C*
+     C                     MOVE '0'       *IN55
+     C           KEY3      SETLLAAFTL061
+     C           *IN55     DOWEQ'0'
+     C           KEY3      READEAAFTL061                 55
+     C           *IN55     IFEQ '0'
+     C                     Z-ADDA3MAXH    AWMAXH
+     C                     Z-ADDA3KMAX    AWKMAX
+     C                     ENDIF
+     C                     ENDDO
+TCH67C*
+     C                     ENDSR
+     C*----------------------------------------------------*
+     C*  @GWASH : get washer location information          *
+     C*----------------------------------------------------*
+     C           @GWASH    BEGSR
+     C*
+     C           K#AKBP    SETLLAKBPL041
+     C*
+     C           *IN97     DOUEQ*ON
+     C*
+     C           K#AKBP    READEAKBPL041                 97
+     C           *IN97     IFEQ *OFF
+     C           L1SKJY    ANDEQ*BLANK
+     C           L1STYY    ANDEQ9999
+     C*
+     C                     MOVELL1TKR1    W#LOC1
+     C                     MOVELL1TKR2    W#LOC2
+     C                     MOVELL1TKR3    W#LOC3
+     C                     MOVELL1TKR4    W#LOC4
+     C                     MOVEL*ON       W#AKBP
+     C                     LEAVE
+     C                     ENDIF
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+     C*----------------------------------------------------*
+     C*  @GMBDP : get previous actual shipped qty          *
+     C*----------------------------------------------------*
+     C           @GMBDP    BEGSR
+     C*
+     C           K#MBDP    KLIST
+     C                     KFLD           A2BHB1
+     C                     KFLD           A2BHB2
+     C                     KFLD           A2BHB3
+     C           K#MBDP    SETLLMBDPL011
+     C                     DO   *HIVAL
+     C*
+     C           K#MBDP    READEMBDPL011                 97
+     C   97                LEAVE
+     C           F3SKJY    IFEQ 'D'
+     C                     ITER
+     C                     END
+     C*
+     C                     ADD  F3TNSU    W#TNSU
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+     C*----------------------------------------------------*
+     C*  @GAAMP : get process locaton                      *
+     C*----------------------------------------------------*
+     C           @GAAMP    BEGSR
+     C*
+     C           K#AAMP    KLIST
+     C                     KFLD           A2BHB1
+     C                     KFLD           A2BHB2
+     C                     KFLD           A2BHB3
+     C*
+     C                     DO
+     C*
+     C           K#AAMP    CHAINAAMPL111             97
+     C   97                LEAVE
+     C*
+     C                     MOVELCKKO01    AWPL01
+     C                     MOVE CKNB01    AWPL01
+     C                     MOVELCKKO02    AWPL02
+     C                     MOVE CKNB02    AWPL02
+     C                     MOVELCKKO03    AWPL03
+     C                     MOVE CKNB03    AWPL03
+     C                     MOVELCKKO04    AWPL04
+     C                     MOVE CKNB04    AWPL04
+     C                     MOVELCKKO05    AWPL05
+     C                     MOVE CKNB05    AWPL05
+     C                     MOVELCKKO06    AWPL06
+     C                     MOVE CKNB06    AWPL06
+     C                     MOVELCKKO07    AWPL07
+     C                     MOVE CKNB07    AWPL07
+     C                     MOVELCKKO08    AWPL08
+     C                     MOVE CKNB08    AWPL08
+     C                     MOVELCKKO09    AWPL09
+     C                     MOVE CKNB09    AWPL09
+     C                     MOVELCKKO10    AWPL10
+     C                     MOVE CKNB10    AWPL10
+     C                     MOVELCKKO11    AWPL11
+     C                     MOVE CKNB11    AWPL11
+     C                     MOVELCKKO12    AWPL12
+     C                     MOVE CKNB12    AWPL12
+     C                     MOVELCKKO13    AWPL13
+     C                     MOVE CKNB13    AWPL13
+     C                     MOVELCKKO14    AWPL14
+     C                     MOVE CKNB14    AWPL14
+     C                     MOVELCKKO15    AWPL15
+     C                     MOVE CKNB15    AWPL15
+     C                     MOVE CKKB01    AWMC01
+     C                     MOVE CKKB02    AWMC02
+     C                     MOVE CKKB03    AWMC03
+     C                     MOVE CKKB04    AWMC04
+     C                     MOVE CKKB05    AWMC05
+     C                     MOVE CKKB06    AWMC06
+     C                     MOVE CKKB07    AWMC07
+     C                     MOVE CKKB08    AWMC08
+     C                     MOVE CKKB09    AWMC09
+     C                     MOVE CKKB10    AWMC10
+     C                     MOVE CKKB11    AWMC11
+     C                     MOVE CKKB12    AWMC12
+     C                     MOVE CKKB13    AWMC13
+     C                     MOVE CKKB14    AWMC14
+     C                     MOVE CKKB15    AWMC15
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR

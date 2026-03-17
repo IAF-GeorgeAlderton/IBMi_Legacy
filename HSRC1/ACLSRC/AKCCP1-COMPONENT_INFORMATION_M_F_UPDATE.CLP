@@ -1,0 +1,63 @@
+             PGM
+             /** AKCCP1 **********************************/
+             /*  COMPONENT INFORMATION M/F UPDATE        */
+             /*  AEBC70                                  */
+             /*  COMPONENTS KANBAN SYSTEM FILE           */
+             /*  DATA AND AMOUNT MAKING AGAIN            */
+             /* I-HASADA                 92.08.29        */
+             /*--------------------------------------    */
+             /* JW1   2023.07.26 ADD EXCLUCIVE CONTROL   */
+             /********************************************/
+
+             DCL        VAR(&USER)   TYPE(*CHAR) LEN(10)
+             DCL        VAR(&WSID)   TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT)    TYPE(*CHAR) LEN(7)
+             DCL        VAR(&TYPE)   TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG)   TYPE(*CHAR) LEN(10)
+             DCL        VAR(&MBAN)   TYPE(*CHAR) LEN(4)
+             DCL        VAR(&KOTE)   TYPE(*CHAR) LEN(1)
+ /*JW1*/     DCL        VAR(&RTN1)   TYPE(*CHAR) LEN(1)
+
+/* JW1 CHECK OTHER USER IS USING  ==================================*/
+             CALL CHKC45 ('AKCACT' 'AKCCP1' 'Y'  'CHK' &RTN1)
+             IF         COND(&RTN1 *NE ' ') THEN(GOTO ENDP)
+/* =================================================================*/
+
+             RTVJOBA    JOB(&WSID) USER(&USER)
+
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+
+ /**JW1      CHKOBJ     OBJ(HOBJ1/AKCACT) OBJTYPE(*DTAARA)                   **/
+ /**         MONMSG     MSGID(CPF9801) EXEC(GOTO CMDLBL(STP1))               **/
+ /**  STP2:  SNDPGMMSG  MSG('(G) +                                           **/
+ /**                    WAIT FOR A WHILE. BECAUSE IT IS ACTIVE THAT +        **/
+ /**                    COMPONENTS PART M/F UPDATE, COMPONENTS PART NUMBER + **/
+ /**                    PLAN NOTICE PUBLICATION AND COMPONENTS PART DELIVERY+**/
+ /**                    REQUEST SYSTEM.') +                                  **/
+ /**                    TOMSGQ(&WSID) MSGTYPE(*INQ) KEYVAR(&MBAN)            **/
+ /**         RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +             **/
+ /**                      MSG(&KOTE)                                         **/
+ /**         IF         COND((&KOTE *NE 'G') *AND (&KOTE *NE 'g')) +         **/
+ /**                      THEN(GOTO CMDLBL(STP2))                            **/
+ /**         GOTO       ENDP                                                 **/
+ /**                                                                         **/
+ /**  STP1:  CRTDTAARA  DTAARA(HOBJ1/AKCACT) TYPE(*CHAR) LEN(10) +           **/
+ /**                      TEXT('COMPONENTS P/N PLAN NOTICE +                 **/
+ /**                      PUBLICATION SYSTEM') AUT(*ALL)                     **/
+
+             CLRPFM     FILE(AKDWP01)
+             CLRPFM     FILE(AKDWP02)
+             CLRPFM     FILE(AKDTP02)
+
+             STRCMTCTL  LCKLVL(*ALL) NFYOBJ(*NONE)
+             CALL       PGM(AKCR01) PARM(&USER)
+             ENDCMTCTL
+
+             MONMSG     MSGID(CPF8356)
+             DLTOVR     FILE(*ALL)
+
+ /**JW       DLTDTAARA  DTAARA(HOBJ1/AKCACT)     **/
+
+ /*JW1*/     CALL CHKC45 ('AKCACT' 'AKCCP1' 'N'  '' '')
+
+ ENDP:       ENDPGM

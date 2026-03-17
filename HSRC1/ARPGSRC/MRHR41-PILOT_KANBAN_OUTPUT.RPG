@@ -1,0 +1,407 @@
+     ******************************************************************
+     **  プログラム名   :  PILOT KANBAN OUTPUT                     **
+     **                   :  (ENTRY)                               **
+     **  プログラムＩＤ :  MRHR41     <RPG>                        **
+     **  作成年月日     :  2014/02/05                              **
+     **  作成者         :  TR-ITS                                  **
+     **  プログラム概要 : 試作かんばんの発行用データを出力する   **
+     **--------------------------------------------------------------**
+     **  変更年月日     :  YYYY/MM/DD                              **
+     **  変更者         :                                          **
+     **  変更内容       :                                          **
+     ******************************************************************
+     ** <<使用標識説明>>
+     **        01       :プログラム終了 <F01>
+     **        05       :プログラム実行 <F05>
+     **      41 - 50    :画面共通エラー標識（全画面共通）
+     **        80       :試作手配データファイル読込
+     **        88       : LOOKUP(*EQ)
+     **        99       :代表エラー標識
+     ******************************************************************
+     H            Y/                                    1
+     **==============================================================**
+     **  ファイル
+     **==============================================================**
+     F*<<試作かんばん発行　エントリー画面>>
+     FMRHPW41 CF  E                    WORKSTN
+     F                                              KINFDS WSDS
+     F*<<試作手配データファイル(L1)>>
+     FMRHPL51 IF  E           K        DISK
+     F*<<試作手配データファイル(L3)>>
+     FMRHPL53 IF  E           K        DISK
+     F*<<試作かんばん再発行用ワークファイル>>
+     FMRHWP61 O   E                    DISK
+     **==============================================================**
+     **  配列
+     **==============================================================**
+     E                    @TE         9  7               手配番号
+     E                    @TE1        9  4               手配番号１
+     E                    @TE2        9  3               手配番号２
+     E                    @HZ         9  8 0             登録日付DSP
+     E                    @TM         9  6 0             登録時間DSP
+      *
+     E                    @MS     1   6 53                ERR MSG
+     **==============================================================**
+     **  ＤＳ
+     **==============================================================**
+     I*<<システム情報>>
+     I           SDS
+     I                                     *PROGRAM S@PGID
+     I                                      244 253 S@WSID
+     I                                      254 263 S@USID
+     I                                      264 269 S@JBID
+     I*<<システム日時>>
+     I            DS
+     I                                        1  140S@TIME
+     I                                        1   60S@HMS
+     I                                        1   20S@TMHH
+     I                                        3   40S@TMMM
+     I                                        5   60S@TMSS
+     I                                        7  140S@YYMD
+     I                                        7  100S@DYYY
+     I                                       11  120S@DYMM
+     I                                       13  140S@DYDD
+     I*<<カーソル制御>>
+     IWSDS        DS
+     I                                    B 370 3710S@CUR
+     I                                      370 370 S@LIN
+     I                                      371 371 S@COL
+     I                                    B 378 3790S@POS
+     **--------------------------------------------------------------**
+     I* <<共通>>
+     I            DS
+     I                                        1   80W@SYMD
+     I                                        1   20W@SMM
+     I                                        3   40W@SDD
+     I                                        5   80W@SYY4
+     I            DS
+     I                                        1  36 @TE1
+     I                                        1   4 D1TE11
+     I                                        5   8 D1TE12
+     I                                        9  12 D1TE13
+     I                                       13  16 D1TE14
+     I                                       17  20 D1TE15
+     I                                       21  24 D1TE16
+     I                                       25  28 D1TE17
+     I                                       29  32 D1TE18
+     I                                       33  36 D1TE19
+     I            DS
+     I                                        1  27 @TE2
+     I                                        1   3 D1TE21
+     I                                        4   6 D1TE22
+     I                                        7   9 D1TE23
+     I                                       10  12 D1TE24
+     I                                       13  15 D1TE25
+     I                                       16  18 D1TE26
+     I                                       19  21 D1TE27
+     I                                       22  24 D1TE28
+     I                                       25  27 D1TE29
+     I            DS
+     I                                        1  720@HZ
+     I                                        1   80SHGRH1
+     I                                        9  160SHGRH2
+     I                                       17  240SHGRH3
+     I                                       25  320SHGRH4
+     I                                       33  400SHGRH5
+     I                                       41  480SHGRH6
+     I                                       49  560SHGRH7
+     I                                       57  640SHGRH8
+     I                                       65  720SHGRH9
+     I            DS
+     I                                        1  540@TM
+     I                                        1   60SHGRT1
+     I                                        7  120SHGRT2
+     I                                       13  180SHGRT3
+     I                                       19  240SHGRT4
+     I                                       25  300SHGRT5
+     I                                       31  360SHGRT6
+     I                                       37  420SHGRT7
+     I                                       43  480SHGRT8
+     I                                       49  540SHGRT9
+     **==============================================================**
+     **  パラメータ
+     **==============================================================**
+     C           *ENTRY    PLIST
+     C                     PARM           P@KKBN  1        *更新区分
+     C                     PARM           P@FC    2        *ファンクション
+      *
+     C* <<試作かんばん発行(MRHC42) >>
+     C           P1MH42    PLIST
+     C                     PARM           P1KKBN  1        *更新区分
+      *
+     **==============================================================**
+     **  ＫＥＹ
+     **==============================================================**
+     C* <<試作手配データファイル(MRHPL51)>>
+     C           STKEY1    KLIST
+     C                     KFLD           STTHI1           *手配№　絶対番号
+     C                     KFLD           STTHI2           *手配№　連番
+     C* <<試作手配データファイル(MRHPL53)>>
+     C           STKEY     KLIST
+     C                     KFLD           STHKHZ           *かんばん発行日
+      *
+     **==============================================================**
+     **  メインルーチン
+     **==============================================================**
+      *---<初期処理>---*
+     C                     EXSR #INIT
+      *
+      *---<主処理>---*
+     C           W@NEXT    DOUEQ'END  '                    ¬DO_01
+      * G1
+     C           W@NEXT    CASEQ'SET10'   #SET10           ~¬CAS
+     C           W@NEXT    CASEQ'PNL10'   #PNL10            |
+     C           W@NEXT    CASEQ'CHK10'   #CHK10            |
+      *
+     C           W@NEXT    CASEQ'CAL10'   #CAL10            |
+     C                     END                             _｢CAS
+      *
+     C                     END                             ｢DO_01
+      *
+      *---<終了処理>---*
+     C                     SETON                     LR
+     C                     RETRN
+      *
+      **************************************************************************
+      *         Ｓ　Ｕ　Ｂ　－　Ｒ　Ｏ　Ｕ　Ｔ　Ｉ　Ｎ　Ｅ
+      **************************************************************************
+      *-------------------------------------------------------------------------
+      *          #INIT    初期処理
+      *-------------------------------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C                     TIME           S@TIME
+     C                     Z-ADDS@DYMM    W@SMM
+     C                     Z-ADDS@DYDD    W@SDD
+     C                     Z-ADDS@DYYY    W@SYY4
+     C                     Z-ADDW@SYMD    D1SYMD           * SYSTEM DATE
+      *
+     C                     MOVEL*BLANK    D1SELC           *更新区分
+     C                     CLEAR@TE                        *手配番号
+     C                     CLEAR@TE1                       *手配番号１
+     C                     CLEAR@TE2                       *手配番号２
+     C                     CLEAR@HZ                        *登録日付
+     C                     CLEAR@TM                        *登録時間
+      *
+     C                     MOVEL*BLANK    P@KKBN           *更新区分
+     C                     MOVEL*BLANK    P@FC             *ファンクション
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'SET10'   W@NEXT  5
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #SET10   第一画面(G1) 項目セット処理
+      *-------------------------------------------------------------------------
+     C           #SET10    BEGSR
+      *
+     C                     SETOF                     41
+     C                     SETOF                     424344
+     C                     SETOF                     454647
+     C                     SETOF                     484950
+     C                     SETOF                     99
+      *
+     C                     MOVEL*BLANK    D1SELC           *更新区分
+     C                     CLEAR@TE                        *手配番号
+     C                     CLEAR@TE1                       *手配番号１
+     C                     CLEAR@TE2                       *手配番号２
+     C                     CLEAR@HZ                        *登録日付
+     C                     CLEAR@TM                        *登録時間
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'PNL10'   W@NEXT           G1-PNL
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #PNL10   第一画面(G1) 表示処理
+      *-------------------------------------------------------------------------
+     C           #PNL10    BEGSR
+      *
+     C                     EXFMTMRHPW411
+      *
+     C                     SETOF                     41
+     C                     SETOF                     424344
+     C                     SETOF                     454647
+     C                     SETOF                     484950
+     C                     SETOF                     99
+     C                     MOVEL*BLANK    D1EMSG           * ERR MSG
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'CHK10'   W@NEXT
+      * CF01
+     C           *IN01     IFEQ '1'                        ¬IF_01
+     C                     MOVEL'01'      P@FC             *ファンクション
+     C                     MOVEL'END  '   W@NEXT
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CHK10   第一画面(G1) チェック処理
+      *-------------------------------------------------------------------------
+     C           #CHK10    BEGSR
+      *
+     C                     CLEAR@HZ                        *登録日付
+     C                     CLEAR@TM                        *登録時間
+     C                     Z-ADD*ZERO     L       20
+     C                     CLEAR@TE                        *手配番号
+      *更新区分
+     C           D1SELC    IFNE '1'                        ¬IF_01
+     C           D1SELC    ANDNE'2'
+     C  N99                MOVEL@MS,01    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     4199
+     C                     END                             ｢IF_01
+      *手配番号
+      *再発行のとき
+     C           D1SELC    IFEQ '2'                        ¬IF_01
+     C                     MOVEA@TE1      W@TE1  36
+     C                     MOVEA@TE2      W@TE2  27
+     C           W@TE1     IFEQ *BLANK                     ~¬IF_02
+     C           W@TE2     ANDEQ*BLANK
+     C  N99                MOVEL@MS,02    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     4199
+      *
+     C                     ELSE                            -+ELSE_02
+     C                     Z-ADD42        J       20
+      *
+     C                     DO   9         I       20       ~~¬DO_01
+     C           @TE1,I    IFEQ *BLANK                     ~~~¬IF_03
+     C           @TE2,I    ANDEQ*BLANK
+      *
+     C                     ELSE                            ---+ELSE_03
+      *試作手配データファイル(MRHPL51)
+     C                     MOVEL@TE1,I    STTHI1           *手配№　絶対番号
+     C                     MOVEL@TE2,I    STTHI2           *手配№　連番
+     C           STKEY1    SETGTMRHPL511
+     C           STKEY1    REDPEMRHPL511                 80
+     C           *IN80     IFEQ '1'                        ~~~~¬IF_04
+     C           STGSJY    OREQ 'D'
+     C           STGSHZ    ANDLES@YYMD
+     C  N99                MOVEL@MS,03    D1EMSG    P      * ERR MSG
+     C  N99                MOVEL'1'       *IN,J     P
+     C  N99                SETON                     99
+      *
+     C                     ELSE                            ----+ELSE_04
+     C           STHKHZ    IFEQ *ZERO                      ~~~~~¬IF_05
+     C           STGSHZ    ANDLES@YYMD
+     C  N99                MOVEL@MS,04    D1EMSG    P      * ERR MSG
+     C  N99                MOVEL'1'       *IN,J     P
+     C  N99                SETON                     99
+      *
+     C                     ELSE                            -----+ELSE_05
+     C                     MOVEL@TE1,I    W@TEHI  7        *手配№　絶対番号
+     C                     MOVE @TE2,I    W@TEHI           *手配№　連番
+      *重複チェック
+     C                     Z-ADD1         K       20
+     C           W@TEHI    LOKUP@TE,K                    88
+     C           *IN88     IFEQ '1'                        ~~~~~~¬IF_06
+     C  N99                MOVEL@MS,06    D1EMSG    P      * ERR MSG
+     C  N99                MOVEL'1'       *IN,J     P
+     C  N99                SETON                     99
+      *
+     C                     ELSE                            ------+ELSE_06
+     C                     ADD  1         L
+     C                     MOVELW@TEHI    @TE,L            *手配番号
+     C                     Z-ADDSTGRHZ    @HZ,I
+     C                     Z-ADDSTGRTM    @TM,I
+     C                     END                             ______｢IF_06
+     C                     END                             _____｢IF_05
+     C                     END                             ____｢IF_04
+     C                     END                             ___｢IF_03
+      *
+     C                     ADD  1         J
+     C                     END                             __｢DO_01
+      *
+     C                     END                             _｢IF_02
+      *
+     C                     END                             ｢IF_01
+      *
+      *通常発行のとき
+     C           D1SELC    IFEQ '1'                        ¬IF_01
+      *試作手配データファイル(MRHPL53)
+     C                     Z-ADD*ZERO     STHKHZ           *かんばん発行日
+     C           STKEY     SETLLMRHPL531
+     C                     EXSR #RED10
+     C           *IN80     IFEQ '1'                        ~¬IF_02
+     C  N99                MOVEL@MS,05    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     99
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'PNL10'   W@NEXT
+      * PF05
+     C           *IN05     IFEQ '1'                        ¬IF_01
+     C           *IN99     ANDEQ'0'
+     C                     MOVEL'CAL10'   W@NEXT
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #RED10   試作手配データファイル　読込
+      *-------------------------------------------------------------------------
+     C           #RED10    BEGSR
+      *
+     C                     DO   *HIVAL                     ¬DO_01
+     C           STKEY     READEMRHPL531                 80
+      *
+     C   80                LEAVE
+      *<対象範囲データ抽出>
+      *削除データ
+     C           STGSJY    IFEQ 'D'                        ~¬IF_01
+     C           STGSHZ    ANDLES@YYMD
+     C                     ITER
+     C                     ENDIF                           _｢IF_01
+      *
+     C                     LEAVE
+     C                     ENDDO                           ｢DO_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CAL10   プログラム呼出処理
+      *-------------------------------------------------------------------------
+     C           #CAL10    BEGSR
+      *再発行のとき
+     C           D1SELC    IFEQ '2'                        ¬IF_01
+      *試作かんばん再発行用ワークファイル(MRHWP61)出力
+     C                     EXSR #WRT10
+     C                     END                             ｢IF_01
+      *
+      *試作かんばん発行(MRHC42)
+     C****                 MOVELD1SELC    P1KKBN           *更新区分
+     C****                 CALL 'MRHC42'  P1MH42
+      *
+      * NEXT-CONTROL
+     C                     MOVELD1SELC    P@KKBN           *更新区分
+     C                     MOVEL'END  '   W@NEXT
+     C****                 MOVEL'SET10'   W@NEXT
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #WRT10   出力処理
+      *-------------------------------------------------------------------------
+     C           #WRT10    BEGSR
+      *試作かんばん再発行用ワークファイル(MRHWP61)出力
+     C                     DO   9         I                ¬DO_01
+     C           @TE1,I    IFEQ *BLANK                     ~¬IF_01
+     C           @TE2,I    ANDEQ*BLANK
+      *
+     C                     ELSE                            -+ELSE_01
+     C                     CLEARMRHWP611
+     C                     MOVEL@TE1,I    W6LNO1           *手配番号　絶対番号
+     C                     MOVEL@TE2,I    W6LNO2           *手配番号　連番
+     C                     Z-ADD@HZ,I     W6GTHZ           *登録日付
+     C                     Z-ADD@TM,I     W6GTTM           *登録時間
+     C                     WRITEMRHWP611
+      *
+     C                     END                             _｢IF_01
+     C                     END                             ｢DO_01
+      *
+     C                     ENDSR
+      *----------------------------------------------------------------
+**  @MS  ( ERR MSG )
+ER01 SELECT "1" OR "2"
+ER02 ENTER THE LOT NUMBER
+ER03 NOT FOUND
+ER04 THIS LOT NUMBER HAS NOT BEEN ISSUED YET
+ER05 THERE IS NO UNISSUED DATA
+ER06 LOT NUMBER IS DUPLICATED

@@ -1,0 +1,261 @@
+     H            Y.
+     F** CHKR61H ***************************************************************
+     F*  PROGRAM    : CHECK SHIPPING M/F ERROR BY NONY/DOCK                    *
+     F*  WRITTEN    : 2022.12.19                                               *
+     F*  WRITTEN BY : JW (SRA)                                                 *
+     F**************************************************************************
+     FABFDL01 IF  E           K        DISK
+     FGADPL11CIF  E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+     E                    MSG     1   2 65
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I                                        7  100@YEAR
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+     C                     EXSR #PROC1
+      *
+     C                     EXSR #PROC2
+      * TOTAL
+     C           SEQ#      IFEQ 0
+     C                     EXCPT@HDR
+     C                     EXCPT@TTL1
+     C                     ELSE
+     C                     MOVE '*'       $RTN
+     C                     EXCPT@TTL2
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  CHECK SHIPPING MASTER                             *
+      *----------------------------------------------------*
+     C           #PROC1    BEGSR
+      *
+     C           *LOVAL    SETLLABFDL01
+      *
+     C                     DO   *HIVAL
+     C                     READ ABFDL01                  98
+     C   98                LEAVE
+      * IGNORE
+     C           QASKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * CHECK
+     C                     MOVE *OFF      *IN97
+     C           QANONY    SETLLGADPL11C
+     C                     DO   *HIVAL
+     C           QANONY    READEGADPL11C                 97
+     C   97                LEAVE
+      *
+     C           B5SKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           QADOCK    IFEQ B5NUKE
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           QADOCK    IFEQ '00'
+     C           QADOCK    OREQ '  '
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           B5NUKE    IFEQ '00'
+     C           B5NUKE    OREQ '  '
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           *IN97     IFEQ *ON
+     C                     MOVELMSG,1     XMSG
+     C                     EXSR #PRNT1
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  CHECK ROUTE MASTER                                *
+      *----------------------------------------------------*
+     C           #PROC2    BEGSR
+      *
+     C           *LOVAL    SETLLGADPL11C
+      *
+     C                     DO   *HIVAL
+     C                     READ GADPL11C                 98
+     C   98                LEAVE
+      * IGNORE
+     C           B5SKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+     C           B5TOKU    IFNE 5149
+     C                     ITER
+     C                     ENDIF
+      * NO EDI
+     C           B5NONY    IFEQ 5125
+     C           B5NONY    OREQ 5288
+     C           B5NONY    OREQ 7777
+     C           B5NONY    OREQ 8888
+     C                     ITER
+     C                     ENDIF
+      * CHECK
+     C                     MOVE *OFF      *IN96
+     C           B5NONY    SETLLABFDL01
+     C                     DO   *HIVAL
+     C           B5NONY    READEABFDL01                  96
+     C   96                LEAVE
+      *
+     C           QASKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           B5NUKE    IFEQ QADOCK
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           B5NUKE    IFEQ '00'
+     C           B5NUKE    OREQ '  '
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           QADOCK    IFEQ '00'
+     C           QADOCK    OREQ '  '
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           *IN96     IFEQ *ON
+     C                     MOVELMSG,2     XMSG
+     C                     EXSR #PRNT2
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRNT1    BEGSR
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      * GET LAST SHIP DATE
+     C                     MOVELQANONY    $NONY
+     C                     MOVELQADOCK    $DOCK
+     C                     MOVEL'20240000'$STDAT
+     C                     CALL 'UEXR41G'
+     C                     PARM           $NONY   4
+     C                     PARM           $DOCK   4
+     C                     PARM           $STDAT  8
+     C                     PARM           $LSDAT  8
+     C                     PARM           $EDIK   1
+     C                     MOVEL$LSDAT    @LSDAT  80
+      *
+     C           $EDIK     IFEQ 'E'
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL1
+     C                     ADD  1         LIN#
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRNT2    BEGSR
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      * GET LAST SHIP DATE
+     C                     MOVELB5NONY    $NONY
+     C                     MOVELB5NUKE    $DOCK
+     C                     MOVEL'20240000'$STDAT
+     C                     CALL 'UEXR41G'
+     C                     PARM           $NONY   4
+     C                     PARM           $DOCK   4
+     C                     PARM           $STDAT  8
+     C                     PARM           $LSDAT  8
+     C                     PARM           $EDIK   1
+     C                     MOVEL$LSDAT    @LSDAT  80
+      *
+     C           $EDIK     IFEQ 'E'
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL2
+     C                     ADD  1         LIN#
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $RTN    1
+      *
+     C           K#11C     KLIST
+     C                     KFLD           K5NONY  40
+     C                     KFLD           K5DOCK  4
+      *
+     C                     TIME           SDATE
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+     C                     MOVE ' '       $RTN
+     C                     MOVE *BLANK    XMSG   65
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   40 '** SHIPPING VS ROUTE'
+     O                                   60 ' MASTER CHECK LIST *'
+     O                                   80 '* (GADPP11/ABFDP01) '
+     O                                   90 'DATE'
+     O                         TODAY    101 '    .  .  '
+     O                         NOW      111 '  :  :  '
+     O                                  115 'P.'
+     O                         PAGE  Z  119
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   10 'DLV#'
+     O                                   16 'DOCK'
+     O                                   28 'LAST_SHIP '
+     O                                   46 'ERROR MESSAGE'
+     O        E 1              @DTL1
+     O                         SEQ#  1 +000
+     O                         QANONY  +001
+     O                         QADOCK  +002
+     O                         @LSDAT  +002 '    /  /  '
+     O                         $EDIK   +002
+     O                         XMSG    +002
+      *
+     O        E 1              @DTL2
+     O                         SEQ#  1 +000
+     O                         B5NONY  +001
+     O                         B5NUKE  +002
+     O                         @LSDAT  +002 '    /  /  '
+     O                         $EDIK   +002
+     O                         XMSG    +002
+      *
+     O        E 1              @TTL1
+     O                                 +000 ' ** THERE IS NO ERRO'
+     O                                 +000 'R FOR THIS REPORT **'
+      *
+     O        E 1              @TTL2
+     O                                 +000 ' ** TOTAL ERROR'
+     O                         SEQ#  1 +001
+     O                                 +001 '**'
+** MSG(65A) .......2.........3.........4.........5.........6....>
+ROUTE MASTER EXISTS, BUT SHIPPING MASTER NOT FOUND ! (GADPP11)     01
+SHIPPING MASTER EXISTS, BUT ROUTE MASTER NOT FOUND ! (ABFDP01)     02

@@ -1,0 +1,184 @@
+     H            Y.
+     F** AL#R35  *******************************************
+     F*ＩＡＦ便＃確定時のエラーチェック                  *
+     F*      ITS.        2015.05.26                        *
+     F******************************************************
+     FAL#WP39 IF  E           K        DISK
+     E                    SD        999  8
+     E                    ZD        999  8
+      *
+     I            DS
+     I                                        1   80WKHZ
+     I                                        1   40WKYY
+     I                                        5   60WKMM
+     I                                        7   80WKDD
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60WJFB
+     I                                        1   40WJFF
+     I                                        1   20TIMHH
+     I                                        3   40TIMMM
+     I                                        5   60TIMSS
+     I                                        7  140WTIHZ
+     I                                        7  100WTIYY
+     I                                       11  120WTIMM
+     I                                       13  140WTIDD
+      *
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W$WSID
+     I                                      254 263 @@USER
+     I                                      264 269 W$JBNO
+      *----------------------------------------------------*
+      * PLIST                                              *
+      *----------------------------------------------------*
+     C           *ENTRY    PLIST
+     C                     PARM           P9ERR   1
+      * 0 :エラーなし
+      * 1 :稼働日を２日以上選択
+      * 2 :初回確定日が違うものを選択
+      * 3 :選択された稼働日と同じ稼働日が選択されていない
+      * 4 :１件も選択されていない
+      *----------------------------------------------------*
+      *   K  E  Y   L I  S  T                              *
+      *----------------------------------------------------*
+      *
+     C                     CLEARSD
+     C                     Z-ADD0         SS      40
+     C                     MOVEL'0'       P9ERR            エラーなし
+     C                     Z-ADD0         CNT     50
+     C                     Z-ADD0         CNT2    50
+     C                     MOVEL*BLANK    SVSHID  8
+     C                     Z-ADD0         SVFIXD  80
+     C                     Z-ADD0         SVFIXT  60
+     C                     MOVEL*BLANK    SVSAT   1
+     C                     Z-ADD0         WKREG   30
+     C                     CLEARZD
+     C                     Z-ADD0         AA      40
+      *通常稼働日の選択数
+     C                     Z-ADD0         CC      40
+      *昼非稼働日の選択数
+     C                     Z-ADD0         DD      40
+      *
+     C                     READ AL#WP391                 22
+     C           *IN22     DOWEQ'0'
+     C****       P9ERR     ANDEQ'0'
+     C           W9SEL     IFEQ '1'
+     C                     EXSR #SB400
+     C                     EXSR #SB4AA
+     C                     ELSE
+     C                     EXSR #SB430
+     C                     ENDIF
+     C                     READ AL#WP391                 22
+     C                     ENDDO
+      *
+     C           CNT       IFEQ 0
+     C                     MOVEL'4'       P9ERR
+     C                     ENDIF
+      *
+     C           P9ERR     IFEQ '0'
+     C           CNT2      IFNE 0
+     C                     MOVEL'3'       P9ERR
+     C                     ENDIF
+     C                     ENDIF
+      *通常稼働日を２つ以上選択
+     C           CC        IFGE 2
+     C                     MOVEL'1'       P9ERR
+     C                     ENDIF
+      *３つ以上選択
+     C           AA        IFGE 3
+     C                     MOVEL'1'       P9ERR
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *-----------------------------------------------------
+      *チェック
+      *-----------------------------------------------------
+     CSR         #SB400    BEGSR
+      *
+     C           CNT       IFEQ 0
+     C                     EXSR #SB410
+     C                     ELSE
+     C                     EXSR #SB420
+     C                     ENDIF
+      *
+     C           W9SHID    LOKUPSD                       69
+     C           *IN69     IFEQ '1'
+     C                     MOVEL'3'       P9ERR
+     C                     ENDIF
+      *
+     CSR         ESB400    ENDSR
+      *-----------------------------------------------------
+      *最初に選択された値を退避
+      *-----------------------------------------------------
+     CSR         #SB410    BEGSR
+      *
+     C                     MOVELW9SHID    SVSHID
+     C                     Z-ADDW9FIXD    SVFIXD
+     C                     Z-ADDW9FIXT    SVFIXT
+     C                     MOVELW9SAT     SVSAT
+     C           W9SAT     IFEQ *BLANK
+     C                     ADD  1         WKREG
+     C                     ENDIF
+     C                     ADD  1         CNT
+      *
+     CSR         ESB410    ENDSR
+      *-----------------------------------------------------
+      *チェック
+      *-----------------------------------------------------
+     CSR         #SB420    BEGSR
+      *稼働日を２日以上選択
+     C***        W9SHID    IFNE SVSHID
+     C***        W9SAT     IFEQ *BLANK
+     C***                  MOVEL'1'       P9ERR
+     C***                  ENDIF
+     C***                  ENDIF
+      *初回確定日が違うものを選択
+     C           W9FIXD    IFNE SVFIXD
+     C           W9FIXT    ORNE SVFIXT
+     C                     MOVEL'2'       P9ERR
+     C                     ENDIF
+      *
+     CSR         ESB420    ENDSR
+      *-----------------------------------------------------
+      *選択されなかったデータのチェック
+      *-----------------------------------------------------
+     CSR         #SB430    BEGSR
+      *選択された稼働日と同じ
+     C           SVSHID    IFNE *BLANK
+     C           W9SHID    IFEQ SVSHID
+     C                     ADD  1         CNT2
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           W9SHID    LOKUPSD                       69
+     C           *IN69     IFEQ '0'
+     C                     ADD  1         SS
+     C                     MOVELW9SHID    SD,SS
+     C                     ENDIF
+      *
+     C           W9SHID    LOKUPZD                       69
+     C           *IN69     IFEQ '1'
+     C                     MOVEL'3'       P9ERR
+     C                     ENDIF
+      *
+     CSR         ESB430    ENDSR
+      *-----------------------------------------------------
+      *選択された日付を配列へセット
+      *-----------------------------------------------------
+     CSR         #SB4AA    BEGSR
+      *
+     C           W9SHID    LOKUPZD                       69
+     C           *IN69     IFEQ '0'
+     C                     ADD  1         AA
+     C                     MOVELW9SHID    ZD,AA
+     C           W9SAT     IFEQ *BLANK
+     C                     ADD  1         CC
+     C                     ELSE
+     C                     ADD  1         DD
+     C                     ENDIF
+     C                     ENDIF
+      *
+     CSR         ESB4AA    ENDSR

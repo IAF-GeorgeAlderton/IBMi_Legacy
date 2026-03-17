@@ -1,0 +1,205 @@
+             PGM        PARM(&PSIRE)
+             /** AB#C2R **********************************/
+             /*  ..EDI(862AS) ARVIN SANGO FRS PROCESSING */
+             /*     K-KASHIWAGI             01.03.08     */
+             /*     N-HYOTO     01.05.09 ADD ERROR FLAG  */
+             /* TCHK1  01/26/06 ADD CHECK PROD START DATE*/
+             /********************************** AB#C2R **/
+             DCL        VAR(&USER) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&SR) TYPE(*CHAR) LEN(2)
+             DCL        VAR(&MBAN)    TYPE(*CHAR) LEN(4)
+             DCL        VAR(&KOTAE)   TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRT)     TYPE(*CHAR) LEN(7)
+             DCL        VAR(&PRTG)    TYPE(*CHAR) LEN(10)
+             DCL        VAR(&TYPE)    TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PFLG)    TYPE(*CHAR) LEN(1)
+             DCL        VAR(&FLAG)    TYPE(*CHAR) LEN(1)
+             DCL        VAR(&FILE1)   TYPE(*CHAR) LEN(10)
+             DCL        VAR(&FILE2)   TYPE(*CHAR) LEN(10)
+             DCL        VAR(&FILE3)   TYPE(*CHAR) LEN(9)
+             DCL        VAR(&FILE4)   TYPE(*CHAR) LEN(9)
+             DCL        VAR(&FILE5)   TYPE(*CHAR) LEN(10)
+             DCL        VAR(&FILE6)   TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PDEVT) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&PIGCD) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&PSIRE) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&WLIB) TYPE(*CHAR) LEN(8)
+
+             RTVJOBA    JOB(&WSID) USER(&USER)
+
+             CALL       PGM(AGAR01) PARM(&WSID &PDEVT &PIGCD)
+
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+             CALL       PGM(ALBC00) PARM(&USER &WLIB)
+
+  @LOOP:
+
+             CHGJOB     SWS(00000000)
+             CHGVAR     VAR(&SR) VALUE('AS')
+             CHGVAR     VAR(&FILE1) VALUE(AB#WP201 *CAT &SR)
+             CHGVAR     VAR(&FILE2) VALUE(AB#WP202 *CAT &SR)
+             CHGVAR     VAR(&FILE3) VALUE(AB#WP20 *CAT &SR)
+             CHGVAR     VAR(&FILE4)  VALUE('MITANKF' *CAT &SR)
+             CHGVAR     VAR(&FILE5) VALUE(AB#WP45 *CAT &SR)
+             CHGVAR     VAR(&FILE6) VALUE(AB#WP452 *CAT &SR)
+
+             DLTF       FILE(&FILE5)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/&FILE5) RCDLEN(256) +
+                          OPTION(*NOLIST) LVLCHK(*NO) AUT(*ALL)
+
+/* SINCE DELIVERY CODE '0873' IS PROVIDED IN AB#R2R, &PSIRE DOES NOT */
+/* HAVE TO BE PASSED                                                 */
+/*           CALL       PGM(AB#R27) PARM(&PSIRE)            */
+
+             OVRDBF     FILE(AB#WP45) TOFILE(&FILE5)
+             CALL       PGM(AB#R2R) PARM(&USER &FLAG)
+
+             IF         (%SWITCH(0XXXXXXX)) DO
+ STP2:       SNDPGMMSG  MSG('( G ) EDI(862AS) NO FRS ORDER EXIST  +
+                          < G-ENTER >') TOMSGQ(&WSID) MSGTYPE(*INQ) +
+                          KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTAE)
+             IF         COND((&KOTAE = 'G') *OR (&KOTAE = 'g')) +
+                          THEN(GOTO CMDLBL(END))
+             CHGVAR     VAR(&KOTAE) VALUE('G')
+             GOTO       END
+             ENDDO
+
+             IF         (&FLAG *EQ '1') DO
+ STP4:
+             SNDPGMMSG  MSG('( G ) ARVIN SANGO DATA FAILURE.PLEASE +
+                          RE-CREATE  EDI(862) FLAT FILE AND UP-LOAD +
+                          AGAIN. THEN RE-DO THIS PROCESS.          +
+                          < G-ENTER >') TOMSGQ(&WSID) MSGTYPE(*INQ) +
+                          KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTAE)
+             IF         COND((&KOTAE = 'G') *OR (&KOTAE = 'g')) +
+                          THEN(GOTO CMDLBL(END))
+             CHGVAR     VAR(&KOTAE) VALUE('G')
+             GOTO       END
+             ENDDO
+
+
+             IF         (&FLAG *EQ '2') DO
+ STP5:
+             SNDPGMMSG  MSG('** PROGRAM FAILURE ** SOME OF ORDERS +
+                          ARE NOT PROCESSED CORRECTLY.PLEASE +
+                          CONTACT SYSTEM +
+                          ADMINISTRATOR.                  < G-ENTER +
+                          >') TOMSGQ(&WSID) MSGTYPE(*INQ) KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTAE)
+             IF         COND((&KOTAE = 'G') *OR (&KOTAE = 'g')) +
+                          THEN(GOTO CMDLBL(END))
+             CHGVAR     VAR(&KOTAE) VALUE('G')
+             GOTO       END
+             ENDDO
+
+             DLTF       FILE(&FILE6)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/&FILE6) RCDLEN(256) +
+                          OPTION(*NOLIST) LVLCHK(*NO) AUT(*ALL)
+
+             FMTDTA     INFILE((&WLIB/&FILE5)) OUTFILE(&WLIB/&FILE6) +
+                          SRCFILE(HSRC1/FMTSRC) SRCMBR(AB#S45) +
+                          OPTION(*NOPRT)
+             DLTF       FILE(&FILE5)
+
+             DLTF       FILE(&FILE1)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/&FILE1) RCDLEN(256) +
+                          OPTION(*NOLIST) LVLCHK(*NO) AUT(*ALL)
+
+             OVRDBF     FILE(AB#WP452) TOFILE(&FILE6)
+             OVRDBF     FILE(AB#WP201) TOFILE(&FILE1)
+/* TCHK1 */  OVRPRTF    FILE(QPRINT) OUTQ(QPRINT)
+/* TCHK1 */  CALL       PGM(AB#R451)
+/* TCHK1 */  DLTOVR     FILE(QPRINT)
+
+/*JW*/       OVRPRTF    FILE(QPRINT)  OUTQ(EPRINT1) HOLD(*YES)
+/*JW*/       OVRPRTF    FILE(QPRINT2) OUTQ(EPRINT1) HOLD(*YES)
+/*JW*/       OVRPRTF    FILE(QPRINT5) OUTQ(EPRINT1) HOLD(*YES)
+/*JW*/       OVRPRTF    FILE(QPRINT6) OUTQ(EPRINT1) HOLD(*YES)
+
+             CALL       PGM(AB#R45) PARM(&USER)
+
+             IF         (%SWITCH(X0XXXXXX)) DO
+ STP3:       SNDPGMMSG  MSG('( G ) EDI(862AS) ALL FRS ORDER HAS +
+                          BEEN PROCESSED  < G-ENTER >') +
+                          TOMSGQ(&WSID) MSGTYPE(*INQ) KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTAE)
+             IF         COND((&KOTAE = 'G') *OR (&KOTAE = 'g')) +
+                          THEN(GOTO CMDLBL(END))
+             CHGVAR     VAR(&KOTAE) VALUE('G')
+             GOTO       END
+             ENDDO
+
+             DLTF       FILE(&FILE2)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/&FILE2) RCDLEN(256) +
+                          OPTION(*NOLIST) LVLCHK(*NO) AUT(*ALL)
+
+             FMTDTA     INFILE((&WLIB/&FILE1)) OUTFILE(&WLIB/&FILE2) +
+                          SRCFILE(HSRC1/FMTSRC) SRCMBR(AB#S21) +
+                          OPTION(*NOPRT)
+             DLTF       FILE(&FILE1)
+
+             DLTF       FILE(&FILE3)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/&FILE3) SRCFILE(HSRC1/ADDSSRC) +
+                          SRCMBR(AB#WP20) OPTION(*NOLIST *NOSRC) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             OVRPRTF    FILE(QPRINT) DEVTYPE(&PDEVT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(K6H1) +
+                          IGCDTA(&PIGCD)
+
+             OVRDBF     FILE(AB#WP202) TOFILE(&FILE2)
+             OVRDBF     FILE(AB#WP20) TOFILE(&FILE3)
+             CALL       PGM(AB#R21) PARM(&PSIRE)
+
+             OVRDBF     FILE(AB#WP20) TOFILE(&FILE3)
+             CALL       PGM(AB#R22)
+
+             OVRPRTF    FILE(QPRINT) DEVTYPE(&PDEVT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(K6H1) +
+                          IGCDTA(&PIGCD)
+
+             OVRDBF     FILE(AB#WP20) TOFILE(&FILE3)
+             CALL       PGM(AB#R23) PARM(&PSIRE)
+
+             DLTF       FILE(&FILE4)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/&FILE4) RCDLEN(300) +
+                          OPTION(*NOLIST *NOSRC) LVLCHK(*NO) AUT(*ALL)
+
+             OVRDBF     FILE(AB#WP20) TOFILE(&FILE3)
+             OVRDBF     FILE(MITANKF) TOFILE(&FILE4)
+             CALL       PGM(AB#R25) PARM(&PFLG)
+
+             IF         (&PFLG *EQ '*') DO
+
+             OVRPRTF    FILE(QPRINT) DEVTYPE(&PDEVT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(K6H1) +
+                          IGCDTA(&PIGCD)
+
+             OVRDBF     FILE(MITANKF) TOFILE(&FILE4)
+             CALL       PGM(AB#R26) PARM(&PSIRE)
+
+             SNDPGMMSG  MSG('UNIT PRICES ARE NOT REGISTERED IN THE +
+                          SALES UNIT PRICE MASTER FILES. UNIT PRICE +
+                          MUST BE REGISTERED.') TOMSGQ(&WSID)
+             ENDDO
+
+             DLTOVR     FILE(*ALL)
+
+             IF         COND(%SWITCH(1XXX1XXX)) THEN(GOTO +
+                          CMDLBL(@LOOP))
+
+
+ END:        ENDPGM

@@ -1,0 +1,204 @@
+     H            Y.
+     F** AJNR99 *********************************************
+     F*日時１と２の差を返す                               *
+     F*     SAKAKI.            2019.09.30                   *
+     F*******************************************************
+     FAGDPL12 IF  E           K        DISK
+      *
+     I            DS
+     I                                        1   80F8KAHZ
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+      *
+     I            DS
+     I                                        1   80WKYMD
+     I                                        1   40WKYY
+     I                                        5   60WKMM
+     I                                        7   80WKDD
+      *
+     I            DS
+     I                                        1   60WKTIM1
+     I                                        1   20WKTHH1
+     I                                        3   40WKTMM1
+     I                                        5   60WKTSS1
+      *
+     I            DS
+     I                                        1   60WKTIM2
+     I                                        1   20WKTHH2
+     I                                        3   40WKTMM2
+     I                                        5   60WKTSS2
+      *
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60WTIME
+     I                                        7  140WDATE
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           P1DAT1  80
+     C                     PARM           P1TIM1  60
+     C                     PARM           P1DAT2  80
+     C                     PARM           P1TIM2  60
+     C                     PARM           P9DAY   50
+     C                     PARM           P9THH   20
+     C                     PARM           P9TMM   20
+     C                     PARM           P9TSS   20
+     C                     PARM           P9OMIT  1
+      *
+     C                     Z-ADD0         P9DAY
+     C                     Z-ADD0         P9THH
+     C                     Z-ADD0         P9TMM
+     C                     Z-ADD0         P9TSS
+     C                     Z-ADD0         W#SEC  150
+     C                     MOVEL*BLANK    P9OMIT
+     C                     EXSR #SB100
+     C           P9OMIT    IFEQ '1'
+     C                     SETON                     LR
+     C                     RETRN
+     C                     ENDIF
+     C                     EXSR #SB400
+      *
+     C           W#SEC     DIV  86400     P9DAY
+     C                     MVR            AMR    150
+      *
+     C                     Z-ADDAMR       W#SEC
+     C           W#SEC     DIV  3600      P9THH
+     C                     MVR            AMR    150
+      *
+     C                     Z-ADDAMR       W#SEC
+     C           W#SEC     DIV  60        P9TMM
+     C                     MVR            AMR    150
+      *
+     C                     Z-ADDAMR       P9TSS
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *-------------------------------------------*
+      *日付１が金曜日の２２：３０以降           *
+      *日付２が日曜日の２２：３０以前           *
+      *-------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     MOVEL'0'       FRIS    1
+     C                     MOVEL'0'       SUNS    1
+     C                     MOVEL'0'       FRIE    1
+     C                     MOVEL'0'       SUNE    1
+     C                     MOVELP1DAT1    WKYMD
+     C           KEYF8     CHAINAGDPL12              80
+     C           *IN80     IFEQ '0'
+     C                     SELEC
+     C           F8YOBI    WHEQ 5                          FRI
+     C                     MOVEL'1'       FRIS
+     C           P1TIM1    IFGT 223000
+     C                     MOVEL'1'       P9OMIT
+     C                     ENDIF
+     C           F8YOBI    WHEQ 6                          SAT
+     C                     MOVEL'1'       P9OMIT
+     C           F8YOBI    WHEQ 7                          SUN
+     C                     MOVEL'1'       SUNS
+     C           P1TIM1    IFLT 223000
+     C                     MOVEL'1'       P9OMIT
+     C                     ENDIF
+     C                     ENDSL
+     C                     ENDIF
+      *
+     C                     MOVELP1DAT2    WKYMD
+     C           KEYF8     CHAINAGDPL12              80
+     C           *IN80     IFEQ '0'
+     C                     SELEC
+     C           F8YOBI    WHEQ 5                          FRI
+     C                     MOVEL'1'       FRIE
+     C           P1TIM2    IFGT 223000
+     C                     MOVEL'1'       P9OMIT
+     C                     ENDIF
+     C           F8YOBI    WHEQ 6                          SAT
+     C                     MOVEL'1'       P9OMIT
+     C           F8YOBI    WHEQ 7                          SUN
+     C                     MOVEL'1'       SUNE
+     C           P1TIM2    IFLT 223000
+     C                     MOVEL'1'       P9OMIT
+     C                     ENDIF
+     C                     ENDSL
+     C                     ENDIF
+      *
+     CSR         ESB100    ENDSR
+      *-------------------------------------------*
+      *                                           *
+      *-------------------------------------------*
+     CSR         #SB400    BEGSR
+      *
+     C                     MOVEL'0'       FRID    1
+     C                     MOVEL'0'       SATD    1
+     C                     MOVEL'0'       SUND    1
+      *日付２と１の差日数
+     C           KEYF8     KLIST
+     C                     KFLD           WKYY
+     C                     KFLD           WKMM
+     C                     KFLD           WKDD
+     C                     MOVELP1DAT1    WKYMD
+     C                     MOVELP1DAT2    WKDAT2  80
+     C                     Z-ADD0         WKSADD  30
+     C           KEYF8     SETGTAGDPL12
+     C                     READ AGDPL12                  80
+     C           *IN80     DOWEQ'0'
+     C           F8KAHZ    ANDLEWKDAT2
+     C                     SELEC
+     C           F8YOBI    WHEQ 5                          FRI
+     C                     MOVEL'1'       FRID             金曜含む
+     C           F8YOBI    WHEQ 6                          SAT
+     C                     MOVEL'1'       SATD             土曜含む
+     C           F8YOBI    WHEQ 7                          SUN
+     C                     MOVEL'1'       SUND             日曜含む
+     C                     ENDSL
+     C                     ADD  1         WKSADD
+     C                     READ AGDPL12                  80
+     C                     ENDDO
+     C                     Z-ADD0         SEC    150
+      *土曜含むとき１日マイナス
+     C           SATD      IFEQ '1'
+     C                     SUB  1         WKSADD
+     C                     ENDIF
+     C           WKSADD    MULT 86400     SEC
+     C                     ADD  SEC       W#SEC
+      *時間２と１の差
+     C                     MOVELP1TIM1    WKTIM1
+     C                     MOVELP1TIM2    WKTIM2
+     C           WKTHH2    SUB  WKTHH1    WKHOUR  20
+     C                     Z-ADD0         SEC    150
+     C           WKHOUR    MULT 3600      SEC
+     C                     ADD  SEC       W#SEC
+      *分２と１の差
+     C           WKTMM2    SUB  WKTMM1    WKMIN   20
+     C                     Z-ADD0         SEC    150
+     C           WKMIN     MULT 60        SEC
+     C                     ADD  SEC       W#SEC
+      *秒２と１の差
+     C           WKTSS2    SUB  WKTSS1    WKSEC   20
+     C                     ADD  WKSEC     W#SEC
+      *---------------------------------*
+      *週末時間調整
+      *２回土日またぐのは考慮してません
+      *---------------------------------*
+      *金曜含む（土日またぐ）とき９０分＝５４００秒マイナス
+      *（２２：３０以降の分）
+     C           FRID      IFEQ '1'
+     C           SATD      ANDEQ'1'
+     C           SUND      ANDEQ'1'
+     C                     SUB  5400      W#SEC
+     C                     ENDIF
+      *日曜含むとき１３５０分＝８１０００秒マイナス
+      *（２２：３０以前の分）
+     C           SUND      IFEQ '1'
+     C           P1DAT1    IFNE P1DAT2
+     C                     SUB  81000     W#SEC
+     C                     ENDIF
+     C                     ENDIF
+      *金曜開始のとき９０分＝５４００秒マイナス
+      *（２２：３０以降の分）
+     C           FRIS      IFEQ '1'
+     C           P1DAT1    IFNE P1DAT2
+     C                     SUB  5400      W#SEC
+     C                     ENDIF
+     C                     ENDIF
+      *
+     CSR         ESB420    ENDSR

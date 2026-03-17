@@ -1,0 +1,203 @@
+     H            Y.
+     F** CHKR27 *******************************************************
+     F* UNLOCK JOB (RESET EXCLUSIVE FLAG)                             *
+     F* CREATE DATE : 2018.09.10                                      *
+     F* AUTHOR      : J.WATANABE                                      *
+     F*****************************************************************
+     FCHKPW27 CF  E                    WORKSTN
+     FAB#PPCK UF  E           K        DISK
+     F*----------------------------------------------------------------
+     E                    TTL     1   7 55
+     I* SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     I                                      264 269 #JOB
+      *--------------------------------------------------
+      *  MAIN ROUTINE
+      *--------------------------------------------------
+     C           *ENTRY    PLIST
+     C                     PARM           $KEY   10
+      * SET FLAG TO LOCK KEYWORD FIELD
+     C                     MOVEL$KEY      XKEY
+     C           $KEY      IFEQ *BLANK
+     C                     MOVE *OFF      *IN45
+     C                     ELSE
+     C                     MOVE *ON       *IN45
+     C                     ENDIF
+      *
+     C                     EXSR #SETD
+     C                     TIME           WSDT
+      * USER AUTHORITY
+     C           #USER     IFNE 'I0023'                    ATSU
+     C           #USER     ANDNE'I0025'                    TUCKER
+     C           #USER     ANDNE'I0777'                    JW
+     C           #USER     ANDNE'I0778'                    LARRY
+     C           #USER     ANDNE'QPGMR'                    PROGRAMMERS
+     C                     MOVE *ON       *IN45
+     C                     MOVE *ON       *IN46            AUTHORITY
+     C                     MOVELTTL,6     XMSG
+     C                     ENDIF
+      * DISPLAY LOOP
+     C                     DO   *HIVAL
+     C                     EXFMTWIN01
+     C                     MOVE *BLANK    XMSG
+     C                     MOVE *OFF      *IN41
+     C                     MOVE *OFF      *IN42
+     C                     MOVE *OFF      *IN85
+      * END?
+     C           *INKA     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      * AUTHORITY
+     C           *IN46     IFEQ *ON
+     C                     MOVELTTL,6     XMSG
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     EXSR #CHK1
+      * F5: UPDATE
+     C           OKFLG     IFEQ 'Y'
+     C           *INKE     ANDEQ*ON
+     C                     EXSR #UPD1
+     C                     ENDIF
+      * F7: UPDATE FORCELY
+     C           CKFLG     IFEQ 'Y'
+     C           *INKG     ANDEQ*ON
+     C                     EXSR #UPD1
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *--------------------------------------------------
+      *  SET DATA
+      *--------------------------------------------------
+     C           #SETD     BEGSR
+     C           $KEY      IFEQ *BLANK
+     C                     MOVELXKEY      $KEY1
+     C                     ELSE
+     C                     MOVEL$KEY      $KEY1  10 P
+     C                     ENDIF
+      *
+     C           $KEY1     CHAINAB#PPCK             N90
+      *
+     C           *IN90     IFEQ *OFF
+     C                     MOVELCKSUSR    XUSER
+     C                     MOVELCKSWS     XWSID
+     C                     Z-ADDCKSDAT    XDATE
+     C                     Z-ADDCKSTIM    XTIME
+     C                     MOVELCKSPGM    XPGM
+     C                     ELSE
+     C                     MOVE *BLANK    XUSER
+     C                     MOVE *BLANK    XWSID
+     C                     Z-ADD0         XDATE
+     C                     Z-ADD0         XTIME
+     C                     MOVEL*BLANK    XPGM
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *--------------------------------------------------
+      *  CHECK DATA
+      *--------------------------------------------------
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE 'N'       CKFLG   1
+     C                     MOVE 'N'       OKFLG   1
+      * CHECK KEYWORD
+     C           XKEY      IFEQ *BLANK
+     C                     MOVELTTL,1     XMSG
+     C                     MOVE *ON       *IN42
+     C                     MOVE *ON       *IN85
+     C                     GOTO #CHKX
+     C                     ENDIF
+      * CHECK FILE
+     C                     EXSR #SETD
+     C           *IN90     IFEQ *ON
+     C                     MOVELTTL,4     XMSG
+     C                     MOVE *ON       *IN42
+     C                     MOVE *ON       *IN85
+     C                     GOTO #CHKX
+     C                     ENDIF
+      * JOB IS LOCKED?
+     C           *IN90     IFEQ *OFF
+     C           CKSFLG    ANDEQ*BLANK
+     C                     MOVELTTL,5     XMSG
+     C                     MOVE *ON       *IN42
+     C                     MOVE *ON       *IN85
+     C                     GOTO #CHKX
+     C                     ENDIF
+      *
+     C                     MOVE 'Y'       CKFLG
+      * JOB IS ACTIVE?
+     C                     EXSR #CHKJ
+     C           @ACT2     IFEQ 'Y'
+     C                     MOVELTTL,7     XMSG
+     C                     MOVE *ON       *IN85
+     C                     GOTO #CHKX
+     C                     ENDIF
+      *
+      * IF NO ERROR,
+     C                     MOVE 'Y'       OKFLG
+     C                     MOVELTTL,2     XMSG
+      *
+     C           #CHKX     TAG
+     C                     ENDSR
+      *--------------------------------------------------
+      *  UPDATE AB#PPCK
+      *--------------------------------------------------
+     C           #UPD1     BEGSR
+      *
+     C           $KEY1     CHAINAB#PPCK              91
+     C           *IN91     IFEQ *OFF
+     C                     MOVELCKSFLG    CKLFLG
+     C                     MOVELCKSUSR    CKLUSR
+     C                     MOVELCKSWS     CKLWS
+     C                     MOVELCKSJNO    CKLJNO
+     C                     Z-ADDCKSDAT    CKLDAT
+     C                     Z-ADDCKSTIM    CKLTIM
+     C                     MOVELCKSPGM    CKLPGM
+      *
+     C                     MOVE *BLANK    CKSFLG
+     C                     MOVE *BLANK    CKSUSR
+     C                     MOVE *BLANK    CKSWS
+     C                     MOVE *BLANK    CKSJNO
+     C                     Z-ADD0         CKSDAT
+     C                     Z-ADD0         CKSTIM
+     C                     MOVEL*BLANK    CKSPGM
+      *
+     C                     UPDATAB#PPCK1
+     C                     ENDIF
+      *
+     C                     MOVELTTL,3     XMSG
+      *
+     C                     ENDSR
+      *=====================================================
+      * CHECK JOB WHICH HOLD THIS PROGRAM IS ACTIVE OR NOT
+      *=====================================================
+     C           #CHKJ     BEGSR
+      *
+     C                     MOVELCKSJNO    $NUM
+     C                     MOVELCKSUSR    $USR
+     C                     MOVELCKSWS     $WSID
+     C                     CALL 'UTLC90'
+     C                     PARM           $NUM    6
+     C                     PARM           $USR   10
+     C                     PARM           $WSID  10
+     C                     PARM           @ACT2   1
+      *
+     C                     ENDSR
+** TTL
+ERROR: ENTER KEYWORD!                                   01
+PRESS F5 TO UPDATE...                                   02
+FLAG HAS BEEN RESET... F1 TO END JOB...                 03
+ERROR: KEYWORD IS NOT CORRECT!                          04
+ERROR: JOB IS NOT LOCKED!                               05
+USER DOES NOT HAVE AUTHORITY TO RESET!                  06
+JOB IS ACTIVE! YOU CANNOT UNLOCK...                     07

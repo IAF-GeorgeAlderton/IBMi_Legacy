@@ -1,0 +1,58 @@
+             PGM
+/** AB#C0646F *********************************************/
+/*  TAKUMI ORDER PROCESSING (TEST)                        */
+/**********************************************************/
+             DCL        VAR(&PSIRE)  TYPE(*CHAR) LEN(4)
+             DCL        VAR(&WLIB )  TYPE(*CHAR) LEN(8)
+             DCL        VAR(&ID   )  TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PID  )  TYPE(*CHAR) LEN(1)
+             DCL        VAR(&SR   )  TYPE(*CHAR) LEN(2)
+             DCL        VAR(&REC  )  TYPE(*DEC)  LEN(10 0)
+
+             CHGVAR     VAR(&PSIRE) VALUE('0646')
+             CHGVAR     VAR(&WLIB ) VALUE('TWFILE1 ')
+
+             IF         COND(&PSIRE *EQ '0646') THEN(DO)
+             RTVMBRD    FILE(&WLIB/TAKUMITXS) NBRCURRCD(&REC)
+             MONMSG     MSGID(CPF9812) EXEC(GOTO CMDLBL(@JUMP))
+
+@JUMP:
+             CHGVAR     VAR(&SR) VALUE('TX')
+             CHKOBJ     OBJ(&WLIB/TAKUMITXS) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(GOTO CMDLBL(ENDP))
+
+             OVRDBF     FILE(TAKUMITX) TOFILE(&WLIB/TAKUMITXS)
+             OVRDBF     FILE(AB#WTAX)  TOFILE(&WLIB/AB#WTAX)
+             CLRPFM     FILE(AB#WTAX)
+             CALL       PGM(A#R0646O) PARM(&PID)
+
+             OVRDBF     FILE(ABAWTAXF) TOFILE(&WLIB/ABAWTAXF)
+             CLRPFM     FILE(ABAWTAXF)
+             CALL       PGM(A#R0646F) PARM(&ID)
+
+             IF         COND(&ID *NE ' ') THEN(DO)
+ /*JW*/                 OVRPRTF    FILE(QPRINT2) LPI(6) +
+                                     RPLUNPRT(*YES) OUTQ(EPRINT1 ) +
+                                     FORMTYPE(K6H1) HOLD(*YES)
+                        CALL       PGM(A#R0646G)
+                        DLTOVR     FILE(QPRINT2)
+                        CALL       PGM(ABACP6) PARM(&PSIRE)
+             ENDDO
+
+/* SAVE TAKUMITX JW          */
+       /**   CPYF       FROMFILE(HWFILE1/TAKUMITX) +           **/
+       /**                TOFILE(TWFILE1/TAKUMITXSV) +         **/
+       /**                MBROPT(*REPLACE) FMTOPT(*NOCHK)      **/
+       /**   MONMSG     MSGID(CPF2802)                         **/
+       /**                                                     **/
+       /**   DLTF       FILE(TAKUMITX)                         **/
+       /**                                                     **/
+       /**   IF         COND(&PID *EQ ' ') THEN(DO)            **/
+       /**   GOTO       CMDLBL(@END)                           **/
+       /**   ENDDO                                             **/
+
+             ENDDO
+
+  ENDP:
+             DLTOVR     FILE(*ALL)
+             ENDPGM

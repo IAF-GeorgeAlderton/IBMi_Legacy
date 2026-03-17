@@ -1,0 +1,310 @@
+     H            Y.
+     F** ABBR42 ***************************************************
+     F* CHECK FORECAST DATA (ABVPP25:VW DELFOR)                  *
+     F* J. WATANABE 2017.05.25                                    *
+     F*************************************************************
+     FABVPL25 UF  E           K        DISK
+     FFGBPL01 IF  E           K        DISK
+     FGADPL11 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+      *************************************************************
+     E                    ER      1  24 60
+      *
+     I            DS
+     I                                        1   80A2GSHZ
+     I                                        1   40A2GSYY
+     I                                        5   60A2GSMM
+     I                                        7   80A2GSDD
+     I            DS
+     I                                        1  12 WWSHN
+     I                                        1   5 WSHN1
+     I                                        6  10 WSHN2
+     I                                       11  12 WSHN3
+     I            DS
+     I                                        1  20 V2MHN
+     I                                        1   5 V2MHN1
+     I                                        6  10 V2MHN2
+     I                                       11  15 V2MHN3
+     I                                       16  20 V2MHN4
+     I            DS
+     I                                        1   80B2SKHZ
+     I                                        1   40B2SKYY
+     I                                        5   60B2SKMM
+     I                                        7   80B2SKDD
+     I            DS
+     I                                        1   80V2FRHZ
+     I                                        1   40V2FRYY
+     I                                        5   60V2FRMM
+     I                                        7   80V2FRDD
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        7  140WSSDAT
+      *
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************
+      *
+     C                     EXSR #INIT
+      * CHECK ALL DATA
+     C                     EXSR #CHK
+      * SET ERROR FLAG
+     C           RCNT      IFEQ 0
+     C                     MOVE 'X'       P@ERR
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *==============================================
+      * CHECK DATA (*IN85: TOTAL TRANSACTION ERROR)
+      *==============================================
+     C           #CHK      BEGSR
+      *
+     C                     MOVE *OFF      *IN92
+     C                     Z-ADD0         RCNT    30
+      *
+     C           *LOVAL    SETLLABVPL25
+     C           *IN92     DOWEQ*OFF
+     C                     READ ABVPL25                  92
+     C           *IN92     IFEQ *OFF
+     C                     EXSR #CHK1
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *=============================================
+      * CHECK DATA (*IN85: ERROR FLAG)
+      *=============================================
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE *OFF      *IN85
+     C                     MOVE *BLANK    XMSG
+     C*  CHK CUSTOMER  *
+     C           V2TOKU    IFEQ *BLANK
+     C  N85                MOVELER,1      XMSG
+     C                     MOVE *ON       *IN85
+     C                     EXSR #PRINT
+     C                     ENDIF
+      *
+     C                     MOVELV2TOKU    #TOKU   40
+     C           #TOKU     CHAINFGBPL011             99
+     C           *IN99     IFEQ *OFF
+     C           B2SKJY    ANDEQ'D'
+     C           B2SKHZ    ANDLEWSSDAT
+     C  N85                MOVELER,2      XMSG
+     C                     MOVE *ON       *IN85
+     C                     EXSR #PRINT
+     C                     ENDIF
+     C*  CHK DELIVERY  *
+     C           V2NONY    IFEQ *BLANK
+     C  N85                MOVELER,3      XMSG
+     C                     MOVE *ON       *IN85
+     C                     EXSR #PRINT
+     C                     ENDIF
+      *
+     C                     MOVE V2NONY    #NONY   40
+     C           #NONY     CHAINFGBPL011             99
+     C           *IN99     IFEQ '0'
+     C           B2SKJY    ANDEQ'D'
+     C           B2SKHZ    ANDLEWSSDAT
+     C  N85                MOVELER,4      XMSG
+     C                     MOVE *ON       *IN85
+     C                     EXSR #PRINT
+     C                     ENDIF
+     C*  CHK FACTORY *
+     C           V2NKOJ    IFEQ *BLANK
+     C  N85                MOVELER,5      XMSG
+     C                     MOVE *ON       *IN85
+     C                     EXSR #PRINT
+     C                     ENDIF
+     C*  CHK DOCK  *
+     C           V2NUKE    IFEQ *BLANK
+     C  N85                MOVELER,6      XMSG
+     C                     MOVE *ON       *IN85
+     C                     EXSR #PRINT
+     C                     ENDIF
+     C*-----------------------*
+     C*  CHK SHIPMENT MASTER  *
+     C*-----------------------*
+     C           K#GDP     KLIST
+     C                     KFLD           #TOKU
+     C                     KFLD           #NONY
+     C                     KFLD           V2NKOJ
+     C                     KFLD           V2NUKE
+     C           K#GDP     CHAINGADPL11              99
+     C           *IN99     IFEQ *OFF
+     C           B5SKJY    ANDEQ'D'
+     C  N85                MOVELER,22     XMSG
+     C                     MOVE *ON       *IN85
+     C                     EXSR #PRINT
+     C                     ENDIF
+     C*  CHK PSRT
+     C           V2MHN     IFEQ *BLANK
+     C  N85                MOVELER,10     XMSG
+     C                     MOVE *ON       *IN85
+     C                     EXSR #PRINT
+     C                     ENDIF
+      * CHK IAF PART
+     C                     MOVE *BLANK    WWSHN
+     C                     MOVE *BLANK    CFLG
+     C                     CALL 'BBHR50'
+     C                     PARM           V2TOKU
+     C                     PARM           V2NONY
+     C                     PARM           V2NKOJ
+     C                     PARM           V2NUKE
+     C                     PARM           V2MHN
+     C                     PARM           WWSHN
+     C                     PARM           CFLG    1
+      *
+     C           K@CEP     KLIST
+     C                     KFLD           WSHN1
+     C                     KFLD           WSHN2
+     C                     KFLD           WSHN3
+      *
+     C           K@CEP     CHAINFCEPL01              99
+     C           *IN99     IFEQ *OFF
+     C           A2GSKD    ANDEQ'D'
+     C           A2GSHZ    ANDLEWSSDAT
+     C           *IN99     OREQ *ON
+     C  N85                MOVELER,20     XMSG
+     C                     MOVE *ON       *IN85
+     C                     EXSR #PRINT
+     C                     ENDIF
+     C*  CHK FORECAST DATE  *
+     C           V2FRHZ    IFEQ 0
+     C  N85                MOVELER,7      XMSG
+     C                     MOVE *ON       *IN85
+     C                     EXSR #PRINT
+     C                     ENDIF
+      *  CHK DATE
+     C           V2FRYY    IFGE 2001
+     C           V2FRMM    ANDGE01
+     C           V2FRMM    ANDLE12
+     C           V2FRDD    ANDGE01
+     C           V2FRDD    ANDLE31
+     C                     ELSE
+     C  N85                MOVELER,8      XMSG
+     C                     MOVE *ON       *IN85
+     C                     EXSR #PRINT
+     C                     ENDIF
+      * CHK SALES UNIT PRICE
+     C                     MOVELV2FRHZ    @HIZK   8
+     C                     Z-ADD0         @TANK  105
+     C                     MOVE *BLANK    @CHEK   1
+     C                     CALL 'FBCR10'
+     C                     PARM           V2TOKU
+     C                     PARM           V2NONY
+     C                     PARM           V2NKOJ
+     C                     PARM           V2NUKE
+     C                     PARM           V2MHN
+     C                     PARM           @HIZK
+     C                     PARM           @TANK
+     C                     PARM           @CHEK
+     C           @TANK     IFEQ 0
+     C  N85                MOVELER,23     XMSG
+     C                     MOVE *ON       *IN85
+     C                     EXSR #PRINT
+     C                     ENDIF
+      * UPDATE FLAG
+     C           *IN85     IFEQ *OFF
+     C                     MOVE '@'       V2FLG1
+     C                     ADD  1         RCNT
+     C                     ELSE
+     C                     MOVE 'E'       V2FLG1
+     C                     MOVE 'Y'       P@ERR
+     C                     ENDIF
+      *
+     C                     UPDATABVPP251
+      *
+     C                     ENDSR
+      *===============
+      * PRINT ERROR
+      *===============
+     C           #PRINT    BEGSR
+      *
+     C           LINE#     IFGE 63
+     C                     EXCPT@HDR
+     C                     Z-ADD4         LINE#
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LINE#
+      *
+     C                     ENDSR
+      *===============
+      * INITIALIZATION
+      *===============
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           P@ERR   1
+      *
+     C                     MOVE *BLANK    P@ERR
+     C                     MOVE *BLANK    XMSG   50
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD80        LINE#   30
+     C                     Z-ADD*DATE     @DATE   80
+     C                     TIME           @TIME   60
+     C                     TIME           WSDT
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM       9
+     O                                   99 'DATE'
+     O                         @DATE    102 '    .  .  '
+     O                         @TIME    112 '  :  :  '
+     O                                  116 'P.'
+     O                         PAGE  Z  120
+     O        E   02           @HDR
+     O                                   60 '** VW DELFOR ERROR **'
+      *
+     O        E   04           @HDR
+     O                                    4 'SEQ#'
+     O                                    9 'CUST'
+     O                                   14 'DELV'
+     O                                   16 'F'
+     O                                   21 'DOCK'
+     O                                   30 'SHP_DATE'
+     O                                   42 'USER PART'
+     O                                   65 'QTY'
+     O                                   75 'ERROR MSG'
+     O        E   01           @DTL
+     O                         SEQ#       4
+     O                         V2TOKU  +  1
+     O                         V2NONY  +  1
+     O                         V2NKOJ  +  1
+     O                         V2NUKE  +  1
+     O                         V2FRHZY +  1
+     O                         V2MHN   +  1
+     O                         V2FR011 +  1
+     O                         XMSG    +  1
+** ER
+E-01 CUSTOMER IS BLANK
+E-02 CUSTOMER NOT FOUND IN DETAILS M/F
+E-03 DELIVERY IS BLANK
+E-04 DELIVERY NOT FOUND IN DETAILS M/F
+E-05 FACTORY IS BLANK
+E-06 DOCK IS BLANK
+E-07 FORECAST DATE IS BLANK
+E-08 FORECAST DATE(YEAR/MONTH) IS INCORRECT
+E-09
+E-10 USER PART NO. IS BLANK
+E-11
+E-12
+E-13
+E-14
+E-15
+E-16
+E-17
+E-18
+E-19
+E-20 IAF PART NOT FOUND IN PART MASTER
+E-21
+E-22 CUSTOMER NOT FOUND IN SHIPPING MASTER
+E-23 PART NOT FOUND IN SALES UNIT PRICE MASTER
+E-24

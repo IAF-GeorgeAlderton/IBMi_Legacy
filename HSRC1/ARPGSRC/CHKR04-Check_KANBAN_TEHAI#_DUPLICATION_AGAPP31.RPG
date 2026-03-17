@@ -1,0 +1,223 @@
+     H            Y.
+     F***CHKR04*****************************************************************
+     F*  PROGRAM    : CHECK KANBAN HEHAI# DUPLICATION                          *
+     F*             : READ FCEPP01 AND CHAIN AGAPP31 AND COMPARE               *
+     F*             : RUN IN FCKC00 (10:10AM BY JOBSCDE)                       *
+     F*  WRITTEN    : JW  2023.10.10                                           *
+     F*  NOTE       : THIS PROGRAM SYNCHRONIZES WITH ARAR91 (FOR PURGING)      *
+     F*------------------------------------------------------------------------*
+     F*  JW      2023.10.18 ADD CHKWP4 (WF)                                    *
+     F*------------------------------------------------------------------------*
+     F*  PARAMETER
+     F*  $RTN    1A BLANK=NO DADA
+     F*             *    =THERE'S DATA
+     F**************************************************************************
+     FFCEPL01 IF  E           K        DISK
+     FAGAPL31 IF  E           K        DISK
+     FCHKWP04 IF  E           K        DISK                      A
+     FQPRINT  O   F     132     OF     PRINTER
+     F**************************************************************************
+     E                    XPT     1   8 14
+     I            DS
+     I                                        1  14 A2SHIN
+     I                                        1   5 A2BHB1
+     I                                        6   6 HP1
+     I                                        7  11 A2BHB2
+     I                                       12  12 HP2
+     I                                       13  14 A2BHB3
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+      ********************************************************************
+     C                     EXSR #INIT
+      *
+     C                     EXSR #SET1
+      *
+     C                     EXSR #PRINT
+     C                     EXSR #EXCPT
+      *
+     C           SEQ#      IFNE 0
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  SET DATA                                          *
+      *----------------------------------------------------*
+     C           #SET1     BEGSR
+      *
+     C           *LOVAL    SETLLFCEPL01
+     C                     DO   *HIVAL
+     C                     READ FCEPL01                  98
+     C   98                LEAVE
+      *
+     C           A2GSKD    IFEQ 'D'
+     C           A2SSYS    OREQ 0
+     C                     ITER
+     C                     ENDIF
+      * GET LOT#
+     C           K#PL31    CHAINAGAPL31              97
+     C           *IN97     IFEQ *ON
+     C                     ITER
+     C                     ENDIF
+      *
+     C           CBSKJY    IFEQ 'D'
+     C           CBBARL    OREQ 0
+     C                     ITER
+     C                     ENDIF
+      *
+     C           A2GEKN    DIV  A2SSYS    MBOX    61
+     C           MBOX      DIV  20        DBOX    61
+     C           DBOX      DIV  CBBARL    DKANB   61
+     C           DKANB     IFEQ 0
+     C                     ITER
+     C                     ELSE
+     C           980       DIV  DKANB     DUPDAY  61
+     C                     ENDIF
+      * OUT
+     C                     CLEARCHKWP041
+     C                     MOVELA2SHIN    C4SHIN
+     C                     Z-ADDCBBARL    C4LOT#
+     C                     Z-ADDA2GEKN    C4GEKN
+     C                     Z-ADDA2SSYS    C4SSYS
+     C                     Z-ADDMBOX      C4MBOX
+     C                     Z-ADDDBOX      C4DBOX
+     C                     Z-ADDDKANB     C4KANB
+     C                     Z-ADDDUPDAY    C4DPDY
+     C                     WRITECHKWP041
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT DETALI                                      *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      *
+     C           *LOVAL    SETLLCHKWP04
+     C                     DO   *HIVAL
+     C                     READ CHKWP04                  97
+     C   97                LEAVE
+      * IGNORE PART#
+     C           C4SHIN    LOKUPXPT                      99
+     C           *IN99     IFEQ *ON
+     C                     ITER
+     C                     ENDIF
+      *
+     C           C4DPDY    IFLE 50
+     C                     EXSR #PRNT1
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT EXCEPTION                                   *
+      *----------------------------------------------------*
+     C           #EXCPT    BEGSR
+      *
+     C                     EXCPT@FOT1
+      *
+     C           1         DO   8         IX      20
+     C                     MOVELXPT,IX    @XPT   14
+     C                     EXCPT@FOT2
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT OUT                                         *
+      *----------------------------------------------------*
+     C           #PRNT1    BEGSR
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $RTN    1
+      *
+     C           K#PL31    KLIST
+     C                     KFLD           A2BHB1
+     C                     KFLD           A2BHB2
+     C                     KFLD           A2BHB3
+      *
+     C                     TIME           SDATE
+     C                     MOVE *BLANK    $RTN
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+     C                     MOVE *BLANK    HP1
+     C                     MOVE *BLANK    HP2
+      * DUMMY
+     C**         C4SHIN    LOKUPXPT                      99
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   40 '** KANBAN TEHAI# DUP'
+     O                                   60 'LICATE CHECK LIST **'
+     O                                   80 'DATE'
+     O                         TODAY     92 '    .  .  '
+     O                         NOW      102 '  :  :  '
+     O                                  106 'P.'
+     O                         PAGE  Z  110
+     O        E   03           @HDR
+     O                                   84 'DAY_KANB'
+     O                                  102 'DAY_DUP_CYCLE'
+     O        E   04           @HDR
+     O                                    5 'SEQ#'
+     O                                   15 'IAF PART#'
+     O                                   23 'LOT#'
+     O                                   35 'MONTH_SET'
+     O                                   44 'QPC'
+     O                                   55 'MONTH_BOX'
+     O                                   65 'DAY_BOX'
+     O                                   73 ' LOT# '
+     O                                   85 '(DBOX/LOT)'
+     O                                  102 '(980/DAY_KNB)'
+     O        E 1              @HDR
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O        E 1              @DTL
+     O                         SEQ#    +001
+     O                         C4SHIN  +001
+     O                         C4LOT#1 +001
+     O                         C4GEKN1 +001
+     O                         C4SSYS1 +002
+     O                         C4MBOX1 +003
+     O                         C4DBOX1 +002
+     O                         CBBARL1 +005
+     O                         C4KANB1 +003
+     O                         C4DPDY1 +006
+     O        E 1              @FOT1
+     O                                 +001 '** PART# (EXCEPTION) **'
+     O        E 1              @FOT2
+     O                         @XPT    +001
+      *
+** XPT
+90105 A0205        1
+90105 A0355        2
+90910 A2009        3
+90910 A2015        4
+90910 A2018        5
+90910 A2019        6
+U0805 C3112        7
+                   8

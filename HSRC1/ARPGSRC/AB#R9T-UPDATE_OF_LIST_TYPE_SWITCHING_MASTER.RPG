@@ -1,0 +1,367 @@
+     H            Y.
+      ** AB#R9T *******************************************************
+      *  UPDATE OF LIST TYPE SWITCHING MASTER
+      *  KIRI                                            2018.02.21
+      *****************************************************************
+     FAB#PW9T CF  E                    WORKSTN
+      *
+      *  ..SELECT OF LIST TYPE ..(TEMP)                            *
+     FAB#PP9T UF  E           K        DISK                      A
+      *
+      *  ..DETAIL CODE MANAGEMENT RECORD                               *
+     FFGBPL01 IF  E           K        DISK
+      *
+      *  ..DOWNLOAD(CSV)
+     FAB#WP9T O   F    1024            DISK
+      *===============================================================
+     E                    ER      1  10 60
+      *===============================================================
+     I****************************
+      *プログラム状況データ構造*
+     I****************************
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W$WSID
+     I                                      254 263 W$USER
+     I                                      264 269 W$JBNO
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60@SYSTM
+     I                                        7  140@SYSHZ
+      *
+     I              '0123456789'          C         DIGITS
+     C*===============================================================
+     C*
+     C*===============================================================
+     C                     MOVE '#INIT   '@STEP   8
+     C*
+     C           @STEP     DOUEQ'#END    '
+     C           @STEP     CASEQ'#INIT   '#INIT            初期処理
+     C           @STEP     CASEQ'#DSP1   '#DSP1
+     C           @STEP     CASEQ'#CHK1   '#CHK1
+     C           @STEP     CASEQ'#DSP2   '#DSP2
+     C           @STEP     CASEQ'#CHK2   '#CHK2
+     C           @STEP     CASEQ'#CHK2U  '#CHK2
+     C           @STEP     CASEQ'#UPDAT  '#UPDAT
+     C           @STEP     CASEQ'#CSV    '#CSV
+     C                     ENDCS
+     C                     ENDDO
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+     C*===============================================================
+      * 初期ﾈｮmb
+     C*===============================================================
+     C           #INIT     BEGSR
+     C                     MOVEA*ALL'0'   *IN
+     C                     TIME           @TIME
+      *
+     C                     MOVE *BLANK    D1KKBN           UPDATE
+     C                     MOVE *BLANK    D1NONY           DELIVERT
+     C                     MOVE *BLANK    D1ERR
+     C                     MOVE *BLANK    D2KKBN
+     C                     MOVE *BLANK    D2NONY
+      *
+      *
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDSR
+     C*===============================================================
+      *画面１*
+     C*===============================================================
+     C           #DSP1     BEGSR
+     C*
+     C                     EXFMTAB#PW9T1
+     C                     MOVEA'0000'    *IN,21
+     C                     SETOF                     99
+     C                     MOVE '#CHK1   '@STEP
+      *-------*
+      * (F1)  *
+      *-------*
+     C   KA                MOVE '#END    '@STEP
+      *-------*
+      * (F24) * DOWNLOAD
+      *-------*
+     C           *INKY     IFEQ *ON
+     C                     MOVE '#CSV    '@STEP
+     C                     ENDIF
+     C*
+     C                     ENDSR
+     C*===============================================================
+      *画面１チェック
+     C*===============================================================
+     C           #CHK1     BEGSR
+      *----------------------*
+      * UPDATE更新区分
+      *----------------------*
+S1   C                     SELEC
+ 1   C           D1KKBN    WHEQ '0'                        :取消
+     C                     MOVEL'0-CANCEL'D2KKBN
+     C                     SETON                     29    (PR)
+ 1   C           D1KKBN    WHEQ '1'                        :変更
+     C                     MOVEL'1-CHANGE'D2KKBN
+     C                     SETOF                     29    (CS)
+ 1   C           D1KKBN    WHEQ '2'                        :追加
+     C                     MOVEL'2-ADD   'D2KKBN
+     C                     SETOF                     29    (CS)
+ 1   C                     OTHER
+     C                     SETON                     2199
+     C                     MOVELER,1      D1ERR
+     C                     GOTO $CHK1Z
+E1   C                     ENDSL
+      *----------------------*
+      * DELIVERY CODE
+      *----------------------*
+S1   C           D1NONY    IFEQ *BLANK
+     C                     SETON                     2299
+     C                     MOVELER,2      D1ERR
+     C                     GOTO $CHK1Z
+E1   C                     ENDIF
+     C*
+     C           DIGITS    CHECKD1NONY:1  $$KETA  20     50
+S1   C           *IN50     IFEQ *ON
+     C                     SETON                     2299
+     C                     MOVELER,3      D1ERR
+     C                     GOTO $CHK1Z
+E1   C                     ENDIF
+      *----------------------*
+     C                     MOVE D1NONY    $$CODE  40
+     C           $$CODE    CHAINFGBPL01              91
+S1   C  N91      B2SKJY    IFEQ 'D'
+     C                     SETON                     91
+E1   C                     ENDIF
+S1   C           *IN91     IFEQ *ON
+     C                     SETON                     2299
+     C                     MOVELER,4      D1ERR
+     C                     GOTO $CHK1Z
+E1   C                     ENDIF
+     C                     MOVELB2SMEI    D2SMEI
+      *----------------------*
+     C                     MOVELD1NONY    D2NONY
+     C*
+     C           D1NONY    CHAINAB#PP9T             N90
+      **
+S1   C                     SELEC
+     C*
+-1   C           D1KKBN    WHEQ '0'                        :CANCEL
+     C           *IN90     IFEQ *ON
+     C                     SETON                     212299
+     C                     MOVELER,5      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C           TXSKJY    IFEQ 'D'
+     C           TXSKDT    ANDLE*DATE
+     C                     SETON                     212299
+     C                     MOVELER,6      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C*
+-1   C           D1KKBN    WHEQ '1'                        :CHANGE
+     C           *IN90     IFEQ *ON
+     C                     SETON                     212299
+     C                     MOVELER,7      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C           TXSKJY    IFEQ 'D'
+     C           TXSKDT    ANDLE*DATE
+     C                     SETON                     212299
+     C                     MOVELER,6      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C*
+-1   C           D1KKBN    WHEQ '2'                        :ADD
+     C           *IN90     IFEQ *OFF
+     C           TXSKJY    ANDEQ' '
+     C                     SETON                     212299
+     C                     MOVELER,8      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+E1   C                     ENDSL
+      **
+      *----------------------*
+      *更新区分
+      *----------------------*
+     C                     MOVEA'00000000'*IN,31
+     C                     MOVEL*BLANK    D2TYPE           LIST TYPE
+     C                     MOVEL*BLANK    D2ERR
+S1   C           D1KKBN    IFEQ '0'                        :CANCEL
+ 1   C           D1KKBN    OREQ '1'                        :CHANGE
+     C                     MOVELTXTYPE    D2TYPE           LIST TYPE
+E1   C                     ENDIF
+     C*
+      *----------------------*
+     C           $CHK1Z    TAG
+      *----------------------*
+     C           *IN99     IFEQ *ON
+     C                     MOVE '#DSP1   '@STEP
+     C                     ELSE
+     C                     MOVE '#DSP2   '@STEP
+     C                     ENDIF
+      *----------------------*
+     C                     ENDSR
+      *===============================================================
+      *画面２表示
+      *===============================================================
+     C           #DSP2     BEGSR
+     C                     EXFMTAB#PW9T2
+     C                     MOVEA'0'       *IN,99
+     C                     MOVEA'00000000'*IN,31
+     C                     MOVE '#CHK2   '@STEP
+      *----*
+      * F3 *
+      *----*
+     C           *INKC     IFEQ *ON
+     C                     SETOF                     202122
+     C                     SETOF                         99
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDIF
+      *----*
+      * F5 *
+      *----*
+     C           *INKE     IFEQ *ON
+     C                     MOVE '#CHK2U  '@STEP
+     C                     ENDIF
+     C                     ENDSR
+     C*===============================================================
+      *画面２チェック
+     C*===============================================================
+     C           #CHK2     BEGSR
+     C*
+      *
+      *  追加・変更のみチェック
+S1   C           D1KKBN    IFEQ '0'                        :CANCEL
+     C                     GOTO $CHK2Z
+E1   C                     ENDIF
+　 C*-------------------------
+      *
+      * LIST TYPE
+      *
+     C           D2TYPE    IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,9      D2ERR
+     C                     GOTO $CHK2Z
+     C                     ENDIF
+     C*
+     C           D2TYPE    IFNE 'N'
+     C           D2TYPE    ANDNE'O'
+     C           D2TYPE    ANDNE'B'
+     C                     SETON                     3199
+     C                     MOVELER,10     D2ERR
+     C                     GOTO $CHK2Z
+     C                     ENDIF
+      *----------------------*
+     C           $CHK2Z    TAG
+      *----------------------*
+S1   C           *IN99     IFEQ *OFF
+     C           @STEP     ANDEQ'#CHK2U  '
+     C                     MOVE '#UPDAT  '@STEP
+     C                     ELSE
+     C                     MOVE '#DSP2   '@STEP
+E1   C                     ENDIF
+     C                     ENDSR
+     C*===============================================================
+      *ファイル更新処理
+     C*===============================================================
+     C           #UPDAT    BEGSR
+     C*
+     C           D1NONY    CHAINAB#PP9T              90
+     C   90                CLEARAB#PP9T1
+     C*
+S1   C                     SELEC
+-1   C           D1KKBN    WHEQ '0'                        :CANCEL
+     C                     MOVEL'D'       TXSKJY           DLT CODE D
+     C                     Z-ADD@SYSHZ    TXSKDT           DLT DATE
+     C                     Z-ADD@SYSTM    TXSKTM           DLT TIME
+     C                     MOVELW$USER    TXKOME           UPD USER
+-1   C                     OTHER                           :ADD CHANGE
+     C                     MOVEL' '       TXSKJY           DLT CODE D
+     C                     Z-ADD0         TXSKDT           DLT DATE
+     C                     Z-ADD0         TXSKTM           DLT TIME
+     C                     Z-ADD@SYSHZ    TXKODT           UPD DATE
+     C                     Z-ADD@SYSTM    TXKOTM           UPD TIME
+     C                     MOVELW$USER    TXKOME           UPD USER    N
+     C                     MOVELD1NONY    TXNONY
+     C                     MOVELD2TYPE    TXTYPE
+E1   C                     ENDSL
+      *
+     C   90                WRITEAB#PP9T1
+     C  N90                UPDATAB#PP9T1
+     C*
+     C*
+     C                     MOVE *BLANK    D1KKBN           更新区分
+     C                     MOVE *BLANK    D1NONY            DELIVERY #
+     C                     SETON                     20
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDSR
+      *================================================================
+      *  ..DOWNLOAD(CSV)
+      *================================================================
+     C           #CSV      BEGSR
+     C           *LOVAL    SETLLAB#PP9T
+     C                     EXCPT$HED
+      *--------------------------
+     C                     DO   *HIVAL
+     C                     READ AB#PP9T                  92
+     C   92                LEAVE
+     C           TXSKJY    IFEQ 'D'
+     C           TXSKDT    ANDLE*DATE
+     C                     ITER
+     C                     ENDIF
+     C**
+     C                     MOVE TXNONY    $$CODE  40
+     C                     MOVEL*BLANK    $$SMEI 15
+     C           $$CODE    CHAINFGBPL01              91
+     C           *IN91     IFEQ *OFF
+     C           B2SKJY    ANDEQ' '
+     C                     MOVELB2SMEI    $$SMEI
+     C                     ENDIF
+     C**
+     C                     MOVEL*BLANK    $$TYPE  4
+     C                     SELEC
+     C           TXTYPE    WHEQ 'N'
+     C                     MOVEL'NEW '    $$TYPE
+     C           TXTYPE    WHEQ 'O'
+     C                     MOVEL'OLD '    $$TYPE
+     C           TXTYPE    WHEQ 'B'
+     C                     MOVEL'BOTH'    $$TYPE
+     C                     ENDSL
+     C**
+     C                     EXCPT$DATA
+     C**
+     C                     ENDDO
+      *--------------------------
+     C                     MOVE '#END    '@STEP
+     C                     ENDSR
+     C*===============================================================
+     OAB#WP9T E                $HED
+     O                                      'UPD DATE,'
+     O                                      'UPD TIME,'
+     O                                      'UPD USER,'
+     O                                      'DELIVERY#,'
+     O                                      'NAME,'
+     O                                      'LIST TYPE,'
+      *
+     O        E                $DATA
+     O                         TXKODT
+     O                                      ','
+     O                         TXKOTM
+     O                                      ','
+     O                         TXKOME
+     O                                      ',="'
+     O                         TXNONY
+     O                                      '",'
+     O                         $$SMEI
+     O                                      ','
+     O*                     *  TXTYPE
+     O                         $$TYPE
+      *================================================================
+**  ERROR
+E-01 UPDATE INSTRUCTION <0 1 2>
+E-02 INPUT DELIVERY CODE
+E-03 DELIVERY CODE ERROR
+E-04 DELIVERY CODE ERROR (FGBPP01)
+E-05 THERE ISN'T CANCEL DATA
+E-06 DATA IS CANCELLED  ALREADY
+E-07 THERE ISN'T CHANGE DATA
+E-08 THERE IS DATA
+E-09 INPUT LIST TYPE
+E-10 LIST TYPE ERROR ( O, N, B )

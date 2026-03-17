@@ -1,0 +1,153 @@
+     H            Y.                                    1
+     H** ALDR01 ****************************************************************
+     H* MATCHING SHIPPING SYSTEM IN IAF(MAIN MENU)                             *
+     H* TCH(N.HYOTO) SEP.01.99                                                 *
+     H* TCH(N.HYOTO) JUN.02.00 ADD AFAR60                                      *
+     H* TCH(N.HYOTO) JUN.16.00 CHANGE FROM ALDR01 TO ALDC03                    *
+     H* TCH(N.HYOTO) AUG.11.00 ADD GDLR20                                      *
+     H* TCH(N.HYOTO) SEP.25.00 ADD OUT SOURCE ORDER                            *
+     H* TCH(H.AMANO) JUL.31.01 ADD 2-POINT SCAN                                *
+     H* TCH(H.AMANO) JAN.20.03 ADD SERVICE PART SCAN                           *
+TCH26H* TCH          02/04/05 ADDED LOCK FILE                                  *
+     H**************************************************************************
+     H*
+     H* *IN03 = 1(CF03)
+     H* *IN30 = ERROR
+     H* *IN31 = WORKER CODE ERROR
+     H* *IN32 = PROCESS CODE ERROR
+     H*
+     H**************************************************************************
+     FALDPW0Y CF  E                    WORKSTN
+     FALBPL30 IF  E           K        DISK
+TCH  FALDPP62 UF  E           K        DISK                      A
+     F**************************************************************************
+     E                    ERR     1  02 15
+     I**************************************************************************
+     I            DS
+     I                                        1   80WSDATE
+     I                                        1   4 WSYYYY
+     I                                        5   6 WSMM
+TCH  I            DS
+     I                                        1  140@TIME
+     I                                        1   60ALTIME
+TCH  I                                        7  140ALDATE
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 PUSR
+     C**************************************************************************
+     C*                    MAIN ROUTINE
+     C**************************************************************************
+     C                     EXSR @INT
+     C                     EXSR @MAIN
+     C                     EXSR @END
+     C**************************************************************************
+     C*                    @INT
+     C**************************************************************************
+     C           @INT      BEGSR
+     C*
+     C*
+     C           P1        PLIST
+     C                     PARM           POPR
+     C                     PARM           PUSR
+     C*
+     C*
+     C                     SETOF                     303132
+     C                     MOVEL*BLANK    MSG
+     C*
+     C                     Z-ADD*DATE     WSDATE
+TCH26C                     TIME           @TIME  140
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @MAIN
+     C**************************************************************************
+     C           @MAIN     BEGSR
+     C*
+B0   C           *IN03     DOWEQ'0'
+TCH26C           WFLG      IFEQ '1'
+TCH26C                     MOVE '2'       WFLG    1
+TCH26C                     EXSR @LOG
+TCH26C                     ENDIF
+TCH26C           MSG       IFEQ *BLANKS
+TCH26C                     CLEARUSRCD
+TCH26C                     CLEARSCNID
+TCH26C                     ENDIF
+     C                     EXFMTDSP01
+     C                     SETOF                     303132
+     C                     MOVEL*BLANK    MSG
+     C* F3=END
+B1   C           *IN03     IFEQ '0'
+     C* ENTER
+     C* WORKER CODE CHECK
+     C           USRCD     CHAINALBPL301             90
+B2   C           *IN90     IFEQ '0'
+     C*
+TCH26C                     MOVE '1'       WFLG    1
+TCH26C                     EXSR @LOG
+     C           MSG       IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+     C                     MOVE ALWKCD    POPR    6        SET WORKER ID
+     C                     CALL 'ALDR2Y'  P1
+     C*
+     C*NOT READ WORKER CODE MASTER
+     C                     ELSE
+     C                     SETON                     3031
+     C                     MOVEAERR,1     MSG
+E2   C                     END
+E1   C                     END
+E0   C                     END
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @END
+     C**************************************************************************
+     C           @END      BEGSR
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+     C*
+     C                     ENDSR
+TCH26C**************************************************************************
+     C*                    @LOG  LOCK/UNLOCK LOCK FILE
+     C**************************************************************************
+     C           @LOG      BEGSR
+     C*
+     C*  TRY TO LOCK
+     C*
+B0   C           WFLG      IFEQ '1'
+     C           USRCD     CHAINALDPP621            N97
+B1   C           *IN97     IFEQ '0'
+     C           SCNID     IFEQ ALSCID
+     C                     GOTO EXIT1
+     C                     ENDIF
+     C                     SETON                     3031
+     C                     MOVE '2'       WFLG
+     C                     MOVEAERR,2     MSG
+X1   C                     ELSE
+     C                     MOVE #WSID     ALWKID
+     C                     Z-ADDSCNID     ALSCID
+     C                     WRITEALDPP621
+E1   C                     ENDIF
+     C*
+X0   C                     ELSE
+     C*
+     C*  TRY TO UNLOCK
+     C*
+B1   C           WFLG      IFEQ '2'
+     C           USRCD     CHAINALDPP621            N97
+B2   C           *IN97     IFEQ '0'
+     C           USRCD     CHAINALDPP621             97
+B3   C           *IN97     IFEQ '0'
+     C                     DELETALDPP621
+E3   C                     ENDIF
+E2   C                     ENDIF
+E1   C                     ENDIF
+     C*
+E0   C                     ENDIF
+     C           EXIT1     TAG
+TCH26C                     ENDSR
+** ERR
+USER CODE ERROR
+CD ALREADY USED

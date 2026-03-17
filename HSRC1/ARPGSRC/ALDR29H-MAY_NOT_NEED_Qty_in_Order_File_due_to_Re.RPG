@@ -1,0 +1,229 @@
+     H            Y.
+     F** ALDR29H ********************************************
+     F* Increase Order Qty in Order File due to Reversal    *
+     F*    LEC.  2021.06.16                                 *
+     F*******************************************************
+     FAB#PL1L IF  E           K        DISK
+     FAB#PP10 O   E           K        DISK                      A
+     FAB#PLA5 IF  E           K        DISK
+     FAB#PPA1 O   E           K        DISK                      A
+     FAB#HP10 O   E                    DISK
+      *******************************************************
+      *
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   20SHOUR
+     I                                        3   40SMIN
+     I                                        7  100SYEAR
+     I                                       11  120SMONTH
+     I                                       13  140SDAY
+     I                                        1   60WTIME
+     I                                        7  140WDATE
+      *
+     I            DS
+     I                                        1  12 MHN
+     I                                        1   5 MHN1
+     I                                        6  10 MHN2
+     I                                       11  15 MHN3
+      *
+     I            DS
+     I                                        1   8 SHIPDT
+     I                                        1   40NOYY
+     I                                        5   60NOMM
+     I                                        7   80NODD
+      *
+     I            DS
+     I                                        1   80K@NODT
+     I                                        1   40K@NOYY
+     I                                        5   60K@NOMM
+     I                                        7   80K@NODD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           PART#  12
+     C                     PARM           NONY    40
+     C                     PARM           SHID    8
+     C                     PARM           ODRN   10
+     C                     PARM           NUKE    4
+     C                     PARM           QTYORD  50
+     C                     PARM           WKCD   10
+     C                     PARM           NEWBIN  2
+      *
+     C                     MOVELPART#     MHN
+     C                     MOVELSHID      SHIPDT
+      *
+      * part was scanned as a "short" so the order will need to be undeleted
+      *
+     C           K#1L      KLIST
+     C                     KFLD           NONY
+     C                     KFLD           NOYY
+     C                     KFLD           NOMM
+     C                     KFLD           NODD
+     C                     KFLD           NUKE
+     C                     KFLD           ODRN
+     C                     KFLD           MHN1
+     C                     KFLD           MHN2
+     C                     KFLD           MHN3
+      *
+     C                     TIME           WSDT
+      *
+     C                     MOVELSHID      SHIPDT
+      *
+     C           K#1L      SETLLAB#PL1L
+      *
+     C                     DO   *HIVAL
+     C           K#1L      READEAB#PL1L                  50
+      *
+     C           *IN50     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           BASKJY    IFEQ *BLANK
+     C                     ITER
+     C                     ENDIF
+      *
+      * save delivery qty for updating history file...
+     C                     Z-ADDBAODER    PRVQTY 100
+      *
+     C                     ADD  QTYORD    BAODER
+      *
+     C                     MOVE *BLANK    BASKJY
+     C                     Z-ADDSYEAR     BASKYY
+     C                     Z-ADDSMONTH    BASKMM
+     C                     Z-ADDSDAY      BASKDD
+      *
+     C                     Z-ADDSYEAR     BAKOYY
+     C                     Z-ADDSMONTH    BAKOMM
+     C                     Z-ADDSDAY      BAKODD
+     C                     Z-ADDSHOUR     BAKOHH
+     C                     Z-ADDSMIN      BAKOSS
+     C                     MOVELWKCD      BAKOME
+      *
+     C                     WRITEAB#PP101
+     C                     EXSR WRTHST
+     C                     EXSR UPPPA1
+      *
+     C                     LEAVE
+      *
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *
+      *----------------------------------------------------*
+      * Write to Order History File AB#HP10                *
+      *----------------------------------------------------*
+     C           WRTHST    BEGSR
+      *
+     C                     CLEARAB#HP101
+     C                     Z-ADDWDATE     AHKYMD
+     C                     Z-ADDWTIME     AHKTIM
+     C                     MOVELW#PGM     AHKPGM
+     C                     MOVELWKCD      AHKMID
+      *
+     C                     MOVE BATOKU    AHTOKU
+     C                     MOVE BANONY    AHNONY
+     C                     MOVE BANKOJ    AHNKOJ
+     C                     MOVE BANUKE    AHNUKE
+     C                     Z-ADDBANOYY    AHNOYY
+     C                     Z-ADDBANOMM    AHNOMM
+     C                     Z-ADDBANODD    AHNODD
+     C                     MOVE BANOBN    AHNOBN
+     C                     MOVELBAODRN    AHODRN
+     C                     MOVE BAMHN1    AHMHN1
+     C                     MOVE BAMHN2    AHMHN2
+     C                     MOVE BAMHN3    AHMHN3
+     C                     MOVE BAMHN4    AHMHN4
+     C                     MOVE BASHN1    AHSHN1
+     C                     MOVE BASHN2    AHSHN2
+     C                     MOVE BASHN3    AHSHN3
+     C                     Z-ADDPRVQTY    AHQTY1
+     C                     Z-ADDBAODER    AHQTY2
+     C                     WRITEAB#HP101
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * Update Order Extend File AB#PPA1                   *
+      *----------------------------------------------------*
+     C           UPPPA1    BEGSR
+      *
+     C           K#PA1     KLIST
+     C                     KFLD           K@CUST
+     C                     KFLD           K@NONY
+     C                     KFLD           K@FACT
+     C                     KFLD           K@NUKE
+     C                     KFLD           K@MHN1
+     C                     KFLD           K@MHN2
+     C                     KFLD           K@MHN3
+     C                     KFLD           K@MHN4
+     C                     KFLD           K@ORDR
+     C                     KFLD           K@NOYY
+     C                     KFLD           K@NOMM
+     C                     KFLD           K@NODD
+     C                     KFLD           K@BIN
+     C                     KFLD           K@DEYY
+     C                     KFLD           K@DEMM
+     C                     KFLD           K@DEDD
+      *
+      * get all key fields from PP10...
+     C                     Z-ADDBATOKU    K@CUST  40
+     C                     Z-ADDBANONY    K@NONY  40
+     C                     MOVELBANKOJ    K@FACT  1
+     C                     MOVELBANUKE    K@NUKE  4
+     C                     MOVELBAMHN1    K@MHN1  5
+     C                     MOVELBAMHN2    K@MHN2  5
+     C                     MOVELBAMHN3    K@MHN3  5
+     C                     MOVELBAMHN4    K@MHN4  5
+     C                     MOVELBAODRN    K@ORDR 10
+     C                     Z-ADDBANOYY    K@NOYY  40
+     C                     Z-ADDBANOMM    K@NOMM  20
+     C                     Z-ADDBANODD    K@NODD  20
+     C                     Z-ADDBANOBN    K@BIN   20
+     C                     Z-ADDBADEYY    K@DEYY  40
+     C                     Z-ADDBADEMM    K@DEMM  20
+     C                     Z-ADDBADEDD    K@DEDD  20
+     C                     MOVELBAINVN    S@INVN 16
+      *
+      *
+      * find the matching record in PPA1
+      *
+     C           K#PA1     SETLLAB#PLA5
+      *
+     C           *IN91     DOUEQ*ON
+     C           K#PA1     READEAB#PLA5                  91
+      *
+     C           *IN91     IFEQ *OFF
+      *
+     C           BAINVN    IFNE S@INVN
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    BASKJY
+     C                     Z-ADDWDATE     BASKHZ
+     C                     Z-ADDWTIME     BASKTM
+     C                     MOVELWKCD      BASKME
+     C                     MOVELW#PGM     BASKPG
+      *
+      * update all change fields...
+     C                     Z-ADDWDATE     BAKOHZ
+     C                     MOVELSHOUR     BAKOHH
+     C                     MOVELSMIN      BAKOSS
+     C                     MOVELWKCD      BAKOME
+     C                     MOVELW#PGM     BANOPG
+      *
+      * update new quantity...
+     C                     Z-ADDAHQTY2    BAODER
+      *
+     C                     WRITEAB#PPA11
+     C                     LEAVE
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*

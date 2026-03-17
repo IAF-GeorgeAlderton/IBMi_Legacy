@@ -1,0 +1,239 @@
+     H            Y.                                    1
+     H** AFBR81 *******************************************************
+     H*  OUT SOURCE ORDER (WASHER KANBAN BARCODE READER)              *
+     H*                                                               *
+     H* TCH 2000.12.01                                                *
+     H* TCH 2001.07.20 SUPPLIER CODE(SET ENTERED CODE)                *
+     H* TCHK1 02/20/08 CHG SCANNED BLANK                              *
+     H* TCHK2 09/18/11 ADD LOT SIZE                                   *
+JW1  H* JW    2023.08.01 ADD 2626 (ART METAL)                         *
+     H**************************************************************************
+     H* *INKC = 1(CF03)
+     H* *IN30 = 1(ERROR)
+     H* *IN90 = 1(NOT READ AKBPL06 COMPORNENT PART MASTER)
+     H* *IN93 = 1(NOT READ AFBPL82 ORDER DETAIL FILE)
+     H**************************************************************************
+     FAFBPW81 CF  E                    WORKSTN
+     FAKBPL06 IF  E           K        DISK
+     FAFBPL82 IF  E           K        DISK
+     FAFBNP80 UF  E           K        DISK                      A
+     FAFBPP80 O   E                    DISK
+     I**************************************************************************
+     E                    BCD        13  1
+     E                    ER      1  30 15
+     I**************************************************************************
+     I* BARCODE
+     I*(UPDATE CODE + ABSOLUTE # + PURCHASE CODE + KANBAN TYPE + HAKKO #
+     I            DS
+     I                                        1  13 BCD
+     I                                        1  13 BARCD
+     I                                        1   1 BCOCD
+     I                                        2   5 BZETI
+     I                                        6   90BSIRE
+     I                                        6   9 WSIRE
+     I                                       10  10 BTYPE
+     I                                       11  13 BPAGE
+     I*
+     I            DS
+     I                                        1  120WTMDT
+     I                                        1   20WHHHH
+     I                                        3   40WSSSS
+     I                                        7   80WYYYY
+     I                                        9  100WMMMM
+     I                                       11  120WDDDD
+     I            DS
+     I                                        1   60KEY3
+     I                                        1   40K31
+     I                                        5   60K32
+     I**************************************************************************
+     C*
+     C           *ENTRY    PLIST
+     C                     PARM           PUSR   10
+     C                     PARM           PWKCD   6
+     C* AFBPL82
+     C           KEY4      KLIST
+     C                     KFLD           BCOCD            CONTROL CD
+     C                     KFLD           BZETI            ABSOLUTE #
+     C                     KFLD           WSIRE            TEHAI
+     C                     KFLD           BTYPE            PAGE
+     C                     KFLD           BPAGE            2ND.TREATEMENT
+     C**************************************************************************
+     C*                    MAIN ROUTINE
+     C**************************************************************************
+     C                     EXSR @INT
+     C                     EXSR @MAIN
+     C                     EXSR @END
+     C**************************************************************************
+     C*                    @INT
+     C**************************************************************************
+     C           @INT      BEGSR
+     C*
+     C                     SETOF                     30
+     C                     MOVE *BLANK    MSG
+     C*
+     C                     TIME           WTMDT
+     C                     Z-ADD2000      K31
+     C                     ADD  WYYYY     K31
+     C                     Z-ADDWMMMM     K32
+     C*
+     C                     Z-ADD*ZERO     I       20
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @MAIN
+     C**************************************************************************
+     C           @MAIN     BEGSR
+     C*
+B01  C           *INKC     DOUEQ'1'
+     C* DISPLAY ERROR
+B03  C           *IN30     IFEQ '1'
+     C                     EXFMTAFBPW899
+     C*
+     C                     SETOF                     30
+     C                     MOVE *BLANK    MSG
+     C*
+     C                     ELSE
+     C                     EXFMTAFBPW811
+B02  C           *INKC     IFEQ '1'
+     C*
+     C                     ELSE
+TCHK1C*
+TCHK1C           BARCD     IFEQ *BLANK
+TCHK1C                     ITER
+TCHK1C                     END
+TCHK1C*
+     C                     EXSR @CHK1
+     C*
+B04  C           *IN30     IFEQ '0'
+     C                     EXSR @WRT
+     C                     MOVE *BLANK    BARCD
+     C                     END
+     C                     END
+     C                     END
+     C                     END
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @CHK1
+     C**************************************************************************
+     C           @CHK1     BEGSR
+     C*
+     C* READ ALL DATA?
+     C                     Z-ADD1         I
+     C           1         DO   13        I
+     C           BCD,I     IFEQ *BLANK
+     C                     SETON                     30
+     C                     MOVE ER,1      MSG
+     C                     GOTO #ECHK1
+     C                     END
+     C                     END
+     C*
+     C* COMPORNENT PART MASTER EXIST ?
+     C*          BZETI     CHAINAKBPL06              90
+     C                     SETOF                     90
+     C           BZETI     SETGTAKBPL06
+     C           BZETI     REDPEAKBPL06                  90
+     C           *IN90     IFEQ '0'
+     C*
+     C           L1SKJY    IFEQ 'D'
+     C                     SETON                     30
+     C                     MOVE ER,3      MSG
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C                     ELSE
+     C                     SETON                     30
+     C                     MOVE ER,3      MSG
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C*
+     C* ORDER DETAIL FILE
+     C           KEY4      SETGTAFBPL821
+     C           #AGAIN    TAG
+     C           KEY4      REDPEAFBPL821                 93
+     C           *IN93     IFEQ '0'
+     C           B8SKJY    CABEQ'D'       #AGAIN
+     C           B8NOYY    IFEQ *ZERO
+     C                     SETON                     30
+     C                     MOVE ER,4      MSG
+     C                     GOTO #ECHK1
+     C                     END
+     C                     END
+     C*
+     C           #ECHK1    ENDSR
+     C**************************************************************************
+     C*                    @WRT
+     C**************************************************************************
+     C           @WRT      BEGSR
+     C*
+     C                     CLEARAFBPP801
+     C                     Z-ADD2000      B8KOYY           UPDATE YEAR
+TCHK1C                     ADD  WYYYY     B8KOYY
+     C                     Z-ADDWMMMM     B8KOMM                  MONTH
+     C                     Z-ADDWDDDD     B8KODD                  DAY
+     C                     Z-ADDWHHHH     B8KOHH                  HOUR
+     C                     Z-ADDWSSSS     B8KOSS                  MINUTE
+     C                     MOVE PUSR      B8KOME                  USER
+     C                     MOVEL'AFBR81'  B8KOPG                  PGM-ID
+     C                     MOVE PWKCD     B8WORK                  WORKER CD
+     C                     MOVE BCOCD     B8KANR           CONTROL CODE
+     C                     MOVE BZETI     B8ZETI           ABSOLUTE
+     C                     MOVE WSIRE     B8VEND           VENDER
+     C                     MOVE BTYPE     B8KBNS           KANBAN TYPE
+     C                     MOVE BPAGE     B8HKNO           KANBAN TYPE
+     C                     MOVE L1SHN1    B8PAR1           INTERNAL PART
+     C                     MOVE L1SHN2    B8PAR2
+     C                     MOVE L1SHN3    B8PAR3
+     C                     Z-ADDL1SYOS    B8SYOS           QTY/CONT.
+TCHK2C           L1ROTO    IFNE *ZERO
+TCHK2C                     Z-ADDL1ROTO    B8ROTO
+TCHK2C                     ELSE
+TCHK2C                     Z-ADD1         B8ROTO
+TCHK2C                     END
+     C                     MOVE WSIRE     B8SUPP           FREEWAY
+     C                     Z-ADD*ZERO     B8SUYY           SUMMARY DATE
+     C                     Z-ADD*ZERO     B8SUMM
+     C                     Z-ADD*ZERO     B8SUDD
+     C                     Z-ADD*ZERO     B8ODNO           ORDER #
+     C                     Z-ADD*ZERO     B8NYYY           ESTIMATE DATE
+     C                     Z-ADD*ZERO     B8NYMM
+     C                     Z-ADD*ZERO     B8NYDD
+     C                     Z-ADD*ZERO     B8NOYY           INSPECTION DATE
+     C                     Z-ADD*ZERO     B8NOMM
+     C                     Z-ADD*ZERO     B8NODD
+     C                     Z-ADD*DATE     B8DATE
+     C*
+     C* GET CREATE NUMBER
+     C           KEY3      CHAINAFBNP801             93
+     C           *IN93     IFEQ '0'
+     C                     ADD  1         BXNO
+     C                     UPDATAFBNP801
+     C*
+     C                     ELSE
+     C                     Z-ADDKEY3      BXYYMM
+     C                     Z-ADD1         BXNO
+     C                     WRITEAFBNP801
+     C                     END
+     C                     Z-ADDBXNO      B8RENO
+     C*
+     C                     WRITEAFBPP801
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @END
+     C**************************************************************************
+     C           @END      BEGSR
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+     C*
+     C                     ENDSR
+** ER (15A) ..>
+BARCODE BLANK      01
+                   02
+NOT COMPORNENT     03
+ALREADY SCANNED    04
+                   05
+                   06
+                   07

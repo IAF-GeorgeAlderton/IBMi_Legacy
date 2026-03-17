@@ -1,0 +1,143 @@
+     H            Y.
+     F** AM#R22 *********************************************
+     F* RETURN #OF MANIFESTS
+     F*    LEC.             2018.09.17                                         *
+     F*    LEC.  2018.09.17  CHG CALC FOR TOTL MANF IN LOAD                    *
+     F**************************************************************************
+     FAM#PL04 IF  E           K        DISK
+     FAM#PL22 IF  E           K        DISK
+     FAM#PL21 IF  E           K        DISK
+     F            AM#PP211                          KRENAMEAM#PPR1
+      *
+     E                    MAN       300 50
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        7  140SDATE
+     I                                        1   60STIME
+      *
+      * 2D MANIFEST BARCODE
+     I            DS
+     I                                        1  50 MFBC
+     I                                        1   5 MFNAMC
+     I                                        6  10 MFSUPP
+     I                                       11  12 MFDOCK
+     I                                       13  24 MFORD#
+     I                                       25  33 MFMRTE
+     I                                       34  36 MFSDCK
+     I                                       37  38 MFPALT
+     I                                       39  40 MFMROS
+     I                                       41  44 MFSKID
+     I                                       44  44 MFSIDE
+     I                                       45  50 MFFILR
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           SURT    7
+     C                     PARM           SHID    8
+     C                     PARM           SHIT    6
+     C                     PARM           P2TOTL  30
+     C                     PARM           P2LDTL  30
+     C                     PARM           P2OVTL  30
+     C                     PARM           P2EXTL  30
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C           KEY01     KLIST
+     C                     KFLD           KKSURT  9
+     C                     KFLD           KKSHID  8
+      *
+     C                     TIME           WTIME
+     C                     MOVELSURT      KKSURT  9
+     C                     MOVELSHID      KKSHID  8
+      *
+      * for truck (route) and ship date,
+      * get total number of manifests scanned in the packing area.
+     C                     Z-ADD0         P2TOTL
+      *
+     C           KEY01     SETLLAM#PL041
+     C           KEY01     READEAM#PL041                 50
+     C           *IN50     DOWEQ'0'
+      *
+     C           R1SKJY    IFEQ ' '
+     C           R1HNTE    ANDEQ'OK'
+     C           R1SHIT    ANDEQSHIT
+     C           R1EXCD    ANDNE'12'
+      *
+     C                     MOVELR1MFBC    MFBC
+     C                     MOVE *BLANK    MFSIDE
+     C                     MOVE 'N'       F5OVR
+      *
+     C           MFBC      LOKUPMAN                      41
+     C           *IN41     IFEQ *OFF
+     C                     EXSR CHKOVR
+     C                     MOVE *BLANK    MFSIDE
+     C           F5OVR     IFEQ 'N'
+     C                     ADD  1         P2TOTL
+     C                     ADD  1         IX      30
+     C                     MOVELMFBC      MAN,IX
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           KEY01     READEAM#PL041                 50
+     C                     ENDDO
+      *
+      *
+      * for truck (route) and ship date,
+      * get number of manifests already scanned into the loading area.
+     C                     Z-ADD0         P2LDTL
+     C                     Z-ADD0         P2OVTL
+     C                     Z-ADD0         P2EXTL
+      *
+     C           KEY01     SETLLAM#PL22
+     C           KEY01     READEAM#PL22                  50
+     C           *IN50     DOWEQ'0'
+      *
+     C           R2SKJY    IFEQ ' '
+     C           R2HNTE    ANDEQ'OK'
+     C           R2SHIT    ANDEQSHIT
+      *
+     C                     SELEC
+     C           R2EXCD    WHGT *BLANK
+     C                     ADD  1         P2EXTL
+     C           R2F5OV    WHEQ *BLANK
+     C                     ADD  1         P2LDTL
+     C           R2F5OV    WHGT *BLANK
+     C                     ADD  1         P2OVTL
+     C                     ENDSL
+      *
+     C                     ENDIF
+      *
+     C           KEY01     READEAM#PL22                  50
+     C                     ENDDO
+      *
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      * CHECK TO SEE IF THIS MANIFEST WAS OVERRIDDEN TO    *
+      * A DIFFERENT ROUTE.                                 *
+      *----------------------------------------------------*
+     C           CHKOVR    BEGSR
+      *
+     C                     MOVE 'A'       MFSIDE
+     C           MFBC      SETLLAM#PL21
+     C           MFBC      READEAM#PL21                  50
+     C           *IN50     DOWEQ*OFF
+     C           R2SKJY    IFEQ ' '
+     C           R2HNTE    ANDEQ'OK'
+     C           R2F5OV    ANDEQ'Y'
+     C                     MOVE 'Y'       F5OVR   1
+     C                     LEAVE
+     C                     ENDIF
+     C           MFBC      READEAM#PL21                  50
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*

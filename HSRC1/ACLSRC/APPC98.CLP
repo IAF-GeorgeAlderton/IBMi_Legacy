@@ -1,0 +1,6 @@
+PGM
+
+             DCL        VAR(&CHGDATE) TYPE(*CHAR) LEN(13)
+             RTVMBRD    FILE(INVWP41) CHGDATE(&CHGDATE)
+
+ENDPGM

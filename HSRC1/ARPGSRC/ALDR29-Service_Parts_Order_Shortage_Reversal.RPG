@@ -1,0 +1,394 @@
+     H            Y.
+     F** ALDR29 *********************************************
+     F* SERVICE PARTS - REVERSE ORDER SHORTAGES             *
+     F*    LEC.  2022.06.24                                 *
+     F*  ---------------------
+JW1  F*  JW      2022.11.15 ADD CREATE DATE/TIME
+     F*******************************************************
+     FALDPW29 CF  E                    WORKSTN
+     FAB#PL1L UF  E           K        DISK                      A
+JW1  FAB#PPA1 O   E                    DISK
+     FAB#PL44 UF  E           K        DISK                      A
+     FAB#PL71 UF  E           K        DISK
+     FALDPL27 UF  E           K        DISK
+     FALDWL27 IF  E           K        DISK
+     FALDWP29 O   E                    DISK                      A
+     E                    ER      1   4 65
+      *
+     I            DS
+     I                                        1  18 D1BARC
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        7  140SDATE
+     I                                        7  14 CSDAT
+     I                                        7  100SDYY
+     I                                       11  120SDMM
+     I                                       13  140SDDD
+     I                                        1   60STIME
+     I                                        1   6 CSTIM
+     I                                        1   20STHH
+     I                                        3   40STMM
+      *
+     I            DS
+     I                                        1   80SHID
+     I                                        1   40EKNOYY
+     I                                        5   60EKNOMM
+     I                                        7   80EKNODD
+      *
+     I            DS
+     I                                        1  12 PART
+     I                                        1   5 EKSHN1
+     I                                        6  10 EKSHN2
+     I                                       11  12 EKSHN3
+      *
+     I            DS
+     I                                        1  20 MHIN
+     I                                        1   5 BAMHN1
+     I                                        6  10 BAMHN2
+     I                                       11  15 BAMHN3
+     I                                       16  20 BAMHN4
+      *
+     I            DS
+     I                                        1   80NWNOHZ
+     I                                        1   40NWNOYY
+     I                                        5   60NWNOMM
+     I                                        7   80NWNODD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           WORKER  6
+     C                     PARM           WUSRID 10
+     C                     PARM           WCMD    1
+      **
+     C           K#1L      KLIST
+     C                     KFLD           NONY    40
+     C                     KFLD           EKNOYY
+     C                     KFLD           EKNOMM
+     C                     KFLD           EKNODD
+     C                     KFLD           EKNUKE
+     C                     KFLD           EKODRN
+     C                     KFLD           EKMHN1
+     C                     KFLD           EKMHN2
+     C                     KFLD           EKMHN3
+     C                     KFLD           EKMHN4
+     C                     KFLD           NOBN    20
+      *
+     C           K#44      KLIST
+     C                     KFLD           NONY
+     C                     KFLD           SHID
+     C                     KFLD           EKNUKE
+     C                     KFLD           EKMHN1
+     C                     KFLD           EKMHN2
+     C                     KFLD           EKMHN3
+     C                     KFLD           EKMHN4
+     C                     KFLD           NOBN
+     C                     KFLD           ORDN   15
+      *
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     EXSR #SB100
+     C                     EXSR NWSHID
+      *
+     C           DSPSW     DOWNE'99'
+     C                     EXSR #SB200
+     C                     ENDDO
+     C                     EXSR #SB300
+      *----------------------------------------------------*
+      * INZ                                                *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     TIME           WTIME
+     C                     MOVELWORKER    USRCD   6
+     C                     CLEARDSP01
+     C                     CLEARDSP01A
+      *
+     CSR         ESB100    ENDSR
+      *----------------------------------------------------*
+      * GET NEW SHIP DATE FOR ORDER                        *
+      *----------------------------------------------------*
+     CSR         NWSHID    BEGSR
+      *
+     C           *IN99     DOWEQ*OFF
+     C                     EXFMTDSP01A
+     C                     MOVEL*BLANK    MSG
+     C                     SETOF                     3099
+      *
+     C           *IN03     IFEQ *ON
+     C                     MOVEL'99'      DSPSW
+     C                     MOVEL'1'       WCMD
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     MOVELD1SHID    $SRC
+      *
+      * check for valid new ship date...
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+      *
+     C           $RTN      IFEQ *BLANK
+     C                     MOVEL'01'      DSPSW   2
+     C                     LEAVE
+     C                     ELSE
+     C                     MOVELER,1      MSG
+     C                     SETON                     3099
+     C                     EXSR #SB999
+     C                     SETOF                     3099
+     C                     MOVEL*BLANK    MSG
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     CSR                   ENDSR
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANK    MSG
+     C                     SETOF                     3199
+      *
+     C                     TIME           WTIME
+     C           *IN03     IFEQ *ON
+     C                     MOVEL'99'      DSPSW   2
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+     C                     EXSR #CHK01
+      *
+     C           *IN99     IFEQ *OFF
+     C                     EXSR #SB600
+     C                     EXSR #SB500
+     C                     ADD  1         D1SHRT
+     C                     ELSE
+     C                     EXSR #SB999
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    MSG
+     C                     ENDIF
+      *
+     C                     CLEARD1BARC
+      *
+     CSR         ESB200    ENDSR
+      *----------------------------------------------------*
+      *瀗疢�⒳�痧�　　　　　　　　　　　　　　　　　　�
+      *----------------------------------------------------*
+     CSR         #CHK01    BEGSR
+      *
+      * check barcode...
+     C           D1BARC    IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,2      MSG
+     C                     GOTO ECHK01
+     C                     ENDIF
+      *
+      * check label file...
+     C           D1BARC    CHAINAB#PL71             N50
+      *
+     C                     SELEC
+     C           *IN50     WHEQ *ON
+     C                     SETON                     3199
+     C                     MOVELER,3      MSG
+     C                     GOTO ECHK01
+     C           *IN50     WHEQ *OFF
+     C           EKKOME    ANDNE'SHORT'
+     C                     SETON                     3199
+     C                     MOVELER,4      MSG
+     C                     GOTO ECHK01
+     C                     ENDSL
+      *
+     CSR         ECHK01    ENDSR
+      *----------------------------------------------------*
+      * Display Error Message                              *
+      *----------------------------------------------------*
+     CSR         #SB999    BEGSR
+      *
+     C                     MOVELMSG       P1ERR
+     C                     CALL 'AM#R08'
+     C                     PARM           P1ERR  25
+      *
+     CSR         ESB999    ENDSR
+      *----------------------------------------------------*
+      * End the Program                                    *
+      *----------------------------------------------------*
+     CSR         #SB300    BEGSR
+     C                     SETON                     LR
+     C                     RETRN
+     CSR         ESB300    ENDSR
+      *----------------------------------------------------*
+      * Write to Shortage Reversal Workfile - ALDWP29      *
+      *----------------------------------------------------*
+     C           #SB500    BEGSR
+      *
+     C                     CLEARALDWP291
+     C                     MOVELWORKER    W1KOME
+     C                     MOVELW#PGM     W1KPGM
+     C                     Z-ADDSDATE     W1SSHZ
+     C                     Z-ADDSTIME     W1SSTI
+      *
+     C                     MOVELEKSERL    W1SERL
+     C                     MOVELSHID      W1SHID
+     C                     MOVELEKDETM    W1SHIT
+     C                     MOVELEKNONY    W1NONY
+     C                     MOVELEKNUKE    W1NUKE
+     C                     MOVELEKODRN    W1ORD#
+     C                     MOVELPART      W1MHN
+     C                     MOVELSVQPC     W1QPC
+     C                     MOVELSVLINE    W1LINE
+     C                     MOVELSVLINE    W1LIN#
+     C                     Z-ADDD1SHID    W1RDA
+     C                     MOVELSVHPOS    W1HPOS
+     C                     Z-ADDSVIAF#    W1IAF#
+      *
+     C                     Z-ADDSVODER    W1ODER
+      *
+     C                     MOVELEKNOBN    W1NOBN
+     C                     MOVELBINRTN    W1NWBN
+     C                     WRITEALDWP291
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * Update Shortage History  - ALDPP27                 *
+      * Write New Order to AB#PP10 and AB#PP44             *
+      *----------------------------------------------------*
+     C           #SB600    BEGSR
+      *
+      *  log shortage status as "reversed"...
+     C           D1BARC    CHAINALDPL27              50
+     C           *IN50     IFEQ *OFF
+     C                     MOVELWORKER    W1KOME    P
+     C                     MOVELW#PGM     W1KPGM
+     C                     Z-ADDSDATE     W1SSHZ
+     C                     Z-ADDSTIME     W1SSTI
+      *
+     C                     MOVEL'REVERSED'W1FLDA
+     C           CSDAT     CAT  CSTIM:1   W1FLDB
+     C                     UPDATALDPP271
+     C                     Z-ADDW1QPC     SVQPC   50
+     C                     Z-ADDW1ODER    SVODER  50
+     C                     MOVELW1LINE    SVLINE  5
+     C                     CLEARALDPP271
+      *
+     C                     ELSE
+      *
+     C           D1BARC    CHAINALDWL27              50
+     C           *IN50     IFEQ *OFF
+     C                     Z-ADDW1QPC     SVQPC   50
+     C                     Z-ADDW1ODER    SVODER  50
+     C                     MOVELW1LINE    SVLINE  5
+     C                     CLEARALDWP271
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *  write new order record with new ship date and new bin#...
+     C                     MOVELEKNONY    NONY
+     C                     MOVELEKNOBN    NOBN
+     C                     MOVELEKODRN    ORDN
+      *
+     C           K#1L      CHAINAB#PL1L             N50
+     C           *IN50     IFEQ *OFF
+     C                     MOVEL*BLANKS   BASKJY
+     C                     Z-ADD*ZERO     BASKYY
+     C                     Z-ADD*ZERO     BASKMM
+     C                     Z-ADD*ZERO     BASKDD
+     C                     Z-ADDSDYY      BAKOYY
+     C                     Z-ADDSDMM      BAKOMM
+     C                     Z-ADDSDDD      BAKODD
+     C                     Z-ADDSTHH      BAKOHH
+     C                     Z-ADDSTMM      BAKOSS
+     C                     MOVELWORKER    BAKOME    P
+     C                     Z-ADDD1SHID    NWNOHZ
+     C                     Z-ADDNWNOYY    BANOYY
+     C                     Z-ADDNWNOMM    BANOMM
+     C                     Z-ADDNWNODD    BANODD
+      *
+      * call napck bin assignment program...
+     C                     MOVELBAHPOS    INHOME  1
+     C                     Z-ADDNWNOHZ    INSHDT  80
+     C                     Z-ADD*ZERO     BINRTN  20
+     C                     CALL 'AB#R8N'
+     C                     PARM           INHOME
+     C                     PARM           INSHDT
+     C                     PARM           BINRTN
+      *
+     C                     Z-ADDBINRTN    BANOBN
+      *
+      * get IAF internal part# because it may have changed since being shorted..
+     C                     MOVELBATOKU    TOKU
+     C                     CALL 'BBHR50'
+     C                     PARM           TOKU    4
+     C                     PARM           EKNONY
+     C                     PARM           BANKOJ
+     C                     PARM           BANUKE
+     C                     PARM           MHIN   20
+     C                     PARM           SHIN   12
+     C                     PARM           FLAG    1
+      *
+     C           FLAG      IFEQ *BLANK
+     C           5         SUBSTSHIN:1    BASHN1
+     C           5         SUBSTSHIN:6    BASHN2
+     C           2         SUBSTSHIN:11   BASHN3
+     C                     ENDIF
+      *
+      * ADDITIONAL FIELDS
+JW1  C                     MOVELSDATE     $DATE
+ .   C                     MOVE 'Y'       $UPD
+ .   C                     CALL 'UTLR56C'
+ .   C                     PARM           $DATE   8
+ .   C                     PARM           $UPD    1
+ .   C                     PARM           $IAF#  10
+ .   C                     MOVEL$IAF#     BAIAF#
+ .   C                     Z-ADDSDATE     BACRHZ
+ .   C                     Z-ADDSTIME     BACRTM
+ .   C                     MOVELW#PGM     BACRPG
+JW1  C                     MOVELW#USER    BACRME
+      *
+     C                     MOVELBAHPOS    SVHPOS  1
+     C                     Z-ADDBAIAF#    SVIAF# 100
+      *
+     C                     WRITEAB#PL1L1
+JW1  C                     WRITEAB#PPA11
+     C                     ENDIF
+      *
+     C                     CLEARAB#PL1L1
+      *
+      *  write new order record with new ship date and new bin#...
+     C           K#44      CHAINAB#PL44             N50
+     C           *IN50     IFEQ *OFF
+     C                     Z-ADDSDATE     DAKYMD
+     C                     Z-ADDSTIME     DAKTIM
+     C                     Z-ADDD1SHID    DANYMD
+     C                     Z-ADDBINRTN    DANOBN
+     C                     WRITEAB#PP441
+     C                     ENDIF
+      *
+     C                     CLEARAB#PP441
+      *
+      *  update label file...
+     C           D1BARC    CHAINAB#PL71              50
+     C           *IN50     IFEQ *OFF
+     C** JW                Z-ADDSDYY      EKKOYY
+     C**                   Z-ADDSDMM      EKKOMM
+     C**                   Z-ADDSDDD      EKKODD
+     C**                   Z-ADDSTHH      EKKOHH
+     C**                   Z-ADDSTMM      EKKOMN
+     C                     MOVEL'REVRS'   EKKOME
+     C                     UPDATAB#PP701
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+**
+INVALID DATE.
+SCAN SERIAL BARCODE.
+NO LABEL DATA.
+NOT SHORTED.

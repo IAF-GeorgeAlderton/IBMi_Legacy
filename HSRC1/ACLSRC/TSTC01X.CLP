@@ -1,0 +1,4 @@
+ PGM
+             CALL   XXXX
+
+             ENDPGM

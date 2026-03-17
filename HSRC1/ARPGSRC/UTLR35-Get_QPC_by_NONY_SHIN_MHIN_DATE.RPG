@@ -1,0 +1,175 @@
+     H            Y.
+     F** UTLR35 ********************************************
+     F*  GET QTY/BOX BY DATE                               *
+     F*  WRITTEN: JW (SRA)                                 *
+     F*           09/06/2016                               *
+     F*----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UTLR35'
+     F*                    PARM           $TOKU   4
+     F*                    PARM           $NONY   4
+     F*                    PARM           $MHIN  20
+     F*                    PARM           $HTYP   3
+     F*                    PARM           $DATE   8
+     F*                    PARM           $SYOS   6
+     F*                    PARM           $RTN    1
+     F*  IN  $TOKU :  4A CUST#
+     F*      $NONY :  4A DELIVERY CODE
+     F*      $MHIN : 20A USER PART
+     F*      $HTYP :  3A PART TYPE (USR=USER, IAF=IAF)
+     F*      $DATE :  8A TARGET DATE
+     F*  OUT $SYOS :  6A QTY/BOX (QPC)
+     F*      $RTN  :  1A RETURN CODE (1:COMMON OR PART MASTER NOT FOUND)
+     F*                              (2:QPC=0    ERR)
+     F*                              (*:OTHER    ERR)
+     F******************************************************
+     FFAAPL05 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+      *--------------------------------------------------------
+     I            DS
+     I                                        1  20 @MHIN
+     I                                        1   5 $MHN1
+     I                                        6  10 $MHN2
+     I                                       11  15 $MHN3
+     I                                       16  20 $MHN4
+     I            DS
+     I                                        1  20 K@MHIN
+     I                                        1   5 K@MHN1
+     I                                        6  10 K@MHN2
+     I                                       11  15 K@MHN3
+     I                                       16  20 K@MHN4
+      *
+     I            DS
+     I                                        1   80A2SYHZ
+     I                                        1   40A2SYYY
+     I                                        5   60A2SYMM
+     I                                        7   80A2SYDD
+      *
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *--------------------------------------------------------
+      *                    MAIN PROCESS
+      *--------------------------------------------------------
+      *
+     C                     EXSR #INIT
+      *
+     C           $HTYP     IFNE 'USR'
+     C           $HTYP     ANDNE'IAF'
+     C                     GOTO ENDP
+     C                     ENDIF
+      *
+     C           $HTYP     IFEQ 'USR'
+     C           KEY1      CHAINFAAPL05              91
+     C           *IN91     IFEQ *OFF
+     C                     MOVELB7SHN1    K@SHN1
+     C                     MOVELB7SHN2    K@SHN2
+     C                     MOVELB7SHN3    K@SHN3
+     C                     ELSE
+     C                     MOVEL$MHN1     K@SHN1
+     C                     MOVEL$MHN2     K@SHN2
+     C                     MOVEL$MHN3     K@SHN3
+     C                     MOVE '*'       @CFLG            COMMON MASTER ERROR
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           $HTYP     IFEQ 'IAF'
+     C                     MOVEL$MHN1     K@SHN1
+     C                     MOVEL$MHN2     K@SHN2
+     C                     MOVEL$MHN3     K@SHN3
+     C                     ENDIF
+      *
+     C           KEY2      CHAINFCEPL01              92
+     C           *IN92     IFEQ *OFF
+     C           A2SYHZ    IFGT WDATE
+     C           WDATE     ANDNE0
+     C                     Z-ADDA2KSYS    WSYOS            OLD
+     C                     ELSE
+     C                     Z-ADDA2SSYS    WSYOS            NEW
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           *IN92     IFEQ *ON
+     C                     MOVE '*'       @PFLG            PART MASTER ERROR
+     C                     ENDIF
+      * TRY SAME CUSTOMER
+     C           $HTYP     IFEQ 'USR'
+     C           WSYOS     ANDEQ0
+     C                     MOVE *BLANK    $NONY
+     C                     CALL 'UTLR35C'
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $HTYP   3
+     C                     PARM           $DATE   8
+     C                     PARM           $SYOS   6
+     C                     PARM           $RTN1   1
+     C                     MOVEL$SYOS     WSYOS
+     C                     ENDIF
+      * END PROCESS
+     C           ENDP      TAG
+     C           WSYOS     IFNE 0
+     C                     MOVELWSYOS     $SYOS
+     C                     ENDIF
+      * SET RETURN FLAG
+     C                     SELEC
+     C           @PFLG     WHEQ '*'
+     C                     MOVEL'1'       $RTN
+     C           WSYOS     WHEQ 0
+     C                     MOVE '2'       $RTN
+     C                     OTHER
+     C                     MOVE '*'       $RTN
+     C                     ENDSL
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *=============================================================
+      *                    INITIAL PROCESS
+      *=============================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $HTYP   3
+     C                     PARM           $DATE   8
+     C                     PARM           $SYOS   6
+     C                     PARM           $RTN    1
+      *
+     C           KEY1      KLIST
+     C                     KFLD           K@MHN1  5
+     C                     KFLD           K@MHN2  5
+     C                     KFLD           K@MHN3  5
+     C                     KFLD           K@MHN4  5
+     C                     KFLD           K@TOKU  40
+     C                     KFLD           K@NONY  40
+      *
+     C           KEY2      KLIST
+     C                     KFLD           K@SHN1  5
+     C                     KFLD           K@SHN2  5
+     C                     KFLD           K@SHN3  2
+      *
+     C                     Z-ADD0         WSYOS   60
+     C                     MOVEL'000000'  $SYOS
+     C                     MOVE *BLANK    $RTN
+     C                     MOVE *BLANK    @CFLG   1        COMMON MASTER
+     C                     MOVE *BLANK    @PFLG   1        PART MASTER
+      *
+     C                     MOVEL$TOKU     K@TOKU  40
+     C                     MOVEL$NONY     K@NONY  40
+     C                     MOVEL$MHIN     K@MHIN
+     C                     MOVEL$MHIN     @MHIN
+      *
+     C           $HTYP     IFEQ *BLANK
+     C                     MOVEL'USR'     $HTYP
+     C                     ENDIF
+      *
+     C           $DATE     IFEQ *BLANK
+     C                     Z-ADD0         WDATE   80
+     C                     ELSE
+     C                     MOVEL$DATE     WDATE
+     C                     ENDIF
+      *
+     C                     ENDSR

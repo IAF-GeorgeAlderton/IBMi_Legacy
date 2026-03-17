@@ -1,0 +1,399 @@
+     H            Y.
+     F** AB#R432  *******************************************
+     F* SERVICE PARTS - COMPARE AM#PP432 TO AB#PP10, AB#PP44*
+     F*******************************************************
+     FAB#PL1L IF  E           K        DISK
+     FAB#PL44CIF  E           K        DISK
+     FAM#PL43BUF  E           K        DISK
+     FQPRINT  O   F     198     OF     PRINTER
+      *
+     E                    TBL     1   1 50
+     E                    ERR     1   5 45
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        7  140SDATE
+     I                                        7  100SDYY
+     I                                       11  120SDMM
+     I                                       13  140SDDD
+     I                                        1   60STIME
+     I                                        1   20STHH
+     I                                        3   40STMM
+      *
+     I            DS
+     I                                        1   8 ##NYMD
+     I                                        1   40P#NOYY
+     I                                        5   60P#NOMM
+     I                                        7   80P#NODD
+      *
+     I            DS
+     I                                        1   80BANYMD
+     I                                        1   40BANOYY
+     I                                        5   60BANOMM
+     I                                        7   80BANODD
+      *
+     I            DS
+     I                                        1  10 DDD
+     I                                        1   4 M1YY
+     I                                        5   5 DSH1
+     I                                        6   7 M1MM
+     I                                        8   8 DSH2
+     I                                        9  10 M1DD
+      *
+     I            DS
+     I                                        1  14 M1PART
+     I                                        1   5 M1MHN1
+     I                                        6   6 M1DSH1
+     I                                        7  11 M1MHN2
+     I                                       12  12 M1DSH2
+     I                                       13  14 M1MHN3
+      *
+     I            DS
+     I                                        1  14 BAPART
+     I                                        1   5 BAMHN1
+     I                                        6   6 BADSH1
+     I                                        7  11 BAMHN2
+     I                                       12  12 BADSH2
+     I                                       13  17 BAMHN3
+      *
+     I            DS
+     I                                        1  12 MHN
+     I                                        1   5 MHN1
+     I                                        6  10 MHN2
+     I                                       11  12 MHN3
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           P#NYMD  8
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     EXSR #SB100
+      *
+     C           K#1L      SETLLAB#PL1L
+     C           K#1L      READEAB#PL1L                  50
+      *
+     C           *IN50     DOWEQ*OFF
+      *
+     C           BASKJY    IFEQ *BLANK
+      *
+     C                     MOVE 'N'       ERRFLG  1
+     C                     MOVE *BLANKS   MSG    45
+      *
+     C                     MOVE '-'       BADSH1
+     C           BAMHN3    IFNE *BLANK
+     C                     MOVE '-'       BADSH2
+     C                     ENDIF
+      *
+     C                     EXSR GETLIN
+      *
+     C                     CLEARAM#PP43R
+     C           ERRFLG    IFEQ 'N'
+     C                     EXSR CHK432
+     C                     ENDIF
+      *
+     C           ERRFLG    IFEQ 'Y'
+     C                     EXSR #WRT
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     C           K#1L      READEAB#PL1L                  50
+     C                     ENDDO
+      *
+      * check for remaining records in Open Po file...
+     C                     EXSR REM432
+      *
+     C           RCDS      IFGT *ZERO
+     C                     MOVE *ON       *IN62
+     C                     ELSE
+     C                     EXCPT@HED
+     C                     ENDIF
+      *
+     C                     EXCPT@TOT
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      * INZ                                                *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     TIME           WTIME
+     C                     MOVELP#NYMD    ##NYMD
+      *
+     C           K#1L      KLIST
+     C                     KFLD           NONY    40
+     C                     KFLD           P#NOYY
+     C                     KFLD           P#NOMM
+     C                     KFLD           P#NODD
+      *
+     C           K#44C     KLIST
+     C                     KFLD           NONY
+     C                     KFLD           BANYMD
+     C                     KFLD           ODRN15
+     C                     KFLD           BAMHN1
+     C                     KFLD           BAMHN2
+     C                     KFLD           BAMHN3
+     C                     KFLD           BAMHN4
+      *
+     C           K#43B     KLIST
+     C                     KFLD           DDD
+     C                     KFLD           HOME
+     C                     KFLD           ODRN12
+     C                     KFLD           MHN
+      *
+     C           K#43B2    KLIST
+     C                     KFLD           DDD
+      *
+     C                     Z-ADD323       NONY
+      *
+     C                     MOVELP#NOYY    M1YY
+     C                     MOVE '-'       DSH1
+     C                     MOVELP#NOMM    M1MM
+     C                     MOVE '-'       DSH2
+     C                     MOVELP#NODD    M1DD
+      *
+     C                     EXSR SETFLG
+      *
+     C                     MOVEL*ON       W@1STP  1
+      *
+     CSR         ESB100    ENDSR
+      *------------------------------------------------------------------*
+      * Set Found Flag to Zero for all records for ShipDt in Open PO file*
+      *
+     C           SETFLG    BEGSR
+      *
+     C           K#43B2    SETLLAM#PL43B
+      *
+     C                     DO   *HIVAL
+     C           K#43B2    READEAM#PL43B                 50
+      *
+     C           *IN50     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     Z-ADD*ZERO     M1PGNO             0=NOT FOUND
+     C                     UPDATAM#PP43R
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * Get Orig PO Line Number from EDI file.             *
+      *
+     C           GETLIN    BEGSR
+      *
+     C                     MOVELBAODRN    ODRN15 15
+     C                     MOVE *BLANKS   #LINE#  5
+     C                     MOVELBANUKE    NUKE    1
+      *
+     C           K#44C     SETLLAB#PL44C
+      *
+     C                     DO   *HIVAL
+     C           K#44C     READEAB#PL44C                 50
+      *
+     C           *IN50     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           DANUKE    IFNE BANUKE
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELDALINE    #LINE#
+     C                     LEAVE
+      *
+     C                     ENDDO
+      *
+     C           #LINE#    IFEQ *BLANKS
+     C                     MOVELERR,1     MSG
+     C                     MOVE 'Y'       ERRFLG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * Check AM#PP432 (Open PO file from SCS) for a match *
+      *
+     C           CHK432    BEGSR
+      *
+     C                     MOVELBANUKE    HOME    1
+     C                     MOVELBAODRN    ODRN12 12
+     C                     MOVELBAMHN1    MHN1
+     C                     MOVELBAMHN2    MHN2
+     C                     MOVELBAMHN3    MHN3
+      *
+     C           K#43B     SETLLAM#PL43B
+      *
+     C                     DO   *HIVAL
+     C           K#43B     READEAM#PL43B                 50
+      *
+     C           *IN50     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     MOVELBAPART    M1PART
+      *
+     C           M1UQTY    IFNE BASRYO
+     C                     MOVELERR,3     MSG
+     C                     MOVEL'Y'       ERRFLG
+     C                     ENDIF
+      *
+     C           M1LINO    IFNE #LINE#
+     C                     MOVELERR,5     MSG
+     C                     MOVEL'Y'       ERRFLG
+     C                     ENDIF
+      *
+     C                     MOVE '-'       M1DSH1
+     C           M1MHN3    IFNE *BLANK
+     C                     MOVE '-'       M1DSH2
+     C                     ENDIF
+      *
+     C                     Z-ADD1         M1PGNO           FLAG IT AS FOUND
+     C                     UPDATAM#PP43R
+     C                     LEAVE
+      *
+     C                     ENDDO
+      *
+     C           *IN50     IFEQ *ON
+     C                     MOVELERR,2     MSG
+     C                     MOVEL'Y'       ERRFLG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * Output error to print file                         *
+      *
+     C           #WRT      BEGSR
+      *
+     C           W@1STP    IFEQ *ON
+     C           *INOF     OREQ *ON
+     C                     EXCPT@HED
+     C                     MOVEL*OFF      W@1STP
+     C                     ENDIF
+      *
+     C                     EXCPT@DTL
+     C                     ADD  1         RCDS    50
+     C                     EXSR #CLEAR
+      *
+     C                     MOVE *BLANKS   MSG
+     C                     ENDSR
+      *-----------------------------------------------------*
+      * Check Open PO list for records not in our Order file*
+      *
+     C           REM432    BEGSR
+      *
+     C                     EXSR #CLEAR
+      *
+     C           K#43B2    SETLLAM#PL43B
+      *
+     C                     DO   *HIVAL
+     C           K#43B2    READEAM#PL43B                 50
+      *
+     C           *IN50     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     MOVELM1MHN     MHN
+     C                     MOVELMHN1      M1MHN1
+     C                     MOVELMHN2      M1MHN2
+     C                     MOVELMHN3      M1MHN3
+     C                     MOVE '-'       M1DSH1
+     C           M1MHN3    IFNE *BLANK
+     C                     MOVEL'-'       M1DSH2
+     C                     ENDIF
+      *
+     C           M1PGNO    IFEQ *ZERO
+     C                     MOVELERR,4     MSG
+     C                     EXSR #WRT
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * Clear print fields...
+      *
+     C           #CLEAR    BEGSR
+      *
+     C                     Z-ADD*ZERO     BANYMD
+     C                     MOVE *BLANKS   NUKE
+     C                     MOVE *BLANKS   BAODRN
+     C                     MOVE *BLANKS   BAPART
+     C                     MOVE *BLANKS   #LINE#
+     C                     Z-ADD*ZERO     BASRYO
+     C                     MOVE *BLANKS   M1HOME
+     C                     MOVE *BLANKS   M1ODRN
+     C                     MOVE *BLANKS   M1PART
+     C                     MOVE *BLANKS   M1LINO
+     C                     Z-ADD*ZERO     M1UQTY
+     C                     ENDSR
+      *----------------------------------------------------*
+      *
+     OQPRINT  E   01           @HED
+     O                         W#PGM     10
+     O                         TBL,1     72
+     O                                  103 'DATE'
+     O                         SDATE Y  109
+     O                                  120 'PAGE'
+     O                         PAGE  Z  124
+     O        E   02           @HED
+     O                                   51 'for'
+     O                         DDD       62
+     O                                  103 'TIME'
+     O                         STIME    114 '  :  :  '
+     O        E   04           @HED
+     O                                   18 '|----------------'
+     O                                   38 'Order file AB#PP10'
+     O                                   66 '-----------------------|'
+     O                                   90 '|---------------------'
+     O                                  112 'Open PO File AM#PP432'
+     O                                  137 '-----------------------|'
+     O        E   05           @HED
+     O                                   11 'SHIP DATE'
+     O                                   18 'DOCK'
+     O                                   27 'ORDER #'
+     O                                   45 'PART NUMBER'
+     O                                   54 'LINE#'
+     O                                   65 'ORD QTY'
+      *
+     O                                   78 'SHIP DATE'
+     O                                   84 'HOME'
+     O                                   92 'ORDER #'
+     O                                  109 'PART NUMBER'
+     O                                  119 'LINE#'
+     O                                  130 'ORD QTY'
+     O                                  151 'ERROR MESSAGE'
+     O        E 1              @DTL
+     O                         BANYMDY   11
+     O                         NUKE      16
+     O                         BAODRN    32
+     O                         BAPART    48
+     O                         #LINE#    54
+     O                         BASRYOZ   64
+      *
+     O                         DDD       79
+     O                         M1HOME    82
+     O                         M1ODRN    97
+     O                         M1PART   112
+     O                         M1LINO   119
+     O                         M1UQTYZ  129
+     O                         MSG      183
+     O        E 2              @TOT
+     O                 62      RCDS  Z   11
+     O                 62                22 'Mismatches'
+     O                N62                30 'IAF Order File Matches'
+     O                N62                51 'SCS Open PO List for'
+     O                N62      DDD       62
+** TBL
+        << SERVICE PARTS ORDER MISMATCH LIST >>
+** ERR
+Line Item not found in AB#PP44
+Line Item not found in Open PO file
+Quantity mismatch
+Line Item not found in Order file AB#PP10
+Line Number for Item does NOT match

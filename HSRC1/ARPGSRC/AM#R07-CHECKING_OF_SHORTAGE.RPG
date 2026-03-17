@@ -1,0 +1,360 @@
+     H            Y.
+     F** AM#R07 **************************************
+     F* CHECKING OF SHORTAGE
+     F*     ITS.          2015.05.29                 *
+     F************************************************
+     FAM#PW07 CF  E                    WORKSTN
+     F                                        RRN   KSFILE SFL
+     F                                              KINFDS INFDS
+     FAM#WP06 IF  E           K        DISK
+      *
+     E                    ER      1  11 65
+      *
+     I            DS
+     I                                        1  72 TICKET
+     I                                        1   9 TISURT
+     I                                       10  17 TISHID
+     I                                       18  23 TISHIT
+     I                                       24  38 TISMEI
+     I                                       39  40 TIDOCK
+     I                                       41  52 TIORD#
+     I                                       53  54 TIPALT
+     I                                       55  58 TINONY
+     I                                       59  59 TINKOJ
+     I                                       60  63 TINUKE
+     I                                       64  66 TIIAFB
+     I                                       67  69 TIIAFP
+     I                                       70  70 TIPPUL
+     I                                       71  71 TIEXT
+     I                                       72  72 TISAT
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60WTITM
+     I                                        1   20TIMHH
+     I                                        3   40TIMMM
+     I                                        5   60TIMSS
+     I                                        7  140WTIHZ
+     I                                        7  100WTIYY
+     I                                       11  120WTIMM
+     I                                       13  140WTIDD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 ##USER
+     I                                      264 269 W#JBNO
+      *
+     IINFDS       DS
+     I                                    B 370 3710#CUR
+     I                                    B 378 3790#POS
+      *
+      *----------------------------------------------------*
+      * PLIST                                              *
+      *----------------------------------------------------*
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           P9TICK100
+      *
+      *----------------------------------------------------*
+      *   K  E  Y   L  I  S  T                             *
+      *----------------------------------------------------*
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     EXSR #SB100
+     C           DSPSW     DOUEQ'99'
+     C                     EXSR #SB200
+     C                     ENDDO
+     C                     EXSR #SB300
+      *----------------------------------------------------*
+      * INIT                                               *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     TIME           WTIME
+     C                     MOVEL'01'      DSPSW   2
+     C                     Z-ADD1         WKPAGE  30
+     C                     EXSR #CLR
+     C                     MOVELP9TICK    TICKET
+     C                     MOVELTIIAFB    C1IAFB
+     C                     MOVE TIIAFP    C1IAFP
+     C                     MOVELTISURT    C1SURT
+     C                     MOVELTIORD#    C1ORD#
+     C                     MOVELTISMEI    C1SMEI
+      *
+     CSR         ESB100    ENDSR
+      *----------------------------------------------------*
+      * CONTROL                                            *
+      *----------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C           DSPSW     DOWEQ'01'
+     C                     EXSR #SB210
+     C                     ENDDO
+     C           DSPSW     DOWEQ'02'
+     C                     EXSR #SB220
+     C                     ENDDO
+     CSR         ESB200    ENDSR
+      *----------------------------------------------------*
+      * INQ                                                *
+      *----------------------------------------------------*
+     CSR         #SB210    BEGSR
+      *
+     C                     Z-ADD1         WKPAGE  30
+     C                     EXSR #CLR
+      *
+     C                     SETOF                     8166
+     C           *LOVAL    SETLLAM#WP061
+     C                     READ AM#WP061                 81
+      *
+     C           *IN81     DOWEQ'0'
+     C           *IN66     ANDEQ'0'
+     C                     EXSR #READ
+     C                     READ AM#WP061                 81
+     C                     ENDDO
+      * NEXT
+     C                     SETOF                     66
+     C           *IN81     DOWEQ'0'
+     C           *IN66     ANDEQ'0'
+     C                     EXSR #NEXT
+     C                     ENDDO
+      *
+     C                     MOVE '02'      DSPSW
+      *
+     CSR         ESB210    ENDSR
+      *----------------------------------------------------*
+      * SFL                                                *
+      *----------------------------------------------------*
+     CSR         #SB220    BEGSR
+      *
+     C           CTRX      IFEQ 0
+     C                     SETON                     72
+     C                     SETON                     99
+     C                     MOVELER,1      D9ERR
+     C                     ELSE
+     C                     SETON                     7273
+     C                     ENDIF
+      *
+     C                     WRITEAM#PW079
+     C                     EXFMTSFLCTL
+     C                     SETOF                     7273
+     C                     SETOF                     3199
+     C                     MOVEL*BLANK    D9ERR
+      * F3
+     C           *IN03     IFEQ '1'
+     C                     MOVE '99'      DSPSW
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+     C           CTRX      IFEQ 0
+     C                     GOTO ESB220
+     C                     ENDIF
+      *-----------------*
+      * ROLLDOWN/PAGEUP *
+      *-----------------*
+     C           *IN08     IFEQ '1'
+     C*                    ADD  1         CTRX
+      * 1ST. PAGE
+     C           WKPAGE    IFEQ 1
+     C                     GOTO ESB220
+     C                     ENDIF
+      *-----------------*
+     C           *IN81     IFEQ '1'
+     C                     SETOF                     81
+     C           *HIVAL    SETGTAM#WP061
+     C                     READPAM#WP061                 81
+     C                     SUB  1         CTRX
+     C                     ENDIF
+      *
+     C                     ADD  10        CTRX
+      *                         L--表示行数
+     C                     SETOF                     6627
+      *
+     C           *IN81     DOWEQ'0'
+     C           *IN27     ANDEQ'0'
+     C                     EXSR #READP
+     C                     READPAM#WP061                 81
+     C                     ENDDO
+      * NEXT
+     C                     SETOF                     66
+     C           *IN81     DOWEQ'0'
+     C           *IN66     ANDEQ'0'
+     C                     EXSR #NEXTP
+     C                     ENDDO
+      *
+     C                     Z-ADD0         CTRX    40
+      *
+     C           *IN81     IFEQ '1'
+     C           *LOVAL    SETLLAM#WP061
+     C                     READ AM#WP061                 81
+     C                     ENDIF
+      *
+     C                     EXSR #CLR
+     C                     SETOF                     8166
+      *
+     C           *IN81     DOWEQ'0'
+     C           *IN66     ANDEQ'0'
+     C                     EXSR #READ
+     C                     READ AM#WP061                 81
+     C                     ENDDO
+      * NEXT
+     C                     SETOF                     66
+     C           *IN81     DOWEQ'0'
+     C           *IN66     ANDEQ'0'
+     C                     EXSR #NEXT
+     C                     ENDDO
+      *
+     C                     SUB  1         WKPAGE
+     C                     GOTO ESB220
+     C                     ENDIF
+      *--------------------*
+      * ROLL-UP            *
+      *--------------------*
+     C           *IN07     IFEQ '1'
+     C           *IN81     ANDEQ'0'
+      *
+     C                     EXSR #CLR
+      *
+     C                     SETOF                     6681
+     C           *IN81     DOWEQ'0'
+     C           *IN66     ANDEQ'0'
+     C                     EXSR #READ
+     C                     READ AM#WP061                 81
+     C                     ENDDO
+      * NEXT
+     C                     SETOF                     66
+     C           *IN81     DOWEQ'0'
+     C           *IN66     ANDEQ'0'
+     C                     EXSR #NEXT
+     C                     ENDDO
+      *
+     C                     ADD  1         WKPAGE
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+     CSR         ESB220    ENDSR
+      *----------------------------------------------------*
+      * END                                                *
+      *----------------------------------------------------*
+     CSR         #SB300    BEGSR
+     C                     SETON                     LR
+     C                     RETRN
+     CSR         ESB300    ENDSR
+      *----------------------------------------------------*
+      * READ                                               *
+      *----------------------------------------------------*
+     CSR         #READ     BEGSR
+      *
+     C                     MOVEL*BLANK    WKGET   1
+     C                     EXSR #SELEC
+     C           WKGET     IFEQ *BLANK
+     C                     GOTO EREAD
+     C                     ENDIF
+      *
+     C                     EXSR #EDIT
+     C                     ADD  1         RRN
+     C                     ADD  1         @RRN
+     C                     ADD  1         CTRX
+     C                     WRITESFL
+      *
+     C           CTRX      IFEQ 10
+     C                     SETON                       66
+     C                     ENDIF
+      *
+     CSR         EREAD     ENDSR
+      *----------------------------------------------------*
+      * READP                                              *
+      *----------------------------------------------------*
+     CSR         #READP    BEGSR
+      *
+     C                     MOVEL*BLANK    WKGET   1
+     C                     EXSR #SELEC
+     C           WKGET     IFEQ *BLANK
+     C                     GOTO EREADP
+     C                     ENDIF
+      *
+     C                     SUB  1         CTRX           27
+      *
+     CSR         EREADP    ENDSR
+      *----------------------------------------------------*
+      * SELECT                                             *
+      *----------------------------------------------------*
+     CSR         #SELEC    BEGSR
+      *
+     C           W6SUMI    IFEQ W6BOX
+     C                     GOTO ESELEC
+     C                     ENDIF
+      *
+     C                     MOVEL'1'       WKGET
+      *
+     CSR         ESELEC    ENDSR
+      *----------------------------------------------------*
+      * CLEAR                                              *
+      *----------------------------------------------------*
+     CSR         #CLR      BEGSR
+      *
+     C                     SETON                     71
+     C                     WRITESFLCTL
+     C                     SETOF                     7166
+     C                     Z-ADD0         RRN     30
+     C                     Z-ADD0         @RRN    40
+     C                     Z-ADD0         CTRX    40
+     C                     Z-ADD1         @SFRC1
+      *
+     CSR         ECLR      ENDSR
+      *----------------------------------------------------*
+      * EDIT                                               *
+      *----------------------------------------------------*
+     CSR         #EDIT     BEGSR
+      *
+     C                     MOVEL*BLANK    S1LOC
+     C           S1LOC     CAT  W6TKR2:0  S1LOC
+     C           S1LOC     CAT  '-':0     S1LOC
+     C           S1LOC     CAT  W6TKR3:0  S1LOC
+     C                     MOVELW6KNB#    S1KNB#
+     C                     Z-ADDW6SUMI    S1SUMI
+     C                     Z-ADDW6BOX     S1TOTL
+     C                     Z-ADDW6SUM3    S1SUM3
+     C                     Z-ADDW6BOX3    S1BOX3
+     C                     SETOF                     39
+     C                     MOVEL'0'       H139
+     C           W6BOX     IFEQ W6SUMI
+     C                     ELSE
+     C                     SETON                     39
+     C                     MOVEL'1'       H139
+     C                     ENDIF
+      *
+     CSR         EEDIT     ENDSR
+      *----------------------------------------------------*
+      * NEXT                                               *
+      *----------------------------------------------------*
+     CSR         #NEXT     BEGSR
+      *
+     C                     MOVEL*BLANK    WKGET   1
+     C                     EXSR #SELEC
+     C           WKGET     IFEQ '1'
+     C                     SETON                     66
+     C                     GOTO ENEXT
+     C                     ENDIF
+      *
+     C                     READ AM#WP061                 81
+      *
+     CSR         ENEXT     ENDSR
+      *----------------------------------------------------*
+      * PRV                                                *
+      *----------------------------------------------------*
+     CSR         #NEXTP    BEGSR
+      *
+     C                     MOVEL*BLANK    WKGET   1
+     C                     EXSR #SELEC
+     C           WKGET     IFEQ '1'
+     C                     SETON                     66
+     C                     GOTO ENEXTP
+     C                     ENDIF
+      *
+     C                     READPAM#WP061                 81
+      *
+     CSR         ENEXTP    ENDSR
+**
+ER-1 NO DATA.

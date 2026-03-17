@@ -1,0 +1,173 @@
+     H            Y.
+     F** CHKRA1 ****************************************************************
+     F*  PROGRAM    : READ AB#PP10 AND CHECK AB#PPA1                           *
+     F*  WRITTEN    : 9/18/2017                                                *
+     F*  WRITTEN BY : JW (SRA)                                                 *
+     F*  FUNCTION   : CHECK QTY (PP10 VS PPA1)                                 *
+     F**************************************************************************
+     FAB#PL1A IF  E           K        DISK
+     FQPRINT  O   F     198     OF     PRINTER
+     E                    TXT     1   3 60
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+     C           SHPDT     SETLLAB#PL1A
+     C           *IN98     DOWEQ*OFF
+     C                     READ AB#PL1A                  98
+     C           *IN98     IFEQ *OFF
+     C           BASKJY    ANDNE'D'
+     C           BANONY    ANDNE9999
+      * FIRST
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     Z-ADDBANOHZ    SVNOHZ  80
+     C                     Z-ADDBANOBN    SVNOBN  20
+     C                     Z-ADDBANONY    SVNONY  40
+     C                     Z-ADDBATOKU    SVTOKU  40
+     C                     ENDIF
+      * BREAK?
+     C           BANOHZ    IFNE SVNOHZ
+     C           BANOBN    ORNE SVNOBN
+     C           BANONY    ORNE SVNONY
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * DETAIL PROCESS
+     C                     ADD  BASRYO    QTY     80
+      *
+     C                     ENDIF
+     C                     ENDDO
+      * LAST BREAK
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * ERROR
+     C           SEQ#      IFEQ 0
+     C                     EXCPT@HDR
+     C                     ENDIF
+      * RETURN CODE
+     C           ECNT      IFNE 0
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     EXCPT@MSG
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  BREAK                                             *
+      *----------------------------------------------------*
+     C           #BRK1     BEGSR
+      *
+     C                     Z-ADDSVNOHZ    @NOHZ
+     C                     Z-ADDSVNOBN    @NOBN
+     C                     Z-ADDSVNONY    @NONY
+     C                     CALL 'UEXR03'
+     C                     PARM           @NOHZ   80
+     C                     PARM           @NOBN   20
+     C                     PARM           @NONY   40
+     C                     PARM           @QTY    80
+     C                     PARM           @RTN    1
+      * COMPARE
+     C           QTY       IFNE @QTY
+     C           @QTY      SUB  QTY       @DIF    80
+     C                     ADD  1         ECNT
+     C                     MOVEL'ERROR!'  MSG    10
+     C                     EXSR #PRINT
+     C                     ENDIF
+      * RESET
+     C                     Z-ADD0         QTY
+     C                     Z-ADDBANOHZ    SVNOHZ
+     C                     Z-ADDBANOBN    SVNOBN
+     C                     Z-ADDBANONY    SVNONY
+     C                     Z-ADDBATOKU    SVTOKU
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      *
+     C           SEQ#      IFEQ 0
+     C                     EXCPT@HDR
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           PMDATE  8
+     C                     PARM           $RTN    1
+      *
+     C                     MOVELPMDATE    SHPDT   80
+     C                     MOVE *BLANK    $RTN
+      *
+     C                     Z-ADD*DATE     @DATE   80
+     C                     TIME           @TIME   60
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD0         ECNT    40
+     C                     MOVEL'Y'       FIRST   1
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   50 '** AB#PP10 VS AB#PPA1 '
+     O                                   66 '(SHIP DATE FROM '
+     O                         SHPDT Y   76
+     O                                   80 ') **'
+     O                                   99 'DATE'
+     O                         @DATE    102 '    .  .  '
+     O                         @TIME    112 '  :  :  '
+     O                                  115 'P.'
+     O                         PAGE  Z  119
+     O        E   02           @HDR
+     O                                    8 'FIX --->'
+     O                         TXT,1     60
+     O        E   03           @HDR
+     O                                    8 'CHK --->'
+     O                         TXT,2     60
+     O        E   04           @HDR
+     O                                    8 'FIX --->'
+     O                         TXT,3     60
+     O        E   05           @HDR
+     O                                    5 'SEQ#'
+     O                                   11 'CUST'
+     O                                   17 'NONY'
+     O                                   27 'SHP_DATE'
+     O                                   32 'BIN'
+     O                                   42 'PP10_QTY'
+     O                                   54 'PPA1_QTY'
+     O                                   66 'DIFF_QTY'
+     O                                   72 'MSG'
+     O        E 1              @DTL
+     O                         SEQ#  Z +001
+     O                         SVTOKU  +002
+     O                         SVNONY  +002
+     O                         SVNOHZ  +002
+     O                         SVNOBN  +002
+     O                         QTY   J +001
+     O                         @QTY  J +001
+     O                         @DIF  J +001
+     O                         MSG     +002
+      *
+     O        E 1              @MSG
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   65 '** ERROR'
+     O                         ECNT  3   69
+     O                                   72 ' **'
+** TXT(60A) .......2.........3.........4.........5.........6
+CALL @AB#PPA3 ('YYYYMMDD' '01' '0323' 'Y')
+CALL CHKRA1   ('20260101' ' ')
+CALL FIXR02  ('3411' '0323' '2026MMDD' '101913 ' 'Y')

@@ -1,0 +1,632 @@
+     H            Y.                                    1
+      ***ABVR75*****************************************************************
+      *  VW SCAN CASE LABEL                                                    *
+      *                                                                        *
+      * TCHK    11/27/2013 CREATE(COPY FROM ALDR76)                            *
+ JW1  * JW(SRA) 11/10/2015 ADD 4 FIELDS (F3MST,F3LBL, F3QTY, F3MAX)            *
+      * LEC     08/07/2017 ADD CHECK FOR MAX CONTAINERS SCANNED                *
+      * LEC     08/10/2017 ADD LOGIC FOR UNSCANNING CONTAINER LABELS           *
+      * LEC     09/12/2017 REMOVE LOGIC TO "DELETE" FROM LABEL FILE WHEN F4    *
+      *                    TO CANCEL -- PER BRANDON MEFFORD. TICKET #2482
+      * LEC     09/20/2017 PUT BACK LOGIC TO "DELETE" FROM LABEL FILE WHEN F4  *
+      *                    TO CANCEL -- BECAUSE AMANDA NEEDS IT.   #2482
+ JW2  * JW(SRA) 05/02/2018 CHG MESSAGE SUB#                                    *
+ JW3  * JW(SRA) 12/07/2020 ADD PACKAGE TYPE (11: RETURNABLE, 22=EXPENDABLE)    *
+      **************************************************************************
+     FABVPW75 CF  E                    WORKSTN
+     FALBPL30 IF  E           K        DISK
+     FAB#PL71 UF  E           K        DISK
+     FABVPP75 UF  E           K        DISK                      A
+     FABVPL75 IF  E           K        DISK
+ JW1 FABVPL78 IF  E           K        DISK
+ JW1 FFCEPL07 IF  E           K        DISK
+     F*
+     E                    ERR     1  20 30
+      **************************************************************************
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     I* SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   20WSSHHH
+     I                                        3   40WSSNNN
+     I                                        5   60WSSSSS
+     I                                        7  100WSSYYY
+     I                                       11  120WSSMMM
+     I                                       13  140WSSDDD
+     I                                        1   40WSSTM4
+     I                                        1   60WSSTM6
+     I                                        7  140WSSDAT
+     I            DS
+     I                                        1  22 W@6DBC
+     I                                        1   2 W@6DB1
+     I                                        3   4 W@6DB2
+     I                                        5  13 W@6DB3
+     I                                       14  22 W@6DB4
+     I            DS
+     I                                        1  22 W@1DBC
+     I                                        1   2 W@1DB1
+     I                                        3   4 W@1DB2
+     I                                        5  13 W@1DB3
+     I                                       14  22 W@1DB4
+     I            DS
+     I                                        1  18 K#DBC
+     I                                        1   4 K@DB1
+     I                                        5   9 K@DB2
+     I                                       10  18 K@DB3
+JW1  I            DS
+JW1  I                                        1   80A2SYHZ
+JW1  I                                        1   40A2SYYY
+JW1  I                                        5   60A2SYMM
+JW1  I                                        7   80A2SYDD
+     I            DS
+     I I            '946955648'               1   9 C@DUNS
+      **************************************************************************
+      *                    MAIN ROUTINE
+      **************************************************************************
+     C           W@ID      DOWNE'99'
+     C           W@ID      CASEQ'10'      #FMT10
+     C           W@ID      CASEQ'20'      #FMT20
+     C           W@ID      CASEQ'30'      #FMT30
+     C           W@ID      CASEQ'40'      #FMT40
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      **************************************************************************
+      *  INITIALIZE
+      **************************************************************************
+     C           *INZSR    BEGSR
+      *
+     C                     MOVE '10'      W@ID    2
+     C                     MOVEL*BLANK    D@TMCD
+     C                     MOVEL*BLANK    F1EMSG
+     C                     MOVEL*BLANK    BRCD20
+     C                     MOVEL*BLANK    F2EMSG
+     C                     MOVEL*BLANK    BRCD30
+     C                     MOVEL*BLANK    F3EMSG
+JW1  C                     Z-ADD*DATE     @TODAY  80
+     C*
+     C                     SETOF                     99
+     C                     SETOF                     616263
+JW3  C                     SETOF                     65
+     C*
+     C                     MOVEL*OFF      W@INKF  1
+     C*
+     C                     ENDSR
+      **************************************************************************
+     C* TM ID CODE
+     C           #FMT10    BEGSR
+      **************************************************************************
+     C                     EXFMTFMT010
+     C                     MOVEL*BLANK    F1EMSG
+     C*
+     C                     SELEC
+      *
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+     C                     OTHER
+     C                     EXSR #CHK1
+     C           *IN99     IFEQ *OFF
+     C                     MOVEL'20'      W@ID
+     C                     MOVEL*BLANK    BRCD20
+     C                     ENDIF
+      *
+     C                     ENDSL
+      *
+     C                     ENDSR
+      **************************************************************************
+      *  CHECK--TM CODE
+      **************************************************************************
+     C           #CHK1     BEGSR
+      *
+     C                     SETOF                     6199
+      *
+     C                     MOVELD@TMCD    K@TMCD  60
+     C           K@TMCD    CHAINALBPL30              90
+     C           *IN90     IFEQ *ON
+     C           ALSKJY    OREQ 'D'
+     C                     SETON                     6199
+     C                     MOVELERR,1     F1EMSG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      **************************************************************************
+     C* MASTER LABEL
+     C           #FMT20    BEGSR
+      **************************************************************************
+     C                     EXFMTFMT020
+     C                     MOVEL*BLANK    F2EMSG
+JW3  C                     MOVEL*BLANK    XTYP
+JW3  C                     MOVEL*BLANK    SVTYP   2
+     C*
+     C                     SELEC
+     C* F3:END
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+     C* F12: DELETE
+     C           *INKL     WHEQ *ON
+     C                     EXSR #CANCL
+     C                     MOVEL'20'      W@ID
+     C                     MOVEL*BLANK    BRCD20
+     C* ENTER KEY
+     C                     OTHER
+     C                     EXSR #CHK2
+     C           *IN99     IFEQ *OFF
+     C                     MOVEL'30'      W@ID
+     C                     MOVEL*BLANK    BRCD30
+     C                     END
+     C*
+     C                     ENDSL
+      *
+     C                     ENDSR
+      **************************************************************************
+JW2   * #CHK2 MASTER LABEL
+      **************************************************************************
+     C           #CHK2     BEGSR
+     C                     SETOF                     6299
+     C*
+     C                     DO
+     C*
+     C                     MOVELBRCD20    W@6DBC
+     C           W@6DB1    IFNE '6J'
+     C                     SETON                     6299
+     C                     MOVELERR,2     F2EMSG
+JW2  C                     MOVE '01'      F2EMSG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           W@6DB3    IFNE C@DUNS
+     C                     SETON                     6299
+     C                     MOVELERR,2     F2EMSG
+JW2  C                     MOVE '02'      F2EMSG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     MOVEL'8450'    K@DB1
+     C                     MOVEL*ZERO     K@DB2
+     C                     MOVELW@6DB4    K@DB3
+     C*
+     C           K#DBC     CHAINAB#PL71              81
+      *
+     C**JW2      *IN81     IFEQ *ON
+     C**         EKSKJY    ORNE *BLANK
+     C**                   SETON                     6299
+     C**                   MOVELERR,2     F2EMSG
+     C**                   LEAVE
+     C**                   ENDIF
+      *
+JW2  C           *IN81     IFEQ *ON
+ |   C                     SETON                     6299
+ |   C                     MOVELERR,2     F2EMSG
+ |   C                     MOVE '03'      F2EMSG
+ |   C                     LEAVE
+JW2  C                     ENDIF
+      *
+JW2  C           EKSKJY    IFNE *BLANK
+ |   C                     SETON                     6299
+ |   C                     MOVELERR,9     F2EMSG
+ |   C                     LEAVE
+JW2  C                     ENDIF
+      *
+JW3  C           EKSKDD    IFEQ 11
+ |   C                     MOVEL'RE'      XTYP
+ |   C                     MOVEL'RE'      SVTYP
+ |   C                     ENDIF
+ |   C           EKSKDD    IFEQ 22
+ |   C                     MOVEL'EX'      XTYP
+ |   C                     MOVEL'EX'      SVTYP
+JW3  C                     ENDIF
+     C*
+     C                     ENDDO
+      *
+     C                     ENDSR
+      **************************************************************************
+     C* CONTAINER LABEL
+     C           #FMT30    BEGSR
+      **************************************************************************
+      * SET HEADER MSG
+ JW1 C                     Z-ADD0         F3LBL
+ JW1 C                     Z-ADD0         F3QTY
+ JW1 C                     MOVELBRCD20    F3MST
+ JW1 C                     MOVE *OFF      *IN98
+ JW1 C           BRCD20    SETLLABVPL78
+ JW1 C           *IN98     DOWEQ*OFF
+ JW1 C           BRCD20    READEABVPL78                  98
+ JW1 C           *IN98     IFEQ *OFF
+ JW1 C           A7SKJY    ANDEQ' '
+ JW1 C                     ADD  1         F3LBL
+ JW1 C                     ENDIF
+ JW1 C                     ENDDO
+ JW1 C           K#DBC     CHAINAB#PL71              99
+ JW1 C           *IN99     IFEQ *OFF
+ JW1 C           EKSKJY    ANDEQ*BLANK
+ JW1 C                     MOVELEKNONY    PSIRE
+ JW1  * GET MAX QTY
+ JW1 C                     CALL 'AB#R0F1'
+ JW1 C                     PARM           PSIRE   4
+ JW1 C                     PARM           @@MAX   30
+ JW1  * GET COMPONENT QTY
+ JW1 C           EKZETI    CHAINFCEPL07              99
+ JW1 C           *IN99     IFEQ *OFF
+      *
+ JW1 C           @TODAY    IFGE A2SYHZ
+ JW1 C                     Z-ADDA2SSYS    @@COM   50
+ JW1 C                     ELSE
+ JW1 C                     Z-ADDA2KSYS    @@COM
+ JW1 C                     ENDIF
+ JW1 C           @@COM     IFLE 0
+ JW1 C                     Z-ADDA2SSYS    @@COM
+ JW1 C                     ENDIF
+      *
+ JW1 C                     ELSE
+ JW1 C                     Z-ADD0         @@COM
+ JW1 C                     ENDIF
+ JW1 C           @@COM     MULT @@MAX     F3MAX
+ JW1 C           @@COM     MULT F3LBL     F3QTY
+ JW1 C                     ELSE
+ JW1 C                     Z-ADD0         F3QTY
+ JW1 C                     Z-ADD0         F3MAX
+ JW1 C                     ENDIF
+      *
+     C                     EXFMTFMT030
+     C                     MOVEL*BLANK    F3EMSG
+     C*
+     C                     SELEC
+     C*
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+     C           *INKF     WHEQ *ON
+     C                     MOVEL'20'      W@ID
+     C                     MOVEL*BLANK    BRCD20
+     C           *INKJ     WHEQ *ON
+     C                     MOVEL'40'      W@ID
+     C                     MOVEL*BLANK    BRCD30
+     C           *INKL     WHEQ *ON
+     C                     EXSR #CANCL
+     C                     MOVEL'20'      W@ID
+     C                     MOVEL*BLANK    BRCD20
+     C                     OTHER
+     C                     EXSR #CHK3
+     C           *IN99     IFEQ *OFF
+     C                     EXSR #UPDT
+     C                     MOVEL*BLANK    BRCD30
+     C                     END
+     C*
+     C                     ENDSL
+      *
+     C                     ENDSR
+      **************************************************************************
+     C           #CHK3     BEGSR
+      **************************************************************************
+     C                     SETOF                     6399
+JW3  C                     SETOF                     65
+     C*
+     C                     DO
+     C*
+     C                     MOVELBRCD30    W@1DBC
+     C           W@1DB1    IFNE '1J'
+     C                     SETON                     6399
+     C                     MOVELERR,3     F3EMSG
+JW2  C                     MOVE '01'      F3EMSG
+     C                     LEAVE
+     C                     ENDIF
+     C           W@1DB3    IFNE C@DUNS
+     C                     SETON                     6399
+     C                     MOVELERR,3     F3EMSG
+JW2  C                     MOVE '02'      F3EMSG
+     C                     LEAVE
+     C                     ENDIF
+     C                     MOVEL'8450'    K@DB1
+     C                     MOVEL*ZERO     K@DB2
+     C                     MOVELW@1DB4    K@DB3
+     C*
+     C           K#DBC     CHAINAB#PL71              81
+     C**JW2      *IN81     IFEQ *ON
+     C**         EKSKJY    ORNE *BLANK
+     C**                   SETON                     6399
+     C**                   MOVELERR,3     F3EMSG
+     C**                   MOVE '03'      F3EMSG
+     C**                   LEAVE
+     C**                   ENDIF
+JW2  C           *IN81     IFEQ *ON
+ |   C                     SETON                     6399
+ |   C                     MOVELERR,3     F3EMSG
+ |   C                     MOVE '03'      F3EMSG
+ |   C                     LEAVE
+JW2  C                     ENDIF
+      *
+JW2  C           EKSKJY    IFNE *BLANK
+ |   C                     SETON                     6399
+ |   C                     MOVELERR,10    F3EMSG
+ |   C                     LEAVE
+JW2  C                     ENDIF
+      *
+     C           K#P75A    KLIST
+     C                     KFLD           BRCD20
+     C                     KFLD           BRCD30
+     C           K#P75A    SETLLABVPP75
+     C           *IN81     DOUEQ*ON
+     C           K#P75A    READEABVPP75                  81
+     C           *IN81     IFEQ *ON
+     C                     LEAVE
+     C                     ELSE
+     C           A7SKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+     C                     SETON                     6399
+     C                     MOVELERR,4     F3EMSG
+     C                     GOTO #ECHK3
+     C                     ENDIF
+     C                     ENDDO
+     C*
+     C           BRCD30    SETLLABVPL75
+     C           *IN81     DOUEQ*ON
+     C           BRCD30    READEABVPL75                  81
+     C           *IN81     IFEQ *ON
+     C                     LEAVE
+     C                     ELSE
+     C           A7SKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+     C                     SETON                     6399
+     C                     MOVELERR,5     F3EMSG
+     C                     GOTO #ECHK3
+     C                     ENDIF
+     C                     ENDDO
+JW3   * PALLET TYPE
+ .   C           XTYP      IFNE 'RE'
+ .   C           XTYP      ANDNE'EX'
+ .   C                     SETON                     6599
+ .   C                     MOVELERR,11    F3EMSG
+ .   C                     GOTO #ECHK3
+JW3  C                     ENDIF
+     C*
+      * get total # of containers already scanned to this master label.
+     C                     Z-ADD*ZERO     CONQTY  30
+     C                     CALL 'ABVR80'
+     C                     PARM           BRCD20
+     C                     PARM           CONQTY
+      *
+      * total # of containers scanned cannot be more than the maximum allowed.
+      *   so if maximum is already been scanned, display error message.
+     C           CONQTY    IFEQ @@MAX
+     C                     SETON                     6399
+     C                     MOVEL@@MAX     CHMAX   3
+     C           ERR,6     CAT  CHMAX:1   F3EMSG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+     C*
+     C           #ECHK3    ENDSR
+      **************************************************************************
+     C           #UPDT     BEGSR
+      **************************************************************************
+     C*
+     C                     TIME           WSDT
+     C                     CLEARABVPP751
+     C                     Z-ADDWSSDAT    A7KODT
+     C                     Z-ADDWSSTM6    A7KOTM
+     C                     MOVEL#USER     A7USER
+     C                     MOVEL#WSID     A7WSID
+      *
+     C**JW3                MOVEL#PGM      A7PGID
+JW3  C**                   MOVELEKRLDD    A7PGID    P
+JW3  C                     MOVELEKSKDD    A7PGID    P      CONTAINER TYPE
+      *
+JW3  C                     SELEC
+ .   C           XTYP      WHEQ 'RE'
+ .   C                     MOVE '11'      LTR2    2
+ .   C           XTYP      WHEQ 'EX'
+ .   C                     MOVE '22'      LTR2
+ .   C                     OTHER
+ .   C                     MOVE '  '      LTR2
+ .   C                     ENDSL
+JW3  C                     MOVE LTR2      A7PGID           MASTER TYPE
+      *
+     C                     MOVELD@TMCD    A7TMCD
+     C*
+     C                     Z-ADDEKNOYY    A7NOYY
+     C                     Z-ADDEKNOMM    A7NOMM
+     C                     Z-ADDEKNODD    A7NODD
+     C                     MOVELEKNOBN    A7NOBN
+     C                     MOVELEKMHN1    A7MHN1
+     C                     MOVELEKMHN2    A7MHN2
+     C                     MOVELEKMHN3    A7MHN3
+     C                     MOVELEKMHN4    A7MHN4
+     C                     MOVELEKSHN1    A7SHN1
+     C                     MOVELEKSHN2    A7SHN2
+     C                     MOVELEKSHN3    A7SHN3
+     C                     MOVELEKODRN    A7ODRN
+     C*
+     C                     MOVELW@6DBC    A7MST1
+     C                     MOVELW@6DB4    A7MST2
+     C*
+     C                     MOVELW@1DBC    A7CON1
+     C                     MOVELW@1DB4    A7CON2
+     C*
+     C                     WRITEABVPP751
+JW3   * UPDATE PP70
+ .   C           XTYP      IFNE SVTYP
+ .   C                     EXSR #UP70
+JW3  C                     ENDIF
+     C*
+     C                     ENDSR
+JW3   **************************************************************************
+ .    * UPDATE PP70
+ .    **************************************************************************
+ .   C           #UP70     BEGSR
+ .    *
+ .   C           K#DBC     CHAINAB#PL71              81
+ .   C           *IN81     IFEQ *OFF
+ .   C           XTYP      IFEQ 'RE'
+ .   C                     Z-ADD11        EKSKDD
+ .   C                     ENDIF
+ .   C           XTYP      IFEQ 'EX'
+ .   C                     Z-ADD22        EKSKDD
+ .   C                     ENDIF
+ .   C                     UPDATAB#PP701
+ .   C                     ENDIF
+ .    *
+JW3  C                     ENDSR
+      **************************************************************************
+     C* CANCEL
+      **************************************************************************
+     C           #CANCL    BEGSR
+     C                     TIME           WSDT
+     C*
+     C           K#DBC     CHAINAB#PL71              81
+     C           *IN81     IFEQ *OFF
+     C                     MOVEL'D'       EKSKJY
+     C                     UPDATAB#PP701
+     C                     ENDIF
+     C*
+     C           BRCD20    SETLLABVPP75
+     C*
+     C                     DO   *HIVAL
+     C*
+     C           BRCD20    READEABVPP75                  91
+     C   91                LEAVE
+     C*
+     C                     MOVEL'D'       A7SKJY
+     C                     Z-ADDWSSDAT    A7SKDT
+     C                     Z-ADDWSSTM6    A7SKTM
+     C*
+     C                     UPDATABVPP751
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+      **************************************************************************
+      * UNSCAN CONTAINER LABEL
+      *
+     C           #FMT40    BEGSR
+      *
+      **************************************************************************
+      *
+     C                     EXFMTFMT040
+     C                     MOVEL*BLANK    F4EMSG
+      *
+     C                     SELEC
+     C           *INKL     WHEQ *ON
+     C                     MOVEL'30'      W@ID
+     C                     MOVE *BLANK    BRCD40
+     C                     SETOF                     636499
+     C                     OTHER
+     C                     EXSR #CHK4
+     C           *IN99     IFEQ *OFF
+     C                     EXSR #UNSCN
+     C                     MOVEL*BLANK    BRCD40
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDSR
+      **************************************************************************
+      *   CHECK SCREEN 4
+      *
+     C           #CHK4     BEGSR
+      *
+      **************************************************************************
+     C                     SETOF                     6499
+      *
+     C                     DO
+      *
+     C           BRCD40    IFEQ *BLANK
+     C                     SETON                     6499
+     C                     MOVELERR,3     F4EMSG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     MOVE 'N'       FOUND   1
+      *
+     C           K#P75U    KLIST
+     C                     KFLD           BRCD20
+     C                     KFLD           BRCD40
+      *
+      * check label file for master/container label combo.
+     C           K#P75U    CHAINABVPP75              81
+     C           *IN81     DOWEQ*OFF
+      *
+     C           A7SKJY    IFEQ ' '
+     C                     MOVE 'Y'       FOUND
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           K#P75U    READEABVPP75                  81
+     C                     ENDDO
+      *
+      * if container label was not found, display error message
+     C           FOUND     IFEQ 'N'
+     C                     SETON                     6499
+     C                     MOVELERR,7     F4EMSG
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      **************************************************************************
+      * UNSCAN CONTAINER LABEL
+      *
+     C           #UNSCN    BEGSR
+      *
+      **************************************************************************
+     C                     TIME           WSDT
+      *
+     C                     MOVE 'N'       FOUND
+      *
+     C           K#P75U    CHAINABVPP75              81
+     C           *IN81     DOWEQ*OFF
+      *
+      *
+      * if record has not been deleted, then delete now....unscan the label
+     C           A7SKJY    IFEQ ' '
+     C                     MOVEL'D'       A7SKJY
+     C                     Z-ADDWSSDAT    A7SKDT
+     C                     Z-ADDWSSTM6    A7SKTM
+     C                     Z-ADDWSSDAT    A7KODT
+     C                     Z-ADDWSSTM6    A7KOTM
+JW3  C                     MOVEL#USER     A7USER
+     C                     MOVEL#WSID     A7WSID
+     C**JW3                MOVEL#PGM      A7PGID
+     C                     MOVELD@TMCD    A7TMCD
+     C                     UPDATABVPP751
+     C                     MOVE 'Y'       FOUND
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           K#P75U    READEABVPP75                  81
+     C                     ENDDO
+      *
+      * if record was found, then display message saying that it was unscanned.
+     C           FOUND     IFEQ 'Y'
+     C                     MOVELERR,8     F4EMSG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      **************************************************************************
+** ERR
+TM ID CODE ERROR                01
+MASTER LABEL ERROR              02
+CONTAINER LABEL ERROR           03
+DUPLICATE MASTER & CONTAINER    04
+DUPLICATE CONTAINER             05
+MAX CONT PER MAST LABEL =       06
+MASTER / CONTAINER NOT FOUND    07
+CONTAINER LABEL UNSCANNED       08
+MAST-LABEL WAS DELETED ALREADY  09
+CONT-LABEL WAS DELETED ALREADY  10
+PALLET TYPE SHOULD BE RE OR EX  11
+#12                             12
+#13                             13
+#14                             14
+#15                             15
+#16                             16
+#17                             17
+#18                             18
+#19                             19
+#20                             20

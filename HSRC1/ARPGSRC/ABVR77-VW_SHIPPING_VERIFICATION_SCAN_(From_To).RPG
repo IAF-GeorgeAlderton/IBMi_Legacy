@@ -1,0 +1,411 @@
+     H            Y.                                    1
+      ***ABVR77*****************************************************************
+      *  VW SHIPPING VERIFICATION SCAN (FROM-TO)                               *
+      *  JW     2020.11.12                                                     *
+      **************************************************************************
+     FABVPW77 CF  E                    WORKSTN
+     FAB#PL08 IF  E           K        DISK
+     FAB#PL71 IF  E           K        DISK
+     FABVPP75 IF  E           K        DISK                      A
+     F*
+     E                    MSG     1  20 60
+      **************************************************************************
+      * MASTER LABEL
+     I            DS
+     I                                        1  22 #MAST
+     I                                        1   4 #6JUN
+     I                                        5  13 #DUN1
+     I                                       14  22 #SEQM
+      * CONTAINER
+     I            DS
+     I                                        1  22 #CONT
+     I                                        1   4 #1JUN
+     I                                        5  13 #DUN2
+     I                                       14  22 #SEQC
+      * EKSERL (MASTER)
+     I            DS
+     I                                        1  18 @EKSER
+     I                                        1   4 @8450
+     I                                        5  10 @ZERO
+     I                                       10  18 @SEQ
+      *
+     I            DS
+     I                                        1   80EKNOHZ
+     I                                        1   40EKNOYY
+     I                                        5   60EKNOMM
+     I                                        7   80EKNODD
+      *
+     I            DS
+     I                                        1   80K#NOHZ
+     I                                        1   40K#NOYY
+     I                                        5   60K#NOMM
+     I                                        7   80K#NODD
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140STIME
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *----------------------------------------------------
+      *  MAIN
+      *----------------------------------------------------
+     C                     EXSR #INIT
+      *
+     C                     DO   *HIVAL
+     C                     EXFMTDSP01
+     C                     MOVE *BLANK    XMSG
+     C                     SELEC
+      * F1: END ------
+     C           *INKA     WHEQ *ON
+     C           *INKC     OREQ *ON
+     C                     LEAVE
+      * F5: PROCESS --
+     C           *INKE     WHEQ *ON
+     C                     EXSR #CHK1
+     C           *IN85     IFEQ *OFF
+     C                     EXSR #PROC
+     C**                   LEAVE
+     C                     MOVELMSG,16    XMSG
+     C                     ENDIF
+      * ENTR ---------
+     C                     OTHER
+     C                     EXSR #CHK1
+     C           *IN85     IFEQ *OFF
+     C                     MOVELMSG,1     XMSG
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *----------------------------------------------------
+      * CHECK
+      *----------------------------------------------------
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE *OFF      *IN85
+     C                     MOVE *OFF      *IN41
+     C                     MOVE *OFF      *IN42
+     C                     MOVE *OFF      *IN43
+     C                     MOVE *OFF      *IN44
+     C                     MOVE *OFF      *IN45
+     C                     MOVE *OFF      *IN46
+     C                     Z-ADD0         #MASQ   90
+     C                     Z-ADD0         #FRSQ   90
+     C                     Z-ADD0         #TOSQ   90
+      * CHECK SHIP DATE
+     C           XSHPDT    IFEQ 0
+     C                     SETON                     41  85
+     C                     MOVELMSG,10    XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * BIN
+     C           XBIN      IFEQ 0
+     C                     SETON                     42  85
+     C                     MOVELMSG,11    XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * CHECK ORDER
+     C                     Z-ADDXSHPDT    K#NOHZ
+     C           K#PL08    CHAINAB#PL08              99
+     C           *IN99     IFEQ *ON
+     C                     SETON                     41  85
+     C                     MOVELMSG,2     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * PACKAGE TYPE
+     C           XPTYP     IFNE '11'
+     C           XPTYP     ANDNE'22'
+     C                     SETON                     46  85
+     C                     MOVELMSG,18    XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * CHECK MASTER
+     C           XMAST     IFEQ *BLANK
+     C                     SETON                     43  85
+     C                     MOVELMSG,12    XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVELXMAST     #MAST
+     C           #6JUN     IFNE '6JUN'
+     C                     SETON                     43  85
+     C                     MOVELMSG,13    XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVEL'8450'    @8450
+     C                     MOVEL'000000'  @ZERO
+     C                     MOVEL#SEQM     @SEQ
+     C           @EKSER    CHAINAB#PL71              99
+     C           *IN99     IFEQ *ON
+     C                     SETON                     43  85
+     C                     MOVELMSG,3     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     EXSR #SAVE
+      * SHIP DATE
+     C           EKNOHZ    IFNE XSHPDT
+     C                     SETON                     43  85
+     C                     MOVELMSG,4     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * BIN
+     C                     MOVELXBIN      LTR2    2
+     C           EKNOBN    IFNE LTR2
+     C                     SETON                     43  85
+     C                     MOVELMSG,5     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     MOVEL#SEQM     #MASQ
+      * CHECK CONTAINER (FROM) --------------------
+     C           XCONFM    IFEQ *BLANK
+     C                     SETON                     44  85
+     C                     MOVELMSG,9     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVELXCONFM    #CONT
+     C           #1JUN     IFNE '1JUN'
+     C                     SETON                     44  85
+     C                     MOVELMSG,14    XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVEL'8450'    @8450
+     C                     MOVEL'000000'  @ZERO
+     C                     MOVEL#SEQC     @SEQ
+     C           @EKSER    CHAINAB#PL71              99
+     C           *IN99     IFEQ *ON
+     C                     SETON                     44  85
+     C                     MOVELMSG,6     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * SHIP DATE
+     C           EKNOHZ    IFNE XSHPDT
+     C                     SETON                     44  85
+     C                     MOVELMSG,4     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * BIN
+     C                     MOVELXBIN      LTR2    2
+     C           EKNOBN    IFNE LTR2
+     C                     SETON                     44  85
+     C                     MOVELMSG,5     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     MOVEL#SEQC     #FRSQ
+      * CHECK CONTAINER (TO) ------------------------------
+     C           XCONTO    IFEQ *BLANK
+     C                     MOVELXCONFM    XCONTO
+     C                     ENDIF
+      *
+     C                     MOVELXCONTO    #CONT
+     C           #1JUN     IFNE '1JUN'
+     C                     SETON                     45  85
+     C                     MOVELMSG,14    XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVEL'8450'    @8450
+     C                     MOVEL'000000'  @ZERO
+     C                     MOVEL#SEQC     @SEQ
+     C           @EKSER    CHAINAB#PL71              99
+     C           *IN99     IFEQ *ON
+     C                     SETON                     45  85
+     C                     MOVELMSG,7     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * SHIP DATE
+     C           EKNOHZ    IFNE XSHPDT
+     C                     SETON                     45  85
+     C                     MOVELMSG,4     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * BIN
+     C                     MOVELXBIN      LTR2    2
+     C           EKNOBN    IFNE LTR2
+     C                     SETON                     45  85
+     C                     MOVELMSG,5     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * FROM < TO
+     C           XCONFM    IFGT XCONTO
+     C                     SETON                     444585
+     C                     MOVELMSG,8     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     MOVEL#SEQC     #TOSQ
+      * CHECK TOTAL BOX ---------------------------
+     C           #TOSQ     SUB  #FRSQ     XCONTL
+     C                     ADD  1         XCONTL
+     C           XCONTL    IFGT 48
+     C                     SETON                     45  85
+     C                     MOVELMSG,15    XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * CHECK DUPLICATE KEY  ---------------------
+     C                     EXSR #DUP
+     C           *IN85     IFEQ *ON
+     C                     SETON                     434445
+     C                     MOVELMSG,17    XMSG
+     C                     MOVE #CONT     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XCHK1     ENDSR
+      *----------------------------------------------------
+      * DUPLICATE CHECK
+      *----------------------------------------------------
+     C           #DUP      BEGSR
+     C                     MOVEL#MAST     KMAST
+     C                     Z-ADD#FRSQ     XSEQ    90
+     C                     SUB  1         XSEQ
+      *
+     C                     DO   *HIVAL
+     C                     ADD  1         XSEQ
+      *
+     C           XSEQ      IFGT #TOSQ
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     MOVELXSEQ      #SEQC
+     C                     MOVEL#CONT     KCONT
+     C           K#PP75    CHAINABVPP75              98
+     C           *IN98     IFEQ *OFF
+     C                     SETON                     85
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------
+      * PROCESS
+      *----------------------------------------------------
+     C           #PROC     BEGSR
+      *
+     C                     MOVEL#MAST     KMAST
+     C                     Z-ADD#FRSQ     XSEQ    90
+     C                     SUB  1         XSEQ
+      *
+     C                     DO   *HIVAL
+     C                     ADD  1         XSEQ
+      *
+     C           XSEQ      IFGT #TOSQ
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     MOVELXSEQ      #SEQC
+     C                     MOVEL#CONT     KCONT
+     C           K#PP75    CHAINABVPP75              98
+     C           *IN98     IFEQ *ON
+     C                     EXSR #SET
+     C                     WRITEABVPP751
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------
+      * SET ABVPP75 DATA
+      *----------------------------------------------------
+     C           #SET      BEGSR
+      *
+     C                     CLEARABVPP751
+     C                     Z-ADDTODAY     A7KODT
+     C                     Z-ADDNOW       A7KOTM
+     C                     MOVEL#USER     A7USER
+     C                     MOVEL#WSID     A7WSID
+     C                     MOVELXPTYP     A7PGID    P
+     C                     MOVE XPTYP     A7PGID
+     C                     MOVEL'999999'  A7TMCD
+     C                     Z-ADDK#NOYY    A7NOYY
+     C                     Z-ADDK#NOMM    A7NOMM
+     C                     Z-ADDK#NODD    A7NODD
+     C                     MOVELXBIN      A7NOBN
+     C                     MOVEL#MAST     A7MST1
+     C                     MOVEL#SEQM     A7MST2
+     C                     MOVEL#CONT     A7CON1
+     C                     MOVEL#SEQC     A7CON2
+     C                     EXSR #BACK
+      *
+     C                     ENDSR
+      *----------------------------------------------------
+      * SAVE AB#PP70 DATA
+      *----------------------------------------------------
+     C           #SAVE     BEGSR
+      *
+     C                     MOVELEKMHN1    S7MHN1  5
+     C                     MOVELEKMHN2    S7MHN2  5
+     C                     MOVELEKMHN3    S7MHN3  5
+     C                     MOVELEKMHN4    S7MHN4  5
+     C                     MOVELEKSHN1    S7SHN1  5
+     C                     MOVELEKSHN2    S7SHN2  5
+     C                     MOVELEKSHN3    S7SHN3  2
+     C                     MOVELEKODRN    S7ODRN 10
+      *
+     C                     ENDSR
+      *----------------------------------------------------
+      * BACK AB#PP70 DATA
+      *----------------------------------------------------
+     C           #BACK     BEGSR
+      *
+     C                     MOVELS7MHN1    A7MHN1
+     C                     MOVELS7MHN2    A7MHN2
+     C                     MOVELS7MHN3    A7MHN3
+     C                     MOVELS7MHN4    A7MHN4
+     C                     MOVELS7SHN1    A7SHN1
+     C                     MOVELS7SHN2    A7SHN2
+     C                     MOVELS7SHN3    A7SHN3
+     C                     MOVELS7ODRN    A7ODRN
+      *
+     C                     ENDSR
+      *----------------------------------------------------
+      * INITIAL SETTING
+      *----------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C           K#PL08    KLIST
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#NKOJ  1
+     C                     KFLD           K#NUKE  4
+     C                     KFLD           K#NOYY
+     C                     KFLD           K#NOMM
+     C                     KFLD           K#NODD
+      *
+     C           K#PP75    KLIST
+     C                     KFLD           KMAST  22
+     C                     KFLD           KCONT  22
+      *
+     C                     TIME           STIME
+     C                     Z-ADD8450      K#NONY
+     C                     MOVEL'0'       K#NKOJ
+     C                     MOVEL'00'      K#NUKE
+      *
+     C                     ENDSR
+** MSG ..1.........2.........3.........4.........5.........6
+PRESS F5 TO PROCESS...                                        1
+ORDER NOT FOUND !                                             2
+MASTER DOES NOT EXIST !                                       3
+SHIP DATE DOES NOT MATCH !                                    4
+BIN DOES NOT MATCH !                                          5
+CONTAINER# (FROM) NOT EXIST !                                 6
+CONTAINER# (TO)   NOT EXIST !                                 7
+CONATINER FROM > TO !                                         8
+ENTER CONTAINER (FROM) !                                      9
+ENTER SHIP DATE                                              10
+ENTER BIN#                                                   11
+ENTER MASTER# !                                              12
+THIS IS NOT MASTER#                                          13
+THIS IS NOT CONTAINER#                                       14
+MAX CASE / ONTAINER IS 48 !                                  15
+ENTER NEXT...                                                16
+DUPLICATE SCAN ERROR !                                       17
+PACKAGE TYPE SHOULD BE 11 OR 22 !                            18
+                                                             19
+                                                             20

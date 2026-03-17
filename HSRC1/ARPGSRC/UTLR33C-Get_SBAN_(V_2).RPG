@@ -1,0 +1,244 @@
+     H            Y.
+     F** UTLR33C  ****************************************************
+     F*  PROGRAM    : GET SBAN                                       *
+     F*  WRITTEN    : JW (SRA) 2021.04.27                            *
+     F*  --------------------------------------------------          *
+     F*  JW1   2024.05.15  ADD AB#PPAW FOR AWNC
+     F*----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UTLR33C'
+     F*                    PARM           $NONY   4
+     F*                    PARM           $NKOJ   1
+     F*                    PARM           $NUKE   4
+     F*                    PARM           $MHIN  20
+     F*                    PARM           $NOHZ   8
+     F*                    PARM           $SBAN   6
+     F*   IN  $NONY :  4A DELIVERY#
+     F*       $NKOJ :  1A FACTORY   (BLANK=ALL)
+     F*       $NUKE :  4A DOCK      (BLANK=ALL)
+     F*       $MHIN : 20A USER PART#
+     F*       $NOHZ :  8A SHIP DATE (BLANK=TODAY)
+     F*   OUT $SBAN :  6A SBAN (KANBAN#')
+     F****************************************************************
+     FAB#PPAW IF  E           K        DISK
+     FAB#PL85AIF  E           K        DISK
+     FAB#PL10FIF  E           K        DISK
+     FFCCTL13 IF  E           K        DISK
+      *---------------------------------------------------------------
+     I            DS
+     I                                        1   80@NOHZ
+     I                                        1   40@NOYY
+     I                                        5   60@NOMM
+     I                                        7   80@NODD
+     I            DS
+     I                                        1  20 @MHIN
+     I                                        1   5 @MHN1
+     I                                        6  10 @MHN2
+     I                                       11  15 @MHN3
+     I                                       16  20 @MHN4
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      ******************************************************
+      *                    MAIN PROCESS
+      ******************************************************
+     C                     EXSR #INIT
+JW1   * GET FROM AB#PPAW
+ .   C           $NONY     IFEQ '0492'
+ .   C                     EXSR #PPAW
+JW1  C                     ENDIF
+      *
+      * GET FROM AB#PP85(KANBAN RELEASE#)
+JW1  C           @SBAN     IFEQ *BLANK
+ .   C           @SBAN     OREQ '0000'
+     C                     EXSR #PP85
+     C                     ENDIF
+      *
+      * GET FROM AB#PP10(ORDER)
+     C           @SBAN     IFEQ *BLANK
+     C           @SBAN     OREQ '0000'
+     C                     EXSR #PP10
+     C                     ENDIF
+      *
+      * GET FROM FCCPP11(KANBAN)
+     C           @SBAN     IFEQ *BLANK
+     C           @SBAN     OREQ '0000'
+     C                     EXSR #FCC
+     C                     ENDIF
+      *
+     C                     MOVEL@SBAN     $SBAN
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *****************************************
+JW1   * GET SBAN FROM AB#PPAW
+      *****************************************
+     C           #PPAW     BEGSR
+      *
+     C           $MHIN     SETLLAB#PPAW
+     C                     DO   *HIVAL
+     C           $MHIN     READEAB#PPAW                  96
+     C   96                LEAVE
+      *
+     C           AWSKJY    IFNE ' '
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELAWSBAN    @SBAN
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *****************************************
+      * GET SBAN FROM AB#PP85
+      *****************************************
+     C           #PP85     BEGSR
+      *
+     C                     MOVEL$NONY     K#NONY
+     C                     MOVEL$NUKE     K#NUKE
+     C                     MOVEL@MHN1     K#MHN1
+     C                     MOVEL@MHN2     K#MHN2
+     C                     MOVEL@MHN3     K#MHN3
+     C**                   Z-ADD0         K#DATE
+      *
+     C           K#PP85    SETLLAB#PL85A
+     C                     DO   *HIVAL
+     C           K#PP85    READEAB#PL85A                 96
+     C   96                LEAVE
+      *
+     C           A5SKJY    IFNE ' '
+     C                     ITER
+     C                     ENDIF
+      *
+     C**         $NKOJ     IFNE *BLANK
+     C**         $NKOJ     ANDNEA5NKOJ
+     C**                   ITER
+     C**                   ENDIF
+      *
+     C           $NUKE     IFNE *BLANK
+     C           $NUKE     ANDNEA5NUKE
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELA5SBAN    @SBAN
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *****************************************
+      * GET SBAN FROM PP10
+      *****************************************
+     C           #PP10     BEGSR
+      *
+     C                     MOVEL$NONY     K#NONY
+     C                     MOVEL@MHN1     K#MHN1
+     C                     MOVEL@MHN2     K#MHN2
+     C                     MOVEL@MHN3     K#MHN3
+     C                     MOVEL@MHN4     K#MHN4
+      *
+     C           K#PP10    SETLLAB#PL10F
+     C                     DO   *HIVAL
+     C           K#PP10    READEAB#PL10F                 98
+     C   98                LEAVE
+      *
+     C           BASKJY    IFNE ' '
+     C                     ITER
+     C                     ENDIF
+      *
+     C           $NKOJ     IFNE *BLANK
+     C           $NKOJ     ANDNEBANKOJ
+     C                     ITER
+     C                     ENDIF
+      *
+     C           $NUKE     IFNE *BLANK
+     C           $NUKE     ANDNEBANUKE
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELBASBAN    @SBAN
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *****************************************
+      * GET SBAN FROM FCCPP11
+      *****************************************
+     C           #FCC      BEGSR
+      *
+     C                     MOVEL@NOMM     K#MAMM
+     C                     MOVEL$NONY     K#NONY
+     C                     MOVEL$NKOJ     K#NKOJ
+     C                     MOVEL$NUKE     K#NUKE
+     C                     MOVEL@MHN1     K#MHN1
+     C                     MOVEL@MHN2     K#MHN2
+     C                     MOVEL@MHN3     K#MHN3
+      *
+     C           K#11      SETLLFCCTL13
+     C                     DO   *HIVAL
+     C           K#11      READEFCCTL13                  97
+     C   97                LEAVE
+      *
+     C           B4SKBN    IFNE ' '
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELB4SBAN    @SBAN
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *****************************************
+      * INITIAL SETTING
+      *****************************************
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $NONY   4
+     C                     PARM           $NKOJ   1
+     C                     PARM           $NUKE   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $NOHZ   8
+     C                     PARM           $SBAN   6
+      *
+     C           K#PP10    KLIST
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#MHN1  5
+     C                     KFLD           K#MHN2  5
+     C                     KFLD           K#MHN3  5
+     C                     KFLD           K#MHN4  5
+      *
+     C           K#11      KLIST
+     C                     KFLD           K#MAMM  20
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#NKOJ  1
+     C                     KFLD           K#NUKE  4
+     C                     KFLD           K#MHN1  5
+     C                     KFLD           K#MHN2  5
+     C                     KFLD           K#MHN3  5
+      *
+     C           K#PP85    KLIST
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#MHN1  5
+     C                     KFLD           K#MHN2  5
+     C                     KFLD           K#MHN3  5
+      *
+     C                     TIME           SDATE
+     C                     MOVE *BLANK    $SBAN
+     C                     MOVE *BLANK    @SBAN   6
+      *
+     C           $NOHZ     IFEQ *BLANK
+     C           $NOHZ     OREQ *ZERO
+     C           $NOHZ     OREQ '99999999'
+     C                     MOVELTODAY     @NOHZ
+     C                     ELSE
+     C                     MOVEL$NOHZ     @NOHZ
+     C                     ENDIF
+      *
+     C                     MOVEL$MHIN     @MHIN
+      *
+     C                     ENDSR

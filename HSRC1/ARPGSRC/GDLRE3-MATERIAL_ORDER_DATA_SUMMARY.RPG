@@ -1,0 +1,378 @@
+     H            Y.                                    1
+     F** GDLRE3 ****************************************************************
+     F*  MATERIAL ORDER DATA SUMMARY                                           *
+     F*  -----------------------------------------                             *
+JW1  F*  JW  2018.07.02 ADD AVOID DIVIDING BY 0                                *
+YM1  F*  YM  2018.07.04 RATE FIX TO 1 (FOR O&K NSCI)                           *
+%0001F* SAKAKI 19.01.07 CHANGE RATE FOR O&K NSCI                               *
+JW2  F*  JW  2019.03.04 ADD AVOID DIVIDING BY 0                                *
+%0002F* SAKAKI 21.05.12 ADD AVOID  0                                           *
+     F**************************************************************************
+     FGDLWPE0 UP  E                    DISK
+     FIZAPL02 IF  E           K        DISK
+     FIZBPL02 IF  E           K        DISK
+     FBTBPP41 IF  E           K        DISK
+     F**************************************************************************
+      * IZAPL02
+     I            DS
+     I                                        1   80ZCSKDT
+     I                                        1   40ZCSKYY
+     I                                        5   60ZCSKMM
+     I                                        7   80ZCSKDD
+     I            DS
+     I                                        1   80ZCUKDT
+     I                                        1   40ZCUKYY
+     I                                        5   60ZCUKMM
+     I                                        7   80ZCUKDD
+     I            DS
+     I                                        1   80ZCSTDT
+     I                                        1   40ZCSTYY
+     I                                        5   60ZCSTMM
+     I                                        7   80ZCSTDD
+      * IZBPL02
+     I            DS
+     I                                        1   80ZDSKDT
+     I                                        1   40ZDSKYY
+     I                                        5   60ZDSKMM
+     I                                        7   80ZDSKDD
+     I            DS
+     I                                        1   80ZDUKDT
+     I                                        1   40ZDUKYY
+     I                                        5   60ZDUKMM
+     I                                        7   80ZDUKDD
+     I            DS
+     I                                        1   80ZDSTDT
+     I                                        1   40ZDSTYY
+     I                                        5   60ZDSTMM
+     I                                        7   80ZDSTDD
+      **************************************************************************
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           P@SIRE  4
+      *
+     C           LASKJY    IFEQ 'D'
+     C                     GOTO @END
+     C                     END
+      *
+     C                     MOVE P@SIRE    N@SIRE  40
+      *
+     C           N@SIRE    IFEQ LASIRE
+     C                     EXSR #OUT
+     C                     END
+      *
+     C           @END      TAG
+      *-----------------------------------------------------
+     C           #OUT      BEGSR
+      *
+     C                     Z-ADD0         W@LOTO  20
+     C                     Z-ADD0         W@MKJR  80       CONFIRMED
+     C                     Z-ADD0         W@MSJR  80       SET
+     C                     Z-ADD0         W@TKJR  50
+     C                     Z-ADD0         W@DKJR  70       CONFIRMED
+     C                     Z-ADD0         W@DSJR  70       SET
+      * WIRE MASTER
+     C           LAPTCD    IFEQ 'W'
+     C                     EXSR #IZA
+     C                     END
+      *
+     C           LAPTCD    IFEQ 'R'
+     C                     EXSR #IZB
+     C                     END
+      * CALC
+     C           W@MKJR    DIV  20        W@DKJR           CONFIRMED
+     C           W@MSJR    DIV  20        W@DSJR           SET
+      *
+JW1   * AVOID DIVIDING BY 0
+ |   C           W@TKJR    IFEQ 0
+ |   C                     Z-ADD0.01      W@COIL
+ |   C                     ELSE
+      *
+     C           W@DKJR    DIV  W@TKJR    W@COIL    H
+      *
+%0002C           W@COIL    IFEQ 0
+     C                     Z-ADD0.01      W@COIL
+     C                     ENDIF
+      *
+JW1  C                     ENDIF
+      *
+      * PT ORDER COIL UPPER LIMIT RATE  GDLPPA0
+     C                     Z-ADDW@COIL    P@COIL
+     C                     Z-ADD0         W@RATE
+     C                     CALL 'GDLRA1'
+     C                     PARM           P@COIL  41
+     C                     PARM           W@RATE  52
+      *
+      * PT WIRE ORDER UPPER LIMIT  GDLPPB0
+     C                     Z-ADD0         P@RATE
+     C                     CALL 'GDLRB1'
+     C                     PARM           LAZAIS 15
+     C                     PARM           LAZAIK  52
+     C                     PARM           P@RATE  52
+     C           P@RATE    IFNE 0
+     C                     Z-ADDP@RATE    W@RATE
+     C                     END
+      *
+%0001C                     Z-ADDW@RATE    S@RATE  52
+      *
+      * ASJ PT ORDER UPPER LIMIT DATE MULTI RATE
+     C                     MOVE *DATE     Q@DATE  8
+     C                     MOVE '00000'   Q@RATE  5
+     C                     CALL 'GDGR79'
+     C                     PARM           Q@DATE  8
+     C                     PARM           Q@RATE  5
+     C                     MOVE Q@RATE    Q#RATE  52
+     C                     MOVE Q@RATE    W@DRAT
+      *
+     C           Q#RATE    IFNE 0
+     C                     MULT Q#RATE    W@RATE
+     C                     END
+YM1   *
+ |   C           P@SIRE    IFEQ '4511'                     O&K
+ |   C           P@SIRE    OREQ '4530'                     NSCI
+ |   C                     Z-ADD1         W@RATE
+ |    *GDLPPA0かB0の係数があれば使う  20181226
+ |   C           S@RATE    IFNE 0
+ |   C                     Z-ADDS@RATE    W@RATE
+ |   C                     END
+YM1  C                     END
+      * LIMIT
+     C           W@COIL    MULT W@RATE    W@Z1    52
+      *切り上げ
+     C           W@Z1      DIV  1         W@Z2    30
+     C                     MVR            W@MVR   52
+     C           W@MVR     IFNE 0
+     C                     ADD  1         W@Z2
+     C                     END
+      *
+      * LIMIT　ロットの切り上げ倍数
+JW2  C           W@LOTO    IFEQ 0
+"    C                     Z-ADD1         W@LOTO
+"    C                     ENDIF
+      *
+     C           W@Z2      DIV  W@LOTO    W@Z3    30
+     C                     MVR            W@Z4    52
+     C           W@Z4      IFNE 0
+     C                     ADD  1         W@Z3
+     C                     END
+      *
+     C           W@LOTO    MULT W@Z3      W@LIMT
+      *
+      * 2018.12.25 TUCKER月間発注上限
+     C           W@COIL    MULT W@RATE    W#MLIM  92
+     C                     MULT 20        W#MLIM
+     C           W#MLIM    ADD  0.99      W@MLIM
+      * 2018.12.25 TUCKER過去１９日発注コイル
+     C                     Z-ADDLASIRE    @ASIRE
+     C                     MOVELLAZAIS    @AZAIS
+     C                     Z-ADDLAZAIK    @AZAIK
+     C                     Z-ADD0         @AORD
+     C                     CALL 'GDLRE9'
+     C                     PARM           @ASIRE  40
+     C                     PARM           @AZAIS 15
+     C                     PARM           @AZAIK  52
+     C                     PARM           @AORD   50
+     C                     Z-ADD@AORD     W@19OD
+     C           @AORD     IFGE W@MLIM
+     C                     Z-ADD0         W@LIMT
+     C                     ENDIF
+      *
+      * PLAN
+     C           W@PH      SUB  W@MH      W@PLAN
+     C* READ + PLAN
+     C                     Z-ADD0         W@ODR1
+     C           LAMAIS    ADD  W@PLAN    W@ODR1
+      * ADJUSTMENT FILE (W@AJST)
+     C                     EXSR #BTB41
+     C           W@ODR1    SUB  W@AJST    W@ODR1
+      * OVER & ODR2
+     C           W@ODR1    IFGT W@LIMT
+     C           W@ODR1    SUB  W@LIMT    W@OVER
+     C                     Z-ADDW@LIMT    W@ODR2
+     C                     Z-ADDW@LIMT    W@CUTO
+     C                     ELSE
+     C           W@ODR1    IFLE 0
+     C                     Z-ADDW@ODR1    W@ODR2
+     C                     Z-ADD0         W@CUTO
+     C                     ELSE
+     C                     Z-ADDW@ODR1    W@ODR2
+     C                     Z-ADDW@ODR1    W@CUTO
+     C                     END
+     C                     END
+      * RESULT
+     C                     Z-ADDW@ODR2    W@RSLT
+      *
+      * ORDER
+     C           W@RSLT    IFLE 0
+     C                     Z-ADD0         W@ODER
+     C                     ELSE
+     C                     Z-ADDW@RSLT    W@ODER
+     C                     END
+     C* ORDERロット形成（余りは計画発行に）
+     C                     Z-ADD0         W@Y2
+     C           W@ODER    IFNE 0
+     C           W@ODER    DIV  W@LOTO    W@Y1    30
+     C                     MVR            W@Y2    52
+     C           W@LOTO    MULT W@Y1      W@ODER
+     C                     END
+      * NEXT ADJUSTMENT
+     C                     Z-ADD0         W@NADJ
+     C           W@RSLT    IFLT 0
+     C           W@RSLT    ADD  W@OVER    W@X     30
+     C           W@X       IFLT 0
+     C           W@X       MULT -1        W@NADJ
+     C                     END
+     C                     END
+      * TO NEXT PLAN ADD
+     C                     Z-ADDW@Y2      W@NPLA
+     C           W@OVER    IFNE 0
+     C                     ADD  W@OVER    W@NPLA
+     C           W@RSLT    IFLT 0
+     C           W@OVER    ADD  W@RSLT    W@NPLA  30
+     C                     END
+     C           W@NPLA    IFLT 0
+     C                     Z-ADD0         W@NPLA
+     C                     END
+     C                     END
+      * CALC. NEXT DAY
+     C                     MOVE *DATE     P@DATE
+     C                     MOVE '+'       P@PORM
+     C                     MOVE '0001'    P@DAYS
+     C                     MOVE *BLANK    P@RDAT
+     C                     MOVE *BLANK    P@RTN
+     C                     CALL 'DATR1A'
+     C                     PARM           P@DATE  8
+     C                     PARM           P@PORM  1        + OR -
+     C                     PARM           P@DAYS  4
+     C                     PARM           P@RDAT  8
+     C                     PARM           P@RTN   1
+     C                     MOVE P@RDAT    W@NXTD
+      * GET NEXT DAY PLAN
+     C                     MOVE LASIRE    P#SIRE  4
+     C                     MOVE LAUKEI    P#UKEI  4
+     C                     MOVE LAPTCD    P#PTCD  1
+     C                     MOVE LAZAIS    P#ZAIS 15
+     C                     MOVE LAZAIK    P#ZAIK  5
+     C                     MOVELW@NXTD    P#KEYM  6
+     C                     MOVE W@NXTD    P#KEYD  2
+     C                     MOVE '000'     P#M     3
+     C                     MOVE '000'     P#P     3
+     C                     CALL 'BTBR06'
+     C                     PARM           P#SIRE  4
+     C                     PARM           P#UKEI  4
+     C                     PARM           P#PTCD  1
+     C                     PARM           P#ZAIS 15
+     C                     PARM           P#ZAIK  5
+     C                     PARM           P#KEYM  6
+     C                     PARM           P#KEYD  2
+     C                     PARM           P#M     3
+     C                     PARM           P#P     3
+     C                     MOVE P#M       W@NMH
+     C                     MOVE P#P       W@NPH
+     C           W@NPH     SUB  W@NMH     W@NPLN
+      *
+     C           W@NPLN    ADD  W@NPLA    W@PSTK
+      *
+JW1   * AVOID DIVIDING BY 0
+ |   C           W@COIL    IFEQ 0
+ |   C                     Z-ADD0.01      W@COIL
+JW1  C                     ENDIF
+      *
+     C           W@PSTK    DIV  W@COIL    W@DAYS  52H
+      *
+     C                     UPDATGDLWPE01
+      *
+     C           EOUT      ENDSR
+      *
+      *-----------------------------------------------------
+     C           #IZA      BEGSR
+      *
+     C           KEY1      KLIST
+     C                     KFLD           LAPTCD
+     C                     KFLD           LAZETI
+      *
+     C           KEY1      SETLLIZAPL02
+     C                     DO   *HIVAL
+     C           KEY1      READEIZAPL02                  88
+     C   88                LEAVE
+     C           ZCSKJY    IFEQ 'D'
+     C                     ITER
+     C                     END
+      *
+     C           LAZAIS    IFNE ZCZAIS
+     C           LAZAIK    ORNE ZCZAIK
+     C           N@SIRE    ORNE ZCKAKE
+     C                     ITER
+     C                     END
+      *
+     C           *DATE     IFGE ZCUKDT
+     C           *DATE     ANDLTZCSTDT
+     C                     ELSE
+     C                     ITER
+     C                     END
+      *
+     C                     Z-ADDZCLOTO    W@LOTO
+     C                     Z-ADDZCTKJR    W@TKJR
+     C                     Z-ADDZCMKJR    W@MKJR
+     C                     Z-ADDZCMSJR    W@MSJR
+      *
+     C                     LEAVE
+      *
+     C                     ENDDO
+      *
+     C           EIZA      ENDSR
+      *-----------------------------------------------------
+     C           #IZB      BEGSR
+      *
+     C           KEY1      SETLLIZBPL02
+     C                     DO   *HIVAL
+     C           KEY1      READEIZBPL02                  88
+     C   88                LEAVE
+     C           ZDSKJY    IFEQ 'D'
+     C                     ITER
+     C                     END
+      *
+     C           LAZAIS    IFNE ZCZAIS
+     C           LAZAIK    ORNE ZCZAIK
+     C           N@SIRE    ORNE ZCKAKE
+     C                     ITER
+     C                     END
+      *
+     C           *DATE     IFGE ZDUKDT
+     C           *DATE     ANDLTZDSTDT
+     C                     ELSE
+     C                     ITER
+     C                     END
+      *
+     C                     Z-ADDZDLOTO    W@LOTO
+     C                     Z-ADDZDTKJR    W@TKJR
+     C                     Z-ADDZDMKJR    W@MKJR
+     C                     Z-ADDZDMSJR    W@MSJR
+      *
+     C                     LEAVE
+      *
+     C                     ENDDO
+      *
+     C           EIZB      ENDSR
+      *-----------------------------------------------------
+     C           #BTB41    BEGSR
+      *
+     C           KEY2      KLIST
+     C                     KFLD           LASIRE  40
+     C                     KFLD           LAUKEI  40
+     C                     KFLD           LAPTCD  1
+     C                     KFLD           LAZAIS 15
+     C                     KFLD           LAZAIK  52
+      *
+     C           KEY2      CHAINBTBPP41              89
+     C           *IN89     IFEQ '0'
+     C           B4SKJY    IFEQ 'D'
+     C                     SETON                     89
+     C                     END
+     C                     END
+      *
+     C           *IN89     IFEQ '0'
+     C                     Z-ADDB4MAIS    W@AJST
+     C                     END
+      *
+     C           EBTB41    ENDSR
+      *

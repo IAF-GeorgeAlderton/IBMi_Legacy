@@ -1,0 +1,259 @@
+     H            Y.
+     F** AB#R73 ***************************************
+     F*  SORTING PART LIST (ISF)                      *
+     F*                                               *
+     F*  J.WATANABE 05/13/2016 CREATE REPORT INTO ISF *
+     F*  T.TODA     2021.02.16 CHANGES(20199)         *
+     F*************************************************
+     FFCEPP01 IF  E                    DISK
+     FAAFPL03 IF  E           K        DISK
+     FAAAPL01 IF  E           K        DISK
+     FAB#WP73 O   E                    DISK
+     F*************************************************
+     E                    AR1        80  1
+     E                    AR2        80  1
+     E                    TBL     1   1  1
+     I            DS
+     I                                        1  14 A2PART
+     I                                        1   5 A2BHB1
+     I                                        6   6 HI1
+     I                                        7  11 A2BHB2
+     I                                       12  12 HI2
+     I                                       13  14 A2BHB3
+     I            DS
+     I                                        1   6 OLDLOC
+     I                                        1   1 AP1
+     I                                        2   3 A2KTRT
+     I                                        4   4 HI3
+     I                                        5   6 A2KTRR
+     I            DS
+     I                                        1   6 NEWLOC
+     I                                        1   1 AP2
+     I                                        2   3 A2STRT
+     I                                        4   4 HI4
+     I                                        5   6 A2STRR
+     I            DS
+     I                                        1   80A2SYHZ
+     I                                        1   40A2SYYY
+     I                                        5   60A2SYMM
+     I                                        7   80A2SYDD
+     I            DS
+     I                                        1   7 A2STCD
+     I                                        1   4 A2MEK1
+     I                                        5   6 A2MEK2
+     I                                        7   7 A2MEK3
+     I            DS
+     I                                        1  80 SORT#
+     I                                        1  20 SORT1
+     I                                       21  40 SORT2
+     I                                       41  60 SORT3
+     I                                       61  80 SORT4
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     F*************************************************
+     C*          PROCESS
+     F*************************************************
+      * INITIALIZE
+     C                     EXSR #INIT
+      *
+     C           *IN91     DOWEQ*OFF
+     C                     READ FCEPP01                  91
+     C           *IN91     IFEQ *OFF
+     C           A2GSKD    ANDNE'D'
+     C                     EXSR #WRT
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      ******************************************************
+      * WRITE AB#WP73
+      ******************************************************
+     C           #WRT      BEGSR
+      *
+     C                     CLEARAB#WP731
+     C           A2BHB3    IFEQ *BLANK
+     C                     MOVEL*BLANK    HI2
+     C                     ELSE
+     C                     MOVEL'-'       HI2
+     C                     ENDIF
+     C                     MOVELA2PART    W3PART
+      *
+     C           A2SYHZ    IFLE @TODAY
+     C                     MOVELNEWLOC    W3LOC
+     C                     Z-ADDA2SSYS    W3QPC
+     C                     MOVELA2STRK    K3ATK1
+     C                     MOVELA2STRT    K3ATK2
+     C                     MOVELA2STRR    K3ATK3
+     C                     MOVELA2STRD    K3ATK4
+     C                     ELSE
+     C                     MOVELOLDLOC    W3LOC
+     C                     Z-ADDA2KSYS    W3QPC
+     C                     MOVELA2KTRK    K3ATK1
+     C                     MOVELA2KTRT    K3ATK2
+     C                     MOVELA2KTRR    K3ATK3
+     C                     MOVELA2KTRD    K3ATK4
+     C                     ENDIF
+      *
+     C                     Z-ADDA2GEKN    W3GEKN
+      * BOX/DAY
+     C           W3QPC     IFNE 0
+     C           W3GEKN    DIV  W3QPC     W3B@D     H
+     C                     ELSE
+     C                     Z-ADDW3GEKN    W3B@D     H
+     C                     ENDIF
+     C                     DIV  20        W3B@D     H
+      *
+     C                     MOVELA2STCD    W3STCD
+     C                     Z-ADDA2KIKI    W3KIKI
+     C                     Z-ADDA2TUSZ    W3TUSZ
+     C                     Z-ADDA2KUBI    W3KUBI
+     C                     MOVELA2ZANM    W3ZANM
+     C                     Z-ADDA2KAZI    W3KAZI
+      * GET SAFETY STOCK/SORT
+     C                     EXSR #GET
+     C                     Z-ADD@SAFE     W3SAFE
+     C                     MOVEL@SORT     W3SORT
+      *
+     C                     WRITEAB#WP731
+      *
+     C                     ENDSR
+      ******************************************************
+      * GET SAFETY STOCK/SORT
+      ******************************************************
+     C           #GET      BEGSR
+      *
+     C                     Z-ADD0         @SAFE   50
+     C                     MOVE *BLANK    @SORT  20
+     C                     MOVE *OFF      *IN92
+     C           K@AF      SETLLAAFPL03
+     C           *IN92     DOWEQ*OFF
+     C           K@AF      READEAAFPL03                  92
+     C           *IN92     IFEQ *OFF
+     C           A31HB5    ANDEQA2BHB1
+     C           A32HB5    ANDEQA2BHB2
+     C           A33HB2    ANDEQA2BHB3
+     C           A3SKJY    ANDNE'D'
+     C           A3STYY    ANDEQ9999
+     C                     Z-ADDA3MAXH    @SAFE
+     C                     EXSR #SORT
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      ******************************************************
+      * GET SORTING
+      ******************************************************
+     C           #SORT     BEGSR
+      *
+     C                     MOVELA3JOK3    COND1   2
+     C                     MOVELA3JOK4    COND2   2
+     C                     MOVELA3JOK5    COND3   2
+     C                     MOVELA3JOK6    COND4   2
+     C                     MOVE *BLANK    SORT1
+     C                     MOVE *BLANK    SORT2
+     C                     MOVE *BLANK    SORT3
+     C                     MOVE *BLANK    SORT4
+      * GET SORT1
+     C           COND1     IFNE *BLANK
+     C                     MOVELCOND1     K5JOKN
+     C                     MOVEL'C'       K5KANB
+     C           K@AA      CHAINAAAPL01              99
+     C           *IN99     IFEQ *OFF
+     C           A5SKJY    ANDNE'D'
+     C                     MOVELA5JOKM    SORT1
+     C                     ENDIF
+     C                     ENDIF
+      * GET SORT2
+     C           COND2     IFNE *BLANK
+     C                     MOVELCOND2     K5JOKN
+     C                     MOVEL'C'       K5KANB
+     C           K@AA      CHAINAAAPL01              99
+     C           *IN99     IFEQ *OFF
+     C           A5SKJY    ANDNE'D'
+     C                     MOVELA5JOKM    SORT2
+     C                     ENDIF
+     C                     ENDIF
+      * GET SORT3
+     C           COND3     IFNE *BLANK
+     C                     MOVELCOND3     K5JOKN
+     C                     MOVEL'C'       K5KANB
+     C           K@AA      CHAINAAAPL01              99
+     C           *IN99     IFEQ *OFF
+     C           A5SKJY    ANDNE'D'
+     C                     MOVELA5JOKM    SORT3
+     C                     ENDIF
+     C                     ENDIF
+      * GET SORT4
+     C           COND4     IFNE *BLANK
+     C                     MOVELCOND4     K5JOKN
+     C                     MOVEL'C'       K5KANB
+     C           K@AA      CHAINAAAPL01              99
+     C           *IN99     IFEQ *OFF
+     C           A5SKJY    ANDNE'D'
+     C                     MOVELA5JOKM    SORT4
+     C                     ENDIF
+     C                     ENDIF
+      * TRUNCATE SORT FIELD
+     C           SORT#     IFEQ *BLANK
+     C                     GOTO XSORT
+     C                     ENDIF
+      *
+     C                     Z-ADD0         IX      20
+     C                     Z-ADD0         IY      20
+     C                     MOVE *OFF      DLTFLG  1
+     C                     MOVEASORT#     AR1
+     C                     MOVEA*BLANK    AR2
+     C           1         DO   80        IX
+     C                     SELEC
+     C           AR1,IX    WHNE *BLANK
+     C                     ADD  1         IY
+     C                     MOVE AR1,IX    AR2,IY
+     C                     MOVE *OFF      DLTFLG
+     C           DLTFLG    WHEQ *OFF
+     C                     ADD  1         IY
+     C                     MOVE AR1,IX    AR2,IY
+     C                     MOVE *ON       DLTFLG
+     C                     ENDSL
+     C                     ENDDO
+      *
+     C                     MOVEAAR2       @SORT
+      *
+     C           XSORT     ENDSR
+      ******************************************************
+      * INITIALIZE
+      ******************************************************
+     C           #INIT     BEGSR
+      *
+     C           K@AF      KLIST
+     C                     KFLD           K3ATK1
+     C                     KFLD           K3ATK2
+     C                     KFLD           K3ATK3
+     C                     KFLD           K3ATK4
+      *
+     C           K@AA      KLIST
+     C                     KFLD           K5JOKN
+     C                     KFLD           K5KANB
+      *
+     C           *LIKE     DEFN A3ATK1    K3ATK1
+     C           *LIKE     DEFN A3ATK2    K3ATK2
+     C           *LIKE     DEFN A3ATK3    K3ATK3
+     C           *LIKE     DEFN A3ATK4    K3ATK4
+      *
+     C           *LIKE     DEFN A5JOKN    K5JOKN
+     C           *LIKE     DEFN A5KANB    K5KANB
+      *
+     C                     Z-ADD*DATE     @TODAY  80
+     C                     TIME           @TIME   60
+     C                     MOVEL'-'       HI1
+     C                     MOVEL'-'       HI2
+     C                     MOVEL'-'       HI3
+     C                     MOVEL'-'       HI4
+     C                     MOVELTBL,1     AP1
+     C                     MOVELTBL,1     AP2
+      *
+     C                     ENDSR
+**
+'

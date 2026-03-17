@@ -1,0 +1,348 @@
+     H            Y.
+     F** CHKR49C ***************************************************************
+     F*  PROGRAM    : CHECK FORECAST (ABAWP10 VS ABBPP01)                      *
+     F*             : READ ABAWP10 (BY SCHEDULE DATE)                          *
+     F*  WRITTEN    : 2023.08.30  BY JW                                        *
+     F* ----------------------------------------------------                   *
+     F*  IF UPD FLAG=Y --> UPDATE ABAWP01 BY ABBPP01                           *
+     F**************************************************************************
+     FABAWL13 IF  E           K        DISK
+     FABBPL05 IF  E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+     F**************************************************************************
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I                                       13  140SDAY
+     I            DS
+     I                                        1  20 SVMHIN
+     I                                        1   5 SVMHN1
+     I                                        6  10 SVMHN2
+     I                                       11  15 SVMHN3
+     I                                       16  20 SVMHN4
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+XXX  C           @BASE0    SETLLABAWL13
+     C                     DO   *HIVAL
+     C                     READ ABAWL13                  98
+     C   98                LEAVE
+      *
+XXX  C           ABDATE    IFGT @BASE2
+     C                     LEAVE
+     C                     ENDIF
+      * IGNORE
+     C           ABNNSU    IFLE 100
+     C                     ITER
+     C                     ENDIF
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     EXSR #MOVE
+     C                     ENDIF
+      * BREAK?
+     C           ABDATE    IFNE SVDATE
+     C           ABTOKU    ORNE SVTOKU
+     C           ABNONY    ORNE SVNONY
+     C           ABNKOJ    ORNE SVNKOJ
+     C           ABNUKE    ORNE SVNUKE
+     C           ABMHN1    ORNE SVMHN1
+     C           ABMHN2    ORNE SVMHN2
+     C           ABMHN3    ORNE SVMHN3
+     C           ABMHN4    ORNE SVMHN4
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * PROCESS
+     C                     ADD  ABNNSU    SVNNSU
+      *
+     C                     ENDDO
+      * LAST BREAK?
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     ENDIF
+      *
+     C           SEQ#      IFEQ 0
+     C                     EXCPT@MSG
+     C                     ELSE
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      * BREAK PROCESS                                      *
+      *----------------------------------------------------*
+     C           #BRK1     BEGSR
+      *
+     C                     MOVELSVNONY    K#NONY
+     C                     MOVELSVMHN1    K#MHN1
+     C                     MOVELSVMHN2    K#MHN2
+     C                     MOVELSVMHN3    K#MHN3
+     C                     MOVELSVMHN4    K#MHN4
+     C                     MOVELSVNKOJ    K#NKOJ
+     C                     MOVELSVNUKE    K#NUKE
+     C           K#PL05    CHAINABBPL05              97
+     C           *IN97     IFEQ *ON
+     C                     Z-ADD0         Q5NNNM
+     C                     Z-ADD0         Q51NNM
+     C                     Z-ADD0         Q52NNM
+     C                     ENDIF
+      *
+     C                     SELEC
+     C           SVDATE    WHEQ @BASE0
+     C                     Z-ADDQ5NNNM    XPP01
+     C           SVDATE    WHEQ @BASE1
+     C                     Z-ADDQ51NNM    XPP01
+     C           SVDATE    WHEQ @BASE2
+     C                     Z-ADDQ52NNM    XPP01
+     C                     ENDSL
+      * DISCREPANCY %
+     C           XPP01     SUB  SVNNSU    DIFF    90
+     C           DIFF      MULT 100       NUM90  110
+      *
+     C           SVNNSU    IFEQ 0
+     C                     Z-ADD100       XDISC
+     C                     ELSE
+     C           NUM90     DIV  SVNNSU    XDISC
+     C                     ENDIF
+      *
+     C           DIFF      IFLT 0
+     C           DIFF      MULT -1        XDIFF   90
+     C                     ELSE
+     C                     Z-ADDDIFF      XDIFF
+     C                     ENDIF
+      * GET QPC
+     C                     MOVELSVTOKU    $TOKU
+     C                     MOVELSVNONY    $NONY
+     C                     MOVELSVMHIN    $MHIN
+     C                     MOVE 'USR'     $HTYP
+     C                     MOVELTODAY     $DATE1
+     C                     CALL 'UTLR35'
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $HTYP   3
+     C                     PARM           $DATE1  8
+     C                     PARM           $SYOS   6
+     C                     PARM           $RTNX   1
+     C                     MOVEL$SYOS     QPC     60
+      * CHECK
+     C           XDIFF     IFGT QPC                        DIFF > QPC ?
+     C           SVNNSU    ANDNEXPP01
+     C**         XDISC     IFGE 1
+     C**         XDISC     ORLE -1
+     C                     EXSR #PRINT
+      * UPDATE
+     C           $UPD      IFEQ 'Y'
+     C           *IN97     ANDEQ*OFF
+      *
+     C                     SELEC
+     C           SVDATE    WHEQ @BASE0
+     C**                   Z-ADDSVNNSU    Q5NNNM
+     C                     Z-ADDQ5NNNM    SVNNSU
+     C           SVDATE    WHEQ @BASE1
+     C**                   Z-ADDSVNNSU    Q51NNM
+     C                     Z-ADDQ51NNM    SVNNSU
+     C           SVDATE    WHEQ @BASE2
+     C**                   Z-ADDSVNNSU    Q52NNM
+     C                     Z-ADDQ52NNM    SVNNSU
+     C                     ENDSL
+      *
+     C**                   UPDATABAPP011
+     C                     EXSR #UPD1
+     C                     ADD  1         UPDCNT
+     C                     ENDIF
+      *
+     C**                   ENDIF
+     C                     ENDIF
+      * RESET
+     C                     EXSR #MOVE
+     C                     Z-ADD0         SVNNSU  90
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * UPDATE ABAWP10                                     *
+      *----------------------------------------------------*
+     C           #UPD1     BEGSR
+      *
+     C                     MOVELSVTOKU    $TOKU
+     C                     MOVELSVNONY    $NONY
+     C                     MOVELSVNKOJ    $NKOJ
+     C                     MOVELSVNUKE    $NUKE
+     C                     MOVELSVMHN1    $MHN1
+     C                     MOVELSVMHN2    $MHN2
+     C                     MOVELSVMHN3    $MHN3
+     C                     MOVELSVMHN4    $MHN4
+     C                     MOVELSVDATE    $DATE2
+     C                     MOVELSVNNSU    $QTY
+     C                     CALL 'UEXR50'
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $NKOJ   1
+     C                     PARM           $NUKE   4
+     C                     PARM           $MHN1   5
+     C                     PARM           $MHN2   5
+     C                     PARM           $MHN3   5
+     C                     PARM           $MHN4   5
+     C                     PARM           $DATE2  6
+     C                     PARM           $QTY    9
+     C                     PARM           $RTN    1
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * SET DATA                                           *
+      *----------------------------------------------------*
+     C           #MOVE     BEGSR
+      *
+     C                     Z-ADDABDATE    SVDATE  60
+     C                     Z-ADDABTOKU    SVTOKU  40
+     C                     Z-ADDABNONY    SVNONY  40
+     C                     MOVELABNKOJ    SVNKOJ  1
+     C                     MOVELABNUKE    SVNUKE  4
+      *
+     C                     MOVELABMHN1    SVMHN1  5
+     C                     MOVELABMHN2    SVMHN2  5
+     C                     MOVELABMHN3    SVMHN3  5
+     C                     MOVELABMHN4    SVMHN4  5
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      * EDIT
+     C                     Z-ADDDIFF      $DIFF   60
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $UPD    1
+     C                     PARM           $RTN    1
+      *
+     C           K#PL05    KLIST
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#MHN1  5
+     C                     KFLD           K#MHN2  5
+     C                     KFLD           K#MHN3  5
+     C                     KFLD           K#MHN4  5
+     C                     KFLD           K#NKOJ  1
+     C                     KFLD           K#NUKE  4
+      *
+     C           $UPD      IFNE 'Y'
+     C                     MOVE 'N'       $UPD
+     C                     ENDIF
+      *
+     C                     TIME           SDATE
+     C                     MOVE ' '       $RTN
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD0         XPP01   90
+     C                     Z-ADD0         XDISC   41
+     C                     Z-ADD0         UPDCNT  40
+      * PRINT HEADER
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#    20
+      * GET DATE (YYYY/MM)
+     C           SDAY      IFLE 20
+     C                     MOVELTODAY     @BASE0  60
+     C                     ELSE
+     C                     MOVELTODAY     $DT6
+     C                     MOVE '+'       $SIGN
+     C                     MOVE '01'      $MON
+     C                     CALL 'UTLR25'
+     C                     PARM           $DT6
+     C                     PARM           $SIGN
+     C                     PARM           $MON
+     C                     PARM           $TGT6
+     C                     PARM           $RTNX
+     C                     MOVEL$TGT6     @BASE0
+     C                     ENDIF
+      * N+1
+     C                     MOVEL@BASE0    $DT6
+     C                     MOVE '+'       $SIGN
+     C                     MOVE '01'      $MON
+     C                     CALL 'UTLR25'
+     C                     PARM           $DT6    6
+     C                     PARM           $SIGN   1
+     C                     PARM           $MON    2
+     C                     PARM           $TGT6   6
+     C                     PARM           $RTNX   1
+     C                     MOVEL$TGT6     @BASE1  60
+      * N+2
+     C                     MOVEL@BASE1    $DT6
+     C                     CALL 'UTLR25'
+     C                     PARM           $DT6    6
+     C                     PARM           $SIGN   1
+     C                     PARM           $MON    2
+     C                     PARM           $TGT6   6
+     C                     PARM           $RTNX   1
+     C                     MOVEL$TGT6     @BASE2  60
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                         $UPD      12
+     O                                   40 '** FORECAST ABAWP10 '
+     O                                   60 'VS ABBPP01 ERROR REP'
+     O                                   80 'ORT **              '
+     O                                   89 'DATE'
+     O                         TODAY     92 '    .  .  '
+     O                         NOW      102 '  :  :  '
+     O                                  106 'P.'
+     O                         PAGE  Z  110
+     O        E   02           @HDR
+     O                                   20 'CHG --> CALL CHKR49A'
+     O                                   40 ' (/Y/ //)           '
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   10 'DATE'
+     O                                   18 'CUST'
+     O                                   23 'DELV'
+     O                                   40 'USER_PART'
+     O                                   63 'IAF_PART'
+     O                                   81 'ABAWP10'
+     O                                   93 'ABBPP01'
+     O                                  105 'DIFF'
+     O                                  119 'DISCRE %'
+     O                                  126 'QPC'
+     O        E 1              @DTL
+     O                         SEQ#  1 +000
+     O                         SVDATE  +001 '    /  '
+     O                         SVTOKU  +001
+     O                         SVNONY  +001
+     O                         SVNKOJ  +001
+     O                         SVNUKE  +001
+     O                         SVMHN1  +001
+     O                         SVMHN2  +001
+     O                         SVMHN3  +001
+     O                         SVMHN4  +001
+     O                N97      Q5SHN1  +001
+     O                N97      Q5SHN2  +001
+     O                N97      Q5SHN3  +001
+     O                         SVNNSU1 +001
+     O                         XPP01 1 +001
+     O                         $DIFF J +005
+     O                         XDISC J +005
+     O                         QPC   1 +002
+      *
+     O        E 1              @MSG
+     O                                   14 '** NO DATA **'

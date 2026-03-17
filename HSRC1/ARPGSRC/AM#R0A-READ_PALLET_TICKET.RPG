@@ -1,0 +1,191 @@
+     H            Y.
+     F** AM#R0A *********************************************
+     F* READ PALLET TICKET
+     F*    ITS.             2015.06.01                      *
+JW1  F*    JW   2020.09.15  ADD DUMMY (TO DETECT INDIRECT CALL) *
+     F***********************************************************
+     FAM#PW0A CF  E                    WORKSTN
+     E                    ER      1  11 65
+      *
+     IB2D         DS
+     I                                        1  25 BAR01
+     I                                       26  50 BAR02
+     I                                       51  72 BAR03
+      *
+     I            DS
+     I                                        1  72 TICKET
+     I                                        1   9 TISURT
+     I                                       10  17 TISHID
+     I                                       18  23 TISHIT
+     I                                       24  38 TISMEI
+     I                                       39  40 TIDOCK
+     I                                       41  52 TIORD#
+     I                                       53  54 TIPALT
+     I                                       55  58 TINONY
+     I                                       59  59 TINKOJ
+     I                                       60  63 TINUKE
+     I                                       64  66 TIIAFB
+     I                                       67  69 TIIAFP
+     I                                       70  70 TIPPUL
+     I                                       71  71 TIEXT
+     I                                       72  72 TISAT
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        7  14 SDATE
+     I                                        1   6 STIME
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           WORKER  6
+     C                     PARM           WUSRID 10
+     C                     PARM           P1PPUL  1
+     C                     PARM           P9TICK100
+     C                     PARM           PCMD    2
+      *----------------------------------------------------*
+      * IN
+      *ＰＡＬＬＥＴＰＵＬＬＩＮＧ
+      * OUT
+      *チケット読み取り内容
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     EXSR #SB100
+     C           DSPSW     DOUEQ'99'
+     C                     EXSR #SB200
+     C                     ENDDO
+     C                     EXSR #SB300
+      *----------------------------------------------------*
+      * INZ                                                *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     TIME           WTIME
+     C                     MOVEL'01'      DSPSW   2
+     C                     MOVEL*BLANK    PCMD    2
+     C                     MOVELWORKER    USRCD
+     C                     MOVEL*BLANK    P9TICK
+     C                     CLEARB2D
+JW1  C                     GOTO ESB100
+ |    ****************************************
+ |    * UN-PROCESS LINE (FOR INDIRECT CALL)  *
+ |    ****************************************
+JW1  C                     CALL 'AM#C45N'                  D1SEL=1
+      *
+     CSR         ESB100    ENDSR
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C           DSPSW     DOWEQ'01'
+     C                     EXSR #SB210
+     C                     ENDDO
+      *
+     CSR         ESB200    ENDSR
+      *----------------------------------------------------*
+      *                                                    *
+      *----------------------------------------------------*
+     CSR         #SB210    BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANK    MSG
+     C                     SETOF                     3199
+      *
+     C                     TIME           WTIME
+     C           *IN03     IFEQ '1'
+     C                     MOVEL'03'      PCMD    2
+     C                     MOVEL'99'      DSPSW   2
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C           B2D       IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,1      MSG
+     C                     EXSR #SB999
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C                     MOVELB2D       TICKET
+     C           P1PPUL    IFEQ '1'
+     C           TIPPUL    IFNE '1'
+     C                     SETON                     3199
+     C                     MOVELER,2      MSG
+     C                     EXSR #SB999
+     C                     GOTO ESB210
+     C                     ENDIF
+     C                     ENDIF
+      *総箱数と読取済み箱数
+     C                     Z-ADD0         P2TOTL
+     C                     Z-ADD0         P2SUMI
+     C                     CALL 'AM#R02'
+     C                     PARM           TISHID
+     C                     PARM           TISHIT
+     C                     PARM           TISURT
+     C                     PARM           TINONY
+     C                     PARM           TINKOJ
+     C                     PARM           TINUKE
+     C                     PARM           TIORD#
+     C                     PARM           TIPALT
+     C                     PARM           TIIAFB
+     C                     PARM           TIIAFP
+     C                     PARM           P2TOTL  30
+     C                     PARM           P2SUMI  30
+     C           P2TOTL    IFEQ 0
+     C                     SETON                     3199
+     C                     MOVELER,4      MSG
+     C                     EXSR #SB999
+     C                     GOTO ESB210
+     C                     ENDIF
+     C                     MOVELTIIAFB    D2IAFB
+     C                     MOVELTIIAFP    D2IAFP
+     C                     MOVELTISURT    D2SURT
+     C                     MOVELTIORD#    D2ORD#
+     C                     MOVELTISMEI    D2SMEI
+     C                     MOVELTIDOCK    D2DOCK
+     C                     MOVELTIPALT    D2PALT
+     C                     Z-ADDP2SUMI    D2SUMI
+     C                     Z-ADDP2TOTL    D2TOTL
+     C           P2TOTL    IFEQ P2SUMI
+     C                     MOVELER,5      D2MSG
+     C                     EXFMTDSP02
+     C                     CLEARB2D
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C                     MOVELB2D       P9TICK
+     C                     MOVEL'05'      PCMD    2
+     C                     MOVEL'99'      DSPSW   2
+      *
+     CSR         ESB210    ENDSR
+      *----------------------------------------------------*
+      * END                                                *
+      *----------------------------------------------------*
+     CSR         #SB300    BEGSR
+     C                     SETON                     LR
+     C                     RETRN
+     CSR         ESB300    ENDSR
+      *----------------------------------------------------*
+      * ERR                                                *
+      *----------------------------------------------------*
+     CSR         #SB999    BEGSR
+      *
+     C                     MOVELMSG       P1ERR
+     C                     CALL 'AM#R08'
+     C                     PARM           P1ERR  25
+     C                     SETOF                     3199
+     C                     CLEARB2D
+     C                     MOVEL*BLANK    MSG
+      *
+     CSR         ESB999    ENDSR
+**
+INPUT PALLET TICKET.
+NOT PALLET PULLING.
+SCANNED ALL.
+NO PALLET DATA.
+COMPLETED.

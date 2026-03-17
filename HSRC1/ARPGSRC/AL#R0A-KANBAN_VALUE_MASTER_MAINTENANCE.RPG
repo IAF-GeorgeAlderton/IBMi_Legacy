@@ -1,0 +1,200 @@
+     H            Y/                                    1
+     H* AL#R0A ********************************************************
+     H* KANBAN VALUE MASTER MAINTENANCE                               *
+     H* JW     2021.11.02                                             *
+     H*****************************************************************
+     FAL#PW0A CF  E                    WORKSTN
+     FAL#PP00 UF  E           K        DISK                      A
+      *================================================================
+     E                    MSG     1  20 60
+      *================================================================
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                     *PROGRAM #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *===============================================================
+      *  START  PROGRAM
+      *===============================================================
+     C                     EXSR #INIT
+      *
+     C                     DO   *HIVAL
+     C                     EXFMTDSP01
+     C                     SETOF                     414285
+     C                     MOVE *BLANK    XMSG
+      * F1: END
+     C           *INKA     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     EXSR #CHK1
+     C           *IN85     IFEQ *OFF
+     C                     EXSR #DSP02
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *===============================================================
+      * VALIDATE 1ST SCREEN
+      *===============================================================
+     C           #CHK1     BEGSR
+      * UPD CODE
+     C           XKBN      IFNE '1'
+     C                     SETON                     41  85
+     C                     MOVELMSG,9     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     SELEC
+     C           XKBN      WHEQ '0'
+     C                     MOVEL'0-CANCEL'XKBNN
+     C           XKBN      WHEQ '1'
+     C                     MOVEL'1-CHANGE'XKBNN
+     C           XKBN      WHEQ '2'
+     C                     MOVEL'2-ADD   'XKBNN
+     C                     OTHER
+     C                     SETON                     41  85
+     C                     MOVELMSG,1     XMSG
+     C                     GOTO XCHK1
+     C                     ENDSL
+      * XKEY
+     C           XKEY      IFNE 'SWKMAX'
+     C                     SETON                     42  85
+     C                     MOVELMSG,6     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C*--------------------
+     C           XKEY      IFEQ *BLANK
+     C                     SETON                     42  85
+     C                     MOVELMSG,2     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C*--------------------
+     C                     MOVELXKEY      KEY10  10
+     C           KEY10     CHAINAL#PP00             N99
+      *
+     C           *IN99     IFEQ *ON
+     C           XKBN      IFEQ '0'                        DLT
+     C           XKBN      OREQ '1'                        CHG
+     C                     SETON                     42  85
+     C                     MOVELMSG,3     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           *IN99     IFEQ *OFF
+     C           XKBN      ANDEQ'2'                        ADD
+     C                     SETON                     42  85
+     C                     MOVELMSG,4     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * IF NO ERROR...
+     C           XKBN      IFEQ '0'
+     C           XKBN      OREQ '1'
+     C                     Z-ADDC0VALU    DVAL
+     C                     MOVELC0TXT     DTEXT
+     C                     ELSE
+     C                     Z-ADD0         DVAL
+     C                     MOVE *BLANK    DTEXT
+     C                     ENDIF
+      *
+     C           XCHK1     ENDSR
+      *===============================================================
+      * DISPLAY 2ND SCREEN
+      *===============================================================
+     C           #DSP02    BEGSR
+      *
+     C                     DO   *HIVAL
+     C                     EXFMTDSP02
+     C                     SETOF                     45  85
+     C                     MOVE *BLANK    XMSG
+      *  < F3 >  BACK
+     C           *INKC     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     EXSR #CHK2
+     C           *IN85     IFEQ *OFF
+     C           *INKE     IFEQ *ON
+     C                     EXSR #UPD
+     C                     LEAVE
+     C                     ELSE
+     C                     MOVELMSG,5     XMSG
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *===============================================================
+      * VALIDATE 2ND SCREEN
+      *===============================================================
+     C           #CHK2     BEGSR
+      *
+     C           DVAL      IFLT 20
+     C           DVAL      ORGT 50
+     C                     SETON                     45  85
+     C                     MOVELMSG,7     XMSG
+     C                     GOTO XCHK2
+     C                     ENDIF
+      *
+     C           XCHK2     ENDSR
+      *===============================================================
+      * UPDATE
+      *===============================================================
+     C           #UPD      BEGSR
+      *
+     C           KEY10     CHAINAL#PP00              99
+      * DELETE
+     C                     SELEC
+     C           XKBN      WHEQ '0'
+     C           *IN99     ANDEQ*OFF
+     C                     DELETAL#PP001
+     C                     MOVELMSG,8     XMSG
+      * CGANGE
+     C           XKBN      WHEQ '1'
+     C           *IN99     ANDEQ*OFF
+     C                     Z-ADDDVAL      C0VALU
+     C                     MOVELDTEXT     C0TXT
+     C                     UPDATAL#PP001
+     C                     MOVELMSG,8     XMSG
+      * ADD
+     C           XKBN      WHEQ '2'
+     C           *IN99     ANDEQ*ON
+     C                     MOVELXKEY      C0KEY
+     C                     Z-ADDDVAL      C0VALU
+     C                     MOVELDTEXT     C0TXT
+     C                     WRITEAL#PP001
+     C                     MOVELMSG,8     XMSG
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *===============================================================
+      *   << INITIAL SET >>
+      *===============================================================
+     C           #INIT     BEGSR
+      *
+     C                     TIME           SDATE
+     C                     MOVE '1'       XKBN
+     C                     MOVEL'SWKMAX'  XKEY
+     C                     MOVE *BLANK    XMSG
+      *
+     C                     ENDSR
+      *===============================================================
+** MSG(60A) .......2.........3.........4.........5.........6
+UPDATE CODE SHOULD BE 0, 1 OR 2!                              1
+ENTER KEY CODE!                                               2
+KEY CODE NOT FOUND!                                           3
+KEY CODE ALREADY EXISTS!                                      4
+PRESS F5 TO UPDATE...                                         5
+KEY CODE SHOULD BE SWKMAX ONLY!                               6
+RANGE OF SWKMAX SHOULD BE BETWEEN 20 AND 50!                  7
+DATA HAS BEEN UPDATED...                                      8
+UPDATE CODE SHOULD BE 1 ONLY!                                 9
+                                                             10

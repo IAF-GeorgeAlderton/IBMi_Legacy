@@ -1,0 +1,198 @@
+     ******************************************************************
+     **  プログラム名   : 部品情報マスタ保守　　　　　　　　     **
+     **                   : （工程マスタ更新）　　　　　　　　     **
+     **  プログラムＩＤ :  MRHR25     <RPG>                        **
+     **  作成年月日     :  2014/01/24                              **
+     **  作成者         :  TR-ITS                                  **
+     **  プログラム概要 : 工程マスタの更新をおこなう             **
+     **--------------------------------------------------------------**
+     **  変更年月日     :  YYYY/MM/DD                              **
+     **  変更者         :                                          **
+     **  変更内容       :                                          **
+     ******************************************************************
+     ** <<使用標識説明>>
+     **        80       :工程マスタ読込
+     **     81～82    :他ファイル読込
+     ******************************************************************
+     H            Y/                                    1
+     **==============================================================**
+     **  ファイル
+     **==============================================================**
+     F*<<工程マスタ>>
+     FMRHPL31 UF  E           K        DISK                      A
+     F*<<工程マスタワークファイル>>
+     FMRHWP31 UF  E           K        DISK
+     **==============================================================**
+     **  配列
+     **==============================================================**
+      *
+     **==============================================================**
+     **  ＤＳ
+     **==============================================================**
+     I*<<システム情報>>
+     I           SDS
+     I                                     *PROGRAM S@PGID
+     I                                      244 253 S@WSID
+     I                                      254 263 S@USID
+     I                                      264 269 S@JBID
+     I*<<システム日時>>
+     I            DS
+     I                                        1  140S@TIME
+     I                                        1   60S@HMS
+     I                                        1   20S@TMHH
+     I                                        3   40S@TMMM
+     I                                        5   60S@TMSS
+     I                                        7  140S@YYMD
+     I                                        7  100S@DYYY
+     I                                       11  120S@DYMM
+     I                                       13  140S@DYDD
+     **--------------------------------------------------------------**
+     I* <<共通>>
+      *
+     **==============================================================**
+     **  パラメータ
+     **==============================================================**
+     C           *ENTRY    PLIST
+     C                     PARM           P@KKBN  1        *更新区分
+     C                     PARM           P@SHN1  5        *社内品番１
+     C                     PARM           P@SHN2  5        *社内品番２
+     C                     PARM           P@SHN3  2        *社内品番３
+     C                     PARM           P@RTCD  1        *リターンコード
+     **==============================================================**
+     **  ＫＥＹ
+     **==============================================================**
+     C* <<工程マスタ(MRHPL31) >>
+     C           EBKEY     KLIST
+     C                     KFLD           EBJHN1           *社内品番１
+     C                     KFLD           EBJHN2           *社内品番２
+     C                     KFLD           EBJHN3           *社内品番３
+     C                     KFLD           EBSEHI           *製品区分
+     C                     KFLD           EBTEHI           *手配区分
+     C* <<工程マスタワークファイル(MRHWP31) >>
+     C           W3KEY     KLIST
+     C                     KFLD           W3JHN1           *社内品番１
+     C                     KFLD           W3JHN2           *社内品番２
+     C                     KFLD           W3JHN3           *社内品番３
+     C                     KFLD           W3SEHI           *製品区分
+     C                     KFLD           W3TEHI           *手配区分
+     **==============================================================**
+     **  メインルーチン
+     **==============================================================**
+      *
+      *---<初期処理>---*
+     C                     EXSR #INIT
+      *
+      *---<主処理>---*
+     C                     EXSR #MAIN
+      *
+      *---<終了処理>---*
+     C                     SETON                     LR
+     C                     RETRN
+      *
+      **************************************************************************
+      *         Ｓ　Ｕ　Ｂ　－　Ｒ　Ｏ　Ｕ　Ｔ　Ｉ　Ｎ　Ｅ
+      **************************************************************************
+      *-------------------------------------------------------------------------
+      *          #INIT    初期処理
+      *-------------------------------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C                     TIME           S@TIME
+     C                     MOVEL*BLANK    P@RTCD           *リターンコード
+      *
+     C                     MOVEL'S'       W@SEHI  1        *製品区分
+     C                     MOVEL'S'       W@TEHI  1        *手配区分
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #MAIN    メイン処理
+      *-------------------------------------------------------------------------
+     C           #MAIN     BEGSR
+      *工程マスタ　初期クリア
+      *　工程マスタ(MRHPL31)
+     C                     MOVELP@SHN1    EBJHN1           *社内品番１
+     C                     MOVELP@SHN2    EBJHN2           *社内品番２
+     C                     MOVELP@SHN3    EBJHN3           *社内品番３
+     C                     MOVELW@SEHI    EBSEHI           *製品区分
+     C                     MOVELW@TEHI    EBTEHI           *手配区分
+     C           EBKEY     SETLLMRHPL311
+     C           EBKEY     READEMRHPL311                 80
+     C           *IN80     DOWEQ'0'                        ¬DO_01
+     C           EBGSKD    IFEQ 'D'                        ~¬IF_01
+     C           EBGSHZ    ANDLES@YYMD
+     C                     ELSE                            -+ELSE_01
+      *　工程マスタ(MRHPL31)削除
+     C                     EXSR #DEL10                     * DELETE(UPDAT)
+     C                     END                             _｢IF_01
+     C           EBKEY     READEMRHPL311                 80
+     C                     END                             ｢DO_01
+      *
+      *工程マスタ　出力
+      *　工程マスタワークファイル(MRHWP31)
+     C                     MOVELP@SHN1    W3JHN1           *社内品番１
+     C                     MOVELP@SHN2    W3JHN2           *社内品番２
+     C                     MOVELP@SHN3    W3JHN3           *社内品番３
+     C                     MOVELW@SEHI    W3SEHI           *製品区分
+     C                     MOVELW@TEHI    W3TEHI           *手配区分
+     C           W3KEY     SETLLMRHWP311
+     C           W3KEY     READEMRHWP311                 81
+     C           *IN81     DOWEQ'0'                        ¬DO_01
+      *　工程マスタ(MRHPL31)出力
+     C                     EXSR #WRT10                     * WRITE
+     C           W3KEY     READEMRHWP311                 81
+     C                     END                             ｢DO_01
+      *
+      *工程マスタワークファイル(MRHWP31)削除
+     C           *LOVAL    SETLLMRHWP311
+     C                     READ MRHWP311                 81
+     C           *IN81     DOWEQ'0'                        ¬DO_01
+     C                     DELETMRHWP311                   * DELETE
+     C                     READ MRHWP311                 81
+     C                     END                             ｢DO_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #DEL10   工程マスタ(MRHPL31)削除処理(UPDAT)
+      *-------------------------------------------------------------------------
+     C           #DEL10    BEGSR
+      *
+     C                     MOVEL'D'       EBGSKD           * DELETE CODE D
+     C                     Z-ADDS@YYMD    EBGSHZ           * DELETE DATE
+     C                     MOVELS@USID    EBGSNM           * DELETE PERSON
+     C                     Z-ADDS@YYMD    EBGKHZ           * UPDATE DATE
+     C                     Z-ADDS@HMS     EBGKTM           * UPDATE TIME
+     C                     MOVELS@PGID    EBGKPG           * UPDATE PROGRAM
+     C                     MOVELS@USID    EBGKNM           * UPDATE PERSON
+      *
+     C                     UPDATMRHPL311
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #WRT10   工程マスタ(MRHPL31)追加処理(WRITE)
+      *-------------------------------------------------------------------------
+     C           #WRT10    BEGSR
+      *
+     C                     CLEARMRHPL311
+      *
+     C                     Z-ADDS@YYMD    EBGKHZ           * UPDATE DATE
+     C                     Z-ADDS@HMS     EBGKTM           * UPDATE TIME
+     C                     MOVELS@PGID    EBGKPG           * UPDATE PROGRAM
+     C                     MOVELS@USID    EBGKNM           * UPDATE PERSON
+     C                     MOVELW3JHN1    EBJHN1           * INHOUSE PART NUMBER
+     C                     MOVELW3JHN2    EBJHN2           * INHOUSE PART NUMBER
+     C                     MOVELW3JHN3    EBJHN3           * INHOUSE PART NUMBER
+     C                     MOVELW3SEHI    EBSEHI           * PRODUCT INSTRUCTION
+     C                     Z-ADDW3KSEQ    EBKSEQ           * PROCESS NO.
+     C                     MOVELW3TEHI    EBTEHI           * PRODUCTION ORDER IN
+     C                     MOVELW3MKTE    EBMKTE           * PROCESS CODE
+     C                     Z-ADDW3MBMN    EBMBMN           * FACTORY
+     C                     MOVELW3MSNO    EBMSNO           * MACHINE NO.
+     C                     Z-ADDS@YYMD    EBGRHZ           * ADD DATE
+     C                     Z-ADDS@HMS     EBGRTM           * ADD TIME
+     C                     MOVELS@PGID    EBGRPG           * ADD PROGRAM
+     C                     MOVELS@USID    EBGRNM           * ADD PERSON'
+      *
+     C                     WRITEMRHPL311
+      *
+     C                     ENDSR
+      *----------------------------------------------------------------

@@ -1,0 +1,262 @@
+     H            Y/
+     F***************************************************
+     F*  INVENTORY ADJUSTMENT                           *
+     F*                                                 *
+     F*                                                 *
+     F*                                                 *
+     F***************************************************
+     FAFEPW20 CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     F                                              KINFDS @INFDS
+     FAH#PL50 UF  E           K        DISK
+     FAH#PL61 UF  E           K        DISK
+      *------------------------------------------------------------
+     E                    CMD     1   2 78
+     E                    ER      1   2 78
+      *------------------------------------------------------------
+     I@INFDS      DS
+     I                                    B 378 3790@@REC
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *------------------------------------------------------
+      *  MAIN ROUTINE
+      *------------------------------------------------------
+     C           W@ID      DOWNE'99'
+     C           W@ID      CASEQ'01'      #SCRN1
+     C           W@ID      CASEQ'02'      #SCRN2
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *------------------------------------------------------
+      *  INITIALIZE
+      *------------------------------------------------------
+     C           *INZSR    BEGSR
+      *
+     C           K#KEY     KLIST
+     C                     KFLD           D@PRT1
+     C                     KFLD           D@PRT2
+     C                     KFLD           D@PRT3
+     C           K#60      KLIST
+     C                     KFLD           D@PRT1
+     C                     KFLD           D@PRT2
+     C                     KFLD           D@PRT3
+     C                     KFLD           H@ISDT
+     C                     KFLD           H@ZENO
+     C                     KFLD           S@THAI
+     C                     KFLD           S@PAGE
+      *
+     C                     MOVEL'01'      W@ID    2
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *   1ST SCREEN
+      *------------------------------------------------------
+     C           #SCRN1    BEGSR
+      *
+     C                     MOVELCMD,1     D@CMD
+     C                     WRITEDSP99
+     C                     EXFMTDSP01
+      *
+     C                     SELEC
+     C           *INKA     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+      *
+     C                     OTHER
+     C                     EXSR #CHK1
+     C           *IN99     IFEQ *OFF
+     C                     EXSR #SET11
+     C                     EXSR #SET12
+     C           RRN1      IFNE 0
+     C                     MOVEL'02'      W@ID
+     C                     ELSE
+     C                     MOVE ER,1      D@MSG
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *   CHECK
+      *------------------------------------------------------
+     C           #CHK1     BEGSR
+      *
+     C                     EXSR #CLR
+     C           K#KEY     CHAINAH#PL61             N90
+     C           *IN90     IFEQ *ON
+     C                     MOVE ER,1      D@MSG
+     C                     SETON                     6199
+     C                     ENDIF
+      *
+     C           D@TO      IFEQ *ZERO
+     C           D@FRM     ANDNE*ZERO
+     C                     Z-ADDD@FRM     D@TO
+     C                     ENDIF
+      *
+     C           D@TO      IFEQ *ZERO
+     C           D@FRM     ANDEQ*ZERO
+     C                     Z-ADD99999999  D@TO
+     C                     ENDIF
+      *
+     C           D@TO      IFLT D@FRM
+     C  N99                MOVE ER,2      D@MSG
+     C                     SETON                     6299
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *   CLEAR
+      *------------------------------------------------------
+     C           #CLR      BEGSR
+      *
+     C                     MOVE *OFF      *IN99
+     C                     MOVEA'00000000'*IN,60
+     C                     MOVE *BLANK    D@MSG
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *   SET DATA FOR SFL CTL
+      *------------------------------------------------------
+     C           #SET11    BEGSR
+      *
+     C                     MOVE *ON       *IN52
+     C                     WRITECTL01
+     C                     MOVE *OFF      *IN52
+     C                     Z-ADD*ZERO     RRN1    40
+      *
+      * WIP/STOCK
+     C           K#KEY     CHAINAH#PL50             N90
+     C           *IN90     IFEQ *OFF
+     C                     Z-ADDA5INVQ    D@BQTY
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *   SET DATA FOR SFL
+      *------------------------------------------------------
+     C           #SET12    BEGSR
+      *
+     C                     CLEARSFL01
+     C           K#KEY     SETLLAH#PL61
+     C           *IN90     DOUEQ*ON
+     C           K#KEY     READEAH#PL61             N    90
+     C           *IN90     IFEQ *OFF
+     C           A6SKJY    ANDEQ*BLANK
+     C                     ADD  1         RRN1
+      *
+     C                     MOVE A6THNO    S@THAI
+     C                     MOVE A6PAGE    S@PAGE
+     C                     Z-ADDA6ISDT    S@ISDT
+     C                     Z-ADDA6ISDT    H@ISDT
+     C                     MOVE A6ZENO    H@ZENO
+     C                     WRITESFL01
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *   2ND SCREEN
+      *------------------------------------------------------
+     C           #SCRN2    BEGSR
+      *
+     C                     MOVELCMD,2     D@CMD
+     C                     WRITEDSP99
+     C                     MOVE *ON       *IN51
+     C                     EXFMTCTL01
+     C                     MOVE *OFF      *IN51
+      *
+     C                     SELEC
+     C           *INKA     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+     C           *INKL     WHEQ *ON
+     C                     MOVEL'01'      W@ID
+     C                     OTHER
+     C                     EXSR #CHK2
+     C           *IN99     IFEQ *OFF
+     C           *INKE     ANDEQ*ON
+     C                     EXSR #UPD
+     C                     MOVEL'01'      W@ID
+     C                     ENDIF
+      *
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *  CHECK - 2ND SCREEN
+      *------------------------------------------------------
+     C           #CHK2     BEGSR
+      *
+     C                     Z-ADD*ZERO     WRRN    40
+     C                     MOVE *ON       *IN99
+     C           *IN90     DOUEQ*ON
+     C                     ADD  1         WRRN
+     C           WRRN      CHAINSFL01                90
+     C           *IN90     IFEQ *OFF
+     C           S@SLCT    ANDEQ'D'
+     C                     MOVE *OFF      *IN99
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *  UPDATE
+      *------------------------------------------------------
+     C           #UPD      BEGSR
+      *
+     C                     Z-ADD*ZERO     WRRN    40
+     C           *IN90     DOUEQ*ON
+     C                     ADD  1         WRRN
+     C           WRRN      CHAINSFL01                90
+     C           *IN90     IFEQ *OFF
+     C           S@SLCT    ANDEQ'D'
+     C           K#60      SETLLAH#PL61
+     C           *IN91     DOUEQ*ON
+     C           K#60      READEAH#PL61                  91
+     C           *IN91     IFEQ *OFF
+     C           A6SKJY    ANDEQ*BLANK
+     C                     MOVE 'D'       A6SKJY
+     C                     Z-ADD*DATE     A6SKDT
+     C                     Z-ADD*DATE     A6KODT
+     C                     TIME           A6KOTM
+     C                     MOVEL#USER     A6KOME
+     C                     UPDATAH#PP601
+      *
+     C           K#KEY     CHAINAH#PL50              92
+     C           *IN92     IFEQ *OFF
+     C                     Z-ADD*DATE     A5KODT
+     C                     TIME           A5KOTM
+     C                     MOVEL#USER     A5KOME
+     C                     SUB  1         A5INVQ
+     C                     SELEC
+     C           A6CHYU    WHEQ 'A'
+     C           A6CHYU    OREQ 'T'
+     C                     SUB  1         A5INVA
+     C           A6CHYU    WHEQ 'M'
+     C                     SUB  1         A5INVM
+     C           A6CHYU    WHEQ 'R'
+     C                     SUB  1         A5INVR
+     C                     OTHER
+     C                     SUB  1         A5INVS
+     C                     ENDSL
+     C                     UPDATAH#PP501
+     C                     ENDIF
+      *
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+**  CMD
+ F1:EXIT
+ F1:EXIT    F5:DELETE    F12:GO BACK
+**  ER
+  NO DATA
+  DATE ERROR

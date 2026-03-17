@@ -1,0 +1,320 @@
+     H            Y.
+     F*******************************************************
+     FAM#PW21PCF  E                    WORKSTN
+     FAM#PL29 IF  E           K        DISK
+     E                    ER      1  10 65
+     E                    BAD#    1   7 20
+     E                    TICK       12  1
+      *
+     IB2D         DS
+     I                                        1  19 BAR01
+      *
+      * TRUCK TICKET QR BARCODE
+     I            DS
+     I                                        1  25 TT
+     I                                        1   3 EXPDIT
+     I                                        1   7 TTSURT
+     I                                        8  15 TTSHDT
+     I                                        8  11 TTSHYY
+     I                                       12  13 TTSHMM
+     I                                       14  15 TTSHDD
+     I                                       16  21 TTSHTM
+     I                                       16  17 TTSHHH
+     I                                       18  19 TTSHMN
+     I                                       20  21 TTSHSS
+     I                                        8  19 TTDTTM
+     I                                       22  25 TTFILR
+     I            DS
+     I                                        1  140WTIME
+     I                                        7  140SDATE
+     I                                        1   60STIME
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           SURT    9
+     C                     PARM           SHID    8
+     C                     PARM           SHIT    4
+     C                     PARM           TRLR#  20
+     C                     PARM           DRNMF   9
+     C                     PARM           DRNML  12
+     C                     PARM           PCMD    2
+     C                     PARM           SCAC    6
+      *
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     EXSR #SB100
+     C           DSPSW     DOUEQ'99'
+     C                     EXSR #SB200
+     C                     ENDDO
+     C                     EXSR #SB300
+      *----------------------------------------------------*
+      * INZ                                                *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     TIME           WTIME
+     C                     MOVEL'01'      DSPSW   2
+     C                     MOVEL*BLANK    PCMD
+     C                     CLEARB2D
+      *
+     C           KEY       KLIST
+     C                     KFLD           KKSURT  9
+     C                     KFLD           KKSHDT  8
+     C                     KFLD           KKSHTM  6
+      *
+     CSR         ESB100    ENDSR
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C           DSPSW     DOWEQ'01'
+     C                     EXSR #SB210
+     C                     ENDDO
+      *
+     C           DSPSW     DOWEQ'02'
+     C                     EXSR #SB220
+     C                     ENDDO
+      *
+     C           DSPSW     DOWEQ'03'
+     C                     EXSR #SB230
+     C                     ENDDO
+      *
+     CSR         ESB200    ENDSR
+      *----------------------------------------------------*
+      *　⒳�痧���Ј灈�聭饎�　　　　　　　　　　　　�
+      *----------------------------------------------------*
+     CSR         #SB210    BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANK    MSG
+     C                     SETOF                     3199
+      *
+     C                     TIME           WTIME
+     C           *IN03     IFEQ '1'
+     C                     MOVEL'03'      PCMD
+     C                     MOVEL'99'      DSPSW
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C           B2D       IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,1      MSG
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C                     MOVELB2D       TT
+      * if route is expedite (route starts with EX-) there's no ship date/time..
+     C           EXPDIT    IFEQ 'EX-'
+     C                     ELSE
+      *
+      * check truck ticket date and time for blanks.
+      * if date and time contains a blank it's invalid.
+     C                     MOVE '00'      TTSHTM
+     C                     MOVE *BLANKS   TICK
+      *
+     C                     MOVEATTDTTM    TICK
+     C                     DO   12        X       60
+     C           TICK,X    IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,2      MSG
+     C                     GOTO ESB210
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDIF
+      *
+     C                     MOVELTTSURT    KKSURT
+     C                     MOVELTTSHDT    KKSHDT
+     C                     MOVELTTSHTM    KKSHTM
+      *
+     C           KEY       CHAINAM#PL29              53
+     C           *IN53     IFEQ *ON
+     C                     SETON                     3199
+     C                     MOVELER,3      MSG
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C           EXPDIT    IFEQ 'EX-'
+     C           TTSHDT    ANDEQ*BLANKS
+     C           TTSHTM    ANDEQ*BLANKS
+     C                     MOVELTTSURT    SURT
+     C                     MOVEL*BLANKS   SHID
+     C                     MOVEL*BLANKS   SHIT
+     C                     ELSE
+     C                     MOVELKKSURT    SURT
+     C                     MOVELKKSHDT    SHID
+     C                     MOVELKKSHTM    SHIT
+     C                     ENDIF
+      *
+     C                     MOVEL'02'      DSPSW
+     C                     MOVELSURT      F2SURT
+     C                     MOVELSHID      F2SHID
+     C                     MOVELSHIT      F2SHIT
+      *
+     CSR         ESB210    ENDSR
+      *----------------------------------------------------*
+      *　⒳�痧����胒痱��ġ黬�ĝ　　　　　　　　　�
+      *----------------------------------------------------*
+     CSR         #SB220    BEGSR
+      *
+     C                     EXFMTDSP02
+     C                     MOVEL*BLANK    MSG
+     C                     SETOF                     3299
+      *
+     C                     TIME           WTIME
+     C           *IN03     IFEQ '1'
+     C                     MOVEL'01'      DSPSW
+     C                     MOVEL*BLANKS   BAR01
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+     C           FTRLR#    IFEQ *BLANK
+     C                     SETON                     3299
+     C                     MOVELER,4      MSG
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+     C           FTRLR#    LOKUPBAD#                     32
+     C           *IN32     IFEQ *ON
+     C                     SETON                     99
+     C                     MOVELER,6      MSG
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+     C           ' '       CHEKRFTRLR#    POS
+     C           POS       IFGT 11
+     C                     SETON                     99
+     C                     MOVELER,6      MSG
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+     C           '|'       SCAN FTRLR#    POS     40
+     C           POS       IFGT *ZERO
+     C                     SETON                     3299
+     C                     MOVELER,7      MSG
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+     C                     DO   10        T       20
+     C                     MOVE T         NUM     1
+     C           NUM       SCAN FTRLR#:1  POS
+     C           POS       IFGT *ZERO
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           POS       IFEQ *ZERO
+     C                     SETON                     3299
+     C                     MOVELER,8      MSG
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+     C           3         SUBSTFTRLR#:1  FTSTR   3
+     C           3         SUBSTF2SURT:1  RTSTR   3
+     C           FTSTR     IFEQ RTSTR
+     C                     SETON                     3299
+     C                     MOVELER,9      MSG
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+     C           ' '       SCAN FTRLR#:1  POS
+     C           POS       IFGT *ZERO
+     C           POS       ANDLE4
+     C                     SETON                     3299
+     C                     MOVELER,10     MSG
+     C                     GOTO ESB220
+     C                     ENDIF
+      *
+     C                     MOVELFTRLR#    TRLR#
+      *
+     C                     MOVEL'03'      DSPSW
+      *
+     CSR         ESB220    ENDSR
+      *----------------------------------------------------*
+      *　⒳�痧����✦�胕硠�橑胗�　　　　　　　　　�
+      *----------------------------------------------------*
+     CSR         #SB230    BEGSR
+      *
+     C                     EXFMTDSP03
+     C                     MOVEL*BLANK    MSG
+     C                     SETOF                     3499
+      *
+     C                     TIME           WTIME
+     C           *IN03     IFEQ '1'
+     C                     MOVEL'02'      DSPSW
+     C                     MOVEL*BLANKS   FTRLR#
+     C                     GOTO ESB230
+     C                     ENDIF
+      *
+     C           FDRNAM    IFEQ *BLANK
+     C                     MOVEL'NOPE '   SCAC
+     C                     MOVEL'IHAVE'   DRNMF
+     C                     MOVEL'NOBADGE' DRNML
+     C                     ELSE
+     C                     EXSR SCANAM
+     C                     ENDIF
+      *
+     C                     MOVEL'99'      DSPSW
+      *
+     CSR         ESB230    ENDSR
+      *----------------------------------------------------*
+      * PROCESS THE DRIVER NAME/BADGE - IF SCANNED...      *
+      *----------------------------------------------------*
+     C           SCANAM    BEGSR
+     C           '|'       SCAN FDRNAM:1  P1      40
+     C           P1        ADD  1         S1      40
+     C           '|'       SCAN FDRNAM:S1 P2      40
+      *
+     C           P1        SUB  1         LENGTH
+      *
+     C           P1        IFGT *ZERO
+     C           LENGTH    SUBSTFDRNAM:1  SCAC
+     C           P2        SUB  S1        LENGTH  40
+     C           LENGTH    SUBSTFDRNAM:S1 DRNMF
+     C                     ELSE
+     C                     MOVEL'NOPE '   SCAC
+     C                     MOVEL'IHAVE'   DRNMF
+     C                     ENDIF
+      *
+     C           P2        IFGT *ZERO
+     C                     ADD  1         P2
+     C           12        SUBSTFDRNAM:P2 DRNML
+     C                     ELSE
+     C                     MOVEL'NOBADGE' DRNML
+     C                     ENDIF
+      *
+     C           ENDNAM    ENDSR
+      *----------------------------------------------------*
+      * END PROGRAM.                                       *
+      *----------------------------------------------------*
+     CSR         #SB300    BEGSR
+     C                     SETON                     LR
+     C                     RETRN
+     CSR         ESB300    ENDSR
+      *----------------------------------------------------*
+**
+INPUT TRUCK TICKET.
+INVALID TRUCK TICKET
+NO DATA IN LOAD FILE
+TRAILER# REQUIRED
+DRIVER NAME REQUIRED
+TRAILER# IS INVALID
+CONTAINS INVALID CHAR
+MUST HAVE AT LEAST 1 NUM
+CANNOT CONTAIN ROUTE
+MUST BE AT LEAST 4 CHARS
+**              BAD TRAILER #S
+0000
+0001
+1234
+12345
+123456
+99999
+TM21

@@ -1,0 +1,291 @@
+     H            Y.
+      ** ALFR77 *********************************************
+      * WIRE STORE INTO LOCATION - AS PARTIAL
+      *   LEC .................     2025.05.28              *
+      *******************************************************
+     FALFPW77 CF  E                    WORKSTN
+     FIZAWP01 IF  E                    DISK
+      *
+     E                    WK1        20  1
+     E                    WK2        20  1
+     E                    ER      1  10 60
+      *
+      *  wire kanban barcode
+     I            DS
+     I                                        1  20 WKKANB
+     I                                        1   1 TYPE
+     I                                        2   5 ABSID
+     I                                        6  12 M#
+     I                                       13  15 C#
+     I                                       16  16 SPC
+     I                                       17  17 CHDG1
+      *
+      *  ASJ wire kanban barcode
+     I            DS
+     I                                        1  16 WKASJ
+     I                                        1   6 ORDT
+     I                                        7  11 SEQ
+     I                                       12  12 ATYPE
+     I                                       13  16 AABSID
+      *
+      *  location kanban ds
+     I            DS
+     I                                        1  40 LCKANB
+     I                                        1   3 LCTYPE
+     I                                        4  18 LCMATN
+     I                                       19  232LCDIAM
+     I                                       19  23 LCCHDI
+     I                                       24  24 LCLOC1
+     I                                       25  26 LCLOC2
+     I                                       27  28 LCLOC3
+     I                                       29  29 LCLOC4
+     I                                       24  29 LCLOCN
+     I                                       30  40 LCFILL
+      *
+      *  location from izawp01
+     I            DS
+     I                                        1   6 SVLOCN
+     I                                        1   1 SVLOC1
+     I                                        2   3 SVLOC2
+     I                                        4   5 SVLOC3
+     I                                        6   6 SVLOC4
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60HHMMSS
+     I                                        7  140WDATE
+     I                                        7  100WYY
+     I                                       11  120WMM
+     I                                       13  140WDD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           POPR    6
+     C                     PARM           PWKNM  20
+      *
+     **==============================================================**
+     **  KEY
+     **==============================================================**
+     C           K#KEY1    KLIST
+     C                     KFLD           WIREBC 20
+      *----------------------------------------------------*
+      * MAINLINE                                           *
+      *----------------------------------------------------*
+     C                     MOVEL'01'      DSPSW   2
+      *
+     C           DSPSW     DOUEQ'99'
+      *
+     C                     SELEC
+     C           DSPSW     WHEQ '01'
+     C                     EXSR #SB100
+     C           DSPSW     WHEQ '02'
+     C                     EXSR #SB200
+     C                     ENDSL
+      *
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *
+      *------------------------------------------------------------*
+      * FIRST SCREEN - Display Screen for Wire Kanban      *
+      *----------------------------------------------------*
+     C           #SB100    BEGSR
+      *
+     C                     EXFMTALFPW771
+     C                     SETOF                     9931
+     C                     TIME           WTIME
+      *
+     C           *IN01     IFEQ *ON
+     C                     MOVEL'99'      DSPSW
+     C                     MOVE *BLANKS   D2QR
+     C                     MOVE *BLANKS   D1QR
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+      * remove '-' from bar code, unless it's check digit
+     C                     MOVEAD1QR      WK1       P
+     C                     MOVE *BLANK    WK2
+     C                     Z-ADD*ZERO     X       20
+     C                     Z-ADD*ZERO     Y       20
+      *
+     C           1         DO   20        X
+     C           WK1,X     IFNE '-'
+     C           WK1,X     ANDNE*BLANK
+     C           X         ORGT 15
+     C                     ADD  1         Y
+     C                     MOVE WK1,X     WK2,Y
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     MOVEAWK2       D1QR      P
+      *
+      * get absolute part id from wire kanban barcode just scanned
+     C                     MOVELD1QR      WKKANB
+      *
+     C           D1QR      IFEQ *BLANK
+     C                     SETON                     99
+     C                     MOVELER,1      D9ERR
+     C                     EXSR #SB290
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+     C                     EXSR #SB150
+      *
+     C           *IN21     IFEQ *OFF
+     C                     MOVELER,2      D9ERR
+     C                     SETON                     99
+     C                     EXSR #SB290
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+     C                     MOVEL'02'      DSPSW
+     C                     MOVEL*BLANK    D2QR
+      *
+     C           ESB100    ENDSR
+      *------------------------------------------------------------*
+      * GET WIRE INFO - Get material name, wire diameter, supplier *
+      *------------------------------------------------------------*
+     C           #SB150    BEGSR
+      *
+     C                     MOVE *OFF      *IN21
+      *
+     C           1         SETLLIZAWP01
+     C                     DO   *HIVAL
+      *
+     C                     READ IZAWP01                  50
+     C           *IN50     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           ZCKNO3    IFEQ ABSID
+     C                     MOVELZCADR1    SVLOC1
+     C                     MOVELZCADR2    SVLOC2
+     C                     MOVELZCADR3    SVLOC3
+     C                     MOVELZCADR4    SVLOC4
+     C                     MOVELZCZAIS    D2MATN
+     C                     Z-ADDZCZAIK    D2DIAM
+     C                     MOVE *ON       *IN21            FOUND IT
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *------------------------------------------------------------*
+      * SCREEN TWO    - Display Screen for Location Tag
+      *------------------------------------------------------------*
+     C           #SB200    BEGSR
+      *
+     C                     EXFMTALFPW772
+     C                     SETOF                     9931
+      *
+     C           *IN01     IFEQ *ON
+     C                     MOVEL'01'      DSPSW
+     C                     MOVEL*BLANK    D2QR
+     C                     MOVEL*BLANK    D1QR
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+      * if Location Kanban QR code is Blank, display error
+     C           D2QR      IFEQ *BLANK
+     C                     SETON                     99
+     C                     MOVELER,9      D9ERR
+     C                     EXSR #SB290
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+     C                     MOVELD2QR      LCKANB
+      * if Location Kanban type is not correct, display error
+     C           LCTYPE    IFNE 'A01'
+     C                     SETON                     99
+     C                     MOVELER,8      D9ERR
+     C                     EXSR #SB290
+     C                     MOVEL*BLANKS   D2QR
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+      * check if material is a match.
+     C           LCMATN    IFNE D2MATN
+     C                     SETON                     99
+     C                     MOVELER,4      D9ERR
+     C                     EXSR #SB290
+     C                     MOVEL*BLANKS   D2QR
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+      * check if wire diameter is a match.
+     C           LCDIAM    IFNE D2DIAM
+     C                     SETON                     99
+     C                     MOVELER,5      D9ERR
+     C                     EXSR #SB290
+     C                     MOVEL*BLANKS   D2QR
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+      * check if location is a match.
+     C           LCLOCN    IFNE SVLOCN
+     C                     SETON                     99
+     C                     MOVELER,6      D9ERR
+     C                     EXSR #SB290
+     C                     MOVEL*BLANKS   D2QR
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+      * display ok screen...
+     C                     EXFMTALFPW095
+      *
+      * call update program for wire inventory...
+     C                     EXSR #SB550
+      *
+     C                     MOVE *BLANK    D1QR
+     C                     MOVEL'01'      DSPSW
+      *
+     C           ESB200    ENDSR
+      *
+      *-----------------------------------------------------------------------*
+      * ERROR SCREEN - Display Error on Screen
+      *------------------------------------------------------------*
+     C           #SB290    BEGSR
+      *
+     C                     WRITEALFPW098
+     C                     EXFMTALFPW099
+      *
+     C                     ENDSR
+      *------------------------------------------------------------*
+      * Call Program to Update Wire Inventory file
+      *------------------------------------------------------------*
+     C           #SB550    BEGSR
+      *
+     C                     MOVELW#PGM     IZPGM  10
+     C                     CALL 'IZAR70U'
+     C                     PARM           D1QR
+     C                     PARM           LCLOCN
+     C                     PARM           POPR
+     C                     PARM           IZPGM
+     C                     PARM           ##LOTN  8
+     C                     PARM           ##CHRG  7
+     C                     PARM           ##WEIG  51
+     C                     PARM 'Y'       CHGQ    1
+     C                     PARM .5        NEWQ    21
+     C                     PARM           RTNCD   1
+      *
+     C                     ENDSR
+      *
+      *----------------------------------------------------*
+** ER(60A).........2.........3.........4.........5.........6
+ INPUT WIRE KANBAN                                             01
+ ABSOLUTE ID NOT FOUND                                         02
+                                                               03
+ MATERIAL NO MATCH                                             04
+ DIAMETER NO MATCH                                             05
+ LOCATION NO MATCH                                             06
+                                                               07
+ WRONG KANBAN                                                  08
+ SCAN LOCATION KANBAN                                          09
+                                                               10

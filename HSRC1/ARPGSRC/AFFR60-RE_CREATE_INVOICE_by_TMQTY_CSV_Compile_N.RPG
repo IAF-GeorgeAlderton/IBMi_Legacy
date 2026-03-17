@@ -1,0 +1,406 @@
+     H            Y.
+      ****************************************************************
+      *  PROGRAM    : RE-CREATE INVOICE USING TMQTY.CSV              *
+      *  WRITTEN    : JW (SRA)  2022.02.16                           *
+     *** CAUTION !!! COMPLIE WITH "ALLOW NULL *YES"                 *
+      ****************************************************************
+     FAFFPW60 CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     F                                        RRN2  KSFILE SFL02
+     F                                              KINFDS @INFDS
+     FAFFWP60 IF  E           K        DISK                           UC
+     FAFFWP61 IF  E           K        DISK                           UC
+      *
+     E**                  UP1     1  11 20   NK1    02   0465 ABI
+     E                    ERR     1  25 70
+      *-----------------------------------------------------------------
+     I@INFDS      DS
+     I                                    B 378 3790@@REC
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *
+     I            DS
+     I                                        1   80A2GSHZ
+     I                                        1   40A2GSYY
+     I                                        5   60A2GSMM
+     I                                        7   80A2GSDD
+     I            DS
+     I                                        1   80A2SSHZ
+     I                                        1   40A2SYYY
+     I                                        5   60A2SYMM
+     I                                        7   80A2SYDD
+      *
+     I            DS
+     I                                        1  20 S1PART
+     I                                        1   5 S1MHN1
+     I                                        6  10 S1MHN2
+     I                                       11  15 S1MHN3
+     I                                       16  20 S1MHN4
+     I            DS
+     I                                        1  20 AFMHIN
+     I                                        1   5 AFMHN1
+     I                                        6  10 AFMHN2
+     I                                       11  15 AFMHN3
+     I                                       16  20 AFMHN4
+     I            DS
+     I                                        1  20 WMHIN
+     I                                        1   5 WMHN1
+     I                                        6  10 WMHN2
+     I                                       11  15 WMHN3
+     I                                       16  20 WMHN4
+     I            DS
+     I                                        1  12 @SHIN
+     I                                        1   5 WSHN1
+     I                                        6  10 WSHN2
+     I                                       11  12 WSHN3
+     I            DS
+     I                                        1   80AFSHDT
+     I                                        1   40WNOYY
+     I                                        5   60WNOMM
+     I                                        7   80WNODD
+     I            DS
+     I                                        1   80@SHDT
+     I                                        1   40@SHYY
+     I                                        5   60@SHMM
+     I                                        7   80@SHDD
+      *
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *----------------------------------------------------*
+      * MAIN ROUTINE
+      *----------------------------------------------------*
+     C                     EXSR #INIT
+      *
+     C                     DO   *HIVAL
+     C                     SELEC
+      * DSP01 -------------------------
+     C           @SCRN     WHEQ 'DSP01'
+     C                     EXSR #DSP01
+      * F1: EXIT
+     C           *INKA     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      * SFL01 -------------------------
+     C           @SCRN     WHEQ 'SFL01'
+     C                     EXSR #SFL01
+      * SFL02 -------------------------
+     C           @SCRN     WHEQ 'SFL02'
+     C                     EXSR #SFL02
+      *
+     C                     ENDSL
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      * DISPLAY DSP01                                      *
+      *----------------------------------------------------*
+     C           #DSP01    BEGSR
+     C                     EXFMTDSP01
+     C                     SETOF                     85
+     C                     MOVEL*BLANK    XMSG
+      * F1:EXIT
+     C           *INKA     IFEQ *ON
+     C                     GOTO DSP01X
+     C                     ENDIF
+JW1   * F7: CREATE INVOICE DATA
+ .   C           *INKG     IFEQ *ON
+ .   C                     CALL 'AFFC65'
+ .   C                     PARM           $RTN3   1
+ .   C                     SELEC
+ .   C           $RTN3     WHEQ '0'
+ .   C                     MOVELERR,6     XMSG             NO DATA
+ .   C           $RTN3     WHEQ ' '
+ .   C**                   MOVELERR,7     XMSG             CREATED
+     C                     MOVELERR,9     LIN1
+     C                     MOVELERR,10    LIN2
+     C                     CALL 'UTLC96'
+     C                     PARM           LIN1   30
+     C                     PARM           LIN2   30
+     C                     MOVE *ON       *INKA
+ .   C           $RTN3     WHEQ '*'
+ .   C                     MOVELERR,8     XMSG             ERROR
+ .   C                     ENDSL
+ .   C                     GOTO DSP01X
+JW1  C                     ENDIF
+      *--------------
+      * IF NO ERROR,
+      *--------------
+     C                     CALL 'AFFC61'
+     C                     MOVEL'SFL01'   @SCRN
+     C                     MOVELERR,1     D9ERR
+      *
+     C           DSP01X    ENDSR
+      *----------------------------------------------------*
+      *  DISPLAY ORDER (SFL01)                             *
+      *----------------------------------------------------*
+     C           #SFL01    BEGSR
+      * SET SFL01
+     C                     EXSR #SET1
+      *
+     C                     WRITEDSP91
+     C                     SETON                     72
+     C                     EXFMTSFLCT1
+     C                     SETOF                     72
+      * F3 BACK
+     C           *INKC     IFEQ *ON
+     C                     MOVEL'DSP01'   @SCRN
+     C                     GOTO SFL01X
+     C                     ENDIF
+      * F5: ERROR CHECK SCREEN
+     C           *INKE     IFEQ *ON
+     C                     MOVEL'SFL02'   @SCRN
+     C                     GOTO SFL01X
+     C                     ENDIF
+      *
+     C                     MOVEL'SFL01'   @SCRN
+      *
+     C           SFL01X    ENDSR
+      *----------------------------------------------------*
+      *  SET SFL01  DATA                                   *
+      *----------------------------------------------------*
+     C           #SET1     BEGSR
+      * CLEAR SFL01
+     C                     SETON                     71
+     C                     WRITESFLCT1
+     C                     SETOF                     71
+      *
+     C                     Z-ADD0         RRN1    40
+     C                     Z-ADD0         DCNT    40
+      *
+     C                     OPEN AFFWP60
+     C                     DO   *HIVAL
+     C                     READ AFFWP60                  98
+     C   98                LEAVE
+      * COMMENT?
+     C                     MOVELFLDA      LTR1    1
+     C           LTR1      IFEQ '*'
+     C                     ITER
+     C                     ENDIF
+      * IGNORE HEADER
+     C                     MOVELFLDA      LTR1    1
+     C                     MOVELLTR1      $TEXT     P
+     C                     MOVEL'01'      $LENG
+     C                     CALL 'CHKR90'
+     C                     PARM           $TEXT  20
+     C                     PARM           $LENG   2
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ '1'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELFLDA      S1LIN#
+     C                     MOVELFLDE      S1ACCT
+      * SHIP DATE
+     C                     MOVELFLDK      $SRC
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE1  8
+     C                     PARM           $RTN1   1
+     C                     MOVEL$TRUE1    S1NOHZ
+      * REMOVE '
+     C                     MOVELFLDI      $FLD1     P
+     C                     CALL 'EDTR02C'
+     C                     PARM           $FLD1  25
+     C                     PARM           $FLD2  25
+     C                     MOVEL$FLD2     S1MANI
+      * REMOVE '
+     C                     MOVELFLDJ      $FLD1     P
+     C                     CALL 'EDTR02C'
+     C                     PARM           $FLD1  25
+     C                     PARM           $FLD2  25
+     C                     MOVEL$FLD2     S1MHIN
+      * TMM QTY
+     C                     MOVELFLDM      $IN       P
+     C                     CALL 'UTLR60'
+     C                     PARM           $IN    17
+     C                     PARM           $TRUE2 156
+     C                     PARM           $RTN2   1
+     C                     Z-ADD$TRUE2    S1QTY1
+      * IAF  PRICE
+     C                     MOVELFLDN      $IN       P
+     C                     CALL 'UTLR60'
+     C                     PARM           $IN    17
+     C                     PARM           $TRUE2 156
+     C                     PARM           $RTN2   1
+     C                     Z-ADD$TRUE2    S1QTY2
+      * PRICE
+     C                     MOVELFLDO      $IN       P
+     C                     CALL 'UTLR60'
+     C                     PARM           $IN    17
+     C                     PARM           $TRUE2 156
+     C                     PARM           $RTN2   1
+     C                     Z-ADD$TRUE2    S1PRC
+      * AMOUNT
+     C           S1QTY1    MULT S1PRC     S1AMT
+      *
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+      *
+     C                     ENDDO
+     C                     CLOSEAFFWP60
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  DISPLAY ERROR (SFL02)                             *
+      *----------------------------------------------------*
+     C           #SFL02    BEGSR
+      * SET SFL02
+     C                     EXSR #SET2
+      *
+     C           @ERFLG    IFEQ 'Y'
+     C                     MOVELERR,2     D9ERR
+     C                     ELSE
+     C           DCNT      IFEQ 0
+     C                     MOVELERR,5     D9ERR
+     C                     ELSE
+     C                     MOVELERR,3     D9ERR
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     WRITEDSP92
+     C                     SETON                     72
+     C                     EXFMTSFLCT2
+     C                     SETOF                     72
+     C                     MOVE *BLANK    D9ERR
+      * F3 BACK
+     C           *INKC     IFEQ *ON
+     C                     MOVEL'DSP01'   @SCRN
+     C                     GOTO SFL02X
+     C                     ENDIF
+      * F5 UPDATE
+     C           *INKE     IFEQ *ON
+     C           @ERFLG    ANDEQ'N'
+     C           DCNT      ANDNE0
+     C                     EXSR #UPL
+     C                     MOVEL'DSP01'   @SCRN
+     C                     GOTO SFL02X
+     C                     ENDIF
+      * ENTER
+     C           @ERFLG    IFEQ 'Y'
+     C                     MOVELERR,2     D9ERR
+     C                     ELSE
+     C           DCNT      IFEQ 0
+     C                     MOVELERR,5     D9ERR
+     C                     ELSE
+     C                     MOVELERR,3     D9ERR
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     MOVEL'SFL02'   @SCRN
+      *
+     C           SFL02X    ENDSR
+      *----------------------------------------------------*
+      *  SET SFL02  DATA                                   *
+      *----------------------------------------------------*
+     C           #SET2     BEGSR
+      * CLEAR SFL02
+     C                     SETON                     71
+     C                     WRITESFLCT2
+     C                     SETOF                     71
+      *
+     C                     Z-ADD0         RRN2    40
+     C                     MOVE 'N'       @ERFLG  1
+      *
+     C                     OPEN AFFWP61
+     C                     DO   *HIVAL
+     C                     READ AFFWP61                  98
+     C   98                LEAVE
+      * COMMENT?
+     C                     MOVELFL#A      LTR1
+     C           LTR1      IFEQ '*'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELFL#A      S2LIN#
+     C                     MOVELA2NONY    S2NONY
+     C                     MOVELFL#K      S2NOHZ
+     C                     MOVELFL#I      S2MANI
+      ** QTY
+     C                     Z-ADDFL#M      S2QTY1
+     C                     Z-ADDFL#N      S2QTY2
+      *
+     C                     MOVELFL#MSG    S2MSG
+     C                     MOVELFL#MSG    LTR2    2
+     C           LTR2      IFEQ 'CO'
+     C                     MOVE *ON       *IN51
+     C                     MOVE *ON       H2MSG
+     C                     MOVE 'Y'       @ERFLG
+     C                     ELSE
+     C                     MOVE *OFF      *IN51
+     C                     MOVE *OFF      H2MSG
+     C                     ENDIF
+      *
+     C                     ADD  1         RRN2
+     C                     WRITESFL02
+      *
+     C                     MOVELFL#MSG    LTR5    5
+     C           LTR5      IFEQ 'READY'
+     C                     ADD  1         DCNT
+     C                     ENDIF
+      *
+     C                     ENDDO
+     C                     CLOSEAFFWP61
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  WRITE WORK FILE                                   *
+      *----------------------------------------------------*
+     C           #UPL      BEGSR
+      *
+     C                     CALL 'AFFC62'
+      *
+     C                     MOVELERR,4     XMSG
+      *
+     C           UPLX      ENDSR
+      *----------------------------------------------------*
+      * INITIALIZE
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C**         *ENTRY    PLIST
+     C**                   PARM           @UPFLG  1
+      *
+      * IF DATA WAS UPLODED, UPFLAG=Y
+     C**                   MOVE *BLANK    @UPFLG
+      *
+     C                     Z-ADD0         WDATE   80
+     C                     TIME           WSDT
+     C                     MOVEL'DSP01'   @SCRN   5
+     C                     Z-ADD200       MAX1    40
+     C                     Z-ADD300       MAX2    40
+     C                     MOVE *OFF      *IN73            MORE
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+** ERR MSG(70).....2.........3.........4.........5.........6.........7
+Press F5 To Check Data...                                              01
+Error found! Please fix data and try again...                          02
+No Error Found. Press F5 To Update Qty...                              03
+The Qty in AS400 has been updated successfully...                      04
+There Is No Line To Update!                                            05
+There Is No Data for Invoice!                                          06
+Invoice Data Has Been Created Successfully...                          07
+Some Data Contains Invalid Value. Please Check Error Report!           08
+INVOICE HAS BEEN SENT                                                  09
+SUCCESSFULLY...                                                        10
+                                                                       11
+                                                                       12
+                                                                       13
+                                                                       14
+                                                                       15
+                                                                       16
+                                                                       17
+                                                                       18
+                                                                       19
+                                                                       20
+                                                                       21
+                                                                       22
+                                                                       23
+                                                                       24
+                                                                       25

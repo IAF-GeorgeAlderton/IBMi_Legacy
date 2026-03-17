@@ -1,0 +1,52 @@
+/* RETRIEVE GENTRAN FILE LOCK USER */
+/* JW 10/26/2016                   */
+             PGM
+
+             DCL        VAR(&MSG1)  TYPE(*CHAR) LEN(50)
+             DCL        VAR(&MSG2)  TYPE(*CHAR) LEN(50)
+             DCL        VAR(&FILE)  TYPE(*CHAR) LEN(10)
+             DCL        VAR(&WSID)  TYPE(*CHAR) LEN(10)
+             DCL        VAR(&USER)  TYPE(*CHAR) LEN(10)
+             DCL        VAR(&JOB )  TYPE(*CHAR) LEN(10)
+             DCL        VAR(&RTN )  TYPE(*CHAR) LEN(1)
+             DCL        VAR(&NAME)  TYPE(*CHAR) LEN(15)
+             DCL        VAR(&TIMES) TYPE(*DEC)  LEN(2 0)
+             DCL        VAR(&TIME ) TYPE(*CHAR) LEN(2)
+
+             RTVJOBA    JOB(&JOB)
+
+/* RUN WRKOBJLCK */
+  WRKOBJLCK  OBJ(HFILE1/AB#EP57) OBJTYPE(*FILE) MBR(*ALL) OUTPUT(*PRINT)
+  WRKOBJLCK  OBJ(HFILE1/AB#EP59) OBJTYPE(*FILE) MBR(*ALL) OUTPUT(*PRINT)
+  WRKOBJLCK  OBJ(HFILE1/AB#EP60) OBJTYPE(*FILE) MBR(*ALL) OUTPUT(*PRINT)
+  WRKOBJLCK  OBJ(HFILE1/AB#EP66) OBJTYPE(*FILE) MBR(*ALL) OUTPUT(*PRINT)
+  WRKOBJLCK  OBJ(HFILE1/AB#EP69) OBJTYPE(*FILE) MBR(*ALL) OUTPUT(*PRINT)
+  WRKOBJLCK  OBJ(HFILE1/ABVEP57) OBJTYPE(*FILE) MBR(*ALL) OUTPUT(*PRINT)
+
+/* PRINT OUTQ   */
+AGAIN:
+             CPYSPLF    FILE(QPDSPOLK) TOFILE(*LIBL/TXTP132) +
+                          SPLNBR(*LAST) CRTDATE(*LAST)
+             MONMSG     MSGID(CPF3309) EXEC(GOTO CMDLBL(ENDPGM))
+
+             CALL       PGM(UTLR30) PARM(&FILE &WSID &USER &RTN)
+
+             IF         COND(&RTN *EQ '*') THEN(DO)
+             CHGVAR     VAR(&TIMES) VALUE(&TIMES + 1)
+             CALL       PGM(UTLR31) PARM(&USER &NAME)
+             CHGVAR     VAR(&MSG1) VALUE('LOCKED BY' *BCAT &FILE +
+                          *BCAT &WSID *BCAT &USER *BCAT &NAME)
+             SNDBRKMSG  MSG(&MSG1) TOMSGQ(&JOB)
+             ENDDO
+
+             DLTSPLF    FILE(QPDSPOLK) SPLNBR(*LAST) CRTDATE(*LAST)
+             GOTO AGAIN
+
+ ENDPGM:     CHGVAR     VAR(&TIME) VALUE(&TIMES)
+             CHGVAR     VAR(&MSG2) VALUE('FOUND' *BCAT &TIME *BCAT +
+                          'FILES LOCKED.')
+          /* SNDPGMMSG     MSG(&MSG2) TOMSGQ(&JOB) MSGTYPE(*INFO)  */
+
+             SNDBRKMSG  MSG(&MSG2) TOMSGQ(&JOB)
+
+             ENDPGM

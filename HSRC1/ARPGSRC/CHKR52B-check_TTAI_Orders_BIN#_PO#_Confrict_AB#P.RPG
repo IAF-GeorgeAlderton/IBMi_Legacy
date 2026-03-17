@@ -1,0 +1,209 @@
+     H            Y.
+     F***CHKR52*****************************************************************
+     F*  PROGRAM    : CHECK ORDERS SELECTED BY CREATE DATE                     *
+     F*             : RUN IN FCKC00 (10:10AM BY JOBSCDE)                       *
+     F*  WRITTEN    : 2019.06.04                                               *
+     F*  WRITTEN BY : JW (SRA)                                                 *
+     F**************************************************************************
+     FAB#PLAA IF  E           K        DISK
+     FQPRINT  O   F     198     OF     PRINTER
+     E                    ERR     1   1 25
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+     C           @SHDAT    SETLLAB#PLAA
+     C                     DO   *HIVAL
+     C                     READ AB#PLAA                  98
+     C   98                LEAVE
+      * SELECT DELIVERY CODE
+     C           BANONY    IFNE 3511                       TTTX
+     C           BANONY    ANDNE3512                       TTCA
+     C           BANONY    ANDNE3550                       TTMA
+     C           BANONY    ANDNE3556                       TTAI TOYOTETSU
+     C                     ITER
+     C                     ENDIF
+      *
+     C           BASKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVEL'N'       PFLG
+     C                     Z-ADDBANOHZ    SVNOHZ
+     C                     Z-ADDBANOBN    SVNOBN
+     C                     Z-ADDBATOKU    SVTOKU
+     C                     Z-ADDBANONY    SVNONY
+     C                     MOVELBANKOJ    SVNKOJ
+     C                     MOVELBANUKE    SVNUKE
+     C                     MOVELBAODRN    SVODRN
+     C                     MOVELBAEDIK    SVEDIK
+     C                     Z-ADDBACRHZ    SVCRHZ
+     C                     ENDIF
+      * BREAK?
+     C           BANOHZ    IFNE SVNOHZ
+     C           BANOBN    ORNE SVNOBN
+     C           BANONY    ORNE SVNONY
+     C           BANKOJ    ORNE SVNKOJ
+     C           BANUKE    ORNE SVNUKE
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * DETAIL PROCESS
+     C           PFLG      IFEQ 'N'
+     C           BAODRN    ANDNESVODRN
+     C                     MOVEL'Y'       PFLG
+     C                     ENDIF
+      *
+     C                     ENDDO
+      * LAST BREAK
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     ENDIF
+      *
+     C           SEQ#      IFNE 0
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  BREAK PROCESS                                     *
+      *----------------------------------------------------*
+     C           #BRK1     BEGSR
+      *
+     C           PFLG      IFEQ 'Y'
+     C                     EXSR #PRINT
+     C                     ENDIF
+      * RESET
+     C                     MOVE 'N'       PFLG
+     C                     Z-ADDBANOHZ    SVNOHZ
+     C                     Z-ADDBANOBN    SVNOBN
+     C                     Z-ADDBATOKU    SVTOKU
+     C                     Z-ADDBANONY    SVNONY
+     C                     MOVELBANKOJ    SVNKOJ
+     C                     MOVELBANUKE    SVNUKE
+     C                     MOVELBAODRN    SVODRN
+     C                     MOVELBAEDIK    SVEDIK
+     C                     Z-ADDBACRHZ    SVCRHZ
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      * GET CUSTOMER NAME
+     C                     MOVELSVNONY    $DLV
+     C                     CALL 'UTLR62'
+     C                     PARM           $DLV    4
+     C                     PARM           $GRP    3
+     C                     PARM           $NAME1 15
+     C                     PARM           $NAME2 50
+     C                     PARM           $RTN    1
+     C                     MOVEL$NAME1    XNAME  15
+      * GET P/S#
+     C                     MOVELSVNOHZ    $NOHZ
+     C                     MOVELSVTOKU    $CUST
+     C                     MOVELSVNONY    $NONY
+     C                     MOVELSVNKOJ    $NKOJ
+     C                     MOVELSVNUKE    $NUKE
+     C                     MOVELSVNOBN    $BINN
+     C                     MOVEL'00000000'$RLHZ
+     C                     MOVE *BLANK    $ODRN
+     C                     CALL 'UTLR51'
+     C                     PARM           $NOHZ   8
+     C                     PARM           $CUST   4
+     C                     PARM           $NONY   4
+     C                     PARM           $NKOJ   1
+     C                     PARM           $NUKE   4
+     C                     PARM           $BINN   2
+     C                     PARM           $RLHZ   8
+     C                     PARM           $ODRN  10
+     C                     PARM           $PICK#  9
+     C                     PARM           $RTN    1
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      * MSG
+     C                     MOVELERR,1     XMSG   25
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $DATE   8
+     C                     PARM           $RTN    1
+      *
+     C                     TIME           SDATE
+     C           $DATE     IFEQ *BLANK
+     C           $DATE     OREQ '00000000'
+     C                     MOVELTODAY     $DATE
+     C                     ENDIF
+      *
+     C                     MOVEL$DATE     @SHDAT  80
+     C                     MOVE *BLANK    $RTN
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+      *
+     C                     MOVE 'N'       FIRST   1
+     C                     MOVE 'N'       PFLG    1
+     C                     Z-ADD0         SVNOHZ  80
+     C                     Z-ADD0         SVNOBN  20
+     C                     Z-ADD0         SVTOKU  40
+     C                     Z-ADD0         SVNONY  40
+     C                     MOVE *BLANK    SVODRN 10
+     C                     MOVE *BLANK    SVNKOJ  1
+     C                     MOVE *BLANK    SVNUKE  4
+     C                     MOVE *BLANK    SVEDIK  1
+     C                     Z-ADD0         SVCRHZ  80
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   40 '** CHECK TTAI ORDERS'
+     O                                   60 ' PO# CONFLICT **    '
+     O                                   89 'DATE'
+     O                         TODAY     92 '    .  .  '
+     O                         NOW      102 '  :  :  '
+     O                                  106 'P.'
+     O                         PAGE  Z  110
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   10 'DELV'
+     O                                   26 'SHP_DATE'
+     O                                   31 'BN'
+     O                                   38 'ORDER#'
+     O                                   90 'P/L#'
+     O                                  107 'CRT_DATE'
+     O        E 1              @DTL
+     O                         SEQ#  1 +000
+     O                         SVNONY  +001
+     O                         SVNKOJ  +001
+     O                         SVNUKE  +001
+     O                         SVNOHZ  +001 '    /  /  '
+     O                         SVNOBN  +001
+     O                         SVODRN  +001
+     O                         XNAME   +002
+     O                         XMSG    +001
+     O                         $PICK#  +001
+     O                         SVEDIK  +002
+     O                         SVCRHZ  +001 '    /  /  '
+** MSG ..1.........2.....
+BIN#/PO# CONFLICTED!       1

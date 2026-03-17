@@ -1,0 +1,284 @@
+             PGM        PARM(&TYPE &FILE &LIBL &FNAM &CSV &CLN  &MSG)
+   /*= APLC94 =============================================================*/
+   /*  TRANSFER DATA TO IFS WITH CSV / TXT                                 */
+   /*  OUTPUT WITHOUT STRING DELIMITER - STRDLM(*NONE)                     */
+   /*  J.WATANABE     2025.04.04                                           */
+   /*  --------------                                                      */
+   /*  PARAMETERS                                                          */
+   /*  1. &TYPE(1A) = 1, ONE FIELD IN RECORD OR TEXT DATA                  */
+   /*               = 2, PF (ORDINALY PF, NO COMMA SEPARATOR)              */
+   /*  2. &FILE(10A)= PF NAME TO BE TRANNSFERED TO IFS                     */
+   /*  3. &LIBL(10A)= PF LIBRARY NAME FOR &FILE                            */
+   /*  4. &FNAM(30A)= FILE NAME OF IFS (.CSV)                              */
+   /*  5. &CSV(1A)  = Y OR C, EXTENTION CODE WILL BE .CSV                  */
+   /*                 T, EXTENTION CODE WILL BE .TXT                       */
+   /*             NOT Y/T/C, WITH NO EXTENTION CODE (MAMIYA SAN'S REQUEST) */
+   /*  6. &CLN (1A) = Y, CSV WITH FIELD NAME                               */
+   /*             NOT Y, CSV W/O  FIELD NAME                               */
+   /*  7. &MSG (1A) = Y, DSPLAY BREAK MSG                                  */
+   /*             NOT Y, DO NOT DISPLAY BREAK MSG                          */
+   /*  ---NOTE---                                                          */
+   /*  IF &TYPE=1 ....... USE "HWFILE1/FILE1024" (PF) (FIXED LENGTH 1024A  */
+   /*  IF &FILE='ABMWP*'. OUTPUT TO J:/Download/AUTO SETTING/YYYY_MM       */
+   /*  IF &FILE='GDLWP*'. OUTPUT TO K:/Download/AS400/OUTSRC               */
+   /*  IF &FILE='ECSWP*'. OUTPUT TO K:/Download/AS400/DIE                  */
+   /*  IF &FILE='ECQWP*'. OUTPUT TO K:/Download/AS400/DIE                  */
+   /*======================================================================*/
+
+             DCL        VAR(&TYPE)  TYPE(*CHAR) LEN(1)
+             DCL        VAR(&FILE)  TYPE(*CHAR) LEN(10)
+             DCL        VAR(&LIBL)  TYPE(*CHAR) LEN(8)
+             DCL        VAR(&FNAM)  TYPE(*CHAR) LEN(30)
+             DCL        VAR(&CSV )  TYPE(*CHAR) LEN(1)
+             DCL        VAR(&CLN )  TYPE(*CHAR) LEN(1)
+             DCL        VAR(&COL )  TYPE(*CHAR) LEN(10)
+             DCL        VAR(&MSG )  TYPE(*CHAR) LEN(1)
+
+             DCL        VAR(&FIL5)  TYPE(*CHAR) LEN(5)
+             DCL        VAR(&YYMM)  TYPE(*CHAR) LEN(7)
+             DCL        VAR(&DEPT)  TYPE(*CHAR) LEN(1)
+             DCL        VAR(&DEPN)  TYPE(*CHAR) LEN(15)
+             DCL        VAR(&DIR1)  TYPE(*CHAR) LEN(100)
+             DCL        VAR(&DIR2)  TYPE(*CHAR) LEN(110)
+             DCL        VAR(&DIR3)  TYPE(*CHAR) LEN(100)
+             DCL        VAR(&DIRN)  TYPE(*CHAR) LEN(20)
+             DCL        VAR(&USER)  TYPE(*CHAR) LEN(10)
+             DCL        VAR(&WS  )  TYPE(*CHAR) LEN(10)
+
+             DCL        VAR(&WFIL)  TYPE(*CHAR) LEN(60)
+
+             DCL        VAR(&DATE6) TYPE(*CHAR) LEN(6)
+
+             DCL        VAR(&I2   ) TYPE(*CHAR) LEN(2)
+             DCL        VAR(&MBAN ) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&ANS  ) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&TEXT ) TYPE(*CHAR) LEN(100)
+             DCL        VAR(&PSYS) TYPE(*CHAR) LEN(8)
+
+ RUN:
+             RTVJOBA    JOB(&WS  ) USER(&USER)
+             RTVSYSVAL  SYSVAL(QDATE) RTNVAR(&DATE6)
+             RTVNETA    SYSNAME(&PSYS)
+
+             IF         COND(&PSYS *EQ 'IAFAYM  ') THEN(GOTO +
+                          CMDLBL(END)) /* ASJ TEST ENVIRONMENT */
+
+             IF  COND(&CLN *EQ 'Y') THEN(CHGVAR VAR(&COL) VALUE('*SYS'))
+             IF  COND(&CLN *NE 'Y') THEN(CHGVAR VAR(&COL) VALUE('*NONE'))
+
+             CHGVAR     VAR(&I2)   VALUE(%SST(&USER 1 2))
+             CHGVAR     VAR(&FIL5) VALUE(%SST(&FILE 1 5))
+             CHGVAR     VAR(&YYMM) VALUE('20' *CAT %SST(&DATE6 1 2) +
+                          *CAT '_' *CAT %SST(&DATE6 3 2))
+
+ /*========================================================*/
+ /*   SET DEPARTMENT CODE                                  */
+ /*========================================================*/
+      /**DEFAULT*/
+             CHGVAR     VAR(&DEPT) VALUE('3')
+      /**ACCOUNTING */
+             IF         COND(&I2 *EQ 'I4') THEN(DO)
+             CHGVAR     VAR(&DEPT) VALUE('1')
+             ENDDO
+      /*MANUFACTURING*/
+             IF         COND(&I2 *EQ 'I1') THEN(DO)
+             CHGVAR     VAR(&DEPT) VALUE('2')
+             ENDDO
+      /**PC */
+             IF         COND((&I2 *EQ 'I0') *OR (&I2 *EQ 'QP')) +
+                          THEN(DO)
+             CHGVAR     VAR(&DEPT) VALUE('3')
+             ENDDO
+      /* TEST */
+             IF         COND(&I2 *EQ 'TE') THEN(DO)
+             CHGVAR     VAR(&DEPT) VALUE('3')
+             ENDDO
+      /*SALES*/
+             IF         COND(&I2 *EQ 'I3') THEN(DO)
+             CHGVAR     VAR(&DEPT) VALUE('4')
+             ENDDO
+      /*ABMWP*/
+             IF         COND(&FIL5 *EQ 'ABMWP') THEN(DO)
+             CHGVAR     VAR(&DEPT) VALUE('5')
+             ENDDO
+      /*GDLWP*/
+             IF         COND(&FIL5 *EQ 'GDLWP') THEN(DO)
+             CHGVAR     VAR(&DEPT) VALUE('6')
+             ENDDO
+
+      /*JW5 ECSWP OR ECQWP */
+             IF         COND((&FIL5 *EQ 'ECSWP') *OR (&FIL5 *EQ +
+                          'ECQWP')) THEN(DO)
+             CHGVAR     VAR(&DEPT) VALUE('7')
+             ENDDO
+
+ /*========================================================*/
+ /*   TO QNTC/IAF-AS400-FILE/AS400-TRANS/XX/DOWNLOAD       */
+ /*========================================================*/
+
+      /* ADD TIME STAMP */
+             IF         COND((&CSV *EQ 'Y') *OR (&CSV *EQ 'C')) +
+                          THEN(DO)
+             CHGVAR     VAR(&WFIL) VALUE(&FNAM *BCAT &DATE6 *CAT +
+                          '.csv')
+             ENDDO
+             IF         COND(&CSV *EQ 'T') THEN(DO)
+             CHGVAR     VAR(&WFIL) VALUE(&FNAM *BCAT &DATE6 *CAT +
+                          '.txt')
+             ENDDO
+             IF         COND((&CSV *NE 'Y') *AND (&CSV *NE 'T') *AND +
+                          (&CSV *NE 'C')) THEN(DO)
+             CHGVAR     VAR(&WFIL) VALUE(&FNAM *BCAT &DATE6)
+             ENDDO
+
+      /* IF DEPT=7, NOT NEED TIME STAMP  (JW5)  */
+             IF         COND(&DEPT *EQ '7') THEN(DO)
+             CHGVAR     VAR(&WFIL) VALUE(&FNAM *TCAT '.csv')
+             ENDDO
+
+      /* GET DEPARTMENT NAME */
+             IF         COND(&DEPT *EQ '1') THEN(DO)
+             CHGVAR     VAR(&DEPN) VALUE('ACCOUNTING     ')
+             CHGVAR     VAR(&DIRN) VALUE('AS400 Xfer AC(K:)')
+             ENDDO
+             IF         COND(&DEPT *EQ '2') THEN(DO)
+             CHGVAR     VAR(&DEPN) VALUE('MANUFACTURING  ')
+             CHGVAR     VAR(&DIRN) VALUE('AS400 Xfer MF(M:)')
+             ENDDO
+             IF         COND(&DEPT *EQ '3') THEN(DO)
+             CHGVAR     VAR(&DEPN) VALUE('PC             ')
+             CHGVAR     VAR(&DIRN) VALUE('AS400 Xfer PC(J:)')
+             ENDDO
+             IF         COND(&DEPT *EQ '4') THEN(DO)
+             CHGVAR     VAR(&DEPN) VALUE('SALES          ')
+             CHGVAR     VAR(&DIRN) VALUE('AS400 Xfer SA(L:)')
+             ENDDO
+             IF         COND(&DEPT *EQ '5') THEN(DO)
+             CHGVAR     VAR(&DEPN) VALUE('PC             ')
+             CHGVAR     VAR(&DIRN) VALUE('AS400 Xfer PC(J:)')
+             ENDDO
+             IF         COND(&DEPT *EQ '6') THEN(DO)
+             CHGVAR     VAR(&DEPN) VALUE('ACCOUNTING     ')
+             CHGVAR     VAR(&DIRN) VALUE('AS400 Xfer PC(K:)')
+             ENDDO
+ /*JW5*/     IF         COND(&DEPT *EQ '7') THEN(DO)
+             CHGVAR     VAR(&DEPN) VALUE('ACCOUNTING     ')
+             CHGVAR     VAR(&DIRN) VALUE('AS400 Xfer PC(K:)')
+             ENDDO
+
+      /* CREATE DIRECTRY */
+      /* DEFAULT */
+             IF         COND((&DEPT *NE '5') *AND (&DEPT *NE '6') +
+                          *AND (&DEPT *NE '7')) THEN(DO)
+             CHGVAR     VAR(&DIR1) +
+                          VALUE('/QNTC/IAF-AS400-FILE/AS400-TRANS/' +
+                          *TCAT &DEPN *TCAT '/Download/' *CAT &USER)
+                        ENDDO
+      /* &DEPT=5         */
+             IF         COND(&DEPT *EQ '5') THEN(DO)
+             CHGVAR     VAR(&DIR1) +
+                          VALUE('/QNTC/IAF-AS400-FILE/AS400-TRANS+
+                          /' *TCAT &DEPN *TCAT '/Download/AUTO +
+                          SETTING/' *CAT &YYMM)
+                        ENDDO
+      /* &DEPT=6         */
+             IF         COND(&DEPT *EQ '6') THEN(DO)
+             CHGVAR     VAR(&DIR1) +
+                          VALUE('/QNTC/IAF-AS400-FILE/AS400-TRANS/' +
+                          *TCAT &DEPN *TCAT '/Download/AS400/OUTSRC')
+                        ENDDO
+      /* &DEPT=7  (JW5)  */
+             IF         COND(&DEPT *EQ '7') THEN(DO)
+             CHGVAR     VAR(&DIR1) +
+                          VALUE('/QNTC/IAF-AS400-FILE/AS400-TRANS/' +
+                          *TCAT &DEPN *TCAT '/Download/AS400/DIE')
+                        ENDDO
+
+             CRTDIR     DIR(&DIR1)
+             MONMSG     MSGID(CPFA0A0)
+             MONMSG     MSGID(CPFA0A9)
+             CHGVAR     VAR(&DIR2) VALUE(&DIR1 *TCAT '/' *TCAT &WFIL)
+
+      /* COPY DUMMY 0 RECORD */
+             CRTDUPOBJ  OBJ(MBDWPT0) FROMLIB(HWFILE1) OBJTYPE(*FILE) +
+                          TOLIB(QTEMP)
+             MONMSG     MSGID(CPF0000)
+
+             CLRPFM     FILE(QTEMP/MBDWPT0)
+             MONMSG     MSGID(CPF2103 CPF3261 CPF2105)
+
+             CPYTOIMPF  FROMFILE(QTEMP/MBDWPT0) TOSTMF(&DIR2) +
+                          MBROPT(*REPLACE) RCDDLM(*CRLF) +
+                          RMVBLANK(*BOTH) FLDDLM(',') DATFMT(*USA) +
+                          TIMFMT(*USA)
+      /* ERROR MSG    */
+             MONMSG     MSGID(CPF2817) EXEC(DO)
+             CHGVAR     VAR(&TEXT) VALUE('Target File (.csv) Open +
+                          Error! Please Check Target File and Try +
+                          Again! (APLC94-1)')
+             CALL PGM(QUILNGTX) PARM(&TEXT X'00000046' ' ' ' ' X'00000000')
+             GOTO       CMDLBL(END)
+             ENDDO
+
+      /* TRANSFER 1 FOR TEXT */
+             IF COND(&TYPE='1') THEN(DO)
+             CPYF       FROMFILE(&LIBL/&FILE) +
+                          TOFILE(HWFILE1/FILE1024) MBROPT(*REPLACE) +
+                          FMTOPT(*NOCHK)
+
+             CPYTOIMPF  FROMFILE(HWFILE1/FILE1024) TOSTMF(&DIR2) +
+                          MBROPT(*REPLACE) RCDDLM(*CRLF) +
+                          DTAFMT(*FIXED) RMVBLANK(*BOTH) +
+                          FLDDLM(',') DATFMT(*USA) TIMFMT(*USA) +
+                          ADDCOLNAM(*NONE)
+             MONMSG     MSGID(CPF2817) EXEC(GOTO CMDLBL(ERROR))
+             ENDDO
+
+      /* TRANSFER 2 FOR PF */
+             IF COND(&TYPE='2') THEN(DO)
+             CPYTOIMPF  FROMFILE(&LIBL/&FILE) TOSTMF(&DIR2) +
+                          MBROPT(*REPLACE) RCDDLM(*CRLF) +
+                          DTAFMT(*DLM) STRDLM(*NONE) +
+                          RMVBLANK(*BOTH) FLDDLM(',') DATFMT(*USA) +
+                          TIMFMT(*USA) ADDCOLNAM(&COL)
+             MONMSG     MSGID(CPF2817) EXEC(GOTO CMDLBL(ERROR))
+             ENDDO
+
+             GOTO       CMDLBL(ENDMSG)
+ERROR:
+      /* ERROR MSG    */
+
+             CHGVAR     VAR(&TEXT) VALUE('Target File (.csv) Open +
+                          Error! Please Check Target File and Try +
+                          Again! (APLC94-2)')
+             CALL PGM(QUILNGTX) PARM(&TEXT X'00000046' ' ' ' ' X'00000000')
+             GOTO       CMDLBL(END)
+
+ENDMSG:
+             IF         COND(&MSG  *EQ 'Y') THEN(DO)
+
+             IF         COND((&DEPT *NE '5') *AND (&DEPT *NE '7')) THEN(DO)
+             CHGVAR     VAR(&DIR3) VALUE(&DIRN *CAT '/Download/' +
+                          *CAT &USER *TCAT '/' *TCAT &WFIL)
+             ENDDO
+
+             IF         COND(&DEPT *EQ '5') THEN(DO)
+             CHGVAR     VAR(&DIR3) VALUE(&DIRN *CAT '/Download/AUTO +
+                          SETTING/' *CAT &YYMM *TCAT '/' *TCAT &WFIL)
+             ENDDO
+
+             IF         COND(&DEPT *EQ '7') THEN(DO)
+             CHGVAR     VAR(&DIR3) VALUE(&DIRN *CAT +
+                          '/Download/AS400/DIE' *TCAT '/' *TCAT &WFIL)
+             ENDDO
+
+             IF         COND(&DEPT *NE '5') THEN(DO)
+             SNDBRKMSG  MSG('REPORT HAS BEEN CREATED IN YOUR USER +
+                          DIRECTORY' *BCAT &DIR3) TOMSGQ(&WS)
+             ENDDO
+
+             ENDDO
+
+END:
+             DLTOVR     FILE(*ALL)
+             ENDPGM

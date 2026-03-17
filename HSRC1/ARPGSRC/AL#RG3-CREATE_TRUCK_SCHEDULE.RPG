@@ -1,0 +1,220 @@
+     H            Y.
+     F** AL#RG3 *********************************************
+     F* CREATE TRUCK SCHEDULE                               *
+     F*             T.SAKAKI       2016.08.12               *
+     F*---------------------------------------------        *
+JW1  F* JW      2021.08.16 CHG ERROR MSG                    *
+     F*******************************************************
+     FAL#PWG3 CF  E                    WORKSTN
+     FAGDPL12 IF  E           K        DISK
+     FAL#PPC1 IF  E           K        DISK
+      *
+     E                    ER      1  20 60
+      *
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60WTIME
+     I                                        7  140WDATE
+      *
+     I            DS
+     I                                        1   80D1SDAT
+     I                                        1   40D1SDYY
+     I                                        5   60D1SDMM
+     I                                        7   80D1SDDD
+     I            DS
+     I                                        1   80D1EDAT
+     I                                        1   40D1EDYY
+     I                                        5   60D1EDMM
+     I                                        7   80D1EDDD
+     I            DS
+     I                                        1   80F8KYMD
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           P1SDAT  80
+     C                     PARM           P1EDAT  80
+     C                     PARM           P1KIHZ  80
+     C                     PARM           P9CMD   2
+      *----------------------------------------------------*
+      *   K  E  Y   L  I  S  T                             *
+      *----------------------------------------------------*
+     C           KEYS      KLIST
+     C                     KFLD           D1SDYY
+     C                     KFLD           D1SDMM
+     C                     KFLD           D1SDDD
+     C           KEYE      KLIST
+     C                     KFLD           D1EDYY
+     C                     KFLD           D1EDMM
+     C                     KFLD           D1EDDD
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     TIME           SDATE
+     C                     EXSR #SB100
+     C           DSPSW     DOUEQ'99'
+     C                     EXSR #SB200
+     C                     ENDDO
+     C                     EXSR #SB300
+      *----------------------------------------------------*
+      * INZ                                                *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     MOVEL'01'      DSPSW   2
+     C                     MOVEL*BLANK    P9CMD
+     C                     Z-ADD0         D1SDAT
+     C                     Z-ADD0         D1EDAT
+     C                     Z-ADD0         D1KIHZ
+      *
+     CSR         ESB100    ENDSR
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C           DSPSW     DOWEQ'01'
+     C                     EXSR #SB210
+     C                     ENDDO
+      *
+     CSR         ESB200    ENDSR
+      *----------------------------------------------------*
+      *                                                    *
+      *----------------------------------------------------*
+     CSR         #SB210    BEGSR
+      *
+     C                     EXFMTAL#PWG31
+     C                     SETOF                     313299
+     C                     SETOF                     33
+     C                     MOVEL*BLANK    D1ERR
+     C                     MOVEL*BLANK    P2KIHZ
+      *
+     C           *IN01     IFEQ '1'
+     C                     MOVEL'01'      P9CMD
+     C                     MOVEL'99'      DSPSW
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C** < F8 > CUST/TRUCK INQ
+     C           *INKH     IFEQ *ON
+     C                     CALL 'AL#RG8'
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C** < F12 > TRUCK PATTERN INQ
+     C           *INKL     IFEQ *ON
+     C                     CALL 'AL#RG1'
+     C                     PARM           P1KIHZ  80       CHANGE DATE
+     C           P1KIHZ    IFNE *ZERO
+     C                     Z-ADDP1KIHZ    D1KIHZ
+     C                     ENDIF
+     C                     GOTO ESB210
+     C                     ENDIF
+      * SCHEDULE DATE
+     C           D1SDAT    IFEQ 0
+     C           D1EDAT    OREQ 0
+     C                     MOVELER,1      D1ERR
+     C                     SETON                     313299
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C           D1EDAT    IFNE 0
+     C           D1EDAT    ANDLTD1SDAT
+     C                     MOVELER,2      D1ERR
+     C                     SETON                     313299
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C           KEYS      CHAINAGDPL12              90
+     C           *IN90     IFEQ '1'
+     C                     MOVELER,2      D1ERR
+     C                     SETON                     3199
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C           KEYE      CHAINAGDPL12              90
+     C           *IN90     IFEQ '1'
+     C                     MOVELER,2      D1ERR
+     C                     SETON                     3299
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C                     Z-ADD0         @KAD    40
+      * GET WORKING DATE
+     C           KEYS      SETLLAGDPL121
+     C                     READ AGDPL121                 81
+     C           *IN81     DOWEQ'0'
+     C           F8KYMD    IFGT D1EDAT
+     C                     LEAVE
+     C                     ENDIF
+     C           F8HIRU    IFEQ *BLANK
+     C           F8YORU    ANDEQ*BLANK
+     C                     ADD  1         @KAD
+     C                     ENDIF
+     C                     READ AGDPL121                 81
+     C                     ENDDO
+      *  NO WORKING DAY
+     C           @KAD      IFEQ 0
+     C                     MOVELER,4      D1ERR
+     C                     SETON                     313299
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+      * TRUCK PATTERN
+     C           D1KIHZ    IFEQ 0
+     C**                   MOVELER,1      D1ERR
+JW1  C                     MOVELER,5      D1ERR
+     C                     SETON                     3399
+     C                     GOTO ESB210
+     C                     ELSE
+     C           D1KIHZ    SETGTAL#PPC1
+     C                     DO   *HIVAL
+     C           D1KIHZ    REDPEAL#PPC11                 91
+     C   91                LEAVE
+     C           *IN91     IFEQ '0'
+     C           C5SKJY    IFEQ 'D'
+     C           C5SKHZ    ANDLE*DATE
+     C                     ELSE
+     C                     Z-ADDC5KIHZ    P2KIHZ  80
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+     C**
+     C           P2KIHZ    IFEQ 0
+     C                     MOVELER,3      D1ERR
+     C                     SETON                     3399
+     C                     GOTO ESB210
+     C                     ENDIF
+     C**
+     C                     ENDIF
+      *
+     C           *IN05     IFEQ '1'
+     C                     MOVEL'99'      DSPSW
+     C                     Z-ADDD1SDAT    P1SDAT
+     C                     Z-ADDD1EDAT    P1EDAT
+     C                     MOVEL'05'      P9CMD
+     C                     ENDIF
+      *
+     CSR         ESB210    ENDSR
+      *----------------------------------------------------*
+      * END                                                *
+      *----------------------------------------------------*
+     CSR         #SB300    BEGSR
+     C                     SETON                     LR
+     C                     RETRN
+     CSR         ESB300    ENDSR
+** ER
+E-01 ENTER SCHEDULE DATE !
+E-02 INVALID DATE (FROM > TO) !
+E-03 NO DATA IN TRUCK BIN M/F !
+E-04 NO WORKING DAY !
+E-05 ENTER DATE FOR TRUCK PATTERN !
+E-06

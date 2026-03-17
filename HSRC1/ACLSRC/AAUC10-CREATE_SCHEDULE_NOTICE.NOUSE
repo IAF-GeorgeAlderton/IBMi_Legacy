@@ -1,0 +1,139 @@
+             PGM
+             /** AAUC10 **********************/
+             /*  PLAN NOTICE CREATE */
+             /* I-HASADA 86.10.31 */
+             /********************** AAUC10 **/
+             DCL        VAR(&ABBDS3) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&TYPE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PKBN) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PSKB) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PYM) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&PKYM)   TYPE(*CHAR) LEN(6)
+             DCL        VAR(&MBAN) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&KOTAE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PDEVT) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&PIGCD) TYPE(*CHAR) LEN(4)
+             RTVJOBA    JOB(&WSID)
+             RTVDTAARA  DTAARA(ABBDS3) RTNVAR(&ABBDS3)
+             CHGJOB     RUNPTY(40) SWS(00000000)
+
+             CHGVAR     VAR(&PKYM) VALUE(%SST(&ABBDS3 1 6))
+
+             CALL       PGM(AGAR01) PARM(&WSID &PDEVT &PIGCD)
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+
+             CHKOBJ     OBJ(AAVACT) OBJTYPE(*DTAARA)
+             MONMSG     MSGID(CPF9801) EXEC(GOTO CMDLBL(STP1))
+
+ STP2:       SNDPGMMSG  MSG('( G ) PART INFORMATION M/F UPDATE +
+                          SYSTEM IS ACTIVE,WAIT FOR A WHILE') +
+                          TOMSGQ(&WSID) MSGTYPE(*INQ) KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTAE)
+             IF         COND((&KOTAE *NE 'G') *AND (&KOTAE *NE 'g')) +
+                          THEN(GOTO CMDLBL(STP2))
+             GOTO       END
+
+ STP1:       CRTDTAARA  DTAARA(HFILE1/AAVACT) TYPE(*CHAR) LEN(10) +
+                          TEXT('PART INFORMATION M/F UPDATE SYSTEM +
+                          IS ACTIVE') AUT(*ALL)
+
+             CHKOBJ     OBJ(AKEIKAKU) OBJTYPE(*DTAARA)
+             MONMSG     MSGID(CPF9801) EXEC(GOTO CMDLBL(STP3))
+
+ STP4:       SNDPGMMSG  MSG('( G ) PRESENT PLAN NOTICE PUBLICATION +
+                          SYSTEM IS ACTIVE,WAIT FOR A WHILE') +
+                          TOMSGQ(&WSID) MSGTYPE(*INQ) KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTAE)
+             IF         COND((&KOTAE *NE 'G') *AND (&KOTAE *NE 'g')) +
+                          THEN(GOTO CMDLBL(STP4))
+             GOTO       SEND0
+
+ STP3:       CRTDTAARA  DTAARA(HFILE1/AKEIKAKU) TYPE(*CHAR) LEN(10) +
+                          TEXT('FOR PLAN NOTICE HANDLING CHECK') +
+                          AUT(*ALL)
+
+             DLTF       FILE(AAUWP10)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             DLTF       FILE(AAUWP101)
+             MONMSG     MSGID(CPF3261 CPF2105)
+
+             CRTPF      FILE(HWFILE1/AAUWP10) RCDLEN(60) +
+                          OPTION(*NOLIST) SIZE(4000 2000 3) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CRTPF      FILE(HWFILE1/AAUWP101) RCDLEN(100) +
+                          OPTION(*NOLIST) SIZE(4000 2000 3) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CALL       PGM(AAUR10) PARM(' ' &PSKB &PKYM)
+
+             IF         (%SWITCH(0XXXXXXX)) DO
+             DLTF       FILE(AAUWP10)
+             ENDDO
+             ELSE       DO
+
+             DLTF       FILE(AAUWP11)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE1/AAUWP11) RCDLEN(60) +
+                          OPTION(*NOLIST) SIZE(4000 2000 3) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             IF         (&PSKB *EQ '4') DO
+             FMTDTA     INFILE((HWFILE1/AAUWP10)) +
+                          OUTFILE(HWFILE1/AAUWP11) SRCFILE(FMTSRC) +
+                          SRCMBR(AAUS10) OPTION(*NOPRT)
+             ENDDO
+             ELSE       DO
+
+             FMTDTA     INFILE((HWFILE1/AAUWP10)) +
+                          OUTFILE(HWFILE1/AAUWP11) SRCFILE(FMTSRC) +
+                          SRCMBR(AAUS11) OPTION(*NOPRT)
+             ENDDO
+
+             DLTF       FILE(AAUWP10)
+
+             OVRPRTF    FILE(QPRINT) DEVTYPE(&PDEVT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(D622) +
+                          SAVE(*YES) IGCDTA(&PIGCD)
+             CALL       PGM(AAUR11) PARM(&PKBN &PYM '    ')
+             DLTOVR     FILE(QPRINT)
+
+             ENDDO
+
+
+             IF         (%SWITCH(X0XXXXXX)) DO
+             DLTF       FILE(AAUWP101)
+             ENDDO
+             ELSE       DO
+
+             DLTF       FILE(AAUWP13)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE1/AAUWP13) RCDLEN(100) +
+                          OPTION(*NOLIST) SIZE(4000 2000 3) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             FMTDTA     INFILE((HWFILE1/AAUWP101)) +
+                          OUTFILE(HWFILE1/AAUWP13) SRCFILE(FMTSRC) +
+                          SRCMBR(AAUS13) OPTION(*NOPRT)
+             DLTF       FILE(AAUWP101)
+
+             OVRPRTF    FILE(QPRINT) DEVTYPE(*AFPDS) PAGESIZE(36) +
+                          LPI(6) OVRFLW(34) RPLUNPRT(*YES) +
+                          OUTQ(&PRTG) FORMTYPE(D622) SAVE(*YES)
+             CALL       PGM(AAUR13)
+             DLTOVR     FILE(QPRINT)
+
+             ENDDO
+
+             DLTDTAARA  DTAARA(AKEIKAKU)
+
+ SEND0:      DLTDTAARA  DTAARA(HFILE1/AAVACT)
+
+ END:        CHGJOB     RUNPTY(20)
+
+             ENDPGM

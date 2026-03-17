@@ -1,0 +1,353 @@
+     H            Y.
+     F** ADKR44 **********************************
+     F*工程情報の取得                        *
+     F*    IWATA.       2019.12.06               *
+     F********************************************
+     FADKPL56 IF  E                    DISK
+     E                    APR        15  3                PROCESS
+     E                    AKB        15  3                MACHINE #
+     E                    ALC        15  6                LOCATION
+     E                    OKT        15  3                PROCESS
+     E                    OKB        15  3                MACHINE #
+     E                    OLC        15  6                LOCATION
+      *
+     I            DS
+     I                                        1   6 WKTKR
+     I                                        1   1 WKTKR1
+     I                                        2   3 WKTKR2
+     I                                        4   5 WKTKR3
+     I                                        6   6 WKTKR4
+      *
+     I            DS
+     I                                        1  100WKAP
+     I                                        1   80WKAPHZ
+     I                                        9  100WKAPBN
+      *
+     I            DS
+     I                                        1  140WDATE
+     I                                        1   60STIME
+     I                                        7  140SDATE
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C                     TIME           WDATE
+     C           *ENTRY    PLIST
+     C                     PARM           P1SHN1  5
+     C                     PARM           P1SHN2  5
+     C                     PARM           P1SHN3  2
+     C                     PARM           P1APHZ  80
+     C                     PARM           P1APBN  20
+     C                     PARM           P9DATA  1
+     C                     PARM           P9CODE  1
+     C                     PARM           P9GROP  2
+     C                     PARM           P9PROC  3
+     C                     PARM           P9KBN   3
+      *
+     C                     Z-ADDP1APHZ    WKAPHZ  80
+     C                     Z-ADDP1APBN    WKAPBN  20
+     C                     MOVEL'0'       P9DATA           0:oﾆ  1:aﾒ
+     C                     MOVEL*BLANK    P9CODE
+     C                     MOVEL*BLANK    P9GROP
+     C                     MOVEL*BLANK    P9PROC
+     C                     MOVEL*BLANK    P9KBN
+      *
+     C                     MOVEL'1'       OPNCLS
+      *
+     C                     EXSR #SB390
+      *
+     C           OPNCLS    IFEQ '0'
+     C                     MOVE '9'       OPNCLS
+     C                     CALL 'AAMRS0'
+     C                     PARM           P1SHN1  5
+     C                     PARM           P1SHN2  5
+     C                     PARM           P1SHN3  2
+     C                     PARM           INYMDB 10
+     C                     PARM           OPNCLS  1
+     C                     PARM           PBMN   60
+     C                     PARM           PKBN   45
+     C                     PARM           PTKR   90
+     C                     PARM           PSHR   15
+     C                     PARM           PKOT   45
+     C                     PARM           PHBN  180
+     C                     PARM           STATUS  1
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *-----------------------------------*
+      *工程情報                         *
+      *-----------------------------------*
+     CSR         #SB390    BEGSR
+      *
+     C                     CLEAROKT
+     C                     CLEAROKB
+     C                     MOVELP1SHN1    CBSHN1  5
+     C                     MOVELP1SHN2    CBSHN2  5
+     C                     MOVELP1SHN3    CBSHN3  2
+     C                     MOVE WKAP      INYMDB
+     C                     CALL 'AAMRS0'
+      *入力パラメータ
+     C                     PARM           CBSHN1
+     C                     PARM           CBSHN2
+     C                     PARM           CBSHN3
+     C                     PARM           INYMDB 10
+     C                     PARM           OPNCLS  1
+      *出力パラメータ
+     C                     PARM           PBMN   60
+     C                     PARM           PKBN   45
+     C                     PARM           PTKR   90
+     C                     PARM           PSHR   15
+     C                     PARM           PKOT   45
+     C                     PARM           PHBN  180
+     C                     PARM           STATUS  1
+     C                     MOVEL'0'       OPNCLS
+     C           STATUS    IFEQ '9'
+     C                     GOTO ESB390
+     C                     ENDIF
+      *
+     C                     MOVEAPKOT      APR
+     C                     MOVEAPKBN      AKB
+     C                     MOVEAPTKR      ALC
+      *
+      * SET A-PICS FINAL PROCESS
+     C                     Z-ADD15        IX      20
+     C           1         DO   15
+1    C           ALC,IX    IFNE *BLANK
+|    C                     MOVELAPR,IX    OKT,IX
+|    C                     MOVELAKB,IX    OKB,IX
+|    C                     MOVELALC,IX    OLC,IX
+|    C                     LEAVE
+1    C                     ENDIF
+     C                     SUB  1         IX
+     C                     ENDDO
+      *
+      * SET A-PICS FIRST PROCESS
+     C                     Z-ADDIX        IY      20
+     C           1         DO   15
+     C                     SUB  1         IY      20
+1    C           IY        IFLE 0
+|    C                     LEAVE
+1    C                     ENDIF
+1    C           ALC,IY    IFEQ '------'
+|    C                     MOVELAPR,IY    OKT,IY
+|    C                     MOVELAKB,IY    OKB,IY
+|    C                     MOVE ALC,IY    OLC,IY
+|     * SET PRECEDING PROCESS
+X    C                     ELSE
+|    C                     LEAVE
+1    C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     EXSR #SB391
+      *
+     CSR         ESB390    ENDSR
+      *----------------------------------------------------*
+      *工程・機番パターンが一致するか
+      *----------------------------------------------------*
+     CSR         #SB391    BEGSR
+      *
+     C                     MOVEL*BLANK    W@GROP  2
+     C           1         SETLLADKPL56
+     C                     READ ADKPL56                  85
+     C           *IN85     DOWEQ'0'
+     C           W@GROP    ANDEQ*BLANK
+     C           DNSKJY    IFEQ 'D'
+     C           DNSKHZ    ANDLESDATE
+     C                     ELSE
+     C                     EXSR #SB392
+     C                     ENDIF
+     C                     READ ADKPL56                  85
+     C                     ENDDO
+      *
+     CSR         ESB391    ENDSR
+      *----------------------------------------------------*
+      *工程・機番パターンが一致するか
+      *----------------------------------------------------*
+     CSR         #SB392    BEGSR
+      *
+     C                     Z-ADD1         X       30
+     C           X         DOWLE15
+     C           P9DATA    ANDEQ'0'
+     C                     SELEC
+     C           DNCODE    WHEQ '1'
+     C                     EXSR #SB393
+     C           DNCODE    WHEQ '2'
+     C                     EXSR #SB394
+     C                     ENDSL
+     C                     ADD  1         X
+     C                     ENDDO
+      *
+     CSR         ESB392    ENDSR
+      *----------------------------------------------------*
+      *工程が一致するか
+      *----------------------------------------------------*
+     CSR         #SB393    BEGSR
+      *
+     C                     Z-ADD1         X1      30
+     C           DNPRC1    LOKUPOKT,X1                   79
+     C           *IN79     IFEQ '1'
+     C                     MOVELDNGROP    W@GROP
+     C                     MOVELDNCODE    P9CODE
+     C                     MOVELDNGROP    P9GROP
+     C                     MOVELOKT,X1    P9PROC
+     C                     MOVELOKB,X1    P9KBN
+     C                     MOVEL'1'       P9DATA           1:MASHINE NO
+     C                     ENDIF
+      *
+     CSR         ESB393    ENDSR
+      *----------------------------------------------------*
+      *工程・機番パターンが一致するか
+      *----------------------------------------------------*
+     CSR         #SB394    BEGSR
+      *
+     C                     MOVEL*BLANK    W@PRC1  3
+     C                     MOVEL*BLANK    W@KBN1  3
+     C                     MOVEL*BLANK    W@PRC2  3
+     C                     MOVEL*BLANK    W@KBN2  3
+     C                     MOVEL*BLANK    W@PRC3  3
+     C                     MOVEL*BLANK    W@KBN3  3
+     C                     MOVEL*BLANK    W@PRC4  3
+     C                     MOVEL*BLANK    W@KBN4  3
+     C                     MOVEL*BLANK    W@PRC5  3
+     C                     MOVEL*BLANK    W@KBN5  3
+     C                     Z-ADDX         X1      30
+     C           X1        ADD  1         X2      30
+     C           X1        ADD  2         X3      30
+     C           X1        ADD  3         X4      30
+     C           X1        ADD  4         X5      30
+     C           X1        IFLE 15
+     C                     MOVELOKT,X1    W@PRC1
+     C                     MOVELOKB,X1    W@KBN1
+     C                     ENDIF
+     C           X2        IFLE 15
+     C                     MOVELOKT,X2    W@PRC2
+     C                     MOVELOKB,X2    W@KBN2
+     C                     ENDIF
+     C           X3        IFLE 15
+     C                     MOVELOKT,X3    W@PRC3
+     C                     MOVELOKB,X3    W@KBN3
+     C                     ENDIF
+     C           X4        IFLE 15
+     C                     MOVELOKT,X4    W@PRC4
+     C                     MOVELOKB,X4    W@KBN4
+     C                     ENDIF
+     C           X5        IFLE 15
+     C                     MOVELOKT,X5    W@PRC5
+     C                     MOVELOKB,X5    W@KBN5
+     C                     ENDIF
+      *
+     C                     MOVEL'0'       W@PFL1  1
+     C                     MOVEL'0'       W@KFL1  1
+     C                     MOVEL'0'       W@PFL2  1
+     C                     MOVEL'0'       W@KFL2  1
+     C                     MOVEL'0'       W@PFL3  1
+     C                     MOVEL'0'       W@KFL3  1
+     C                     MOVEL'0'       W@PFL4  1
+     C                     MOVEL'0'       W@KFL4  1
+     C                     MOVEL'0'       W@PFL5  1
+     C                     MOVEL'0'       W@KFL5  1
+      * PROCESS 1
+     C           DNPRC1    IFEQ *BLANK
+     C                     MOVEL'1'       W@PFL1
+     C                     ELSE
+     C           DNPRC1    IFEQ W@PRC1
+     C                     MOVEL'1'       W@PFL1
+     C                     ENDIF
+     C                     ENDIF
+      * MACHINE 1
+     C           DNKBN1    IFEQ *BLANK
+     C                     MOVEL'1'       W@KFL1
+     C                     ELSE
+     C           DNKBN1    IFEQ W@KBN1
+     C                     MOVEL'1'       W@KFL1
+     C                     ENDIF
+     C                     ENDIF
+      * PROCESS 2
+     C           DNPRC2    IFEQ *BLANK
+     C                     MOVEL'1'       W@PFL2
+     C                     ELSE
+     C           DNPRC2    IFEQ W@PRC2
+     C                     MOVEL'1'       W@PFL2
+     C                     ENDIF
+     C                     ENDIF
+      * MACHINE 2
+     C           DNKBN2    IFEQ *BLANK
+     C                     MOVEL'1'       W@KFL2
+     C                     ELSE
+     C           DNKBN2    IFEQ W@KBN2
+     C                     MOVEL'1'       W@KFL2
+     C                     ENDIF
+     C                     ENDIF
+      * PROCESS 3
+     C           DNPRC3    IFEQ *BLANK
+     C                     MOVEL'1'       W@PFL3
+     C                     ELSE
+     C           DNPRC3    IFEQ W@PRC3
+     C                     MOVEL'1'       W@PFL3
+     C                     ENDIF
+     C                     ENDIF
+      * MACHINE 3
+     C           DNKBN3    IFEQ *BLANK
+     C                     MOVEL'1'       W@KFL3
+     C                     ELSE
+     C           DNKBN3    IFEQ W@KBN3
+     C                     MOVEL'1'       W@KFL3
+     C                     ENDIF
+     C                     ENDIF
+      * PROCESS 4
+     C           DNPRC4    IFEQ *BLANK
+     C                     MOVEL'1'       W@PFL4
+     C                     ELSE
+     C           DNPRC4    IFEQ W@PRC4
+     C                     MOVEL'1'       W@PFL4
+     C                     ENDIF
+     C                     ENDIF
+      * MACHINE 4
+     C           DNKBN4    IFEQ *BLANK
+     C                     MOVEL'1'       W@KFL4
+     C                     ELSE
+     C           DNKBN4    IFEQ W@KBN4
+     C                     MOVEL'1'       W@KFL4
+     C                     ENDIF
+     C                     ENDIF
+      * PROCESS 5
+     C           DNPRC5    IFEQ *BLANK
+     C                     MOVEL'1'       W@PFL5
+     C                     ELSE
+     C           DNPRC5    IFEQ W@PRC5
+     C                     MOVEL'1'       W@PFL5
+     C                     ENDIF
+     C                     ENDIF
+      * MACHINE 5
+     C           DNKBN5    IFEQ *BLANK
+     C                     MOVEL'1'       W@KFL5
+     C                     ELSE
+     C           DNKBN5    IFEQ W@KBN5
+     C                     MOVEL'1'       W@KFL5
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           W@PFL1    IFEQ '1'
+     C           W@KFL1    ANDEQ'1'
+     C           W@PFL2    ANDEQ'1'
+     C           W@KFL2    ANDEQ'1'
+     C           W@PFL3    ANDEQ'1'
+     C           W@KFL3    ANDEQ'1'
+     C           W@PFL4    ANDEQ'1'
+     C           W@KFL4    ANDEQ'1'
+     C           W@PFL5    ANDEQ'1'
+     C           W@KFL5    ANDEQ'1'
+     C                     MOVELDNGROP    W@GROP
+     C                     MOVELDNCODE    P9CODE
+     C                     MOVELDNGROP    P9GROP
+     C                     MOVELOKT,X1    P9PROC
+     C                     MOVELOKB,X1    P9KBN
+     C                     MOVEL'2'       P9DATA           2:GROUP
+     C                     ENDIF
+      *
+     CSR         ESB394    ENDSR

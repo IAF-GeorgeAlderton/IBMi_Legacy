@@ -1,0 +1,257 @@
+     H            Y/                                    1
+     H** CORR03 *******************************************************
+     H*  CHECK IAF PART(PP10) VS IAF PART(COMMONM) BY MHIN            *
+     H*  JW   2021.02.23                                              *
+     F*---------------------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'CORR03'
+     F*                    PARM           $MHIN  20
+     F*                    PARM           $UPD    1
+     F*                    PARM           $RTN    1
+     F*   IN  $MHIN: 20A USER PART
+     F*       $UPD :  1A Y=UPDATE, N=NOT UPDATE
+     F*   OUT $RTN :  1A *=THERE IS ERROR, BLANK=NO ERROR
+     H*****************************************************************
+     FAB#PL19 UF  E           K        DISK
+     FAB#PLAE UF  E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+      *================================================================
+     I            DS
+     I                                        1  20 BAMHIN
+     I                                        1   5 BAMHN1
+     I                                        6  10 BAMHN2
+     I                                       11  15 BAMHN3
+     I                                       16  20 BAMHN4
+     I            DS
+     I                                        1  12 BASHIN
+     I                                        1   5 BASHN1
+     I                                        6  10 BASHN2
+     I                                       11  12 BASHN3
+     I            DS
+     I                                        1  12 @SHIN
+     I                                        1   5 @SHN1
+     I                                        6  10 @SHN2
+     I                                       11  12 @SHN3
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *
+     I           SDS
+     I                                     *PROGRAM #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     I                                      264 269 #JBNO
+      *===============================================================
+      *  START  PROGRAM
+      *===============================================================
+     C                     EXSR #INIT
+      *
+     C           K#PL19    SETLLAB#PL19
+     C                     DO   *HIVAL
+     C           K#PL19    READEAB#PL19                  98
+     C   98                LEAVE
+      *
+     C           BASKJY    IFEQ 'D'
+     C           BAURYY    ORNE 0
+     C                     ITER
+     C                     ENDIF
+      * GET IAF PART
+     C                     MOVELBATOKU    PTOKU
+     C                     MOVELBANONY    PNONY
+     C                     MOVELBANKOJ    PNKOJ
+     C                     MOVELBANUKE    PNUKE
+     C                     MOVELBAMHIN    @MHIN
+     C                     MOVEL*BLANK    @SHIN
+     C                     MOVEL*BLANK    @FLG
+     C                     CALL 'BBHR50'
+     C                     PARM           PTOKU   4
+     C                     PARM           PNONY   4
+     C                     PARM           PNKOJ   1
+     C                     PARM           PNUKE   4
+     C                     PARM           @MHIN  20
+     C                     PARM           @SHIN  12
+     C                     PARM           @FLG    1
+      *
+     C                     MOVEL@SHIN     $SHIN
+     C                     MOVELTODAY     $DATE
+     C                     MOVE 'Y'       $SRV
+      * GET QPC
+     C                     CALL 'UTLR35B'
+     C                     PARM           $SHIN  12
+     C                     PARM           $DATE   8
+     C                     PARM           $SRV    1
+     C                     PARM           $SYOS   6
+     C                     PARM           $RTN    1
+     C                     MOVEL$SYOS     @QPC    60
+      *
+      * IAF PART
+     C           BASHIN    IFNE @SHIN
+     C           BASYOS    ORNE @QPC
+     C                     MOVE '*'       $RTN
+     C                     EXSR #PRINT
+     C           $UPD      IFEQ 'Y'
+     C           @QPC      IFNE 0
+     C                     Z-ADD@QPC      BASYOS
+     C                     ENDIF
+     C                     MOVEL@SHIN     BASHIN
+     C                     UPDATAB#PL191
+      * UPDATE PPA1
+     C                     EXSR #UPA1
+      *
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  UPDATE AB#PPA1                                    *
+      *----------------------------------------------------*
+     C           #UPA1     BEGSR
+      *
+     C           K#PL19    SETLLAB#PLAE
+     C                     DO   *HIVAL
+     C           K#PL19    READEAB#PLAE                  98
+     C   98                LEAVE
+      *
+     C           BASKJY    IFEQ 'D'
+     C           BAURYY    ORNE 0
+     C                     ITER
+     C                     ENDIF
+      * IAF PART
+     C           BASHIN    IFNE @SHIN
+     C           BASYOS    ORNE @QPC
+     C           @QPC      IFNE 0
+     C                     Z-ADD@QPC      BASYOS
+     C                     ENDIF
+     C                     MOVEL@SHIN     BASHIN
+     C                     UPDATAB#PLAE1
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      * EDIT
+     C           BASHIN    IFEQ @SHIN
+     C                     MOVE ' '       SFLG
+     C                     ELSE
+     C                     MOVE 'X'       SFLG
+     C                     ENDIF
+      *
+     C           BASYOS    IFEQ @QPC
+     C                     MOVE ' '       QFLG
+     C                     ELSE
+     C                     MOVE 'X'       QFLG
+     C                     ENDIF
+      * DETAIL
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *===============================================================
+      * INITIAL SETTINGS
+      *===============================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $MHIN  20
+     C                     PARM           $UPD    1
+     C                     PARM           $RTN    1
+      *
+     C           K#PL19    KLIST
+     C                     KFLD           K#MHN1  5
+     C                     KFLD           K#MHN2  5
+     C                     KFLD           K#MHN3  5
+     C                     KFLD           K#MHN4  5
+      * SET KEY
+     C                     MOVEL$MHIN     BAMHIN
+     C                     MOVELBAMHN1    K#MHN1
+     C                     MOVELBAMHN2    K#MHN2
+     C                     MOVELBAMHN3    K#MHN3
+     C                     MOVELBAMHN4    K#MHN4
+      *
+     C                     MOVE *BLANK    $RTN
+     C                     MOVE *BLANK    SFLG    1
+     C                     MOVE *BLANK    QFLG    1
+     C                     TIME           @TIME
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   14 'UPD='
+     O                         $UPD      15
+     O                                   50 '** IAF PART ERROR IN'
+     O                                   70 ' ORDER DATA (PP10) *'
+     O                                   90 '*                   '
+     O                                  101 'DATE'
+     O                         TODAY    104 '    .  .  '
+     O                         NOW      114 '  :  :  '
+     O                                  118 'P.'
+     O                         PAGE  Z  122
+     O        E   02           @HDR
+     O                                    1 '.'
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   12 'CUST'
+     O                                   19 'DELV'
+     O                                   23 'F'
+     O                                   30 'DOCK'
+     O                                   45 'SHP_DATE  BIN'
+     O                                   58 'USER_PART#'
+     O                                   78 'IAF_PART#   '
+     O                                   96 'COMMON M/F   '
+     O                                  104 'QPC'
+     O                                  114 'QPC'
+     O        E 1              @HDR
+     O                                   56 '(PP10)'
+     O                                   74 '(PP10)'
+     O                                   90 '(S/B)'
+     O                                  106 '(PP10)'
+     O                                  115 '(S/B)'
+     O        E 1              @HDR
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+     O                                  132 '------------'
+     O        E 1              @DTL
+     O                         SEQ#    +001
+     O                         BATOKU  +003
+     O                         BANONY  +003
+     O                         BANKOJ  +003
+     O                         BANUKE  +003
+     O                         BANOYY  +002
+     O                                 +000 '/'
+     O                         BANOMM  +000
+     O                                 +000 '/'
+     O                         BANODD  +000
+     O                         BANOBN  +001
+     O                         BAMHN1  +003
+     O                         BAMHN2  +001
+     O                         BAMHN3  +001
+     O                         SFLG    +001
+     O                         BASHN1  +001
+     O                         BASHN2  +001
+     O                         BASHN3  +001
+     O                         @SHN1   +001
+     O                         @SHN2   +001
+     O                         @SHN3   +001
+     O                         QFLG    +001
+     O                         BASYOS1 +000
+     O                         @QPC  1 +002

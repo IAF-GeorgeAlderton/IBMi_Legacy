@@ -1,0 +1,94 @@
+             PGM
+             /**** GDGC10 *****************************************/
+             /*  PRINT OF ORDER SHEET / TOTALIZATION OF PART NO.  */
+             /*     G.B.C                           97/03/06      */
+             /*    ADD TEST MODE   2004.1.22    HAYA              */
+             /*****************************************************/
+             DCL        VAR(&PPUSER) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PPGO) TYPE(*CHAR) LEN(2)
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&TYPE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PDEVT) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&PIGCD) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&WLIB)  TYPE(*CHAR) LEN(8)
+             DCL        VAR(&FLIB)  TYPE(*CHAR) LEN(8)
+             RTVJOBA    JOB(&WSID) USER(&PPUSER)
+
+     /*---------------------------------------*/
+             CPYF       FROMFILE(HFILE1/BTAPP05) +
+                          TOFILE(MAMIYA/BTAPP05) MBROPT(*REPLACE) +
+                          CRTFILE(*YES)
+             MONMSG     MSGID(CPF0000)
+
+             CPYF       FROMFILE(HFILE1/BTAPP41) +
+                          TOFILE(MAMIYA/BTAPP41) MBROPT(*REPLACE) +
+                          CRTFILE(*YES)
+             MONMSG     MSGID(CPF0000)
+
+             CPYF       FROMFILE(HFILE1/GDGPP01) +
+                          TOFILE(MAMIYA/GGDPP01) MBROPT(*REPLACE) +
+                          CRTFILE(*YES)
+             MONMSG     MSGID(CPF0000)
+
+
+             CPYF       FROMFILE(HWFILE1/GDGWP9X) +
+                          TOFILE(MAMIYA/GDGWP9X) MBROPT(*REPLACE) +
+                          CRTFILE(*YES)
+             MONMSG     MSGID(CPF0000)
+
+       /*----------------------------------------------------*/
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+             /* TEST MODE CHECK */
+             CHGVAR     VAR(&FLIB) VALUE('HFILE1  ')
+             CALL       PGM(ALBC00) PARM(&PPUSER &WLIB)
+             IF         COND(&WLIB *EQ 'TWFILE1 ') THEN(DO)
+             CHGVAR     VAR(&FLIB) VALUE('TFILE1  ')
+             ENDDO
+             /* *************** */
+
+        /*  MSK 2004.11.10 */
+             CHKOBJ     OBJ(&WLIB/GDGWP9X) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(DO)
+
+             CRTPF      FILE(&WLIB/GDGWP9X) RCDLEN(128) +
+                          OPTION(*NOLIST *NOSRC) SIZE(*NOMAX) +
+                          LVLCHK(*NO) AUT(*ALL)
+             ENDDO
+
+             OVRPRTF    FILE(QPRINT) OUTQ(&PRTG) FORMTYPE(K6H1)
+             CALL       PGM(GDGR10) PARM(&PPUSER &PPGO)
+             IF         (&PPGO *NE 'GO')   GOTO END
+
+             CPYF       FROMFILE(GDGPP01)  TOFILE(QTEMP/GDGPP01X) +
+                          MBROPT(*REPLACE) CRTFILE(*YES) +
+                          INCREL((*IF IASYHZ *EQ 0))
+             MONMSG     MSGID(CPF0000)
+
+          /* CPYF       FROMFILE(GDGPP01)  TOFILE(YASU/GDGPP01_BK) +
+                          MBROPT(*ADD) CRTFILE(*YES)  */
+          /* MONMSG     MSGID(CPF0000)                */
+
+             CLRPFM     FILE(GDGPP01)
+             CPYF       FROMFILE(QTEMP/GDGPP01X) TOFILE(GDGPP01) +
+                          MBROPT(*REPLACE)
+             MONMSG     MSGID(CPF0000)
+
+
+             /* PRINT OF KANBAN TOTAL LIST */
+             OVRPRTF    FILE(QPRINT) OUTQ(&PRTG) FORMTYPE(K6H1)
+             CALL GDGR15
+ /* NOT SCANNED */
+             CALL GDGR17
+             DLTOVR QPRINT
+
+             CHKOBJ     OBJ(&FLIB/TRANS) OBJTYPE(*DTAARA)
+             MONMSG     MSGID(CPF9801) EXEC(CRTDTAARA +
+                          DTAARA(&FLIB/TRANS) TYPE(*CHAR) LEN(2) +
+                          TEXT('IAF->ASJ TRANSFER CHECK'))
+             CHGDTAARA  DTAARA(&FLIB/TRANS (1 1)) VALUE('*')
+
+             CLRPFM     FILE(AANPP50)
+
+ END:        ENDPGM

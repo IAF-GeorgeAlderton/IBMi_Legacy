@@ -1,0 +1,803 @@
+     H            Y.                                    1
+      ***ALDR76*****************************************************************
+      *  SHIPPING VERIFICATION SCAN                                            *
+      *
+      * TCHK  01/26/10 CREATE(COPY FROM ALDR70)                        *********
+      * TCHK1 02/15/12 RMV 2D PROCESS                                  *********
+      **************************************************************************
+     FALDPW76 CF  E                    WORKSTN
+     FALBPL30 IF  E           K        DISK
+     FAB#PL76 IF  E           K        DISK
+     FAB#PL70 IF  E           K        DISK
+     FAB#PL14 IF  E           K        DISK
+     FAB#PP65 IF  E           K        DISK
+     FALDPL761UF  E           K        DISK                      A
+     F*
+     E                    ERR     1  20 20
+     E                    STS     1  10 20
+      **************************************************************************
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     I* SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   20WSSHHH
+     I                                        3   40WSSNNN
+     I                                        5   60WSSSSS
+     I                                        7  100WSSYYY
+     I                                       11  120WSSMMM
+     I                                       13  140WSSDDD
+     I                                        1   40WSSTM4
+     I                                        1   60WSSTM6
+     I                                        7  140WSSDAT
+     I* 2D KANBAN
+     I            DS
+     I                                        1 250 BRCD3@
+     I                                        1  25 BRCD30
+     I                                       26  50 BRCD31
+     I                                       51  75 BRCD32
+     I                                       76 100 BRCD33
+     I                                      101 125 BRCD34
+     I                                      126 150 BRCD35
+     I                                      151 175 BRCD36
+     I                                      176 200 BRCD37
+     I                                      201 225 BRCD38
+     I                                      226 250 BRCD39
+     I            DS
+     I                                        1 250 B@CD3@
+     I                                        1  18 BRCD1D
+     I                                        1   1 CTYPE
+     I                                        2  16 TXT1
+     I                                       17  31 TXT2
+     I                                       32  36 SUPP
+     I                                       37  38 DCCOD
+     I                                       39  42 SBAN
+     I                                       43  54 PART
+     I                                       55  64 LNAD
+     I                                       65  74 STAD
+     I                                       75  79 LOTS
+     I                                       80  99 SUPNM
+     I                                      100 108 MAINR
+     I                                      109 117 SUBR
+     I                                      118 125 UNDAT
+     I                                      126 133 SHDT
+     I                                      134 139 SHTM
+     I                                      140 151 ORNO
+     I                                      152 155 BXNBR
+     I                                      156 159 BXTOT
+     I                                      160 164 DEST
+     I                                       19 250 FILR
+     I            DS
+     I                                        1  18 W@1DBC
+     I                                        5   5 W@1DKD
+      **************************************************************************
+      *                    MAIN ROUTINE
+      **************************************************************************
+     C           W@ID      DOWNE'99'
+     C           W@ID      CASEQ'10'      #FMT10
+     C           W@ID      CASEQ'20'      #FMT20
+     C           W@ID      CASEQ'30'      #FMT30
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      **************************************************************************
+      *  INITIALIZE
+      **************************************************************************
+     C           *INZSR    BEGSR
+      *
+     C                     MOVE '10'      W@ID    2
+     C                     MOVEL*BLANK    D@TMCD
+     C                     MOVEL*BLANK    F1EMSG
+     C                     MOVEL*BLANK    BRCD20
+     C                     MOVEL*BLANK    F2EMSG
+     C                     MOVEL*BLANK    BRCD3@
+     C                     MOVEL*BLANK    F3EMSG
+     C*
+     C                     MOVEL*BLANK    W@@018 18
+     C                     MOVEL*OFF      W@INKF  1
+     C*
+     C                     ENDSR
+      **************************************************************************
+     C* TM ID CODE
+     C           #FMT10    BEGSR
+      **************************************************************************
+     C                     EXFMTFMT010
+     C                     MOVEL*BLANK    F1EMSG
+     C*
+     C                     SELEC
+      *
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+     C                     OTHER
+     C                     EXSR #CHK1
+     C           *IN99     IFEQ *OFF
+     C                     MOVEL'20'      W@ID
+     C                     MOVEL*BLANK    BRCD20
+     C                     ENDIF
+      *
+     C                     ENDSL
+      *
+     C                     ENDSR
+      **************************************************************************
+      *  CHECK--TM CODE
+      **************************************************************************
+     C           #CHK1     BEGSR
+      *
+     C                     SETOF                     6199
+      *
+     C                     MOVELD@TMCD    K@TMCD  60
+     C           K@TMCD    CHAINALBPL30              90
+     C           *IN90     IFEQ *ON
+     C           ALSKJY    OREQ 'D'
+     C                     SETON                     6199
+     C                     MOVELERR,1     F1EMSG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      **************************************************************************
+     C* PICK-LIST#
+     C           #FMT20    BEGSR
+      **************************************************************************
+     C                     EXFMTFMT020
+     C                     MOVEL*BLANK    F2EMSG
+     C*
+     C                     SELEC
+     C*
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+     C           *INKF     WHEQ *ON
+     C           W@INKF    IFEQ *ON
+     C                     MOVEL*OFF      W@INKF
+     C                     EXSR #CANCL
+     C                     END
+     C                     EXSR #CHK2
+     C           *IN99     IFEQ *OFF
+     C                     EXSR #SSET
+     C           *IN99     IFEQ *OFF
+     C                     MOVEL'30'      W@ID
+     C                     MOVEL*BLANK    BRCD3@
+     C                     END
+     C                     END
+     C                     OTHER
+     C                     EXSR #CHK2
+     C           *IN99     IFEQ *OFF
+     C                     EXSR #SSET
+     C           *IN99     IFEQ *OFF
+     C                     MOVEL'30'      W@ID
+     C                     MOVEL*BLANK    BRCD3@
+     C                     END
+     C                     END
+     C*
+     C                     ENDSL
+      *
+     C                     ENDSR
+      **************************************************************************
+     C           #CHK2     BEGSR
+      **************************************************************************
+     C                     SETOF                     6299
+     C                     MOVEL*BLANK    W@STS   2
+      *
+     C                     DO
+     C*
+     C           BRCD20    CHAINAB#PL76              90
+     C           *IN90     IFEQ *ON
+     C                     SETON                     6299
+     C                     MOVELERR,2     F2EMSG
+     C                     LEAVE
+     C                     ENDIF
+     C*
+     C           BRCD20    SETGTALDPL761
+     C           BRCD20    REDPEALDPL761                 90
+     C           *IN90     IFEQ *OFF
+     C                     Z-ADDA7SEQ#    W@SEQ#  40
+     C           K#761A    KLIST
+     C                     KFLD           BRCD20
+     C                     KFLD           W@SEQ#
+     C                     KFLD           W@@018
+     C           K#761A    CHAINALDPL761             91
+     C           *IN91     IFEQ *OFF
+     C           A7STS     IFEQ 'OK'
+     C                     SETON                     6299
+     C                     MOVELERR,3     F2EMSG
+     C                     MOVELERR,3     W@EMSG 20
+     C                     MOVEL*ON       W@INKF
+     C                     LEAVE
+     C                     END
+     C           A7STS     IFEQ 'IM'
+     C                     MOVEL'IM'      W@STS
+     C                     END
+     C                     END
+     C                     ELSE
+     C                     Z-ADD*ZERO     W@SEQ#
+     C                     END
+     C*
+     C           K#AB10    KLIST
+     C                     KFLD           PUNOYY
+     C                     KFLD           PUNOMM
+     C                     KFLD           PUNODD
+     C                     KFLD           PUBINN
+     C                     KFLD           PURLYY
+     C                     KFLD           PURLMM
+     C                     KFLD           PURLDD
+     C                     KFLD           PUNONY
+     C                     KFLD           PUNKOJ
+     C                     KFLD           PUNUKE
+     C           K#AB10    SETLLAB#PL14
+     C*
+     C                     Z-ADD*ZERO     W@TCN1  50
+     C                     Z-ADD*ZERO     W@TCN2  50
+     C*
+     C                     DO   *HIVAL
+     C*
+     C           K#AB10    READEAB#PL14                  80
+     C   80                LEAVE
+     C           BASKJY    IFNE *BLANK
+     C                     ITER
+     C                     END
+     C           PUODRN    IFNE *BLANK
+     C           PUODRN    IFNE BAODRN
+     C                     ITER
+     C                     END
+     C                     END
+     C*
+     C           BAUSYS    IFNE *ZERO
+     C                     Z-ADDBAUSYS    W@QPC   60
+     C                     ELSE
+     C           BASYOS    IFNE *ZERO
+     C                     Z-ADDBASYOS    W@QPC
+     C                     ELSE
+     C                     Z-ADDBASRYO    W@QPC
+     C                     END
+     C                     END
+     C           BASRYO    DIV  W@QPC     W@PCN1  50
+     C                     MVR            W@MVR   50
+     C           W@MVR     IFNE *ZERO
+     C                     ADD  1         W@PCN1
+     C                     END
+     C*
+     C                     Z-ADD*ZERO     W@PCN2  50
+     C*
+     C           K#AB70    KLIST
+     C                     KFLD           BATOKU
+     C                     KFLD           K@NONY  4
+     C                     KFLD           BANKOJ
+     C                     KFLD           BANUKE
+     C                     KFLD           BAMHN1
+     C                     KFLD           BAMHN2
+     C                     KFLD           BAMHN3
+     C                     KFLD           BAMHN4
+     C                     KFLD           K@ODRN 10
+     C                     KFLD           BANOYY
+     C                     KFLD           BANOMM
+     C                     KFLD           BANODD
+     C                     KFLD           K@NOBN  2
+     C                     KFLD           BADEYY
+     C                     KFLD           BADEMM
+     C                     KFLD           BADEDD
+     C                     MOVELBANONY    K@NONY
+     C                     MOVELBANOBN    K@NOBN
+     C                     MOVELBAODRN    K@ODRN
+     C           K#AB70    SETLLAB#PL70
+     C                     DO   *HIVAL
+     C           K#AB70    READEAB#PL70                  81
+     C   81                LEAVE
+     C           EKSKJY    IFNE *BLANK
+     C                     ITER
+     C                     END
+     C           EKLTNO    IFEQ *BLANK
+     C                     ITER
+     C                     END
+     C                     ADD  1         W@PCN2
+     C                     ENDDO
+     C*
+     C           W@PCN2    IFEQ *ZERO
+     C                     MOVELBAINVN    K@ODRN
+     C           K#AB70    SETLLAB#PL70
+     C                     DO   *HIVAL
+     C           K#AB70    READEAB#PL70                  81
+     C   81                LEAVE
+     C           EKSKJY    IFNE *BLANK
+     C                     ITER
+     C                     END
+     C           EKLTNO    IFEQ *BLANK
+     C                     ITER
+     C                     END
+     C                     ADD  1         W@PCN2
+     C                     ENDDO
+     C                     END
+     C*
+     C                     ADD  W@PCN1    W@TCN1
+     C                     ADD  W@PCN2    W@TCN2
+     C*
+     C                     ENDDO
+     C*
+     C           W@TCN1    IFNE W@TCN2
+     C                     MOVELERR,11    EMSG1
+     C                     MOVELERR,12    EMSG2
+     C                     EXFMTFMT990
+     C           *INKB     IFEQ *ON
+     C                     MOVEL*BLANK    BRCD20
+     C                     MOVEL*ON       *IN99
+     C                     END
+     C                     LEAVE
+     C                     END
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+      **************************************************************************
+     C           #SSET     BEGSR
+      **************************************************************************
+      *
+     C           W@STS     IFEQ *BLANK
+     C                     ADD  1         W@SEQ#
+     C                     END
+     C                     Z-ADD*ZERO     W@WCNT  50
+     C                     TIME           WSDT
+      *
+     C           K#AB10    SETLLAB#PL14
+     C*
+     C                     DO   *HIVAL
+     C*
+     C           K#AB10    READEAB#PL14                  80
+     C   80                LEAVE
+     C           BASKJY    IFNE *BLANK
+     C                     ITER
+     C                     END
+     C           PUODRN    IFNE *BLANK
+     C           PUODRN    IFNE BAODRN
+     C                     ITER
+     C                     END
+     C                     END
+     C*
+     C                     MOVELBANONY    K@NONY
+     C                     MOVELBANOBN    K@NOBN
+     C           K#AB70    SETLLAB#PL70
+      *
+     C                     DO   *HIVAL
+      *
+     C           K#AB70    READEAB#PL70                  81
+     C   81                LEAVE
+     C*
+     C           K#761D    KLIST
+     C                     KFLD           BRCD20
+     C                     KFLD           W@SEQ#
+     C                     KFLD           EKSERL
+     C           K#761D    CHAINALDPL761             82
+     C           *IN82     IFEQ *OFF
+     C           EKSKJY    IFNE *BLANK
+     C           EKLTNO    OREQ *BLANK
+     C                     DELETALDPP761
+     C                     END
+     C                     ELSE
+     C           EKSKJY    IFEQ *BLANK
+     C           EKLTNO    ANDNE*BLANK
+     C                     CLEARALDPP761
+     C                     Z-ADDWSSDAT    A7KODT
+     C                     Z-ADDWSSTM6    A7KOTM
+     C                     MOVEL#USER     A7USER
+     C                     MOVEL#WSID     A7WSID
+     C                     MOVEL#PGM      A7PGID
+     C                     MOVELD@TMCD    A7TMCD
+     C                     MOVELBRCD20    A7PKL#
+     C                     Z-ADDW@SEQ#    A7SEQ#
+     C                     MOVELEKMHN1    A7MHN1
+     C                     MOVELEKMHN2    A7MHN2
+     C                     MOVELEKMHN3    A7MHN3
+     C                     MOVELEKMHN4    A7MHN4
+     C                     MOVELEKSHN1    A7SHN1
+     C                     MOVELEKSHN2    A7SHN2
+     C                     MOVELEKSHN3    A7SHN3
+     C                     MOVELEKODRN    A7ODRN
+     C                     MOVELEKLTNO    A7LTNO
+     C                     MOVELEKISNO    A7ISNO
+     C                     MOVELEKSERL    A7SERL
+     C                     Z-ADDEKNOYY    A7NOYY
+     C                     Z-ADDEKNOMM    A7NOMM
+     C                     Z-ADDEKNODD    A7NODD
+     C                     WRITEALDPP761
+     C                     END
+     C                     END
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDDO
+     C*
+     C           K#761A    CHAINALDPL761             80
+     C           *IN80     IFEQ *ON
+     C                     CLEARALDPP761
+     C                     TIME           WSDT
+     C                     Z-ADDWSSDAT    A7KODT
+     C                     Z-ADDWSSTM6    A7KOTM
+     C                     MOVEL#USER     A7USER
+     C                     MOVEL#WSID     A7WSID
+     C                     MOVEL#PGM      A7PGID
+     C                     MOVELD@TMCD    A7TMCD
+     C                     MOVELBRCD20    A7PKL#
+     C                     Z-ADDW@SEQ#    A7SEQ#
+     C                     Z-ADDPUNOYY    A7NOYY
+     C                     Z-ADDPUNOMM    A7NOMM
+     C                     Z-ADDPUNODD    A7NODD
+     C                     MOVEL'IM'      A7STS
+     C                     MOVELSTS,3     A7MSG3
+     C                     WRITEALDPP761
+     C                     END
+     C*
+     C                     ENDSR
+      **************************************************************************
+     C           #ERR20    BEGSR
+      **************************************************************************
+     C*
+     C                     TIME           WSDT
+     C*
+     C                     CLEARALDPP761
+     C                     MOVEL'ER'      A7STS
+     C                     Z-ADDWSSDAT    A7KODT
+     C                     Z-ADDWSSTM6    A7KOTM
+     C                     MOVEL#USER     A7USER
+     C                     MOVEL#WSID     A7WSID
+     C                     MOVEL#PGM      A7PGID
+     C                     MOVELD@TMCD    A7TMCD
+     C                     MOVELBRCD20    A7PKL#
+     C                     ADD  1         W@SEQ#
+     C                     Z-ADDW@SEQ#    A7SEQ#
+     C                     MOVELW@EMSG    A7MSG1
+     C                     MOVEL*ZERO     A7SERL
+     C                     MOVEL*ZERO     A7INSR
+     C                     WRITEALDPP761
+     C*
+     C                     ENDSR
+      **************************************************************************
+     C* AIAG LABEL BARCODE(2D/1D)
+     C           #FMT30    BEGSR
+      **************************************************************************
+     C                     EXFMTFMT030
+     C                     MOVEL*BLANK    F3EMSG
+     C*
+     C                     SELEC
+     C*
+     C           *INKD     WHEQ *ON
+     C                     EXSR #CANCL
+     C                     MOVEL'20'      W@ID
+     C                     MOVEL*BLANK    BRCD20
+     C           *INKE     WHEQ *ON
+     C                     EXSR #COMP
+     C           *IN99     IFEQ *OFF
+     C                     MOVEL'20'      W@ID
+     C                     MOVEL*BLANK    BRCD20
+     C                     END
+     C                     OTHER
+     C                     EXSR #CHK3
+     C           *IN99     IFEQ *OFF
+     C                     EXSR #UPDT
+     C                     MOVEL*BLANK    BRCD3@
+     C                     END
+     C*
+     C                     ENDSL
+      *
+     C                     ENDSR
+      **************************************************************************
+     C           #CHK3     BEGSR
+      **************************************************************************
+     C                     SETOF                     6399
+     C                     MOVELBRCD3@    B@CD3@
+     C*
+     C                     DO
+     C*
+     C           BRCD3@    IFEQ *BLANK
+     C                     SETON                     6399
+     C                     MOVELERR,5     F3EMSG
+     C                     LEAVE
+     C                     END
+     C*
+TCHK1C*          FILR      IFNE *BLANK
+TCHK1C*                    EXSR #CHK3A
+TCHK1C*                    LEAVE
+TCHK1C*                    END
+     C*
+     C           K#761B    KLIST
+     C                     KFLD           BRCD20
+     C                     KFLD           W@SEQ#
+     C                     KFLD           K@INSR 18
+     C                     MOVELBRCD1D    K@INSR
+     C           K#761B    CHAINALDPL761             90
+     C           *IN90     IFEQ *ON
+     C                     MOVELBRCD1D    W@1DBC
+     C           W@1DKD    IFEQ 'A'
+     C           W@1DKD    OREQ 'B'
+     C           W@1DKD    IFEQ 'A'
+     C                     MOVEL'B'       W@1DKD
+     C                     ELSE
+     C                     MOVEL'A'       W@1DKD
+     C                     END
+     C                     MOVELW@1DBC    K@INSR
+     C           K#761B    CHAINALDPL761             90
+     C                     END
+     C                     END
+     C           *IN90     IFEQ *ON
+     C                     SETON                     6399
+     C                     MOVELERR,6     F3EMSG
+     C                     MOVELERR,6     W@EMSG
+     C                     EXSR #ERR30
+     C                     ELSE
+     C           A7STS     IFEQ 'OK'
+     C                     SETON                     6399
+     C                     MOVELERR,7     F3EMSG
+     C                     MOVELERR,7     W@EMSG
+     C                     EXSR #ERR30
+     C                     END
+     C                     END
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+      **************************************************************************
+     C* 2D CHECK
+     C           #CHK3A    BEGSR
+      **************************************************************************
+     C                     DO
+     C*
+     C           K#P65A    KLIST
+     C                     KFLD           K@DEST  5
+     C                     KFLD           K@NUKE  4
+     C                     KFLD           K@ORNO 12
+     C                     KFLD           K@KANO  4
+     C                     KFLD           K@BOXN  4
+     C                     MOVELDEST      K@DEST
+     C                     MOVELDCCOD     K@NUKE
+     C                     MOVELORNO      K@ORNO
+     C                     MOVELSBAN      K@KANO
+     C                     MOVELBXNBR     K@BOXN
+     C           K#P65A    CHAINAB#PP65              90
+     C           *IN90     IFEQ *ON
+     C           A6SKJY    ORNE *BLANK
+     C                     SETON                     6399
+     C                     MOVELERR,6     F3EMSG
+     C                     MOVELERR,6     W@EMSG
+     C                     EXSR #ERR30
+     C                     LEAVE
+     C                     END
+     C*
+     C                     MOVELPUNONY    WUNONY  4
+     C           PUCUST    IFEQ A6TOKU
+     C           WUNONY    ANDEQA6NONY
+     C           PUNKOJ    ANDEQA6NKOJ
+     C           PUNUKE    ANDEQA6NUKE
+     C           PUNOYY    ANDEQA6NOYY
+     C           PUNOMM    ANDEQA6NOMM
+     C           PUNODD    ANDEQA6NODD
+     C           PUBINN    ANDEQA6NOBN
+     C                     ELSE
+     C                     SETON                     6399
+     C                     MOVELERR,6     F3EMSG
+     C                     MOVELERR,6     W@EMSG
+     C                     EXSR #ERR30
+     C                     LEAVE
+     C                     END
+     C*
+     C           K#761C    SETLLALDPL761
+     C                     DO   *HIVAL
+     C           K#761C    READEALDPL761                 90
+     C   90                LEAVE
+     C           A6LTNO    IFEQ A7LTNO
+     C           A6ISNO    ANDEQA7ISNO
+     C           A6ORNO    ANDEQA7ODRN
+     C           A6MHN1    ANDEQA7MHN1
+     C           A6MHN2    ANDEQA7MHN2
+     C           A6MHN3    ANDEQA7MHN3
+     C           A6MHN4    ANDEQA7MHN4
+     C           A6SHN1    ANDEQA7SHN1
+     C           A6SHN2    ANDEQA7SHN2
+     C           A6SHN3    ANDEQA7SHN3
+     C                     LEAVE
+     C                     END
+     C                     ENDDO
+     C*
+     C           *IN90     IFEQ *ON
+     C                     SETON                     6399
+     C                     MOVELERR,6     F3EMSG
+     C                     MOVELERR,6     W@EMSG
+     C                     EXSR #ERR30
+     C                     LEAVE
+     C                     ELSE
+     C           A7STS     IFEQ 'OK'
+     C                     SETON                     6399
+     C                     MOVELERR,7     F3EMSG
+     C                     MOVELERR,7     W@EMSG
+     C                     EXSR #ERR30
+     C                     END
+     C                     END
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+      **************************************************************************
+     C           #ERR30    BEGSR
+      **************************************************************************
+     C*
+     C                     TIME           WSDT
+     C*
+     C                     CLEARALDPP761
+     C                     MOVEL'ER'      A7STS
+     C                     Z-ADDWSSDAT    A7KODT
+     C                     Z-ADDWSSTM6    A7KOTM
+     C                     MOVEL#USER     A7USER
+     C                     MOVEL#WSID     A7WSID
+     C                     MOVEL#PGM      A7PGID
+     C                     MOVELD@TMCD    A7TMCD
+     C                     MOVELBRCD20    A7PKL#
+     C                     Z-ADDW@SEQ#    A7SEQ#
+TCHK1C*
+TCHK1C*          FILR      IFEQ *BLANK
+TCHK1C*                    MOVELBRCD1D    A7INSR
+TCHK1C*                    ELSE
+TCHK1C*                    MOVELDEST      A7DEST
+TCHK1C*                    MOVELDCCOD     A7NUKE
+TCHK1C*                    MOVELORNO      A7ORNO
+TCHK1C*                    MOVELSBAN      A7KANO
+TCHK1C*                    MOVELBXNBR     A7BOXN
+TCHK1C*                    END
+TCHK1C*
+TCHK1C                     MOVELBRCD1D    A7INSR
+TCHK1C*
+     C                     MOVELW@EMSG    A7MSG1
+     C                     MOVEL*ZERO     A7SERL
+     C                     WRITEALDPP761
+     C*
+     C                     ENDSR
+      **************************************************************************
+     C           #UPDT     BEGSR
+      **************************************************************************
+     C*
+     C                     TIME           WSDT
+     C                     Z-ADDWSSDAT    A7KODT
+     C                     Z-ADDWSSTM6    A7KOTM
+     C                     MOVEL'OK'      A7STS
+TCHK1C*
+TCHK1C*          FILR      IFEQ *BLANK
+TCHK1C*                    MOVELBRCD1D    A7INSR
+TCHK1C*                    ELSE
+TCHK1C*                    MOVELDEST      A7DEST
+TCHK1C*                    MOVELDCCOD     A7NUKE
+TCHK1C*                    MOVELORNO      A7ORNO
+TCHK1C*                    MOVELSBAN      A7KANO
+TCHK1C*                    MOVELBXNBR     A7BOXN
+TCHK1C*                    END
+TCHK1C*
+TCHK1C                     MOVELBRCD1D    A7INSR
+TCHK1C*
+     C                     MOVEL*BLANK    A7MSG1
+     C                     MOVEL*BLANK    A7MSG2
+     C                     MOVEL*BLANK    A7MSG3
+     C                     UPDATALDPP761
+     C*
+     C                     ENDSR
+      **************************************************************************
+     C* CANCEL
+     C           #CANCL    BEGSR
+      **************************************************************************
+     C                     TIME           WSDT
+     C*
+     C           K#761A    CHAINALDPL761             91
+     C           *IN91     IFEQ *ON
+     C                     CLEARALDPP761
+     C                     Z-ADDWSSDAT    A7KODT
+     C                     Z-ADDWSSTM6    A7KOTM
+     C                     MOVEL#USER     A7USER
+     C                     MOVEL#WSID     A7WSID
+     C                     MOVEL#PGM      A7PGID
+     C                     MOVELD@TMCD    A7TMCD
+     C                     MOVELBRCD20    A7PKL#
+     C                     Z-ADDW@SEQ#    A7SEQ#
+     C                     END
+     C*
+     C                     MOVEL'D'       A7SKJY
+     C                     Z-ADDWSSDAT    A7SKDT
+     C                     Z-ADDWSSTM6    A7SKTM
+     C                     MOVEL'DL'      A7STS
+     C                     MOVELSTS,1     A7MSG2
+     C*
+     C   91                WRITEALDPP761
+     C  N91                UPDATALDPP761
+     C*
+     C                     ENDSR
+      **************************************************************************
+     C* COMPLETE CHECK
+     C           #COMP     BEGSR
+      **************************************************************************
+     C                     SETOF                     9899
+     C*
+     C           K#761C    KLIST
+     C                     KFLD           BRCD20
+     C                     KFLD           W@SEQ#
+     C           K#761C    SETLLALDPL761
+     C*
+     C                     DO   *HIVAL
+     C           K#761C    READEALDPL761                 91
+     C   91                LEAVE
+     C           A7STS     IFEQ *BLANK
+     C                     MOVEL*ON       *IN99
+     C                     LEAVE
+     C                     END
+     C                     ENDDO
+     C*
+     C           *IN99     IFEQ *ON
+     C           W@TCN1    ORNE W@TCN2
+     C                     MOVELSTS,3     EMSG1
+     C                     MOVEL*BLANK    EMSG2
+     C                     EXFMTFMT990
+     C           *INKB     IFEQ *ON
+     C                     MOVEL*ON       *IN98
+     C                     MOVEL*OFF      *IN99
+     C                     END
+     C                     ELSE
+     C                     EXFMTFMT999
+     C                     END
+     C*
+     C           K#761A    CHAINALDPL761             91
+     C           *IN91     IFEQ *ON
+     C                     CLEARALDPP761
+     C                     END
+     C                     TIME           WSDT
+     C                     Z-ADDWSSDAT    A7KODT
+     C                     Z-ADDWSSTM6    A7KOTM
+     C                     MOVEL#USER     A7USER
+     C                     MOVEL#WSID     A7WSID
+     C                     MOVEL#PGM      A7PGID
+     C                     MOVELD@TMCD    A7TMCD
+     C                     MOVELBRCD20    A7PKL#
+     C                     Z-ADDW@SEQ#    A7SEQ#
+     C           *IN99     IFEQ *ON
+     C                     MOVEL'NG'      A7STS
+     C                     MOVELSTS,3     A7MSG3
+     C                     ELSE
+     C           *IN98     IFEQ *ON
+     C           W@TCN1    ORNE W@TCN2
+     C                     MOVEL'IM'      A7STS
+     C                     MOVELSTS,3     A7MSG3
+     C                     ELSE
+     C                     MOVEL'OK'      A7STS
+     C                     MOVELSTS,4     A7MSG3
+     C                     END
+     C                     END
+     C   91                WRITEALDPP761
+     C  N91                UPDATALDPP761
+     C*
+     C                     ENDSR
+      *-------------------------------------------------------
+** ERR
+TM ID CODE ERROR
+PICK-LIST# ERROR
+ALREADY COMPLETE
+3P IMCOMPLETE
+BLANK SCANNED
+BARCODE ERROR
+SCANNED DUPLICATE
+#8
+#9
+#10
+3 POINT SCAN
+IMCOMPLETE
+#13
+#14
+#15
+#16
+#17
+#18
+#19
+#20
+** STS
+CANCEL
+
+IMCOMPLETE
+COMPLETE
+
+
+
+
+
+

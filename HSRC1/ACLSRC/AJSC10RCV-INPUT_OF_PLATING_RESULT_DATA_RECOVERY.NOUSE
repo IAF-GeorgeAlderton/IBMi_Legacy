@@ -1,0 +1,96 @@
+             PGM
+             /** AJSC10 ************************************/
+             /* INPUT OF PLATING RESULT DATA.              */
+             /*               CREATE DATE : 1997/MAR/10.   */
+             /*               AUTHOR      : S.OHTAKE.      */
+             /**********************************************/
+             DCLF       FILE(AJSPW10)
+             DCL        VAR(&WSID)   TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRTG)   TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT)    TYPE(*CHAR) LEN(7)
+             DCL        VAR(&TYPE)   TYPE(*CHAR) LEN(10)
+             DCL        VAR(&SWITCH) TYPE(*CHAR) LEN(8)
+             DCL        VAR(&US)     TYPE(*CHAR) LEN(10)
+             DCL        VAR(&REC)    TYPE(*DEC)  LEN(10)
+             RTVJOBA    JOB(&WSID)   USER(&US)   SWS(&SWITCH)
+             CALL       PGM(AGAR00)  PARM(&WSID &PRT &TYPE &PRTG)
+             CHGJOB     RUNPTY(40)
+
+ STEP1:      SNDRCVF  DEV(&WSID)      RCDFMT(AJSPW101)
+             IF       (&IN01 *EQ '1') GOTO END
+             IF       (&IN05 *EQ '0') GOTO STEP1
+
+             /***********************************/
+             /*  PLATING BREAKDOWN RESULT DATA  */
+             /***********************************/
+ STEP3:      CHKOBJ     OBJ(HWFILE1/AJSWP92) OBJTYPE(*FILE) AUT(*ALL)
+             MONMSG     MSGID(CPF9801) EXEC(GOTO CMDLBL(STEP4))
+
+             CHGVAR     VAR(&REC) VALUE('0')
+             RTVMBRD    FILE(HWFILE1/AJSWP92) NBRCURRCD(&REC)
+             IF         COND(&REC = 0) THEN(GOTO CMDLBL(STEP4)) /* +
+                          ファイルが０件かのチェック */
+             OVRPRTF    FILE(QPRINT3) DEVTYPE(*AFPDS) LPI(6) +
+                          OVRFLW(62) RPLUNPRT(*YES) OUTQ(BZOUTQ) +
+                          FORMTYPE(K6H1)
+             OVRPRTF    FILE(QPRINT4) DEVTYPE(*AFPDS) LPI(6) +
+                          OVRFLW(62) RPLUNPRT(*YES) OUTQ(BZOUTQ) +
+                          FORMTYPE(K6H1)
+             CALL AJSR1C
+
+             /***********************************/
+             /*  PLATING OPERATION RESULT DATA  */
+             /***********************************/
+ STEP4:      CHKOBJ     OBJ(HWFILE1/AJSWP93) OBJTYPE(*FILE) AUT(*ALL)
+             MONMSG     MSGID(CPF9801) EXEC(GOTO CMDLBL(END))
+
+             CHGVAR     VAR(&REC) VALUE('0')
+             RTVMBRD    FILE(HWFILE1/AJSWP93) NBRCURRCD(&REC)
+             IF         COND(&REC = 0) THEN(GOTO CMDLBL(END)) /* +
+                          ファイルが０件かのチェック */
+
+             OVRPRTF    FILE(QPRINT3) DEVTYPE(*AFPDS) PAGESIZE(66 +
+                          132) LPI(6) OVRFLW(62) RPLUNPRT(*YES) +
+                          OUTQ(BZOUTQ) FORMTYPE(K6H1)
+             OVRPRTF    FILE(QPRINT4) DEVTYPE(*AFPDS) PAGESIZE(66 +
+                          132) LPI(6) OVRFLW(62) RPLUNPRT(*YES) +
+                          OUTQ(BZOUTQ) FORMTYPE(K6H1)
+             CALL AJSR1D
+
+             /***********************************/
+             /*  WORKFILE CLAER                 */
+             /***********************************/
+ END:        DLTF       FILE(HWFILE1/AJSWP90)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE1/AJSWP90) RCDLEN(150) TEXT('WORK +
+                          PLATING DISCHARGE RESULT FILE') +
+                          OPTION(*NOLIST) SIZE(10000 3000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             DLTF       FILE(HWFILE1/AJSWP91)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE1/AJSWP91) RCDLEN(150) TEXT('WORK +
+                          PLATING ADMIT RESULT FILE') +
+                          OPTION(*NOLIST) SIZE(10000 3000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             DLTF       FILE(HWFILE1/AJSWP92)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE1/AJSWP92) RCDLEN(150) TEXT('WORK +
+                          PLATING BREAKDOWN RESULT FILE') +
+                          OPTION(*NOLIST) SIZE(10000 3000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             DLTF       FILE(HWFILE1/AJSWP93)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE1/AJSWP93) RCDLEN(150) TEXT('WORK +
+                          PLATING OPERATION RESULT FILE') +
+                          OPTION(*NOLIST) SIZE(10000 3000) +
+                          LVLCHK(*NO) AUT(*ALL)
+ /* UPDATE 2002.05.15 K.OKACHI */
+             CALL AJSRD0
+
+             CHGJOB     RUNPTY(20)
+
+             DLTOVR     FILE(*ALL)
+             ENDPGM

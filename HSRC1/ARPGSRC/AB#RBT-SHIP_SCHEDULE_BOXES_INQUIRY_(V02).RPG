@@ -1,0 +1,271 @@
+     H            Y.
+     F**AB#RBT ************************************************
+     F* SHIP/SCHEDULE BOXES INQUIRY (V02) WITH SUBFILE        *
+     F* (V01) = AB#RAT                                        *
+     F* (COPIED FROM AB#RAO)                                  *
+     F* J.WATANABE  2021.06.16                                *
+     F* THIS FORMAT IS SAME AS AB#RAO, BUT USES SUBFILE       *
+     F*********************************************************
+     FAB#PWBT CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     F                                              KINFDS @INFDS
+     FAB#WLAQ IF  E           K        DISK
+     F************************************************
+     E                    ERR     1   8 70
+     E                    HED     1   5 15
+      * DISP TABLE
+     E                    D1D         5  8 0
+     E                    SQT         5  9 0
+     E                    SBX         5  7 0
+     I@INFDS      DS
+     I                                    B 378 3790@@REC
+      * DATE TABLE
+     I            DS
+     I                                        1  400D1D
+     I                                        1   80D1DT1
+     I                                        9  160D1DT2
+     I                                       17  240D1DT3
+     I                                       25  320D1DT4
+     I                                       33  400D1DT5
+      * QTY TABLE
+     I            DS
+     I                                        1  450SQT
+     I                                        1   90S1QT1
+     I                                       10  180S1QT2
+     I                                       19  270S1QT3
+     I                                       28  360S1QT4
+     I                                       37  450S1QT5
+      * BOX TABLE
+     I            DS
+     I                                        1  350SBX
+     I                                        1   70S1BX1
+     I                                        8  140S1BX2
+     I                                       15  210S1BX3
+     I                                       22  280S1BX4
+     I                                       29  350S1BX5
+      * SYSTEM DATE
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *----------------------------------------------------*
+      *  MAIN ROUTINE
+      *----------------------------------------------------*
+     C                     EXSR #INIT
+     C                     EXSR #SET1
+      *
+     C                     DO   *HIVAL
+      *
+     C                     MOVELERR,6     XCMD
+     C                     WRITEDSP99
+     C                     EXFMTCTL01
+     C                     MOVEL*BLANK    XMSG
+      * CHECK
+     C                     EXSR #CHK1
+     C           *IN85     IFEQ *ON
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     SELEC
+      * F10: MACHINE DETAIL
+     C           *INKJ     WHEQ *ON
+     C                     CALL 'AB#CAO'
+     C                     PARM           @PF
+      * F12: BACK
+     C           *INKL     WHEQ *ON
+     C                     LEAVE
+      * F8: NEXT WK
+     C           *INKH     WHEQ *ON
+     C           WEK       IFLT MAXWEK
+     C                     ADD  1         WEK
+     C                     EXSR #SET1
+     C                     ENDIF
+      * F7: PREV WK
+     C           *INKG     WHEQ *ON
+     C           WEK       IFNE 1
+     C                     SUB  1         WEK
+     C                     EXSR #SET1
+     C                     ENDIF
+      * PAGE UP/DOWN
+     C                     OTHER
+     C           *IN81     IFEQ *ON
+     C                     ADD  1         LIN
+     C                     EXSR #SET1
+     C                     ELSE
+     C           *IN82     IFEQ *ON
+     C                     SUB  1         LIN
+     C                     EXSR #SET1
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  CHECK
+      *----------------------------------------------------*
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE *OFF      *IN85
+      * F8: NEXT WK
+     C           *INKH     IFEQ *ON
+     C           WEK       ANDGEMAXWEK
+     C                     MOVE *ON       *IN85
+     C                     MOVELERR,1     XMSG
+     C                     ENDIF
+      * F7: PREV WK
+     C           *INKG     IFEQ *ON
+     C           WEK       ANDLE1
+     C                     MOVE *ON       *IN85
+     C                     MOVELERR,2     XMSG
+     C                     ENDIF
+      * 81: PAGE DOWN
+     C           *IN81     IFEQ *ON
+     C           LIN       MULT 9         @LIN
+     C                     ADD  1         @LIN
+     C           @LIN      CHAINAB#WLAQ              99
+     C           *IN99     IFEQ *ON
+     C                     MOVE *ON       *IN85
+     C                     MOVELERR,3     XMSG
+     C                     ENDIF
+     C                     ENDIF
+      * 82: PAGE UP
+     C           *IN82     IFEQ *ON
+     C           LIN       SUB  2         @LIN
+     C                     MULT 9         @LIN
+     C                     ADD  1         @LIN
+     C           @LIN      CHAINAB#WLAQ              99
+     C           *IN99     IFEQ *ON
+     C                     MOVE *ON       *IN85
+     C                     MOVELERR,4     XMSG
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  SET DATA FOR DISPLAY BY WEEK#/LINE#
+      *----------------------------------------------------*
+     C           #SET1     BEGSR
+      * CLEAR SFL01
+     C                     SETON                     57
+     C                     WRITECTL01
+     C                     SETOF                     57
+     C                     SETON                     56
+     C                     Z-ADD0         RRN1
+      * SET HEADER DATE
+     C           WEK       SUB  1         @WEK    20
+     C           @WEK      MULT 5         B@WEK   20
+     C                     ADD  1         B@WEK
+     C           B@WEK     ADD  4         E@WEK   20
+     C           LIN       SUB  1         @LIN    40
+     C           @LIN      MULT 9         B@LIN   40
+     C                     ADD  1         B@LIN
+     C           B@LIN     ADD  8         E@LIN   40       @@
+     C                     Z-ADD0         IX      40
+     C                     Z-ADD0         IY      20
+      * LINE LOOP
+     C           B@LIN     DO   E@LIN     IA      40
+     C                     ADD  1         IX
+     C           IA        CHAINAB#WLAQ              97
+     C   97                LEAVE
+     C                     Z-ADD0         IY
+      * DATE LOOP
+     C           B@WEK     DO   E@WEK     IB      20
+     C                     ADD  1         IY
+      * DETAIL PROC
+     C                     Z-ADDIA        K#LN#
+     C                     Z-ADDIB        K#DT#
+     C           K#PAQ     CHAINAB#WLAQ              98
+     C***98                LEAVE
+      *
+     C           *IN98     IFEQ *OFF
+     C                     MOVELW#SIZE    S1SIZ1    P
+     C                     MOVE 'BOX'     S1SIZ1
+     C                     MOVE 'QTY'     S1SIZ2
+     C                     Z-ADDW#DATE    D1D,IY
+     C                     Z-ADDW#BOX     SBX,IY
+     C                     Z-ADDW#QTY     SQT,IY
+     C                     ELSE
+     C                     Z-ADD0         D1D,IY
+     C                     Z-ADD0         SBX,IY
+     C                     Z-ADD0         SQT,IY
+     C                     ENDIF
+      * COLOR
+     C           W#41      IFEQ *ON
+     C                     MOVE *ON       *IN41
+     C                     MOVELERR,5     S1SIZ1
+     C                     MOVE 'BOX'     S1SIZ1
+     C                     MOVE 'QTY'     S1SIZ2
+     C                     ELSE
+     C                     MOVE *OFF      *IN41
+     C                     ENDIF
+      *
+     C                     ENDDO
+      * WRITE SFL01 BY IY
+     C           *IN97     IFEQ *OFF
+     C                     Z-ADDIX        RRN1
+     C                     WRITESFL01
+     C                     ENDIF
+      *
+     C                     Z-ADDRRN1      MAXLIN
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETING
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           @PF     1
+      *
+     C           K#PAQ     KLIST
+     C                     KFLD           K#LN#   40
+     C                     KFLD           K#DT#   20
+      *
+     C                     TIME           SDATE
+     C                     Z-ADD0         RRN1    40
+     C                     Z-ADD1         WEK     20
+     C                     Z-ADD1         LIN     40
+     C                     Z-ADD7         MAXWEK  20
+     C                     Z-ADD0         MAXLIN  40
+     C                     Z-ADD0         D1D
+     C**                   MOVE *OFF      *IN51
+      * SET HEADER
+     C                     SELEC
+     C           @PF       WHEQ '5'
+     C                     MOVELHED,1     D1HED
+     C           @PF       WHEQ '6'
+     C                     MOVELHED,2     D1HED
+     C           @PF       WHEQ '7'
+     C                     MOVELHED,3     D1HED
+     C           @PF       WHEQ '8'
+     C                     MOVELHED,4     D1HED
+     C           @PF       WHEQ '9'
+     C                     MOVELHED,5     D1HED
+     C                     OTHER
+     C                     MOVE *BLANK    D1HED
+     C                     ENDSL
+      *
+     C                     ENDSR
+** ERR (60A).......2.........3.........4.........5.........6.........7
+NEXT DATE IS NOT AVAILABLE!                                            01
+PREVIOUS DATE IS NOT AVAILABLE!                                        02
+BOTTOM OF LINE!                                                        03
+TOP OF LINE!                                                           04
+GEN.TTL                                                                05
+F7:PREV WEEK,  F8:NEXT WEEK,  F10:MCN DTL,  F12:BACK,  PAGEUP/DOWN     06
+                                                                       07
+                                                                       08
+** HED (15A)..>
+(HD/BM/NF)      1  F5
+(RL DTL)        2  F6
+(HT DTL)        3  F7
+(ST DTL)        4  F8
+(JC DTL)        5  F9

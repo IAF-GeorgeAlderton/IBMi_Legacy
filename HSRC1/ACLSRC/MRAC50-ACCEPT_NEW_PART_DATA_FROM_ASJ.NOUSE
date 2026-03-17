@@ -1,0 +1,69 @@
+             PGM
+             /** MRAC50 ******************************************/
+             /*  ACCEPT NEW PART DATA FROM ASJ                   */
+             /*    TRANCOM-ITS              2012.10.23           */
+             /****************************************** MRAC50 **/
+             DCL        VAR(&WS)       TYPE(*CHAR) LEN(10)
+             DCL        VAR(&WSID)     TYPE(*CHAR) LEN(2)
+             DCL        VAR(&USER)     TYPE(*CHAR) LEN(10)
+             DCL        VAR(&TYPE)     TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG)     TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT)      TYPE(*CHAR) LEN(7)
+             DCL        VAR(&FILE1)    TYPE(*CHAR) LEN(9)
+             DCL        VAR(&FILE2)    TYPE(*CHAR) LEN(9)
+             DCL        VAR(&PKYM)     TYPE(*CHAR) LEN(4)
+             DCL        VAR(&ABBDS3)   TYPE(*CHAR) LEN(7)
+             DCL        VAR(&REC)      TYPE(*DEC) LEN(10 0) VALUE(0)
+
+             RTVJOBA    JOB(&WS) USER(&USER)
+             RTVDTAARA  DTAARA(ABBDS3) RTNVAR(&ABBDS3)
+
+             CALL       PGM(AGAR00) PARM(&WS &PRT &TYPE &PRTG)
+
+             CHGVAR     VAR(&WSID) VALUE(%SST(&WS 1 2))
+             CHGVAR     VAR(&PKYM) VALUE(%SST(&ABBDS3 1 4))
+             CHGVAR     VAR(&FILE2) VALUE('AAFWP50' *CAT &WSID)
+             CHGVAR     VAR(&FILE1) VALUE('MRAPP51' *CAT &WSID)
+
+        /*---------------------------------------------*/
+        /*  DATA FOR LISTS                             */
+        /*---------------------------------------------*/
+             DLTF       FILE(&FILE1)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HFILE1/&FILE1) +
+                          SRCFILE(HSRC1/ADDSSRC) SRCMBR(MRAPP51) +
+                          OPTION(*NOSRC *NOLIST) LVLCHK(*NO) AUT(*ALL)
+
+             DLTF       FILE(&FILE2)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE1/&FILE2) RCDLEN(500) +
+                          OPTION(*NOLIST) SIZE(5000 2000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+        /*---------------------------------------------*/
+        /*  ACCEPT NEW PART DATA FROM ASJ              */
+        /*---------------------------------------------*/
+             OVRDBF     FILE(MRAPP51) TOFILE(&FILE1)
+             CALL       PGM(MRAR50) PARM(&PKYM)
+
+GOTO END
+             RTVMBRD    FILE(HFILE1/&FILE1) NBRCURRCD(&REC)
+             IF         COND(&REC *EQ 0) THEN(GOTO CMDLBL(END))
+
+        /*---------------------------------------------*/
+        /* PRINT PRODUCTION LIST DATA CREATION         */
+        /*---------------------------------------------*/
+             OVRDBF     FILE(AAFWP50) TOFILE(HWFILE1/&FILE2)
+             CALL       PGM(MRAR52)
+
+        /*---------------------------------------------*/
+        /* PRINT PRODUCTION LIST                       */
+        /*---------------------------------------------*/
+             OVRPRTF    FILE(QPRINT)  LPI(6) RPLUNPRT(*YES) +
+                          ALIGN(*YES) OUTQ(&PRTG) FORMTYPE(@972) +
+                          MAXRCDS(*NOMAX)
+             CALL       PGM(MRAR53)
+ END:
+             DLTOVR *ALL
+             MONMSG     MSGID(CPF0000)
+             ENDPGM

@@ -1,0 +1,572 @@
+      *** GDJR16 *************************************
+      *        INVENTORY DATA ENTRY                  *
+      *  G.B.C                         97/05/27      *
+      ************************************************
+     H            Y/                                    1
+     FGDJPW16 CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     F                                        RRN2  KSFILE SFL02
+     FFGBPL01 IF  E           K        DISK
+     FGDJPP01 IF  E           K        DISK
+     FGDJPP10 IF  E           K        DISK
+     FGDJPP22 UF  E           K        DISK                      A
+     E                    MSG     1   9 50
+     I****************************************************************
+     I            DS
+     I                                        1  12 D1HIN
+     I                                        1   5 D1HIN1
+     I                                        6  10 D1HIN2
+     I                                       11  12 D1HIN3
+     I            DS
+     I                                        1  12 WWHIN
+     I                                        1   5 WWHIN1
+     I                                        6  10 WWHIN2
+     I                                       11  12 WWHIN3
+     I            DS
+     I                                        1  12 S1PART
+     I                                        1   5 S1HIN1
+     I                                        6  10 S1HIN2
+     I                                       11  12 S1HIN3
+     C****************************************************************
+     C*           MAIN ROUTINE                                       *
+     C****************************************************************
+     C           @DSP00    TAG
+     C                     Z-ADD0         D1DEP
+     C                     Z-ADD0         D1NO
+     C                     MOVE *BLANK    D1HIN
+     C                     MOVEA'0000'    *IN,11
+     C                     MOVEL'0'       *IN99
+     C                     MOVE *BLANK    D#MSG
+     C           @DSP01    TAG
+     C                     EXFMTDSP01
+     C                     MOVEA'0000'    *IN,11
+     C                     MOVEL'0'       *IN99
+     C                     MOVE *BLANK    D#MSG
+     C*
+     C           *INKA     CABEQ'1'       @END
+     C*
+     C                     EXSR #D1CHK
+     C           *IN99     CABEQ'1'       @DSP01
+     C*
+     C           D1NO      COMP 1                        80
+     C   80                EXSR #SFST1
+     C  N80                EXSR #SFST2
+     C*** SFL01 ***
+     C           @SFL01    TAG
+     C                     MOVEA'11'      *IN,81
+     C                     WRITEDSP02
+     C   80                EXFMTCTL01
+     C  N80                EXFMTCTL02
+     C                     MOVEA'00'      *IN,81
+     C                     MOVEA'00000000'*IN,11
+     C                     MOVEL'0'       *IN99
+     C                     MOVE *BLANK    D#MSG
+     C*
+     C           *INKA     CABEQ'1'       @END
+     C           *INKC     CABEQ'1'       @DSP01
+     C           *IN80     IFEQ '1'
+     C           *IN85     IFEQ '1'
+     C                     EXSR #ROLL
+     C                     END
+     C                     END
+     C*
+     C*
+     C   80                EXSR #SFCH1
+     C  N80                EXSR #SFCH2
+     C           *IN99     CABEQ'1'       @SFL01
+     C*
+     C           *INKE     CABEQ'0'       @SFL01
+     C   80                EXSR #UPDT1
+     C  N80                EXSR #UPDT2
+     C*
+     C                     GOTO @DSP00
+     C**
+     C           @END      TAG
+     C                     SETON                     LR
+     C                     RETRN
+     C****************************************************************
+     C*          #D1CHK    DSP1 CHECK                                 *
+     C****************************************************************
+     C           #D1CHK    BEGSR                                     *
+     C           D1DEP     CHAINFGBPL011             11
+     C           *IN11     IFEQ '1'
+     C  N99                MOVELMSG,1     D#MSG
+     C  N99                MOVEA'1'       *IN,99
+     C                     END
+     C*
+     C           D1NO      IFEQ 1
+     C           D1NO      OREQ 2
+     C                     ELSE
+     C  N99                MOVELMSG,2     D#MSG
+     C  N99                MOVEA'1'       *IN,12
+     C  N99                MOVEA'1'       *IN,99
+     C                     END
+     C*
+     C           TANKY1    KLIST
+     C                     KFLD           D1HIN1
+     C                     KFLD           D1HIN2
+     C                     KFLD           D1HIN3
+     C*
+     C           GDJKEY    KLIST
+     C                     KFLD           D1DEP
+     C                     KFLD           D1HIN1
+     C                     KFLD           D1HIN2
+     C                     KFLD           D1HIN3
+     C           D1NO      IFEQ 2
+     C           GDJKEY    SETLLGDJPP221                 91
+     C           *IN91     IFEQ *OFF
+     C                     MOVEA'101'     *IN,11
+     C  N99                MOVELMSG,3     D#MSG
+     C  N99                MOVEA'1'       *IN,99
+     C                     END
+     C           TANKY1    SETLLGDJPP011                 91
+     C           *IN91     IFEQ *OFF
+     C                     MOVEA'101'     *IN,11
+     C  N99                MOVELMSG,8     D#MSG
+     C  N99                MOVEA'1'       *IN,99
+     C                     END
+     C                     END
+     C                     ENDSR
+     C****************************************************************
+     C*          #SFST1   SFL1 SET                                   *
+     C****************************************************************
+     C           #SFST1    BEGSR                                     *
+     C                     Z-ADD*ZERO     RRN1    40
+     C                     Z-ADD1         RECNO1  40
+     C                     MOVE *ON       *IN83
+     C                     WRITECTL01                      (SFLCLR)
+     C                     MOVE *OFF      *IN83
+     C*
+     C                     CLEARSFL01
+     C                     DO   13
+     C                     ADD  1         RRN1
+     C                     MOVE '-'       S1H1
+     C                     MOVE '-'       S1H2
+     C                     WRITESFL01
+     C                     ENDDO
+     C**
+     C                     Z-ADD1         RECNO1
+     C                     Z-ADDRRN1      MAXRRN  40
+     C**
+     C                     ENDSR
+     C****************************************************************
+     C*          #ROLLUP  SFL1 SET                                   *
+     C****************************************************************
+     C           #ROLL     BEGSR                                     *
+     C*
+     C                     Z-ADDMAXRRN    RRN1
+     C                     CLEARSFL01
+     C                     DO   13
+     C                     ADD  1         RRN1
+     C                     MOVE '-'       S1H1
+     C                     MOVE '-'       S1H2
+     C                     WRITESFL01
+     C                     ENDDO
+     C                     Z-ADDRRN1      MAXRRN
+     C                     Z-ADDRRN1      RECNO1
+     C                     ENDSR
+     C****************************************************************
+     C*          #SFST2   SFL1 SET                                   *
+     C****************************************************************
+     C           #SFST2    BEGSR                                     *
+     C                     Z-ADD*ZERO     RRN2    40
+     C                     Z-ADD1         RECNO2  40
+     C                     MOVE *ON       *IN83
+     C                     WRITECTL02                      (SFLCLR)
+     C                     MOVE *OFF      *IN83
+     C                     MOVEA'00000000'*IN,11
+     C*
+     C           GDJKEY    SETLLGDJPP221                 91
+     C                     DO   *HIVAL
+     C           GDJKEY    READEGDJPP221                 91
+     C           *IN91     IFEQ '0'
+     C                     MOVE *BLANK    S2DLT
+     C                     MOVE IPKKBN    S2KKBN
+     C                     MOVE IPKOT     S2KOTE
+     C                     Z-ADDIPHAKO    S2MAIS
+     C                     Z-ADDIPSYUY    S2SYUY
+     C                     Z-ADDIPSRY     S2SRY
+     C                     ADD  1         RRN2
+     C                     WRITESFL02
+     C                     END
+     C  N91                ENDDO
+     C**
+     C                     Z-ADD1         RECNO2
+     C**
+     C                     ENDSR
+     C****************************************************************
+     C*          #SFCH1   SFL1 CHECK                                 *
+     C****************************************************************
+     C           #SFCH1    BEGSR                                     *
+     C*
+     C           TANKY2    KLIST
+     C                     KFLD           S1HIN1
+     C                     KFLD           S1HIN2
+     C                     KFLD           S1HIN3
+     C*
+     C                     Z-ADD1         RECNO1
+     C                     Z-ADD1         RRN1
+     C           1         DO   *HIVAL    RRN1
+     C           RRN1      CHAINSFL01                91
+     C           *IN91     IFEQ *ON
+     C                     LEAVE
+     C                     END
+     C                     MOVEA'00000'   *IN,11
+     C                     Z-ADD0         S1SRY
+     C*
+     C*          S1KKBN    IFEQ ' '
+     C           S1KOTE    IFEQ *BLANK
+     C           S1PART    ANDEQ*BLANK
+     C           S1MAIS    ANDEQ0
+     C           S1SYUY    ANDEQ0
+     C                     ELSE
+     C*
+     C           TANKY2    SETLLGDJPP011                 20
+     C           *IN20     IFEQ *OFF
+     C                     MOVEA'1'       *IN,12
+     C  N99                MOVELMSG,8     D#MSG
+     C  N99                MOVEA'1'       *IN,99
+     C                     END
+     C*
+     C           S1KOTE    CHAINGDJPP101             20
+     C           *IN20     IFEQ '1'
+     C                     MOVEA'1'       *IN,11
+     C  N99                MOVELMSG,9     D#MSG
+     C  N99                Z-ADDRRN1      RECNO1
+     C  N99                MOVEA'1'       *IN,99
+     C                     MOVE *BLANK    S1KKBN
+     C                     ELSE
+     C                     MOVELINKKBN    S1KKBN
+     C                     END
+     C           S1KKBN    IFEQ '1'
+     C           S1KKBN    OREQ '2'
+     C           S1KKBN    OREQ '3'
+     C           S1KKBN    OREQ '4'
+     C           S1KKBN    OREQ '5'
+     C           S1KKBN    OREQ '6'
+     C           S1KKBN    OREQ '7'
+     C           S1KKBN    OREQ '8'
+     C                     ELSE
+     C                     MOVEA'1'       *IN,11
+     C  N99                MOVELMSG,4     D#MSG
+     C  N99                Z-ADDRRN1      RECNO1
+     C  N99                MOVEA'1'       *IN,99
+     C                     END
+     C*
+     C           S1MAIS    IFEQ 0
+     C                     MOVEA'1'       *IN,12
+     C  N99                MOVELMSG,5     D#MSG
+     C  N99                Z-ADDRRN1      RECNO1
+     C  N99                MOVEA'1'       *IN,99
+     C                     END
+     C*
+     C                     Z-ADD0         S1SYUY
+      *** ADD 11/13 A.IDOTA ***
+     C                     Z-ADD0         S1LOTO
+      *** ADD 11/13 A.IDOTA ***
+     C                     Z-ADD0         @@SYUY           QUANTITY IN BOX
+     C                     MOVE *BLANK    @@BAR1  1
+     C                     MOVE *BLANK    @@BAR2  4
+     C                     MOVE *BLANK    @@BAR3  1
+     C                     MOVE *BLANK    @@KATA  8
+     C                     MOVE S1HIN1    WWHIN1           PARTS NO.
+     C                     MOVE S1HIN2    WWHIN2           PARTS NO.
+     C                     MOVE S1HIN3    WWHIN3           PARTS NO.
+     C                     MOVE *BLANK    @@PART           PARTS NO.
+     C                     Z-ADD0         @@DEP            DEPARTMENT
+     C                     Z-ADD0         @@ERR            ERROR
+      *** ADD 11/13 A.IDOTA ***
+     C                     Z-ADD0         @@LOT            LOT
+      *** ADD 11/13 A.IDOTA ***
+     C                     CALL 'GDJR12'               20
+     C                     PARM           S1KKBN           PROCESS CODE
+     C                     PARM           @@BAR1           KANBAN KBN
+     C                     PARM           @@BAR2           ID NUMBER
+     C                     PARM           @@BAR3           SEIHIN KBN
+     C                     PARM           @@KATA           KATA NO.
+     C                     PARM           S1KOTE           KOTE NO.
+     C                     PARM           WWHIN            KATA NO.
+     C                     PARM           @@SYUY  70       QUANTITY IN BOX
+     C                     PARM           @@PART 12        PARTS NO.
+     C                     PARM           @@DEP   40       DEPARTMENT
+     C                     PARM           @@ERR   10       ERROR
+      *** ADD 11/13 A.IDOTA ***
+     C                     PARM           @@LOT   30       LOT
+      *** ADD 11/13 A.IDOTA ***
+     C                     FREE 'GDJR12'
+     C   20                Z-ADD1         @@ERR
+     C           @@ERR     IFEQ 0
+     C                     Z-ADD@@SYUY    S1SYUY
+      *** ADD 11/13 A.IDOTA ***
+     C           @@LOT     IFNE 0
+     C                     Z-ADD@@LOT     S1LOTO
+     C           S1SYUY    MULT @@LOT     S1SYUY
+     C                     END
+      *** ADD 11/13 A.IDOTA ***
+     C                     END
+     C           @@ERR     IFEQ 1
+     C                     MOVEA'1'       *IN,11
+     C  N99                MOVELMSG,6     D#MSG
+     C  N99                Z-ADDRRN1      RECNO1
+     C  N99                MOVEA'1'       *IN,99
+     C                     END
+     C           S1MAIS    MULT S1SYUY    S1SRY     H
+     C*
+     C           S1SYUY    IFEQ 0
+     C                     MOVEA'1'       *IN,14
+     C  N99                MOVELMSG,7     D#MSG
+     C  N99                Z-ADDRRN1      RECNO1
+     C  N99                MOVEA'1'       *IN,99
+     C                     END
+     C*
+     C                     END
+     C                     UPDATSFL01
+     C                     ENDDO
+     C**
+     C                     ENDSR
+     C****************************************************************
+     C*          #SFCH2   SFL2 CHECK                                 *
+     C****************************************************************
+     C           #SFCH2    BEGSR                                     *
+     C*
+     C                     Z-ADD1         RECNO2
+     C                     Z-ADD1         RRN2
+     C           1         DO   *HIVAL    RRN2
+     C           RRN2      CHAINSFL02                91
+     C           *IN91     IFEQ *ON
+     C                     LEAVE
+     C                     END
+     C                     MOVEA'0000'    *IN,11
+     C                     Z-ADD0         S2SRY
+     C*
+     C*          S2KKBN    IFEQ ' '
+     C           S2KOTE    IFEQ *BLANK
+     C           S2MAIS    ANDEQ0
+     C           S2SYUY    ANDEQ0
+     C                     ELSE
+     C*
+     C           S2KOTE    CHAINGDJPP101             20
+     C           *IN20     IFEQ '1'
+     C                     MOVEA'1'       *IN,11
+     C  N99                MOVELMSG,9     D#MSG
+     C  N99                Z-ADDRRN2      RECNO1
+     C  N99                MOVEA'1'       *IN,99
+     C                     MOVE *BLANK    S2KKBN
+     C                     ELSE
+     C                     MOVELINKKBN    S2KKBN
+     C                     END
+     C           S2KKBN    IFEQ '1'
+     C           S2KKBN    OREQ '2'
+     C           S2KKBN    OREQ '3'
+     C           S2KKBN    OREQ '4'
+     C           S2KKBN    OREQ '5'
+     C           S2KKBN    OREQ '6'
+     C           S2KKBN    OREQ '7'
+     C           S2KKBN    OREQ '8'
+     C                     ELSE
+     C                     MOVEA'1'       *IN,11
+     C  N99                MOVELMSG,4     D#MSG
+     C  N99                Z-ADDRRN2      RECNO2
+     C  N99                MOVEA'1'       *IN,99
+     C                     END
+     C*
+     C           S2MAIS    IFEQ 0
+     C                     MOVEA'1'       *IN,12
+     C  N99                MOVELMSG,5     D#MSG
+     C  N99                Z-ADDRRN2      RECNO2
+     C  N99                MOVEA'1'       *IN,99
+     C                     END
+     C*
+     C                     Z-ADD0         S2SYUY
+      *** ADD 11/13 A.IDOTA ***
+     C                     Z-ADD0         S2LOTO
+      *** ADD 11/13 A.IDOTA ***
+     C                     Z-ADD0         @@SYUY           QUANTITY IN BOX
+     C                     MOVE *BLANK    @@BAR1  1
+     C                     MOVE *BLANK    @@BAR2  4
+     C                     MOVE *BLANK    @@BAR3  1
+     C                     MOVE *BLANK    @@KATA  8
+     C                     MOVE D1HIN1    WWHIN1           PARTS NO.
+     C                     MOVE D1HIN2    WWHIN2           PARTS NO.
+     C                     MOVE D1HIN3    WWHIN3           PARTS NO.
+     C                     MOVE *BLANK    @@PART           PARTS NO.
+     C                     Z-ADD0         @@DEP            DEPARTMENT
+     C                     Z-ADD0         @@ERR            ERROR
+      *** ADD 11/13 A.IDOTA ***
+     C                     Z-ADD0         @@LOT            LOT
+      *** ADD 11/13 A.IDOTA ***
+     C                     CALL 'GDJR12'               20
+     C                     PARM           S2KKBN           PROCESS CODE
+     C                     PARM           @@BAR1           KANBAN KBN
+     C                     PARM           @@BAR2           ID NUMBER
+     C                     PARM           @@BAR3           SEIHIN KBN
+     C                     PARM           @@KATA           KATA NO.
+     C                     PARM           S2KOTE           KOTE NO.
+     C                     PARM           WWHIN            KATA NO.
+     C                     PARM           @@SYUY  70       QUANTITY IN BOX
+     C                     PARM           @@PART 12        PARTS NO.
+     C                     PARM           @@DEP   40       DEPARTMENT
+     C                     PARM           @@ERR   10       ERROR
+      *** ADD 11/13 A.IDOTA ***
+     C                     PARM           @@LOT   30       LOT
+      *** ADD 11/13 A.IDOTA ***
+     C                     FREE 'GDJR12'
+     C   20                Z-ADD1         @@ERR
+     C           @@ERR     IFEQ 0
+     C                     Z-ADD@@SYUY    S2SYUY
+      *** ADD 11/13 A.IDOTA ***
+     C           @@LOT     IFNE 0
+     C                     Z-ADD@@LOT     S2LOTO
+     C           S2SYUY    MULT @@LOT     S2SYUY
+     C                     END
+      *** ADD 11/13 A.IDOTA ***
+     C                     END
+     C           @@ERR     IFEQ 1
+     C                     MOVEA'1'       *IN,11
+     C  N99                MOVELMSG,6     D#MSG
+     C  N99                Z-ADDRRN2      RECNO2
+     C  N99                MOVEA'1'       *IN,99
+     C                     END
+     C           S2MAIS    MULT S2SYUY    S2SRY     H
+     C*
+     C           S2SYUY    IFEQ 0
+     C                     MOVEA'1'       *IN,14
+     C  N99                MOVELMSG,7     D#MSG
+     C  N99                Z-ADDRRN2      RECNO2
+     C  N99                MOVEA'1'       *IN,99
+     C                     END
+     C*
+     C                     END
+     C                     UPDATSFL02
+     C                     ENDDO
+     C**
+     C                     ENDSR
+     C****************************************************************
+     C*          #UPDT1    FILE UPDATE                               *
+     C****************************************************************
+     C           #UPDT1    BEGSR                                     *
+     C*
+     C                     Z-ADD1         RRN1
+     C           1         DO   *HIVAL    RRN1
+     C           RRN1      CHAINSFL01                91
+     C           *IN91     IFEQ *ON
+     C                     LEAVE
+     C                     END
+     C           S1KKBN    IFEQ ' '
+     C           S1PART    ANDEQ*BLANK
+     C           S1MAIS    ANDEQ0
+     C                     ELSE
+     C                     Z-ADDD1DEP     IPBUMN           DEP
+     C                     MOVE S1KKBN    IPKKBN           PROCESS CLASS
+     C                     MOVE S1HIN1    IPHIN1           PARTS NO.1
+     C                     MOVE S1HIN2    IPHIN2           PARTS NO.2
+     C                     MOVE S1HIN3    IPHIN3           PARTS NO.3
+     C                     MOVE S1KOTE    IPKOT            KOTE CODE
+      *** ADD 11/13 A.IDOTA ***
+     C           S1LOTO    IFEQ 0
+     C                     Z-ADDS1MAIS    IPHAKO           BOXES
+     C                     ELSE
+     C           S1LOTO    MULT S1MAIS    IPHAKO           BOXES
+     C                     END
+      *** ADD 11/13 A.IDOTA ***
+     C                     Z-ADDS1MAIS    IPHAKO           BOXES
+     C                     Z-ADDS1SYUY    IPSYUY           QUANTITY IN BOX
+     C                     Z-ADDS1SRY     IPSRY            QUANTITY
+     C                     Z-ADD0         IPTANK           UNIT PRICE
+     C                     EXSR #TAN
+     C           IPTANK    MULT IPSRY     IPKIN     H      AMOUNT
+     C                     WRITEGDJPP221
+     C                     END
+     C                     ENDDO
+     C**
+     C                     ENDSR
+     C****************************************************************
+     C*          #UPDT2    FILE UPDATE                               *
+     C****************************************************************
+     C           #UPDT2    BEGSR                                     *
+     C*
+     C           GDJKEY    SETLLGDJPP221                 91
+     C                     DO   *HIVAL
+     C           GDJKEY    READEGDJPP221                 91
+     C           *IN91     IFEQ '0'
+     C                     DELETGDJPP221
+     C                     END
+     C  N91                ENDDO
+     C*
+     C*
+     C                     Z-ADD1         RRN2
+     C           1         DO   *HIVAL    RRN2
+     C           RRN2      CHAINSFL02                91
+     C           *IN91     IFEQ *ON
+     C                     LEAVE
+     C                     END
+     C           S2DLT     IFNE '0'
+     C                     Z-ADDD1DEP     IPBUMN           DEP
+     C                     MOVE S2KKBN    IPKKBN           PROCESS CLASS
+     C                     MOVE D1HIN1    IPHIN1           PARTS NO.1
+     C                     MOVE D1HIN2    IPHIN2           PARTS NO.2
+     C                     MOVE D1HIN3    IPHIN3           PARTS NO.3
+     C                     MOVE S2KOTE    IPKOT            KOTE CODE
+      *** ADD 11/13 A.IDOTA ***
+     C           S2LOTO    IFEQ 0
+     C                     Z-ADDS2MAIS    IPHAKO           BOXES
+     C                     ELSE
+     C           S2LOTO    MULT S2MAIS    IPHAKO           BOXES
+     C                     END
+      *** ADD 11/13 A.IDOTA ***
+     C                     Z-ADDS2SYUY    IPSYUY           QUANTITY IN BOX
+     C                     Z-ADDS2SRY     IPSRY            QUANTITY
+     C                     Z-ADD0         IPTANK           UNIT PRICE
+     C                     EXSR #TAN
+     C           IPTANK    MULT IPSRY     IPKIN     H      AMOUNT
+     C                     WRITEGDJPP221
+     C                     END
+     C                     ENDDO
+     C**
+     C                     ENDSR
+     C****************************************************************
+     C*          #TAN      TANKA GET                                 *
+     C****************************************************************
+     C           #TAN      BEGSR
+     C           HINKEY    KLIST
+     C                     KFLD           IPHIN1
+     C                     KFLD           IPHIN2
+     C                     KFLD           IPHIN3
+     C           HINKEY    CHAINGDJPP01              92
+     C           *IN92     IFEQ '0'
+     C           IPKKBN    IFEQ '1'
+     C                     Z-ADDIMATST    IPTANK           UNIT PRICE
+     C                     END
+     C           IPKKBN    IFEQ '2'
+     C                     Z-ADDIMTENT    IPTANK           UNIT PRICE
+     C                     END
+     C           IPKKBN    IFEQ '3'
+     C                     Z-ADDIMNEST    IPTANK           UNIT PRICE
+     C                     END
+     C           IPKKBN    IFEQ '4'
+     C                     Z-ADDIMHYOT    IPTANK           UNIT PRICE
+     C                     END
+     C           IPKKBN    IFEQ '5'
+     C                     Z-ADDIMKNRT    IPTANK           UNIT PRICE
+     C                     END
+     C           IPKKBN    IFEQ '6'
+     C                     Z-ADDIMKOST    IPTANK           UNIT PRICE
+     C                     END
+     C           IPKKBN    IFEQ '7'
+     C                     Z-ADDIMKANT    IPTANK           UNIT PRICE
+     C                     END
+     C           IPKKBN    IFEQ '8'
+     C                     Z-ADDIMAPIC    IPTANK           UNIT PRICE
+     C                     END
+     C                     END
+     C                     ENDSR
+**  MSG  **
+WRONG DEPARTMENT CODE.
+WRONG SELECT NO.
+INVENTORY DATA (BAR CODE) NOT FOUND.
+WRONG PROCESS CLASS.
+INPUT THE BOXES.
+KANBAN M/F NOT FOUND.
+INPUT THE QUANTITY IN BOX.
+PARTS UNIT PRICE M/F NOT FOUND.
+PROCESS CLASS M/F NOT FOUND.

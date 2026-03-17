@@ -1,0 +1,113 @@
+     H            Y.
+     F** UTLR24D *********************************************************
+     F*  PROGRAM: GET NEXT FRIDAY (FOR PURCHASE ORDER)                   *
+     F*  WRITTEN: JW (SRA) 2024.05.08                                    *
+     F*------------------------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UTLR24D'
+     F*                    PARM           $BDATE  8
+     F*                    PARM           $FRIDY  8
+     F*  IN   $BDATE : 8A BASE DATE (BLANK=TODAY)
+     F*  OUT  $FRIDY : 8A DEGIGNATED FRIDAY
+     F* -----------------------------------------------------------------*
+     F* - GET NEXT FRIGEY
+     F* - IF BDATE IS FRIDAY --> FRIDAY IN 2 WEEKS
+     F* - IF BDATE IS NOT FRIDAY --> FRIDAY IN 1 WEEK
+     F* - IF DESIGNATED FRIDAY IS HOLIDAY --> CHANGE TO LATEST WORKING DAY
+     F********************************************************************
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *--------------------------------------------------------
+      *                    MAIN PROCESS
+      *--------------------------------------------------------
+     C                     EXSR #INIT
+      * GET TODAY'S INFO
+     C                     EXSR #GETF
+      * GET NEXT FRIDAY
+     C                     EXSR #FRIDY
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *=============================================================
+      * GET TODAY'S INFO
+      *=============================================================
+     C           #GETF     BEGSR
+      *
+     C                     MOVEL@BDATE    $DATE8
+     C                     CALL 'UTLR02'
+     C                     PARM           $DATE8  8
+     C                     PARM           $DAY    1
+     C                     PARM           $WEEK#  1
+     C                     PARM           $RTN    1
+      *
+     C                     SELEC
+     C           $DAY      WHEQ '1'                        MON
+     C                     Z-ADD11        @DAYS   40
+     C           $DAY      WHEQ '2'                        TUE
+     C                     Z-ADD10        @DAYS
+     C           $DAY      WHEQ '3'                        WED
+     C                     Z-ADD9         @DAYS
+     C           $DAY      WHEQ '4'                        THU
+     C                     Z-ADD8         @DAYS
+     C           $DAY      WHEQ '5'                        FRI
+     C                     Z-ADD14        @DAYS
+     C           $DAY      WHEQ '6'                        SAT
+     C                     Z-ADD13        @DAYS
+     C           $DAY      WHEQ '7'                        SUN
+     C                     Z-ADD12        @DAYS
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *=============================================================
+      * GET FRIDAY
+      *=============================================================
+     C           #FRIDY    BEGSR
+      * GET DATE
+     C                     MOVEL@BDATE    $DT8
+     C                     MOVE '+'       $SIGN
+     C                     MOVEL@DAYS     $DAYS
+     C                     MOVE 'N'       $IAF
+     C                     CALL 'UTLR10'
+     C                     PARM           $DT8    8
+     C                     PARM           $SIGN   1
+     C                     PARM           $DAYS   4
+     C                     PARM           $IAF    1
+     C                     PARM           $TGT8   8
+     C                     PARM           $RTN    1
+      * CHECK WORKING DAY
+     C                     MOVEL$TGT8     $DATE1
+     C                     CALL 'UTLR24C'
+     C                     PARM           $DATE1  8
+     C                     PARM           $BFLG   1
+     C                     PARM           $LSTDT  8
+     C                     PARM           $NXTDT  8
+      *
+     C           $BFLG     IFEQ 'Y'
+     C                     MOVEL$DATE1    $FRIDY
+     C                     ELSE
+     C                     MOVEL$LSTDT    $FRIDY
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *=============================================================
+      *                    INITIAL PROCESS
+      *=============================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $BDATE  8        IN
+     C                     PARM           $FRIDY  8        OUT
+      *
+     C                     MOVEL'00000000'$FRIDY
+     C                     TIME           SDATE
+      *
+     C           $BDATE    IFEQ *BLANK
+     C           $BDATE    OREQ '00000000'
+     C                     MOVELTODAY     @BDATE  80
+     C                     ELSE
+     C                     MOVEL$BDATE    @BDATE
+     C                     ENDIF
+      *
+     C                     ENDSR

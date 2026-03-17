@@ -1,0 +1,289 @@
+      **** GDGR70 ****************************************************
+      *     INQUILY OF       DAILY ORDERING DATA
+      *        G.B.C                            97/02/20
+      ****************************************************************
+     H            Y/                                    1
+     FGDGPW70 CF  E                    WORKSTN
+     F                                        RRN   KSFILE SFL01
+     F                                              KINFDS INFDS
+     FGDGPL17 IF  E           K        DISK
+     FGDGPL25 IF  E           K        DISK
+     E****************************************************************
+     E                    MSG     1   4 60               d[ｰ xｮﾈｰﾆﾞ
+     I****************************************************************
+     IINFDS       DS
+     I                                    B 378 3790POS
+     I            DS
+     I                                        1   60D1ODRD
+     I                                        1   40D1ODRY
+     I                                        5   60D1ODRM
+     I            DS
+     I                                        1  12 D1HIN
+     I                                        1   5 D1HIN1
+     I                                        6  10 D1HIN2
+     I                                       11  12 D1HIN3
+     I            DS
+     I                                        1  12 ICHIN
+     I                                        1   5 ICHIN1
+     I                                        6  10 ICHIN2
+     I                                       11  12 ICHIN3
+     I            DS
+     I                                        1  14 SFHIN
+     I                                        1   5 SFHIN1
+     I                                        6   6 SFHF1
+     I                                        7  11 SFHIN2
+     I                                       12  12 SFHF2
+     I                                       13  14 SFHIN3
+     I*  eｰjﾞｰﾆｰn発行日
+     I            DS
+     I                                        1   20ICODRM
+     I                                        3   3 ICODRF
+     I                                        4   50ICODRD
+     I                                        1   5 ICODR
+     I* 入荷日付
+     I            DS
+     I                                        1   20IENYUM
+     I                                        3   3 IENYUF
+     I                                        4   50IENYUD
+     I                                        1   5 IENYU
+     C****************************************************************
+     C*           ＭＡＩＮ　ＲＯＵＴＩＮＥ                         *
+     C****************************************************************
+     C           KEY01     KLIST
+     C                     KFLD           D1ODRY
+     C                     KFLD           D1ODRM
+     C****************
+     C*  初期処理  *
+     C****************
+     C                     EXSR #INIT
+     C****************
+     C*  第一画面  *
+     C****************
+     C           @DSP1     TAG
+     C                     SETOF                     20
+     C                     WRITEDSP02
+     C                     EXFMTDSP01
+     C                     MOVE *BLANK    D#MSG
+     C                     MOVEL'0'       *IN,99
+     C* < F1=ON >
+     C           *INKA     CABEQ'1'       @END
+     C                     EXSR #CHK1
+     C   99                GOTO @DSP1
+     C*
+     C                     EXSR #SETD2
+     C****************
+     C*  第二画面  *
+     C****************
+     C           @DSP2     TAG
+     C                     SETON                     20
+     C                     SETON                     82
+     C           RRN       IFNE 0
+     C                     SETON                     81
+     C                     ENDIF
+     C                     WRITEDSP02
+     C                     EXFMTCTL01
+     C                     SETON                     8182
+     C                     MOVEA'00000'   *IN,11
+     C                     MOVEA'0'       *IN,99
+     C                     MOVE *BLANK    D#MSG
+     C* < F1=ON >
+     C           *INKA     CABEQ'1'       @END
+     C* < F3=ON >
+     C           *INKC     CABEQ'1'       @DSP1
+     C* < ROLL_UP >
+     C  N90      *IN,71    IFEQ '1'
+     C                     EXSR #ROLUP
+     C                     END
+     C                     GOTO @DSP2
+     C****************
+     C           @END      TAG
+     C                     SETON                     LR
+     C                     RETRN
+     C****************************************************************
+     C*           ＳＵＢ　　ＲＯＵＴＩＮＥ                         *
+     C****************************************************************
+     C           #INIT     BEGSR                                     *
+     C****************************************************************
+     C**初期処理**
+     C           *ENTRY    PLIST
+     C                     PARM           PPUSER 10
+     C* < fﾞx] ﾎｧｰﾓnﾞ hﾒaｰ >
+     C                     Z-ADD0         D1ODRD
+     C                     MOVE *BLANK    D1HIN1
+     C                     MOVE *BLANK    D1HIN2
+     C                     MOVE *BLANK    D1HIN3
+     C                     SETOF                     11
+     C*
+     C                     ENDSR
+     C****************************************************************
+     C           #CHK1     BEGSR                                     *
+     C****************************************************************
+     C                     SETOF                     1199
+     C**第１画面チェック**
+     C           D1ODRD    IFEQ 0
+     C  N99                MOVELMSG,1     D#MSG
+     C                     SETON                     1199
+     C                     ELSE
+     C           D1ODRM    IFLE 0
+     C           D1ODRM    ORGT 12
+     C  N99                MOVELMSG,1     D#MSG
+     C                     SETON                     1199
+     C                     ENDIF
+     C                     ENDIF
+     C*
+     C                     ENDSR
+     C****************************************************************
+     C           #SETD2    BEGSR                                     *
+     C****************************************************************
+     C**第二画面セット**
+     C* < SFL-CLR >
+     C                     MOVEA'1'       *IN,83
+     C                     WRITECTL01
+     C                     MOVEA'0'       *IN,83
+     C                     Z-ADD0         RRN     40
+     C                     Z-ADD0         COUNT   20
+     C*
+     C           KEY01     SETLLGDGPL17
+     C*--------------------
+     C                     EXSR #SETSF
+     C*
+     C                     ENDSR
+     C****************************************************************
+     C           #SETSF    BEGSR                                     *
+     C****************************************************************
+B1   C                     DO   *HIVAL
+     C           KEY01     READEGDGPL17                  90
+     C   90                LEAVE
+     C           ICSKJY    IFEQ 'D'                         DELETE CODE
+     C           ICSKHZ    ANDLE*DATE
+     C                     ITER
+     C                     ENDIF
+     C*
+     C           D1HIN     IFNE *BLANK
+     C           D1HIN     ANDNEICHIN
+     C                     ITER
+     C                     ENDIF
+     C*****
+     C                     EXSR #CLR
+     C                     EXSR #MOVE1
+     C                     MOVE *BLANK    @FST    1
+     C*:::::::::::::::::::
+     C           ICITEM    SETLLGDGPL25
+ B2  C                     DO   *HIVAL
+     C           ICITEM    READEGDGPL25                  91
+     C           *IN91     IFEQ '0'
+     C           IESKJY    IFEQ 'D'                         DELETE CODE
+     C           IESKHZ    ANDLE*DATE
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+     C           @FST      IFEQ '*'
+     C           *IN91     ANDEQ'1'
+     C                     LEAVE
+     C                     ENDIF
+     C  N91                EXSR #MOVE2
+     C*
+     C                     ADD  1         RRN
+     C                     ADD  1         COUNT
+     C                     WRITESFL01
+     C                     MOVE '*'       @FST
+     C                     EXSR #CLR
+     C           COUNT     IFEQ 13
+     C                     LEAVE
+     C                     ENDIF
+ E2  C  N91                ENDDO
+     C*:::::::::::::::::::
+     C           COUNT     IFEQ 13
+     C                     LEAVE
+     C                     ENDIF
+E1   C                     ENDDO
+     C           RRN       IFEQ 0
+     C                     EXSR #CLR
+     C                     ADD  1         RRN
+     C                     ADD  1         COUNT
+     C                     WRITESFL01
+     C                     ENDIF
+     C                     ENDSR
+     C****************************************************************
+     C           #CLR      BEGSR                                     *
+     C****************************************************************
+     C                     MOVE *BLANK    SFHIN
+     C                     MOVE *BLANK    SFODER
+     C                     MOVE *BLANK    SFITEM
+     C                     MOVE *BLANK    SFODRD           月日
+     C                     Z-ADD0         SFSURY           数量
+     C                     MOVE *BLANK    SFINVO           インボイス番号
+     C                     MOVE *BLANK    SFNYUD           入荷日付
+     C                     Z-ADD0         SFINSU           入荷数
+     C                     MOVE *BLANK    SFNYUK           '入荷区分
+     C                     ENDSR
+     C****************************************************************
+     C           #MOVE1    BEGSR                                     *
+     C****************************************************************
+     C                     MOVE ICHIN1    SFHIN1
+     C                     MOVE '-'       SFHF1
+     C                     MOVE ICHIN2    SFHIN2
+     C           ICHIN3    IFNE *BLANK
+     C                     MOVE '-'       SFHF2
+     C                     ELSE
+     C                     MOVE ' '       SFHF2
+     C                     ENDIF
+     C                     MOVE ICHIN3    SFHIN3
+     C                     MOVE ICODER    SFODER
+     C                     MOVE ICITEM    SFITEM
+     C                     MOVE '/'       ICODRF
+     C                     MOVE ICODR     SFODRD           月日
+     C                     Z-ADDICSURY    SFSURY           数量
+     C                     MOVE ICIFMK    SFNYUK           '入荷区分
+     C                     ENDSR
+     C****************************************************************
+     C           #MOVE2    BEGSR                                     *
+     C****************************************************************
+     C                     MOVE IEINVO    SFINVO           インボイス番号
+     C                     MOVE '/'       IENYUF
+     C                     MOVE IENYU     SFNYUD           入荷日付
+     C           IENYUM    IFEQ 0
+     C                     MOVE *BLANK    SFNYUD
+     C                     END
+     C                     Z-ADDIESURY    SFINSU           入荷数
+     C           IENYUK    IFNE *BLANK
+     C**                   MOVE IENYUK    SFNYUK           '入荷区分
+     C                     ENDIF
+     C                     ENDSR
+     C****************************************************************
+     C           #ROLUP    BEGSR                                     *
+     C****************************************************************
+     C                     Z-ADD0         COUNT
+     C*--------------------
+     C                     EXSR #CLR
+     C                     EXSR #MOVE1
+     C*:::::::::::::::::::
+B1   C                     DO   *HIVAL
+     C           ICITEM    READEGDGPL25                  91
+     C   91                LEAVE
+     C           IESKJY    IFEQ 'D'                         DELETE CODE
+     C           IESKHZ    ANDLE*DATE
+     C                     ITER
+     C                     ENDIF
+     C*
+     C                     EXSR #MOVE2
+     C*
+     C                     ADD  1         RRN
+     C                     ADD  1         COUNT
+     C                     WRITESFL01
+     C                     EXSR #CLR
+     C           COUNT     IFEQ 13
+     C                     LEAVE
+     C                     ENDIF
+E1   C                     ENDDO
+     C*:::::::::::::::::::
+     C           COUNT     IFLT 13
+     C                     EXSR #SETSF
+     C                     ENDIF
+     C                     ENDSR
+     C****************************************************************
+**  MSG (mｰﾎﾞﾓ ﾃx]n)
+INPUT THE ORDER DATE.
+
+
+

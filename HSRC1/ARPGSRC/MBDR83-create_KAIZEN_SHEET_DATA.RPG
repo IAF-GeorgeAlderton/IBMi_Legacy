@@ -1,0 +1,221 @@
+     H            Y/
+     F** MBDR83 *****************************************
+     F*  CREATE KAIZEN SHEET DATA                       *
+     F*  * CREATE WORK FILE                             *
+     F*  J.WATANABE   2017.11.07                        *
+     F*                                                 *
+     F***************************************************
+     FEDIPL43 IF  E           K        DISK
+     FMBDPL15 IF  E           K        DISK
+     FMBDWP82 UF  E           K        DISK                      A    UC
+     FMBDWP83 IF  E           K        DISK                      A
+      *------------------------------------------------------------
+     E                    SLS        12  7 0
+      *------------------------------------------------------------
+     I            DS
+     I                                        1  14 F4SHN
+     I                                        1   5 F4SHN1
+     I                                        6   6 PHS1
+     I                                        7  11 F4SHN2
+     I                                       12  12 PHS2
+     I                                       13  14 F4SHN3
+     I            DS
+     I                                        1  840SLS
+     I                                        1   70F4TS01
+     I                                        8  140F4TS02
+     I                                       15  210F4TS03
+     I                                       22  280F4TS04
+     I                                       29  350F4TS05
+     I                                       36  420F4TS06
+     I                                       43  490F4TS07
+     I                                       50  560F4TS08
+     I                                       57  630F4TS09
+     I                                       64  700F4TS10
+     I                                       71  770F4TS11
+     I                                       78  840F4TS12
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *------------------------------------------------------
+      *  MAIN ROUTINE
+      *------------------------------------------------------
+      * CREATE MDBWP82 (DEATIL1)
+     C                     EXSR #WP82D
+      *
+     C           RCNT      IFEQ 0
+     C                     MOVE '*'       P#RTN
+     C                     ELSE
+      * UPDATE MDBWP82 (DETAIL2)
+     C                     EXSR #WP82S
+      * CREATE MDBWP83 (SUM)
+     C                     EXSR #WP83
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *------------------------------------------------------
+      *  CREATE MBDWP82 (PART1)
+      *------------------------------------------------------
+     C           #WP82D    BEGSR
+      *
+     C                     OPEN MBDWP82
+     C                     Z-ADD0         RCNT
+     C                     MOVELP#YYMM    K#YYMM
+     C                     MOVE P#YYMM    MM      20
+      * READ CUSTMER GROUP
+     C           P#GRP     SETLLEDIPL43
+     C                     MOVE *OFF      *IN91
+     C           *IN91     DOWEQ*OFF
+     C           P#GRP     READEEDIPL43                  91
+     C           *IN91     IFEQ *OFF
+      * READ SALES
+     C                     MOVELE4NONY    K#NONY
+     C                     MOVE *OFF      *IN92
+     C           K#PL15    SETLLMBDPL15
+     C           *IN92     DOWEQ*OFF
+     C           K#PL15    READEMBDPL15                  92
+     C           *IN92     IFEQ *OFF
+     C           SLS,MM    ANDNE0
+     C                     ADD  1         RCNT
+     C                     EXSR #WT82
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     CLOSEMBDWP82
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *  UPDATE MBDWP82 (PART2)
+      *------------------------------------------------------
+     C           #WP82S    BEGSR
+      *
+     C                     OPEN MBDWP82
+      *
+     C           *LOVAL    SETLLMBDWP82
+     C           *IN95     DOWEQ*OFF
+     C                     READ MBDWP82                  95
+     C           *IN95     IFEQ *OFF
+     C                     Z-ADDWTQTY     M2TQTY
+     C                     UPDATMBDWP821
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     CLOSEMBDWP82
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *  WRITE MBDWP82
+      *------------------------------------------------------
+     C           #WT82     BEGSR
+      *
+     C                     CLEARMBDWP821
+     C                     MOVELP#GRP     M2GRP
+     C                     MOVELP#YYMM    M2YYMM
+     C                     Z-ADDF4TOKU    M2TOKU
+     C                     Z-ADDF4NONY    M2NONY
+      *
+     C                     MOVE *BLANK    PHS1
+     C                     MOVE *BLANK    PHS2
+     C           F4SHN2    IFNE *BLANK
+     C                     MOVE '-'       PHS1
+     C                     ENDIF
+     C           F4SHN3    IFNE *BLANK
+     C                     MOVE '-'       PHS2
+     C                     ENDIF
+     C                     MOVELF4SHN     M2SHN
+     C                     Z-ADDSLS,MM    M2QTY
+      *
+     C                     WRITEMBDWP821
+     C                     ADD  M2QTY     WTQTY
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *  CREATE MBDWP83 (SUM)
+      *------------------------------------------------------
+     C           #WP83     BEGSR
+      *
+     C                     OPEN MBDWP82
+      *
+     C                     MOVE 'Y'       FIRST   1
+      *
+     C           *LOVAL    SETLLMBDWP82
+     C           *IN96     DOWEQ*OFF
+     C                     READ MBDWP82                  96
+     C           *IN96     IFEQ *OFF
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELM2GRP     SVGRP   3
+     C                     Z-ADDM2YYMM    SVYYMM  60
+     C                     MOVELM2SHN     SVSHN  14
+     C                     Z-ADDM2TQTY    SVTQTY 100
+     C                     Z-ADD0         @QTY   100
+     C                     ENDIF
+      * BREAK?
+     C           M2GRP     IFNE SVGRP
+     C           M2YYMM    ORNE SVYYMM
+     C           M2SHN     ORNE SVSHN
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * DETAIL PROC
+     C                     ADD  M2QTY     @QTY
+      *
+     C                     ENDIF
+     C                     ENDDO
+      * LAST BREAK?
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     ENDIF
+      *
+     C                     CLOSEMBDWP82
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *  BREAK
+      *------------------------------------------------------
+     C           #BRK1     BEGSR
+      *
+     C                     CLEARMBDWP831
+     C                     MOVELSVGRP     M3GRP
+     C                     Z-ADDSVYYMM    M3YYMM
+     C                     MOVELSVSHN     M3SHN
+     C                     Z-ADD@QTY      M3QTY
+     C                     Z-ADDSVTQTY    M3TQTY
+     C           M3QTY     MULT 100       WNUM   122
+     C                     DIV  M3TQTY    WNUM
+     C                     Z-ADDWNUM      M3RATI
+     C                     WRITEMBDWP831
+      * CLEAR VALUES
+     C                     MOVELM2GRP     SVGRP
+     C                     Z-ADDM2YYMM    SVYYMM
+     C                     MOVELM2SHN     SVSHN
+     C                     Z-ADDM2TQTY    SVTQTY
+     C                     Z-ADD0         @QTY
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *  INITIALIZE
+      *------------------------------------------------------
+     C           *INZSR    BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           P#GRP   3
+     C                     PARM           P#YYMM  6
+     C                     PARM           P#RTN   1
+      *
+     C           K#PL15    KLIST
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#YYMM  40
+      *
+     C                     MOVELP#YYMM    K#YYMM
+     C                     MOVE *BLANK    P#RTN
+     C                     Z-ADD0         RCNT    70
+     C                     Z-ADD0         WTQTY  100
+      * DUMMY READ
+     C                     READ MBDWP83                  99
+      *
+     C                     ENDSR

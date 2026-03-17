@@ -1,0 +1,250 @@
+     H            Y.
+      ** AB#RBV3 *******************************************************
+      *  TOYOTA SUPPLIMENTAL ORDER CHECK LIST (WEB VS EDI)             *
+      *  J. WATANABE   2024.10.03                                      *
+      *----------------------------------------------                  *
+      * WEB ORDER: FROM AL#PL02A (AL#PP02)                             *
+      * EDI ORDER: FROM AB#PL1S  (AB#PP10)  BY INVOICE#                *
+      *         OR FROM AB#PL1C  (AB#PP10)  BY ORDER#                  *
+      ******************************************************************
+     FAL#PL02AIF  E           K        DISK
+     FAB#PL1S IF  E           K        DISK
+     FAB#PL1C IF  E           K        DISK
+     F            AB#PP101                          KRENAMEAB#PP10C
+     FQPRINT  O   F     198     OF     PRINTER
+      *=====================================================
+     I            DS
+     I                                        1  15 BAMHIN
+     I                                        1   5 BAMHN1
+     I                                        6  10 BAMHN2
+     I                                       11  15 BAMHN3
+     I            DS
+     I                                        1   80BANOHZ
+     I                                        1   40BANOYY
+     I                                        5   60BANOMM
+     I                                        7   80BANODD
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *=====================================================
+      *   MAIN ROUTINE
+      *=====================================================
+     C                     EXSR #INIT
+      * READ AL#PP02
+     C           @FROM     SETLLAL#PL02A
+     C                     DO   *HIVAL
+     C                     READ AL#PL02A                 98
+     C   98                LEAVE
+      *
+     C           CASKJY    IFEQ 'D'
+     C           CATOKU    ORNE 3411
+     C                     ITER
+     C                     ENDIF
+      *
+     C           CAWBRD    IFGT @TO
+     C                     LEAVE
+     C                     ENDIF
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST   1
+     C                     Z-ADDCAWBRD    SVWBRD  80
+     C                     MOVELCAORD#    SVORD# 12
+     C                     MOVELCAMHN     SVMHN  20
+     C                     MOVELCASHID    SVSHID  8
+     C                     ENDIF
+      * BREAK?
+     C           CAWBRD    IFNE SVWBRD
+     C           CAORD#    ORNE SVORD#
+     C           CAMHN     ORNE SVMHN
+     C           CASHID    ORNE SVSHID
+     C                     EXSR #BRK
+     C                     ENDIF
+      * PROCESS
+     C                     MOVELCAQTBO    NUM50   50
+     C                     ADD  NUM50     @QTY    50
+     C                     ADD  1         SPLCNT
+      *
+     C                     ENDDO
+      * LAST BREAK
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *=====================================================
+      * BREAK
+      *=====================================================
+     C           #BRK      BEGSR
+      * CHECK PP10
+     C                     EXSR #PP10
+     C                     EXSR #PRINT
+      * RESET
+     C                     Z-ADDCAWBRD    SVWBRD
+     C                     MOVELCAORD#    SVORD#
+     C                     MOVELCAMHN     SVMHN
+     C                     MOVELCASHID    SVSHID
+     C                     Z-ADD0         @QTY
+     C                     Z-ADD0         SPLCNT
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  CHECK PP10                                        *
+      *----------------------------------------------------*
+     C           #PP10     BEGSR
+      * CHECK BY INVN ------------------------------
+     C                     Z-ADD0         P10CNT  30
+     C                     Z-ADD0         XXQTY   60
+     C                     MOVELSVORD#    LTR16  16
+     C           LTR16     SETLLAB#PL1S
+     C                     DO   *HIVAL
+     C           LTR16     READEAB#PL1S                  97
+     C   97                LEAVE
+      *
+     C           BASKJY    IFEQ 'D'
+     C           BAMHIN    ORNE SVMHN
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ADD  1         P10CNT
+     C                     ADD  BASRYO    XXQTY
+      *
+     C                     ENDDO
+      *
+     C           P10CNT    IFNE 0
+     C                     GOTO XPP10
+     C                     ENDIF
+      * CHECK BY ODRN ------------------------------
+     C                     Z-ADD0         P10CNT  30
+     C                     Z-ADD0         XXQTY   60
+     C                     MOVELSVORD#    LTR10  10
+     C           LTR10     SETLLAB#PL1C
+     C                     DO   *HIVAL
+     C           LTR10     READEAB#PL1C                  97
+     C   97                LEAVE
+      *
+     C           BASKJY    IFEQ 'D'
+     C           BAMHIN    ORNE SVMHN
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ADD  1         P10CNT
+     C                     ADD  BASRYO    XXQTY
+      *
+     C                     ENDDO
+      *
+     C           XPP10     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD4         LIN#
+     C                     ENDIF
+      * EDIT
+     C                     MOVELCASHID    @@SHID  80
+      *
+     C                     MOVELSVMHN     $SHIN
+     C                     CALL 'EDTR02'
+     C                     PARM           $SHIN  12
+     C                     PARM           $SHIN2 14
+     C                     MOVEL$SHIN2    XVMHN  14
+      *
+     C           @QTY      IFEQ XXQTY
+     C                     MOVEL'=OK='    @CHK    4
+     C                     ELSE
+     C                     MOVEL'N/G '    @CHK
+     C                     Z-ADD0         BANOHZ
+     C                     Z-ADD0         XXQTY
+     C                     Z-ADD0         P10CNT
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *=====================================================
+      * INITIALIZATION
+      *=====================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $FROM   8
+     C                     PARM           $TO     8
+      *
+     C                     TIME           SDATE
+      *
+     C           $FROM     IFEQ *BLANK
+     C                     Z-ADDTODAY     @FROM   80
+     C                     ELSE
+     C                     MOVEL$FROM     @FROM
+     C                     ENDIF
+      *
+     C           $TO       IFEQ *BLANK
+     C                     Z-ADD@FROM     @TO     80
+     C                     ELSE
+     C                     MOVEL$TO       @TO
+     C                     ENDIF
+      *
+     C                     Z-ADD0         SPLCNT  30
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+     C                     MOVE *BLANK    XMSG   30
+     C                     MOVE 'Y'       FIRST   1
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   40 '** TOYOTA SUPPLEMENT'
+     O                                   60 ' ORDER COMPARISON LI'
+     O                                   80 'ST **               '
+     O                                   74 '(FROM:'
+     O                         @FROM     84 '    /  /  '
+     O                                   89 'TO:'
+     O                         @TO       99 '    /  /  '
+     O                                  100 ')'
+     O                         TODAY    120 '    .  .  '
+     O                         NOW      130 '  :  :  '
+     O        E   03           @HDR
+     O                                   20 '      ------------  '
+     O                                   40 '(WEB: AL#PP02) -----'
+     O                                   60 '--------------------'
+     O                                   80 '-----------         '
+     O                                  100 '-- (PP10) ----------'
+     O                                  120 '------              '
+     O        E   04           @HDR
+     O                                    5 'SEQ#'
+     O                                   14 'CRT_DATE'
+     O                                   23 'ORDER#'
+     O                                   40 'USER_PART'
+     O                                   56 'SHIP_DATE'
+     O                                   65 'QTY'
+     O                                   71 'BOX'
+     O                                   78 'CHECK'
+     O                                   90 'SHIP_DATE'
+     O                                   99 'QTY'
+     O                                  106 'COUNT'
+     O        E 1              @DTL
+     O                         SEQ#  1 +000
+     O                         SVWBRD  +001 '    /  /  '
+     O                         SVORD#  +001
+     O                         XVMHN   +002
+     O                         @@SHID  +002 '    /  /  '
+     O                         @QTY  1 +002
+     O                         SPLCNT1 +003
+      *
+     O                         @CHK    +003
+     O**                       XXINVN  +005
+     O**                       XXMHIN  +002
+     O                         BANOHZ  +003 '    /  /  '
+     O                         XXQTY 2 +001
+     O                         P10CNT2 +003

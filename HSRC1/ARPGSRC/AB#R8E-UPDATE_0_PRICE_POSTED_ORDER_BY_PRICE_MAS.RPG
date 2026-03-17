@@ -1,0 +1,202 @@
+     H            Y.
+      ** AB#R8E **********************************************
+      *  UPDATE 0-PRICE POSTED ORDER BY PRICE MASTER         *
+      *  J.WATANABE 2022.03.01                               *
+      ********************************************************
+     FAB#PL0M UF  E           K        DISK
+     FAB#PP02 O   E                    DISK
+     FQPRINT  O   F     132     OF     PRINTER
+      ********************************************************
+     E                    MSG     1   2 17
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I                                        7  100SYEAR
+     I                                       11  120SMONTH
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *-----------------------------------------------------------*
+      *     M  A  I  N  L  I  N  E                                *
+      *-----------------------------------------------------------*
+     C                     EXSR #INIT
+      *
+     C           K#PL0M    SETLLAB#PL0M
+      *
+     C                     DO   *HIVAL
+     C           K#PL0M    READEAB#PL0M                  98
+     C   98                LEAVE
+      *
+     C           B1SKJY    IFEQ 'D'
+     C           B1TANK    ORNE 0
+     C           B1TKBN    OREQ 'Z'                        ZERO PRICE ORDER
+     C                     ITER
+     C                     ENDIF
+      * GET PRICE
+     C                     MOVELB1NOHZ    $DATE
+     C                     MOVELB1TOKU    $TOKU
+     C                     MOVELB1NONY    $NONY
+     C                     MOVELB1MHIN    $CPART    P
+     C                     CALL 'UTLR03B'
+     C                     PARM           $DATE   8
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $CPART 20
+     C                     PARM           $UP     9
+     C                     PARM           $RTN    1
+     C                     MOVEL$UP       LTR95   95
+     C                     Z-ADDLTR95     XTANK
+      *
+     C           XTANK     IFEQ 0
+     C                     MOVELMSG,1     XMSG   17
+     C                     ELSE
+     C                     MOVELMSG,2     XMSG
+     C                     ENDIF
+      *
+     C                     EXSR #PRINT
+      * UPDATE
+     C           $UPD      IFEQ 'Y'
+     C           XTANK     ANDNE0
+     C           B1TANK    ANDEQ0
+     C                     EXSR #BFR
+     C                     Z-ADDB1TANK    SVTANK 105
+     C                     Z-ADDXTANK     B1TANK
+     C                     UPDATAB#PL0M1
+     C                     EXSR #AFT
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+      *
+     C                     SETON                     LR
+     C                     RETRN
+JW1   ***************************
+ .    * SAVE (BEFORE UPDATE)
+ .    ***************************
+ *   C           #BFR      BEGSR
+      *
+     C                     TIME           SDATE
+     C                     MOVEL'BEFORE'  B2ATTR
+     C                     Z-ADDB1TANK    B2TNK1
+     C                     Z-ADD0         B2TNK2
+     C                     Z-ADDTODAY     B2CRHZ
+     C                     Z-ADDNOW       B2CRTM
+     C                     MOVEL#USER     B2CRUS
+     C                     MOVEL#PGM      B2CRPG
+     C                     WRITEAB#PP021
+      *
+     C                     ENDSR
+      ***************************
+      * SAVE (AFTER UPDATE)
+      ***************************
+     C           #AFT      BEGSR
+      *
+     C                     TIME           SDATE
+     C                     MOVEL'AFTER '  B2ATTR
+     C                     Z-ADDSVTANK    B2TNK1
+     C                     Z-ADDB1TANK    B2TNK2
+     C                     Z-ADDTODAY     B2CRHZ
+     C                     Z-ADDNOW       B2CRTM
+     C                     MOVEL#USER     B2CRUS
+ *   C                     MOVEL#PGM      B2CRPG
+ .   C                     WRITEAB#PP021
+ .    *
+JW1  C                     ENDSR
+      *************************************************************
+      * PRINT
+      *************************************************************
+     C           #PRINT    BEGSR
+      *
+     C           LIN#      IFGE 60
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *************************************************************
+      * INITIAL SETTING
+      *************************************************************
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $YYMM   6
+     C                     PARM           $UPD    1
+      *
+     C           K#PL0M    KLIST
+     C                     KFLD           K#YY    40
+     C                     KFLD           K#MM    20
+      *
+     C                     TIME           SDATE
+     C           $YYMM     IFEQ *BLANK
+     C           $YYMM     OREQ *ZERO
+     C                     MOVELSYEAR     K#YY
+     C                     MOVELSMONTH    K#MM
+     C                     ELSE
+     C                     MOVEL$YYMM     K#YY
+     C                     MOVE $YYMM     K#MM
+     C                     ENDIF
+      *
+     C                     Z-ADD0         SEQ     30
+     C                     Z-ADD88        LIN#    30
+     C                     Z-ADD.0074     XTANK   75
+      * UPD FLAG
+     C           $UPD      IFEQ 'Y'
+     C                     MOVE 'Y'       XUPD    1
+     C                     ELSE
+     C                     MOVE 'N'       XUPD
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM       9
+     O                                   18 'UPDATE='
+     O                         XUPD      19
+     O                                   60 '** PRICE=0 REPORT **    '
+     O                                   99 'DATE'
+     O                         TODAY    102 '    .  .  '
+     O                         NOW      112 '  :  :  '
+     O                                  116 'P.'
+     O                         PAGE  Z  120
+     O        E   02           @HDR
+     O                                   12 'YEAR/MONTH:'
+     O                         K#YY      17
+     O                                   19 '/'
+     O                         K#MM      22
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   15 'SHIP DATE'
+     O                                   22 'CUST'
+     O                                   28 'DELV'
+     O                                   31 'F'
+     O                                   37 'DOCK'
+     O                                   42 'BIN#'
+     O                                   52 'USER-PART'
+     O                                   71 'ORDER#'
+     O                                   86 'QTY'
+     O                                   97 'POST-DATE'
+     O                                  113 'POSSIBLE_PRICE'
+     O                                  130 '** ERROR MSG **'
+     O        E 1              @DTL
+     O                         SEQ   Z +001
+     O                         B1NOHZ  +002 '    /  /  '
+     O                         B1TOKU  +002
+     O                         B1NONY  +002
+     O                         B1NKOJ  +002
+     O                         B1NUKE  +002
+     O                         B1NOBI  +002
+     O                         B1MHIN  +002
+     O                         B1ODR1  +002
+     O                         B1SRYO1 +002
+     O                         B1URHZ  +002 '    /  /  '
+     O                         XTANK 1 +007
+     O                         XMSG    +002
+** MSG(17)....+.>
+PRICE NOT FOUND !
+IN PRICE MASTER..

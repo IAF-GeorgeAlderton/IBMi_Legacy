@@ -1,0 +1,188 @@
+     H            Y.
+     F** ABMR4C *********************************************
+     F* SALES DATA TOYOTA,HONDA,AWNC                        *
+     F*                                                     *
+     F* 特定の得意先のみ前月の平均日当箱数を求め、        *
+     F* 日当箱数によって、更に調整枚数を上乗せする        *
+     F*                                                     *
+     F*    X: AVERAGE BOX/DAY OF PREVIOUS MONTH             *
+     F*
+     F*          X <  1     8 DAYS INVENTORY                *
+     F*     1 <= X <  4     6 DAYS                          *
+     F*     4 <= X <  8     3 DAYS                          *
+     F*     8 <= X < 16   0.5 DAYS                          *
+     F*                                                     *
+     F*  THESE CONDITION WILL GO INTO EFFECT ON 2020.06     *
+     F*                                                     *
+     F*    HOTTA.               2019.06.24                  *
+     F*******************************************************
+     FAB#PL09 IF  E           K        DISK
+     FAGDPL12 IF  E           K        DISK
+     FABMPPL1 IF  E           K        DISK
+      *
+     I            DS
+     I                                        1   80W@DATE
+     I                                        1   60W@DTYM
+     I                                        1   40W@DTYY
+     I                                        5   60W@DTMM
+     I                                        7   80W@DTDD
+      *
+     I            DS
+     I                                        1   60LLDTYM
+     I                                        1   40LLDTYY
+     I                                        5   60LLDTMM
+      *
+     I            DS
+     I                                        1   60W@M1YM
+     I                                        1   40W@M1YY
+     I                                        5   60W@M1MM
+      *
+     I            DS
+     I                                        1   80F8KAHZ
+     I                                        1   60F8KAYM
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+      *
+     I            DS
+     I                                        1   80WKYMD
+     I                                        1   60WKYM
+     I                                        7   80WKDD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           P1SHN1  5
+     C                     PARM           P1SHN2  5
+     C                     PARM           P1SHN3  2
+     C                     PARM           P9HAKO 112
+     C                     PARM           P9DUPH  30
+      *----------------------------------------------------*
+      *   K  E  Y   L  I  S  T                             *
+      *----------------------------------------------------*
+      *
+     C                     Z-ADD*DATE     W@DATE
+      * N-1
+     C           W@DTMM    IFEQ 1
+     C                     SUB  1         W@DTYY
+     C                     Z-ADD12        W@DTMM
+     C                     ELSE
+     C                     SUB  1         W@DTMM
+     C                     ENDIF
+     C                     Z-ADDW@DTYM    W@M1YM
+      *
+     C                     Z-ADD0         KADO    31
+     C           KEYF8     KLIST
+     C                     KFLD           W@M1YY
+     C                     KFLD           W@M1MM
+     C           KEYF8     SETLLAGDPL121
+     C           KEYF8     READEAGDPL121                 81
+     C           *IN81     DOWEQ'0'
+     C           F8KAYM    ANDLEW@M1YM
+     C           F8HIRU    IFEQ *BLANK
+     C                     ADD  0.5       KADO
+     C                     ENDIF
+     C           F8YORU    IFEQ *BLANK
+     C                     ADD  0.5       KADO
+     C                     ENDIF
+     C           KEYF8     READEAGDPL121                 81
+     C                     ENDDO
+      *
+     C           KEYF8     SETLLABMPPL11
+     C           KEYF8     READEABMPPL11                 81
+     C           *IN81     DOWEQ'0'
+     C           LLDTYM    ANDLEW@M1YM
+     C                     Z-ADDLLKADO    KADO
+     C           KEYF8     READEABMPPL11                 81
+     C                     ENDDO
+      *
+     C                     MOVELP1SHN1    Q5SHN1
+     C                     MOVELP1SHN2    Q5SHN2
+     C                     MOVELP1SHN3    Q5SHN3
+     C                     Z-ADDW@M1YY    W@DTYY
+     C                     Z-ADDW@M1MM    W@DTMM
+     C                     Z-ADD0         WWHAKO 112
+     C                     EXSR #SB411
+      *
+     C                     Z-ADD0         P9HAKO
+     C           KADO      IFNE 0
+     C           WWHAKO    DIV  KADO      P9HAKO
+     C                     ENDIF
+      *
+     C                     Z-ADD0         X9DUPH 112
+     C                     Z-ADD0         P9DUPH
+     C                     SELEC
+      *
+     C           P9HAKO    WHLT 1
+     C           P9HAKO    MULT 8         X9DUPH
+      *
+     C           P9HAKO    WHLT 4
+     C           P9HAKO    MULT 6         X9DUPH
+      *
+     C           P9HAKO    WHLT 8
+     C           P9HAKO    MULT 3         X9DUPH
+      *
+     C           P9HAKO    WHLT 16
+     C           P9HAKO    MULT 0.5       X9DUPH
+      *
+     C                     OTHER
+     C                     Z-ADD0         X9DUPH
+      *
+     C                     ENDSL
+      *
+     C           X9DUPH    ADD  0.99      P9DUPH
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *---------------------------------------------*
+      * SALES DATA                                  *
+      *---------------------------------------------*
+     CSR         #SB411    BEGSR
+      *
+     C           KEYB11    KLIST
+     C                     KFLD           Q5SHN1  5
+     C                     KFLD           Q5SHN2  5
+     C                     KFLD           Q5SHN3  2
+     C                     KFLD           W@DTYY  40
+     C                     KFLD           W@DTMM  20
+      *
+     C           KEYB11    SETLLAB#PL09
+     C           KEYB11    READEAB#PL09                  82
+     C           *IN82     DOWEQ'0'
+     C           B1SKJY    IFEQ 'D'
+     C           B1SKHZ    ANDLE*DATE
+     C                     ELSE
+     C           B1TOKU    IFEQ 3411
+     C           B1TOKU    OREQ 0294
+     C           B1TOKU    OREQ 0295
+     C           B1TOKU    OREQ 0296
+     C           B1TOKU    OREQ 0390
+     C           B1TOKU    OREQ 0391
+     C           B1TOKU    OREQ 3135
+     C           B1TOKU    OREQ 0492
+     C           B1TOKU    OREQ 3611
+     C                     EXSR #SB412
+     C                     ENDIF
+     C                     ENDIF
+     C           KEYB11    READEAB#PL09                  82
+     C                     ENDDO
+      *
+     CSR         ESB411    ENDSR
+      *---------------------------------------------*
+      * SALES DATA                                  *
+      *---------------------------------------------*
+     CSR         #SB412    BEGSR
+      *
+     C                     Z-ADD0         WKHAK   82
+     C           B1SYUY    IFEQ 0
+     C                     Z-ADD1         WKHAK
+     C                     ELSE
+     C           B1SRYO    DIV  B1SYUY    WKHAK
+     C                     ENDIF
+     C                     ADD  WKHAK     WWHAKO
+      *
+     CSR         ESB412    ENDSR

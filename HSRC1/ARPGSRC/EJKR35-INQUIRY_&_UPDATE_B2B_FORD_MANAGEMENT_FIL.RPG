@@ -1,0 +1,410 @@
+     H            Y.
+     F** EJKR35 *************************************
+     F* INQUIRY & UPDATE B2B_FORD MANAGEMENT FILE   *
+      *    **ORIGINAL IS JK590R FROM ASJ**          *
+     F*  T.SAKAKI         2016.12.13                *
+     F***********************************************
+     FEJKPW35 CF  E                    WORKSTN
+     F                                              KINFDS WSINF
+     F                                        RRN1  KSFILE SFREC1
+      *
+     FEJKPL42 IF  E           K        DISK
+      *================================================================
+     E                    ER      1  10 60               ERROR
+      *================================================================
+     IWSINF       DS
+     I                                    B 370 3710$$CURS
+     I*
+     I                                    B 378 3790$$RRN
+     I           SDS
+     I                                     *PROGRAM @@PGM
+     I                                      244 253 @@WSID
+     I                                      254 263 @@USER
+     I                                      264 269 @@JBNO
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60@SYSTM
+     I                                        7  140@SYSHZ
+      *
+     I              '0123456789'          C         DIGITS
+      *================================================================
+     C                     MOVE '#INZ    '@STEP   8
+     C*
+     C           @STEP     DOUEQ'#END    '
+     C           @STEP     CASEQ'#INZ    '#INZ
+     C           @STEP     CASEQ'#DSP1   '#DSP1
+     C           @STEP     CASEQ'#CHK1   '#CHK1
+     C           @STEP     CASEQ'#DSP2   '#DSP2
+     C           @STEP     CASEQ'#CHK2   '#CHK2
+     C           @STEP     CASEQ'#CALL   '#CALL
+     C                     ENDCS
+     C                     ENDDO
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+      *================================================================
+      *  INITIALIZE
+      *================================================================
+     C           #INZ      BEGSR
+     C                     MOVE *ALL'0'   *IN
+     C                     TIME           @TIME
+     C                     CLEARDSP01
+     C                     Z-ADD@SYSHZ    D1ADSD            START DATE
+     C                     Z-ADD0         D1ADST            START TIME
+     C                     MOVEL*BLANK    D1JSYS            PARTNER GROUP
+     C                     MOVEL*BLANK    D1DKBN            EDI DATA CODE
+     C                     MOVEL'IAF-B2B' D1SAKI            SERVER
+     C                     MOVEL*BLANK    D1MOJI            SEARCH WORD
+     C                     MOVEL*BLANK    D1FILT            FILTER
+      *
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDSR
+      *================================================================
+      * 1ST SCREEN
+      *================================================================
+     C           #DSP1     BEGSR
+     C                     EXFMTDSP01
+     C                     MOVEA'00000000'*IN,11           11 - 18
+     C                     SETOF                     9919
+     C                     MOVEL*BLANK    D1MSG
+     C*----------
+     C                     MOVE '#CHK1   '@STEP
+     C*----------
+     C* < F3 > END
+     C   KC                MOVE '#END    '@STEP
+     C*----------
+     C                     ENDSR
+      *================================================================
+      *  1ST SCREEN CHECK
+      *================================================================
+     C           #CHK1     BEGSR
+     C* START DATE
+S1   C           D1ADSD    IFEQ 0
+     C                     MOVELER,1      D1MSG
+     C                     SETON                     1199
+     C                     GOTO $CHK1Z
+X1   C                     ELSE
+     C                     MOVELD1ADSD    P$DATE
+     C                     CALL 'DATR10'
+     C                     PARM           P$DATE  8
+     C                     PARM           P$RTN   1
+ S2  C           P$RTN     IFEQ '1'
+     C                     MOVELER,2      D1MSG
+     C                     SETON                     1199
+     C                     GOTO $CHK1Z
+ E2  C                     ENDIF
+E1   C                     ENDIF
+     C* END DATE
+     C           D1ADED    IFNE 0
+     C           D1ADED    ANDLTD1ADSD
+     C                     MOVELER,2      D1MSG
+     C                     SETON                     111799
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+      *
+     C* START TIME
+     C           D1ADST    IFGT 24
+     C                     MOVELER,7      D1MSG
+     C                     SETON                     1299
+     C                     GOTO $CHK1Z
+E1   C                     ENDIF
+     C* END TIME
+     C           D1ADET    IFEQ 0
+     C                     ELSE
+      *
+     C           D1ADET    IFLT D1ADST
+     C                     MOVELER,7      D1MSG
+     C                     SETON                     121899
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+      *
+     C           D1ADET    IFGT 24
+     C                     MOVELER,7      D1MSG
+     C                     SETON                     1899
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     C* FILTER
+     C           D1FILT    IFNE ' '
+     C           D1FILT    ANDNE'E'
+     C                     MOVELER,8      D1MSG
+     C                     SETON                     1999
+     C                     GOTO $CHK1Z
+E1   C                     ENDIF
+      * SFLSET
+     C                     EXSR #SFSET
+      *
+S1   C           ENDRRN    IFEQ 0
+     C                     MOVELER,3      D1MSG
+     C                     SETON                     1199
+     C           D1ADST    IFNE 0                           TIME
+     C                     SETON                     12
+     C                     ENDIF
+     C           D1JSYS    IFNE *BLANK                      PARTNER GROUP
+     C                     SETON                     13
+     C                     ENDIF
+     C           D1DKBN    IFNE *BLANK                      EDI DATA CODE
+     C                     SETON                     14
+     C                     ENDIF
+     C           D1SAKI    IFNE *BLANK                      SERVER
+     C                     SETON                     15
+     C                     ENDIF
+     C           D1MOJI    IFNE *BLANK                      SEARCH WORD
+     C                     SETON                     16
+     C                     ENDIF
+     C                     GOTO $CHK1Z
+E1   C                     ENDIF
+      *-------------------------*
+     C           $CHK1Z    TAG
+      *-------------------------*
+S1   C           *IN99     IFEQ *OFF
+     C                     MOVE '#DSP2   '@STEP
+X1   C                     ELSE
+     C                     MOVE '#DSP1   '@STEP
+E1   C                     ENDIF
+     C*
+     C                     ENDSR
+      *================================================================
+      *================================================================
+     C           #SFSET    BEGSR
+     C*
+     C                     SETOF                     212223
+     C* SFLCLR
+     C                     SETON                     73
+     C                     WRITESFCTL1
+     C                     SETOF                     73
+     C                     Z-ADD0         RRN1    40
+     C                     Z-ADD0         ENDRRN  40
+     C           D1ADST    MULT 10000     $$ADST  60        STIME
+     C           D1ADET    MULT 10000     $$ADET  60        ETIME
+     C*
+     C           D1ADSD    SETLLEJKPL42
+      *-----------------------------------
+S1   C                     DO   *HIVAL
+     C                     READ EJKPL42                  90
+     C   90                LEAVE
+     C*
+ S2  C           DJSKJY    IFEQ 'D'
+     C           DJSKHZ    ANDLE@SYSHZ
+     C                     ITER
+ E2  C                     ENDIF
+     C* SKIP UNPROCESSED DATA
+ S2  C           DJKNHZ    IFEQ 0                           END DATE
+ S2  C           DJERHZ    ANDEQ0                           ERROR DATE
+     C                     ITER
+ E2  C                     ENDIF
+     C*  END DATE
+ S2  C           D1ADED    IFNE 0                           START TIME
+     C           DJADHZ    ANDGTD1ADED
+     C                     LEAVE
+ E2  C                     ENDIF
+     C*  START TIME
+ S2  C           D1ADST    IFNE 0                           START TIME
+     C           DJADTM    ANDLT$$ADST
+     C                     ITER
+ E2  C                     ENDIF
+     C*  END TIME
+ S2  C           D1ADET    IFNE 0                           END TIME
+     C           DJADTM    ANDGT$$ADET
+     C                     ITER
+ E2  C                     ENDIF
+     C*  **
+     C           D1JSYS    IFNE *BLANK                      PARTNER GROUP
+     C           D1JSYS    ANDNEDJJSYS
+     C                     ITER
+     C                     ENDIF
+     C           D1DKBN    IFNE *BLANK                      EDI DATA CODE
+     C           D1DKBN    ANDNEDJDKBN
+     C                     ITER
+     C                     ENDIF
+     C           D1SAKI    IFNE *BLANK                      SERVER
+     C           D1SAKI    ANDNEDJSAKI
+     C                     ITER
+     C                     ENDIF
+     C* FILTER
+     C           DJERHZ    IFEQ 0
+     C* SKIP SUCCESSFUL DATA
+     C           D1FILT    IFEQ 'E'
+     C                     ITER
+     C                     ENDIF
+     C                     ELSE
+     C* ERROR DATA
+     C                     SETON                     23
+     C                     ENDIF
+     C*  **
+     C           D1MOJI    IFNE *BLANK                      SEARCH WORD
+     C                     CALL 'EJKC39'
+     C                     PARM           DJFILE            FILE
+     C                     PARM           DJLIBL            LIBARARY
+     C                     PARM           D1MOJI            WORD
+     C                     PARM           P$RTN   1
+     C           P$RTN     IFNE '*'
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+     C*  **
+     C                     MOVE *BLANK    S1SEL
+     C                     Z-ADDDJADHZ    S1ADHZ            START DATE
+     C                     Z-ADDDJADTM    S1ADTM            START TIME
+     C                     MOVELDJJSYS    S1JSYS            PARTNER GROUP
+     C                     MOVELDJDKBN    S1DKBN            EDI DATA CODE
+     C                     MOVELDJPTID    S1PTID            PARTNER ID
+     C                     MOVELDJFILE    S1FILE            FILE
+     C                     MOVELDJLIBL    S1LIBL            LIBARARY
+     C                     MOVELDJSAKI    S1SAKI            SERVER
+     C                     ADD  1         RRN1
+     C                     WRITESFREC1
+     C                     SETOF                     212223
+     C*
+E1   C                     ENDDO
+      *-----------------------------------
+     C                     Z-ADDRRN1      ENDRRN
+     C                     Z-ADD1         RRN1
+     C*
+     C                     ENDSR
+      *================================================================
+      * 2ND SCREEN
+      *================================================================
+     C           #DSP2     BEGSR
+     C                     SETON                     7172
+     C                     WRITEDSP02
+     C                     EXFMTSFCTL1
+     C                     SETOF                     717199
+     C                     Z-ADD$$RRN     TOPRRN  40
+     C                     Z-ADD$$RRN     RRN1
+     C*----------
+     C                     MOVE '#CHK2   '@STEP
+     C*----------
+     C* < PAGE UP >
+     C   75                MOVE '#DSP2   '@STEP
+     C*----------
+     C* < F1 >  END
+     C   KA                MOVE '#END    '@STEP
+     C*----------
+     C* < F3 >  BACK
+     C   KC                MOVE '#DSP1   '@STEP
+     C*----------
+     C* < F10 >  REFRESH
+     C   KJ                MOVE '#CHK1   '@STEP
+     C*----------
+     C                     ENDSR
+      *================================================================
+      * 2ND SCREEN CHECK
+      *================================================================
+     C           #CHK2     BEGSR
+     C                     Z-ADD0         ERRRRN  40
+     C                     Z-ADD0         $$KEN1  40
+     C                     Z-ADD0         $$KENM  40
+      *-----------------------------------
+S1   C                     DO   ENDRRN    RRN1
+     C           RRN1      CHAINSFREC1               95
+     C   95                LEAVE
+     C                     SETOF                     21
+     C*
+ S2  C           S1SEL     IFNE ' '
+ S2  C           S1SEL     ANDNE'1'
+     C           S1SEL     ANDNE'M'
+     C                     MOVELER,4      D2MSG
+     C                     SETON                     2199
+     C                     Z-ADDRRN1      ERRRRN  40
+ X2  C                     ELSE
+  S3 C**
+  S3 C           S1SEL     IFEQ '1'
+  S4 C           $$KENM    IFNE 0
+     C                     MOVELER,6      D2MSG
+     C                     SETON                     2199
+     C                     Z-ADDRRN1      ERRRRN  40
+  X4 C                     ELSE
+     C                     ADD  1         $$KEN1
+  E4 C                     ENDIF
+  E3 C                     ENDIF
+  S3 C           S1SEL     IFEQ 'M'
+  S4 C           $$KEN1    IFNE 0
+     C                     MOVELER,6      D2MSG
+     C                     SETON                     2199
+     C                     Z-ADDRRN1      ERRRRN  40
+  X4 C                     ELSE
+     C                     ADD  1         $$KENM
+  E4 C                     ENDIF
+  E3 C                     ENDIF
+ E2  C                     ENDIF
+     C***                  UPDATSFREC1
+E1   C  N99                ENDDO
+      *-----------------------------------
+      *
+S1   C           *IN99     IFEQ *OFF
+     C*
+ S2  C           $$KEN1    IFNE 0
+     C           $$KENM    ORNE 0
+     C                     MOVE '#CALL   '@STEP
+ X2  C                     ELSE
+     C                     MOVE '#DSP2   '@STEP
+     C                     Z-ADD1         RRN1
+ E2  C                     ENDIF
+     C*
+X1   C                     ELSE
+     C*
+ S2  C           ERRRRN    IFNE 0
+     C                     Z-ADDERRRRN    RRN1
+ X2  C                     ELSE
+     C                     Z-ADDTOPRRN    RRN1
+ E2  C                     ENDIF
+      *
+     C                     MOVE '#DSP2   '@STEP
+      *
+E1   C                     ENDIF
+      *
+      *
+     C                     ENDSR
+      *================================================================
+      * EDIDTA
+      *================================================================
+     C           #CALL     BEGSR
+     C                     Z-ADD0         CALRRN  40
+      *-----------------------------------
+S1   C                     DO   ENDRRN    RRN1
+     C           RRN1      CHAINSFREC1               95
+     C   95                LEAVE
+     C***                  SETOF                     212223
+     C*
+     C*  UPDATE
+ S2  C           S1SEL     IFEQ '1'
+     C                     CALL 'EJKR38'
+     C                     PARM           S1JSYS  2
+     C                     PARM           S1DKBN  3
+     C                     PARM           S1LIBL 10
+     C                     PARM           S1FILE 10
+     C                     MOVE *BLANK    S1SEL
+     C                     Z-ADDRRN1      CALRRN
+     C                     MOVE '#CHK1   '@STEP
+E1   C                     ENDIF
+     C* EDTDTA
+ S2  C           S1SEL     IFEQ 'M'
+     C                     CALL 'EJKC37'
+     C                     PARM           S1FILE            FILE
+     C                     PARM           S1LIBL            LIBARARY
+     C                     MOVE *BLANK    S1SEL
+     C                     Z-ADDRRN1      CALRRN
+     C                     MOVE '#DSP2   '@STEP
+ E2  C                     ENDIF
+     C*
+     C***                  UPDATSFREC1
+E1   C                     ENDDO
+      *-----------------------------------
+     C                     Z-ADDCALRRN    RRN1
+      *
+     C                     ENDSR
+      *================================================================
+** ER
+ER-01 INPUT START DATE.
+ER-02 INCORRECT DATE.
+ER-03 NO DATA.
+ER-04 "1" SELECT OR "M" DETAIL.
+ER-05 SELECT DATA.
+ER-06 CANNOT USE BOTH "1" SELECT AND "M" DETAIL.
+ER-07 INCORRECT TIME.
+ER-08 " " ALL OR "E" ERROR.
+ER-09
+ER-10

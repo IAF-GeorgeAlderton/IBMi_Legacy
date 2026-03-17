@@ -1,0 +1,394 @@
+     H            Y.
+      ****************************************************************
+      *  PROGRAM    : FBCR74                                         *
+      *  WRITTEN    : 08/06/2018                                     *
+      *  WRITTEN BY : JW (SRA)                                       *
+      *  FUNCTION   : TOYOTA APR ERROR INQ                           *
+     *** CAUTION !!! COMPLIE WITH "ALLOW NULL *YES"
+      ****************************************************************
+     FFBCPW74 CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     F                                              KINFDS @INFDS
+     E                    ERR     1  25 60
+      *-----------------------------------------------------------------
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *----------------------------------------------------*
+      * MAIN ROUTINE
+      *----------------------------------------------------*
+     C                     EXSR #INIT
+      *
+     C                     EXSR #SFL01
+      *
+     C                     DO   *HIVAL
+     C                     EXFMTSFLCT1
+      * END?
+     C           *INKA     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  DISPLAY ERROR (SFL01)                             *
+      *----------------------------------------------------*
+     C           #SFL01    BEGSR
+      *
+     C                     DO   *HIVAL
+     C                     READ FBCWP70                  90
+     C   90                LEAVE
+      *
+     C                     ADD  1         LIN#
+     C                     EXSR #CHK1
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  CHECK DATA                                        *
+      *----------------------------------------------------*
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE ' '       OKFLG   1
+      * CHECK HEADER, BY "D"
+     C                     MOVELFLD2      LTR1    1
+     C           LTR1      IFEQ 'E'
+     C           LTR1      OREQ 'e'
+     C           FLD1      OREQ *BLANK
+     C                     MOVE ' '       OKFLG
+     C                     GOTO CHK1X
+     C                     ENDIF
+      * CHECK COMMENT LINE
+     C                     MOVELFLD1      LTR1
+     C           LTR1      IFEQ '*'
+     C                     MOVE ' '       OKFLG
+     C                     GOTO CHK1X
+     C                     ENDIF
+      * CHECK HEADER, BY FIRST 4 DIGITS (NUMERIC?)
+     C**                   Z-ADD0         @NONY   40
+     C**                   MOVELFLD1      LTR4    4
+     C**                   MOVELLTR4      $CHAR  17 P
+     C**                   CALL 'UTLR60'
+     C**                   PARM           $CHAR  17
+     C**                   PARM           $T156  156
+     C**                   PARM           $RTN    1
+     C**         $RTN      IFNE *BLANK
+     C**                   MOVE ' '       OKFLG
+     C**                   GOTO CHK1X
+     C**                   ENDIF
+      *
+      * 1.(A) CHECK SHIP TO
+     C                     MOVE ' '       XNONY   1
+     C                     Z-ADD$T156     @NONY   40
+     C           @NONY     CHAINFGBPL01              99
+     C           *IN99     IFEQ *OFF
+     C           XSUPP     IFEQ *BLANK
+     C                     MOVELB2CODE    XSUPP
+     C                     MOVELB2SMEI    XSUPN
+     C                     ENDIF
+     C                     ELSE
+     C                     MOVELFLD1      S2ERR
+     C                     MOVELERR,2     S2MSG
+     C                     EXSR #ERR1
+     C                     MOVE 'X'       XNONY
+     C                     ENDIF
+      * OMIT HONDA/TOYOTA/FORD/VW ORDER
+     C                     MOVEL@NONY     LTR4
+     C           LTR4      CHAINEDIPP42              99
+     C           *IN99     IFEQ *OFF
+     C           E4GRP     IFEQ 'HND'
+     C           E4GRP     OREQ 'TYT'
+     C           E4GRP     OREQ 'FRD'
+     C           E4GRP     OREQ 'VW '
+     C                     MOVELFLD1      S2ERR
+     C                     MOVELERR,20    S2MSG
+     C                     EXSR #ERR1
+     C                     MOVE 'X'       XNONY
+     C                     ENDIF
+     C                     ENDIF
+      * SAVE DELIVERY CODE
+     C           SVNONY    IFEQ 0
+     C           XNONY     ANDNE'X'
+     C                     Z-ADD@NONY     SVNONY
+     C                     ENDIF
+      * CHECK MULTIPLE DELIVERYV CODE
+     C           @NONY     IFNE SVNONY
+     C           SVNONY    ANDNE0
+     C                     MOVELFLD1      S2ERR
+     C                     MOVELERR,14    S2MSG
+     C                     EXSR #ERR1
+     C                     MOVE 'X'       XNONY
+     C                     ENDIF
+      *
+      * 2.(B) CHECK SHIP DATE
+     C                     Z-ADD0         @SHDT
+     C                     MOVELFLD2      $SRC
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+     C           $RTN      IFNE *BLANK
+     C                     MOVEL$SRC      S2ERR     P
+     C                     MOVELERR,3     S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+      *
+     C           $RTN      IFEQ *BLANK
+     C                     MOVEL$TRUE     @SHDT
+     C           @SHDT     IFLT TODAY
+     C                     MOVEL$SRC      S2ERR     P
+     C                     MOVELERR,18    S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+     C                     ENDIF
+      *
+      * 3.(C) CHECK BIN#
+     C                     Z-ADD0         @BIN    20
+     C                     MOVELFLD3      $CHAR     P
+     C                     CALL 'UTLR60'
+     C                     PARM           $CHAR  17
+     C                     PARM           $T156  156
+     C                     PARM           $RTN    1
+     C           $RTN      IFNE *BLANK
+     C                     MOVELFLD3      S2ERR
+     C                     MOVELERR,8     S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+      *
+     C           $RTN      IFEQ *BLANK
+     C           $T156     IFLT 1
+     C           $T156     ORGT 99
+     C                     MOVELFLD3      S2ERR
+     C                     MOVELERR,8     S2MSG
+     C                     EXSR #ERR1
+     C                     ELSE
+     C                     Z-ADD$T156     @BIN
+     C                     ENDIF
+     C                     ENDIF
+      * 4.(D) CHECK PART#
+     C           XNONY     IFNE 'X'
+     C                     MOVE *BLANK    @PART  20
+     C                     MOVE *BLANK    @UHIN  20
+     C                     MOVEL@NONY     $NONY
+     C                     MOVELFLD7      $NKOJ
+     C                     MOVELFLD8      $NUKE
+     C                     MOVELFLD4      $MHIN1
+     C                     CALL 'UTLR61'
+     C                     PARM           $NONY   4
+     C                     PARM           $NKOJ   1
+     C                     PARM           $NUKE   4
+     C                     PARM           $MHIN1 20
+     C                     PARM           @TOKU   40
+     C                     PARM           @MHIN2 20
+     C                     PARM           @SHIN  12
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ *BLANK
+     C                     MOVELFLD4      @UHIN            ORIGINAL USR PART
+     C                     MOVEL@MHIN2    @PART            NO HIPH USER PART
+     C                     ELSE
+     C                     MOVELFLD4      S2ERR
+      * SET MSG
+     C                     SELEC
+     C           $RTN      WHEQ '1'
+     C                     MOVELERR,17    S2MSG
+     C           $RTN      WHEQ '2'
+     C                     MOVELERR,9     S2MSG
+     C           $RTN      WHEQ '3'
+     C                     MOVELERR,15    S2MSG
+     C                     ENDSL
+      *
+     C                     EXSR #ERR1
+     C                     ENDIF
+     C                     ENDIF
+      * 5.(E) CHECK ORDER QTY
+     C                     Z-ADD0         @QTY    70
+     C                     MOVELFLD5      $CHAR  17 P
+     C                     CALL 'UTLR60'
+     C                     PARM           $CHAR  17
+     C                     PARM           $T156  156
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ *BLANK
+     C                     Z-ADD$T156     @QTY
+     C                     ELSE
+     C                     MOVELFLD5      S2ERR
+     C                     MOVELERR,10    S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+      * 6.(F) CHECK ORDER#
+     C                     MOVELFLD6      @PO    10
+     C           @PO       IFEQ *BLANK
+     C                     MOVELFLD6      S2ERR
+     C                     MOVELERR,11    S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+      * 7.(G) CHECK FACTORY
+     C                     MOVELFLD7      @NKOJ   1
+      * 8.(H) CHECK DOCK
+     C                     MOVELFLD8      @NUKE   4
+      * 9.(I) CHECK INVOICE#
+     C                     MOVELFLD9      @INVN  10
+      * 10.(J) CHECK KANBAN#
+     C**                   MOVELFLDA      @SBAN   6
+      *
+      * 11. CHECK DUPLICATE ORDERS
+     C                     MOVE *OFF      *IN81
+     C           K#17      SETLLAB#PL17
+     C                     DO   *HIVAL
+     C           K#17      READEAB#PL17                  81
+     C   81                LEAVE
+     C           *IN81     IFEQ *OFF
+     C           BASKJY    ANDEQ*BLANK
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           *IN81     IFEQ *OFF
+     C                     MOVELFLD6      S2ERR
+     C                     MOVELERR,19    S2MSG
+     C                     EXSR #ERR1
+     C                     ENDIF
+      *
+      * END OF CHECK --------------------------------------
+     C           OKFLG     IFNE 'N'
+     C**                   CLEARSFL01
+     C                     Z-ADDLIN#      S1LIN#
+     C                     Z-ADD@TOKU     S1TOKU
+     C                     MOVELXSUPP     S1NONY
+     C                     Z-ADD@SHDT     S1SHDT
+     C                     Z-ADD@BIN      S1BN#
+     C                     MOVEL@UHIN     S1UHIN
+     C                     MOVEL@PART     S1PART
+     C                     MOVEL@UHIN     S1PRT2
+     C                     Z-ADD@QTY      S1QTY
+     C                     MOVEL@PO       S1PO#
+     C                     MOVEL@NKOJ     S1NKOJ
+     C                     MOVEL@NUKE     S1NUKE
+     C                     MOVEL@INVN     S1INVN
+     C                     MOVEL@SHIN     S1SHIN
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+     C                     MOVE 'Y'       OKFLG
+     C                     ENDIF
+      *
+     C           RRN1      IFGT MAX1
+     C                     MOVELERR,4     D9ERR
+     C**                   SETON                     85
+     C                     MOVE 'Y'       ENDFLG
+     C                     ENDIF
+      *
+     C           RRN2      IFGT MAX2
+     C                     MOVELERR,5     S2MSG
+     C                     MOVELERR,5     D9ERR
+     C                     SETON                     85
+     C                     ADD  1         RRN2
+     C                     WRITESFL02
+     C                     MOVE 'Y'       ENDFLG
+     C                     ENDIF
+      *
+     C           CHK1X     ENDSR
+      *----------------------------------------------------*
+      *  WRITE ERROR SFL                                   *
+      *----------------------------------------------------*
+     C           #ERR1     BEGSR
+      *
+     C                     Z-ADDLIN#      S2LIN#
+     C                     SETON                     85
+     C                     ADD  1         RRN2
+     C                     WRITESFL02
+     C                     MOVE 'N'       OKFLG
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * INITIALIZE
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           KEY1      KLIST
+     C                     KFLD           WSHN1
+     C                     KFLD           WSHN2
+     C                     KFLD           WSHN3
+      *
+     C           K#15      KLIST
+     C                     KFLD           WNOYY
+     C                     KFLD           WNOMM
+     C                     KFLD           WTOKU   40
+     C                     KFLD           WNONY   40
+     C                     KFLD           WNKOJ   1
+     C                     KFLD           WNUKE   4
+     C                     KFLD           WMHN1
+     C                     KFLD           WMHN2
+     C                     KFLD           WMHN3
+     C                     KFLD           WMHN4
+      *
+     C           K#17      KLIST
+     C                     KFLD           @NONY
+     C                     KFLD           @SHYY
+     C                     KFLD           @SHMM
+     C                     KFLD           @SHDD
+     C                     KFLD           @PO
+     C                     KFLD           @BIN
+      *
+     C           K#85      KLIST
+     C                     KFLD           WTOKU
+     C                     KFLD           WNONY
+     C                     KFLD           WNUKE   4
+     C                     KFLD           WMHN1
+     C                     KFLD           WMHN2
+     C                     KFLD           WMHN3
+     C                     KFLD           WMHN4
+     C                     KFLD           WDATE   80
+      *
+     C           K#85X     KLIST
+     C                     KFLD           WTOKU
+     C                     KFLD           WNONY
+     C                     KFLD           WNUKE   4
+     C                     KFLD           WMHN1
+     C                     KFLD           WMHN2
+     C                     KFLD           WMHN3
+     C                     KFLD           WMHN4
+      *
+     C                     Z-ADD0         WDATE
+     C                     TIME           WSDT
+     C                     MOVE *OFF      *IN73            MORE
+     C                     Z-ADD0         LIN#    50
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+** ERR MSG (55 CHARACTERS) --------------------------->
+THERE IS NO ORDER DATA! CHECK IFS.FIRM.csv...                 01
+DELIVERY CODE NOT FOUND!                                      02
+SHIP DATE IS INVALID!                                         03
+THERE IS NO ERROR. PRESS F5 FOR NEXT STEP...                  04
+ERROR REACHED MAX 300 RECORDS! PLEASE FIX ERRORS..            05
+PRESS F5 FOR NEXT STEP, OR F3 TO GO BACK..                    06
+FIX ERROR AND TRY AGAIN..                                     07
+BIN# SHOILD BE 01 - 99!                                       08
+USER PART IS NOT IN OUR SYSTEM! PLEASE REGISTER...            09
+QUANTITY IS INVALID!                                          10
+ORDER# SHOULD NOT BE BLANK!                                   11
+DELIVERY DATE IS INVALID!                                     12
+Q/C IS INVALID!                                               13
+MULTIPLE DELIVERY CODES ARE NOT ACCEPTABL!                    14
+USER PART IS NOT IN SHIPPING MASTER!                          15
+THERE IS NO ORDER DATA TO BE UPLOADED!                        16
+SHIPPING MASTER IS NOT SET UP!                                17
+SHIP DATE IS EARLIER THAN TODAY!                              18
+ORDER ALREADY EXISTS! (WILL BE DUPLICATED)                    19
+DOES NOT ACCEPT HONDA/TOYOTA/FORD/VW ORDER!                   20
+ORDER REACHED MAX 200 RECORDS! PROCESS STOPPED!               21
+                                                              22
+                                                              23
+                                                              24
+                                                              25
+** SHUP OG (55 CHARACTERS) --------------------------->
+THERE IS NO ORDER DATA! CHECK IFS.FIRM.csv...                 01
+DELIVERY CODE NOT FOUND!                                      02

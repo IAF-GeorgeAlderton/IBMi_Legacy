@@ -1,0 +1,86 @@
+             PGM        PARM(&P1SHID &P1DED1 &P1DET1 &P1DED2 &P1DET2 +
+                          &P1SURT &P1IAFB &P1IAFP &P1NONY &P1NUKE +
+                          &P1ORD# &P1PALT &P1KNB# &P1SHN1 &P1SHN2 +
+                          &P1SHN3 &P1HNTE)
+             /*** AM#CA3 ***********************************/
+             /* PALLET PULLING RESULT                      */
+             /*  ITS.              2015.06.22              */
+             /**********************************************/
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PPUSER) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&TYPE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PDEVT) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&PIGCD) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&REC) TYPE(*DEC) LEN(10 0)
+             DCL        VAR(&WLIB)  TYPE(*CHAR) LEN(8)
+             DCL        VAR(&FLIB)  TYPE(*CHAR) LEN(8)
+             DCL        VAR(&DDATE) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&PCMD) TYPE(*CHAR) LEN(2)
+             DCL        VAR(&AM#WPA3) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&WS3) TYPE(*CHAR) LEN(3)
+             DCL        VAR(&P1SHID) TYPE(*CHAR) LEN(8)
+             DCL        VAR(&P1DED1) TYPE(*DEC) LEN(8 0)
+             DCL        VAR(&P1DET1) TYPE(*DEC) LEN(4 0)
+             DCL        VAR(&P1DED2) TYPE(*DEC) LEN(8 0)
+             DCL        VAR(&P1DET2) TYPE(*DEC) LEN(4 0)
+             DCL        VAR(&P1SURT) TYPE(*CHAR) LEN(9)
+             DCL        VAR(&P1IAFB) TYPE(*CHAR) LEN(3)
+             DCL        VAR(&P1IAFP) TYPE(*CHAR) LEN(3)
+             DCL        VAR(&P1NONY) TYPE(*DEC) LEN(4 0)
+             DCL        VAR(&P1NUKE) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&P1ORD#) TYPE(*CHAR) LEN(12)
+             DCL        VAR(&P1PALT) TYPE(*CHAR) LEN(3)
+             DCL        VAR(&P1KNB#) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&P1SHN1) TYPE(*CHAR) LEN(5)
+             DCL        VAR(&P1SHN2) TYPE(*CHAR) LEN(5)
+             DCL        VAR(&P1SHN3) TYPE(*CHAR) LEN(2)
+             DCL        VAR(&P1HNTE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&MSGTXT) TYPE(*CHAR) LEN(256)
+             DCL        VAR(&PKINP) TYPE(*CHAR) LEN(5)
+             DCL        VAR(&PKOUT) TYPE(*CHAR) LEN(1)
+             RTVJOBA    JOB(&WSID) USER(&PPUSER) DATE(&DDATE)
+
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+             CHGVAR     VAR(&WS3) VALUE(%SST(&WSID 1 3))
+
+             CHGVAR     VAR(&FLIB) VALUE('HFILE1  ')
+             CALL       PGM(ALBC00) PARM(&PPUSER &WLIB)
+             IF         COND(&WLIB *EQ 'TWFILE1 ') THEN(DO)
+             CHGVAR     VAR(&FLIB) VALUE('TFILE1  ')
+             ENDDO
+
+             CHGVAR     VAR(&AM#WPA3) VALUE('AM#WPA3' *CAT &WS3)
+
+             CHGJOB     OUTQ(&PRTG)
+ #STP00:
+ #STP10:
+             DLTF       FILE(&WLIB/&AM#WPA3)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/&AM#WPA3) SRCFILE(HSRC1/ADDSSRC) +
+                          SRCMBR(AM#WPA3) OPTION(*NOLIST *NOSRC) +
+                          SIZE(50000 5000 10) LVLCHK(*NO) AUT(*ALL)
+             OVRDBF     FILE(AM#WPA3) TOFILE(&WLIB/&AM#WPA3)
+             CALL       PGM(AM#RA3) PARM(&P1SHID &P1DED1 &P1DET1 +
+                          &P1DED2 &P1DET2 &P1SURT &P1IAFB &P1IAFP +
+                          &P1NONY &P1NUKE &P1ORD# &P1PALT &P1KNB# +
+                          &P1SHN1 &P1SHN2 &P1SHN3 &P1HNTE)
+             RTVMBRD    FILE(&WLIB/&AM#WPA3) NBRCURRCD(&REC)
+             IF         COND(&REC *EQ 0) THEN(DO)
+             CHGVAR     VAR(&MSGTXT) VALUE('THERE ARE NO INQ DATA (G)')
+             CHGVAR     VAR(&PKINP) VALUE('G    ')
+             CHGVAR     VAR(&PKOUT) VALUE(' ')
+             CALL       PGM(APLR90) PARM(&MSGTXT &PKINP &WSID &PKOUT)
+             GOTO       CMDLBL(END)
+             ENDDO
+ #STP15:
+             OVRDBF     FILE(AM#WPA3) TOFILE(&WLIB/&AM#WPA3)
+             CALL       PGM(AM#RA4)
+ #STP21:
+ #STP20:
+ #STP30:
+ #STP40:
+ #STP50:
+ END:
+             ENDPGM

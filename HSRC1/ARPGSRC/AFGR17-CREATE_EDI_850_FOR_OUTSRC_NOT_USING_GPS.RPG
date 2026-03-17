@@ -1,0 +1,427 @@
+     H            Y.
+     F** AFGR17 *******************************************************
+     F* INQUIRY & RE-SEND EDI ORDER FOR OUTSOURCE NOT USING GPS
+     F*             KIRI           2018.06.08
+     F*****************************************************************
+     FAFGPW17 CF  E                    WORKSTN
+     F                                        RRN2  KSFILE SFL01
+     F                                              KINFDS @INFDS
+      *
+     FAFGPL01 UF  E           K        DISK
+      *
+     E                    ERR     1  11 50
+      *
+     I@INFDS      DS
+     I                                     *STATUS  @STTS
+     I                                    B 370 3710@@LIN
+     I                                    B 378 3790@@REC
+      *------------------------------
+     I            DS
+     I                                        1  31 S1INBR
+     I                                        1  14 S1PART
+     I                                        1   5 S1SHN1
+     I                                        6   6 S1SF1
+     I                                        7  11 S1SHN2
+     I                                       12  12 S1SF2
+     I                                       13  14 S1SHN3
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60WTITM
+     I                                        1   20TIMHH
+     I                                        3   40TIMMM
+     I                                        5   60TIMSS
+     I                                        7  140WTIHZ
+     I                                        7  100WTIYY
+     I                                       11  120WTIMM
+     I                                       13  140WTIDD
+      *
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W$WSID
+     I                                      254 263 @@USER
+     I                                      264 269 W$JBNO
+      *----------------------------------------------------*
+      * ENTRY LIST                                         *
+      *----------------------------------------------------*
+     C           *ENTRY    PLIST
+     C                     PARM           P1SUPP  4
+     C                     PARM           P1SUPN 15
+     C                     PARM           P1ODNO  60
+     C                     PARM           P1TYPE  1
+     C                     PARM           P1CMD   2
+      *----------------------------------------------------*
+      * KEY LIST                                           *
+      *----------------------------------------------------*
+     C           KEY1      KLIST
+     C                     KFLD           P1SUPP
+     C                     KFLD           P1ODNO
+     C**
+     C           KEY3      KLIST
+     C                     KFLD           P1SUPP
+     C                     KFLD           P1ODNO
+     C                     KFLD           S1SHN1
+     C                     KFLD           S1SHN2
+     C                     KFLD           S1SHN3
+     C******************************************************
+     C*  MAIN
+     C******************************************************
+     C*
+     C                     EXSR @INT
+     C*
+     C                     EXSR @DSP01
+     C*
+     C                     MOVEL*ON       *INLR
+     C                     RETRN
+     C******************************************************
+     C*  INITIAL SET
+     C******************************************************
+     C           @INT      BEGSR
+     C*
+     C                     TIME           WTIME
+     C*
+     C                     MOVELP1SUPP    D1SUPP
+     C                     MOVELP1SUPN    D1SUPN
+     C                     MOVEL*BLANK    P1CMD
+     C                     MOVEL*BLANK    D1GPPO 17
+     C*
+     C                     SETOF                     606162
+     C                     SETOF                     6364
+     C                     SETOF                     8899
+     C*
+     C*
+     C                     ENDSR
+     C******************************************************
+     C*  @DSP01
+     C******************************************************
+     C           @DSP01    BEGSR
+     C*
+     C                     EXSR @SFSET
+     C                     Z-ADD1         W#RNP2  40
+     C*
+S1   C                     DO   *HIVAL
+     C** PROTECT
+     C                     SETON                     87
+     C           P1TYPE    COMP 'C'                      86
+     C*
+     C                     WRITEFMT09
+     C                     Z-ADDW#RNP2    #RCN02
+     C                     EXFMTCTL01
+     C   KC                LEAVE
+     C*
+ S2  C           @@REC     IFNE *ZERO
+     C                     Z-ADD@@REC     W#RNP2           = TOP RRN
+ E2  C                     END
+     C*
+     C                     SETOF                     606199
+     C                     SETOF                     626364
+     C                     MOVEL*BLANK    D1ERR
+     C*-------------------------------
+     C* F8  CHANGE SCREEN
+     C*-------------------------------
+ S2  C           *INKH     IFEQ *ON
+     C                     EXSR @DSP02
+     C   KC                LEAVE
+     C** UPDATED
+  S3 C           P1CMD     IFEQ 'UP'
+     C                     LEAVE
+  E3 C                     ENDIF
+     C*
+     C                     ITER
+ E2  C                     ENDIF
+     C*
+     C* NO ERROR
+ S2  C           *IN99     IFEQ *OFF
+  S3 C                     SELEC
+     C*-------------------------------
+     C* F5 UPDATE &CREATE EDI DATA
+     C*-------------------------------
+  -3 C           *INKE     WHEQ *ON
+     C* UPDATE
+     C                     EXSR @UPDAT
+     C                     LEAVE
+     C*
+  E3 C                     ENDSL
+     C*
+     C                     ITER
+ E2  C                     ENDIF
+     C*
+     C   KC                LEAVE
+     C*
+E1   C                     ENDDO
+     C*
+     C                     ENDSR
+     C******************************************************
+     C*  SFL01  SET
+     C******************************************************
+     C           @SFSET    BEGSR
+     C*
+     C                     MOVEL*ON       *IN41
+     C                     WRITECTL01
+     C                     MOVEL*OFF      *IN41
+     C                     MOVEL*OFF      *IN42
+     C                     Z-ADD*ZERO     RRN2    40
+     C                     Z-ADD*ZERO     WKTTQY  90
+     C                     Z-ADD*ZERO     WKTTWG  90
+     C                     Z-ADD1         XX      20
+     C*
+     C           KEY1      SETLLAFGPL01
+     C                     DO   *HIVAL
+     C           KEY1      READEAFGPL01                  80
+     C   80                LEAVE
+     C*  DELETED RECORD ?
+     C           AGSKJY    IFEQ 'D'
+     C           AGSKDT    ANDLEWTIHZ
+     C                     ITER
+     C                     END
+     C* CREATE SUB-FILE
+     C                     EXSR #SFSET
+     C*
+     C           RRN2      IFEQ 9999
+     C                     LEAVE
+     C                     ENDIF
+     C*
+     C                     ENDDO
+     C*
+     C*
+     C           RRN2      IFEQ *ZERO
+     C                     CLEARSFL01
+     C                     Z-ADD1         RRN2
+     C                     WRITESFL01
+     C                     MOVEL*ON       *IN99
+     C                     MOVELERR,2     D1ERR
+     C                     END
+     C*
+     C           RRN2      IFEQ 9999
+     C                     MOVEL*ON       *IN99
+     C                     MOVELERR,3     D1ERR
+     C                     END
+     C*
+     C                     Z-ADDRRN2      ENDRRN  40
+     C*
+     C                     ENDSR
+      *----------------------------------------------------*
+      * SET SUBFILE                                      *
+      *----------------------------------------------------*
+     CSR         #SFSET    BEGSR
+      *
+     C                     CLEARSFL01
+      * ITEM #
+     C                     MOVELAGPAR1    S1SHN1
+     C                     MOVEL'-'       S1SF1
+     C                     MOVELAGPAR2    S1SHN2
+     C                     MOVEL'-'       S1SF2
+     C                     MOVELAGPAR3    S1SHN3
+     C           AGPAR3    IFEQ *BLANK
+     C                     MOVEL*BLANK    S1SF2
+     C                     ENDIF
+      * FOB
+     C                     MOVELAGFONB    D1FONB
+      * REQ DATE
+     C                     Z-ADDAGREQD    S1REQD
+      * QTY
+     C                     Z-ADDAGORDQ    S1ORDQ
+     C* UNIT PRICE
+     C                     Z-ADDAGUNTP    S1UNTP
+     C* UNIT OF MEASURE
+     C                     MOVELAGUOME    S1UOME
+     C* EXTENDED COST
+     C           S1ORDQ    MULT S1UNTP    S1EXTP
+     C*
+     C                     MOVELAGITDS    S1ITDS
+      *
+     C                     ADD  1         RRN2
+      * LINE #
+     C* SET DEFAULT VALUE
+     C           RRN2      IFEQ 1
+     C                     MOVELAGGPPO    D1GPPO
+     C                     EXSR @CTSET
+     C                     ENDIF
+     C** PROTECT
+     C                     SETON                     87
+     C           P1TYPE    COMP 'C'                      86
+     C** PROTECT
+     C                     MOVE RRN2      S1LINE
+     C                     WRITESFL01
+      *
+     CSR         ESFSET    ENDSR
+     C******************************************************
+     C*  CTL01  SET
+     C******************************************************
+     C           @CTSET    BEGSR
+     C*
+     C*
+     C* 2ND SCREEN
+     C                     MOVELP1SUPP    D1VDCD
+     C                     MOVELAGVDNM    D1VDNM
+     C                     MOVELAGVDA1    D1VDA1
+     C                     MOVELAGVDA2    D1VDA2
+     C*
+     C                     MOVELAGVDCI    D1VDCI
+     C                     MOVELAGVDST    D1VDST
+     C                     MOVELAGVDZI    D1VDZI
+     C                     MOVELAGVDPN    D1VDPN
+     C                     MOVELAGVDCP    D1VDCP
+     C*
+     C                     MOVELAGSTCD    D1STCD
+     C*
+     C                     MOVELAGSTNM    D1STNM
+     C                     MOVELAGSTA1    D1STA1
+     C                     MOVELAGSTA2    D1STA2
+     C*
+     C                     MOVELAGSTCI    D1STCI
+     C                     MOVELAGSTST    D1STST
+     C                     MOVELAGSTZI    D1STZI
+     C                     MOVELAGSTPN    D1STPN
+     C                     MOVELAGSTCP    D1STCP
+     C*
+     C                     MOVELAGSTCP    D1STCP
+     C                     MOVELAGVDCP    D1VDCP
+     C* 1ST SCREEN
+     C                     MOVELAGPAYT    D1PAYT
+     C                     MOVELAGCONF    D1CONF
+     C***                  MOVELAGSHPM    D1SHPM
+     C* COMMENT1
+     C                     MOVELAGCMT1    D1CMT1
+     C*  SELLING PARTY
+     C                     MOVELAGSECD    D1SECD
+     C                     MOVELAGSENM    D1SENM
+     C*
+     C                     ENDSR
+     C******************************************************
+     C*  @DSP02
+     C******************************************************
+     C           @DSP02    BEGSR
+     C*
+     C                     DO   *HIVAL
+     C*
+     C                     EXFMTAFGPW172
+     C   KC                LEAVE
+     C*
+     C                     SETOF                     606199
+     C                     MOVEL*BLANK    D1ERR
+     C*
+     C*-------------------------------
+     C* F8  CHANGE SCREEN
+     C*-------------------------------
+     C           *INKH     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+     C*-----------------------
+     C* CHECK INPUT
+     C*-----------------------
+     C*
+     C* NO ERROR
+     C           *IN99     IFEQ *OFF
+     C                     SELEC
+     C*-------------------------------
+     C* F5 UPDATE &CREATE EDI DATA
+     C*-------------------------------
+     C           *INKE     WHEQ *ON
+     C* UPDATE
+     C                     EXSR @UPDAT
+     C                     LEAVE
+     C*
+     C                     ENDSL
+     C*
+     C                     ITER
+     C                     ENDIF
+     C*
+     C   KC                LEAVE
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+     C******************************************************
+     C*  UPDATE FILES AND CREATE EDI DATA
+     C******************************************************
+     C           @UPDAT    BEGSR
+     C*
+     C* UPDATE AFGPL01
+     C                     EXSR @UPDT1
+     C* CREATE EDI ORDER
+     C                     EXSR @CREDI
+     C* DISPLAY P.O.#
+     C                     EXSR @DSPPO
+     C*
+     C                     ENDSR
+     C******************************************************
+     C*  UPDATE AFGPL01
+     C******************************************************
+     C           @UPDT1    BEGSR
+     C*
+     C                     DO   ENDRRN    RRN2
+     C           RRN2      CHAINSFL01                91
+     C   91                LEAVE
+     C                     EXSR #UPDT1
+     C                     ENDDO
+     C*
+     C                     ENDSR
+     C************************************
+     C           #UPDT1    BEGSR
+     C*
+     C           KEY3      CHAINAFGPL01              82
+S1   C           *IN82     IFEQ '0'
+ S2  C           AGSKJY    IFEQ 'D'
+     C           AGSKDT    ANDLEWTIHZ
+ X2  C                     ELSE
+     C*
+  S3 C                     SELEC
+  -3 C           P1TYPE    WHEQ '1'                        RESEND
+     C                     MOVEL'3'       AGUPID
+     C                     MOVEL'05'      AGSPCD           REPLACE
+     C                     Z-ADDWTIHZ     AGROSD
+     C                     Z-ADDWTITM     AGROST
+     C*
+  -3 C           P1TYPE    WHEQ 'C'                        CANCEL
+     C                     MOVEL'C'       AGUPID
+     C                     MOVEL'03'      AGSPCD           DELETE
+     C                     Z-ADDWTIHZ     AGCAND
+     C                     Z-ADDWTITM     AGCANT
+  E3 C                     ENDSL
+     C*
+     C                     UPDATAFGPL011
+     C*
+ E2  C                     ENDIF
+E1   C                     ENDIF
+     C*
+     C                     ENDSR
+     C******************************************************
+     C*  CREATE EDI DATA
+     C******************************************************
+     C           @CREDI    BEGSR
+     C*
+     C                     CALL 'AFGC05'
+     C                     PARM           P1SUPP  4
+     C                     PARM           D1GPPO 17
+     C*
+     C                     MOVEL'UP'      P1CMD   2
+     C*
+     C                     ENDSR
+     C******************************************************
+     C*  DISPLAY P.O.#
+     C******************************************************
+     C           @DSPPO    BEGSR
+     C*
+     C                     DO   *HIVAL
+     C                     EXFMTAFGPW179
+     C*
+     C           *INKE     IFEQ *ON
+     C                     MOVEL*BLANK    D1GPPO
+     C                     LEAVE
+     C                     ENDIF
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+     C******************************************************
+**
+ER-1 INPUT REQUIRED.
+ER-2 NO DATA.
+ER-3 DATA EXCEED LIMIT 9999.
+ER-4 INPUT CORRECT DATE.
+ER-5 THE P.O. # IS ALREADY USED BY ANOTHER ORDER.
+ER-6 THE P.O. # DOES NOT MATCH RETREIVED INFO.
+ER-7 THE ITEM # DOES NOT MATCH.
+ER-8 QUANTITY DOES NOT MATCH.
+ER-9 'EACH' OR 'POUND'.

@@ -1,0 +1,323 @@
+     H            Y.
+     F** AM#R17H ********************************************
+     F* Reduce Order Qty in Order File due to Part "Short"  *
+     F*    LEC.  2019.04.24                                 *
+     F*******************************************************
+     FAB#PL1M UF  E           K        DISK
+     FAB#HP10 O   E                    DISK
+     FAB#PLA5 UF  E           K        DISK
+      *
+      * SHIPPING SHORTAGE FILE                         *
+     FALDPL6A IF  E           K        DISK
+      *  .. DELETE ORDER DATA ..   *
+     FALDWP69 O   E                    DISK
+      *******************************************************
+      *
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   20SHOUR
+     I                                        3   40SMIN
+     I                                        7  100SYEAR
+     I                                       11  120SMONTH
+     I                                       13  140SDAY
+     I                                        1   60WTIME
+     I                                        7  140WDATE
+      *
+     I            DS
+     I                                        1  12 SHN
+     I                                        1   5 SHN1
+     I                                        6  10 SHN2
+     I                                       11  12 SHN3
+      *
+     I            DS
+     I                                        1   8 SHIPDT
+     I                                        1   40NOYY
+     I                                        5   60NOMM
+     I                                        7   80NODD
+      *
+     I            DS
+     I                                        1   80K@NODT
+     I                                        1   40K@NOYY
+     I                                        5   60K@NOMM
+     I                                        7   80K@NODD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           PART#  12
+     C                     PARM           NONY    40
+     C                     PARM           SHID    8
+     C                     PARM           ODRN   12
+     C                     PARM           NUKE    4
+     C                     PARM           QPC     50
+     C                     PARM           WKCD   10
+     C                     PARM           W2D   250
+     C                     PARM           @@BIN#  20
+      *
+     C                     MOVELPART#     SHN
+     C                     MOVELSHID      SHIPDT
+      *
+      * part was scanned as a "short" so the order will need to be reduced
+      * by one container.
+      *
+     C           K#1M      KLIST
+     C                     KFLD           SHN1
+     C                     KFLD           SHN2
+     C                     KFLD           SHN3
+     C                     KFLD           NONY
+     C                     KFLD           NOYY
+     C                     KFLD           NOMM
+     C                     KFLD           NODD
+      *
+     C                     TIME           WSDT
+      *
+     C           K#1M      SETLLAB#PL1M
+      *
+     C                     DO   *HIVAL
+     C           K#1M      READEAB#PL1M                  50
+      *
+     C           *IN50     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           BASKJY    IFNE *BLANK
+     C           BANUKE    ORNE NUKE
+     C           BASYOS    ORNE QPC
+     C           BANOBN    ORNE @@BIN#
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     SELEC
+     C           BATOKU    WHEQ 3411
+      *
+      * if TMMC canada, check order# in pp10
+     C           NONY      IFEQ 3503
+     C           BAODRN    ANDNEODRN
+     C                     ITER
+     C                     ENDIF
+      *
+      * if NOT, check invoice# in pp10
+     C           NONY      IFNE 3503
+     C           BAINVN    ANDNEODRN
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     OTHER
+     C           BAODRN    IFNE ODRN
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ENDSL
+      *
+      * save delivery qty for updating history file...
+     C                     Z-ADDBASRYO    PRVQTY 100
+      *
+     C           BASRYO    IFGE QPC
+     C           BASRYO    SUB  QPC       BASRYO
+     C                     ELSE
+     C                     Z-ADD*ZERO     BASRYO
+     C                     ENDIF
+      *
+     C           BASRYO    IFEQ *ZERO
+     C                     MOVE 'D'       BASKJY
+     C                     Z-ADDSYEAR     BASKYY
+     C                     Z-ADDSMONTH    BASKMM
+     C                     Z-ADDSDAY      BASKDD
+     C                     ENDIF
+      *
+     C                     Z-ADDSYEAR     BAKOYY
+     C                     Z-ADDSMONTH    BAKOMM
+     C                     Z-ADDSDAY      BAKODD
+     C                     Z-ADDSHOUR     BAKOHH
+     C                     Z-ADDSMIN      BAKOSS
+     C                     MOVELWKCD      BAKOME
+      *
+     C                     UPDATAB#PL1M1
+     C                     EXSR WRTHST
+     C                     EXSR UPPPA1
+      *
+     C           PRVQTY    SUB  BASRYO    $GEN   100
+     C                     EXSR ##MINO
+     C           $MINO     IFNE 0
+     C           $GEN      ANDGT0
+     C                     Z-ADD$GEN      BAMINS
+     C                     Z-ADD$MINO     BAMINO
+     C                     MOVE *BLANK    BASKJY
+     C                     Z-ADD0         BASKYY
+     C                     Z-ADD0         BASKMM
+     C                     Z-ADD0         BASKDD
+     C                     WRITEALDWP691
+     C                     ENDIF
+      *
+     C                     LEAVE
+      *
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *
+      *----------------------------------------------------*
+      * Write to Order History File AB#HP10                *
+      *----------------------------------------------------*
+     C           WRTHST    BEGSR
+      *
+     C                     CLEARAB#HP101
+     C                     Z-ADDWDATE     AHKYMD
+     C                     Z-ADDWTIME     AHKTIM
+     C                     MOVELW#PGM     AHKPGM
+     C                     MOVELWKCD      AHKMID
+      *
+     C                     MOVE BATOKU    AHTOKU
+     C                     MOVE BANONY    AHNONY
+     C                     MOVE BANKOJ    AHNKOJ
+     C                     MOVE BANUKE    AHNUKE
+     C                     Z-ADDBANOYY    AHNOYY
+     C                     Z-ADDBANOMM    AHNOMM
+     C                     Z-ADDBANODD    AHNODD
+     C                     MOVE BANOBN    AHNOBN
+     C                     MOVELBAODRN    AHODRN
+     C                     MOVE BAMHN1    AHMHN1
+     C                     MOVE BAMHN2    AHMHN2
+     C                     MOVE BAMHN3    AHMHN3
+     C                     MOVE BAMHN4    AHMHN4
+     C                     MOVE BASHN1    AHSHN1
+     C                     MOVE BASHN2    AHSHN2
+     C                     MOVE BASHN3    AHSHN3
+     C                     Z-ADDPRVQTY    AHQTY1
+     C                     Z-ADDBASRYO    AHQTY2
+     C                     WRITEAB#HP101
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * Update Order Extend File AB#PPA1                   *
+      *----------------------------------------------------*
+     C           UPPPA1    BEGSR
+      *
+     C           K#PA1     KLIST
+     C                     KFLD           K@CUST
+     C                     KFLD           K@NONY
+     C                     KFLD           K@FACT
+     C                     KFLD           K@NUKE
+     C                     KFLD           K@MHN1
+     C                     KFLD           K@MHN2
+     C                     KFLD           K@MHN3
+     C                     KFLD           K@MHN4
+     C                     KFLD           K@ORDR
+     C                     KFLD           K@NOYY
+     C                     KFLD           K@NOMM
+     C                     KFLD           K@NODD
+     C                     KFLD           K@BIN
+     C                     KFLD           K@DEYY
+     C                     KFLD           K@DEMM
+     C                     KFLD           K@DEDD
+      *
+      * get all key fields from PP10...
+     C                     Z-ADDBATOKU    K@CUST  40
+     C                     Z-ADDBANONY    K@NONY  40
+     C                     MOVELBANKOJ    K@FACT  1
+     C                     MOVELBANUKE    K@NUKE  4
+     C                     MOVELBAMHN1    K@MHN1  5
+     C                     MOVELBAMHN2    K@MHN2  5
+     C                     MOVELBAMHN3    K@MHN3  5
+     C                     MOVELBAMHN4    K@MHN4  5
+     C                     MOVELBAODRN    K@ORDR 10
+     C                     Z-ADDBANOYY    K@NOYY  40
+     C                     Z-ADDBANOMM    K@NOMM  20
+     C                     Z-ADDBANODD    K@NODD  20
+     C                     Z-ADDBANOBN    K@BIN   20
+     C                     Z-ADDBADEYY    K@DEYY  40
+     C                     Z-ADDBADEMM    K@DEMM  20
+     C                     Z-ADDBADEDD    K@DEDD  20
+     C                     MOVELBAINVN    S@INVN 16
+      *
+      *
+      * find the matching record in PPA1
+      *
+     C           K#PA1     SETLLAB#PLA5
+      *
+     C           *IN91     DOUEQ*ON
+     C           K#PA1     READEAB#PLA5                  91
+      *
+     C           *IN91     IFEQ *OFF
+     C           BASKJY    ANDEQ*BLANK
+      *
+     C           BAINVN    IFNE S@INVN
+     C                     ITER
+     C                     ENDIF
+      *
+      * if new qty = 0, delete record...
+     C           AHQTY2    IFEQ *ZERO
+     C                     MOVEL'D'       BASKJY
+     C                     Z-ADDSYEAR     BASKYY
+     C                     Z-ADDSMONTH    BASKMM
+     C                     Z-ADDSDAY      BASKDD
+     C                     Z-ADDWTIME     BASKTM
+     C                     MOVELWKCD      BASKME
+     C                     MOVELW#PGM     BASKPG
+     C                     ENDIF
+      *
+      * update all change fields...
+     C                     Z-ADDSYEAR     BAKOYY
+     C                     Z-ADDSMONTH    BAKOMM
+     C                     Z-ADDSDAY      BAKODD
+     C                     MOVELSHOUR     BAKOHH
+     C                     MOVELSMIN      BAKOSS
+     C                     MOVELWKCD      BAKOME
+     C                     MOVELW#PGM     BANOPG
+      *
+      * update new quantity...
+     C                     Z-ADDAHQTY2    BASRYO
+      *
+     C                     UPDATAB#PLA51
+     C                     LEAVE
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *                                                    *
+      *----------------------------------------------------*
+     C           ##MINO    BEGSR
+      *
+      *
+     C                     Z-ADDBATOKU    K@CUST  40
+     C                     Z-ADDBANONY    K@NONY  40
+     C                     MOVELBANKOJ    K@FACT  1
+     C                     MOVELBANUKE    K@NUKE  4
+     C                     MOVELBAMHN1    K@MHN1  5
+     C                     MOVELBAMHN2    K@MHN2  5
+     C                     MOVELBAMHN3    K@MHN3  5
+     C                     MOVELBAMHN4    K@MHN4  5
+     C                     MOVELBAODRN    K@ORDR 10
+     C                     Z-ADDBANOYY    K@NOYY  40
+     C                     Z-ADDBANOMM    K@NOMM  20
+     C                     Z-ADDBANODD    K@NODD  20
+     C                     MOVELBANOBN    K@NOBN  2
+      *
+      * ALDPL6A
+     C           KEY68     KLIST
+     C                     KFLD           W2D   250
+      *
+     C                     Z-ADD0         $MINO   50
+     C           KEY68     SETLLALDPL6A
+      *
+     C                     DO   *HIVAL
+     C           KEY68     READEALDPL6A                  91
+     C   91                LEAVE
+      *
+     C           AFSKJC    IFEQ 'D'
+     C           AFRDAT    ORNE 0
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ADD  1         $MINO
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*

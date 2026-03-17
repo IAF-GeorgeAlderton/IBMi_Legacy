@@ -1,0 +1,1 @@
+             CMD        PROMPT('WORK QUERY')

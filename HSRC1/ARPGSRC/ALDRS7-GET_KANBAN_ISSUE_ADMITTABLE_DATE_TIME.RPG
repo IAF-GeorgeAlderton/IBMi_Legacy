@@ -1,0 +1,120 @@
+     H            Y
+     F*** ALDRS7 ******************************************************
+     F*  GET KANBAN ISSUE ADMITTABLE DATE/TIME                        *
+     F*---------------------------------------------------------------*
+     F*   DATE   |CO.LTD| NAME     | THE CONTENTS                     *
+     F*---------------------------------------------------------------*
+     F*2021.01.21|DCS   |T.MITSUI  |INITIAL VERSION                   *
+     F*2021.03.12|DCS   |T.MITSUI  |ADD PARM                          *
+     F*****************************************************************
+     F*        INPUT/OUTPUT DEFINED                       *
+     F*****************************************************
+     F*==< INTRA STORE LOCATION >==*
+     FALDPL3Z IF  E           K        DISK
+     F*
+     F*==< A-PICS KANBAN DATA >==*
+     FNZUPL20 IF  E           K        DISK
+     F*
+     C*****************************************************
+     C*          PARAMETER DEFINED                        *
+     C*****************************************************
+     C           *ENTRY    PLIST
+     C*                   ( IN )
+     C                     PARM           P#LHN1  5        PART NO1
+     C                     PARM           P#LHN2  5        PART NO2
+     C                     PARM           P#LHN3  2        PART NO3
+     C                     PARM           P#TEHA  3        PLASTIC PRODUCT NO.
+     C                     PARM           P#PAGE  2        PLASTIC PAGE NO.
+     C                     PARM           P#HTHZ  80       DATE OF KANBAN PUB.
+     C                     PARM           P#HTTM  60       TIME OF KANBAN PUB.
+     C*                   ( OUT )
+     C                     PARM           P#DATE  80       PICKING DATE
+     C                     PARM           P#TIME  60       PICKING TIME
+     C                     PARM           P#STCK  1        STOCK Y/N
+     C*
+     C*****************************************************
+     C*          KEY ITEM DEFINED                         *
+     C*****************************************************
+     C*==< ALDPL3Z : INTRA STORE LOCATION >==*
+     C           K@D3ZS    KLIST
+     C                     KFLD           K@LHN1  5        PART NO1
+     C                     KFLD           K@LHN2  5        PART NO2
+     C                     KFLD           K@LHN3  2        PART NO3
+     C                     KFLD           K@TEHA  3        PLASTIC PRODUCT NO.
+     C                     KFLD           K@CODT  80       CHECK DATE
+     C                     KFLD           K@COTM  60       CHECK TIME
+     C           K@D3ZR    KLIST
+     C                     KFLD           K@LHN1           PART NO1
+     C                     KFLD           K@LHN2           PART NO2
+     C                     KFLD           K@LHN3           PART NO3
+     C                     KFLD           K@TEHA           PLASTIC PRODUCT NO.
+     C*
+     C*==< NZUPL20 : A-PICS KANBAN DATA >==*
+     C           K@NZUP    KLIST
+     C                     KFLD           K@LHN1           PART NO1 1
+     C                     KFLD           K@LHN2           PART NO2 2
+     C                     KFLD           K@LHN3           PART NO3 3
+     C                     KFLD           K@CODT           KANBAN ISSUE DATE
+     C*
+     C*****************************************************
+     C*          MAIN ROUTINE                             *
+     C*****************************************************
+     C*==< INIT CLEAR >==*
+     C                     Z-ADD*ZERO     P#DATE
+     C                     Z-ADD*ZERO     P#TIME
+     C                     MOVEL'N'       P#STCK
+     C*
+     C*==< KEY SET >==*
+     C                     MOVELP#LHN1    K@LHN1           PART NO1
+     C                     MOVELP#LHN2    K@LHN2           PART NO2
+     C                     MOVELP#LHN3    K@LHN3           PART NO3
+     C                     MOVELP#TEHA    K@TEHA           PLASTIC PRODUCT NO.
+     C                     Z-ADDP#HTHZ    K@CODT           CHECK DATE
+     C                     Z-ADDP#HTTM    K@COTM           CHECK TIME
+     C*
+     C*==< GET FROM ALDPP35 >==*
+     C*                    ____________
+     C           K@D3ZS    SETGTALDPL3Z
+     C           K@D3ZR    READEALDPL3Z                  91
+     C*                    ~~~~~~~~~~~~
+D----C           *IN91     DOWEQ'0'
+|    C           P#DATE    ANDEQ*ZERO
+|I---C           A9SKJY    IFEQ *BLANK
+||   C           A9OKNG    ANDEQ'OK'
+||   C           A9PAGE    ANDEQP#PAGE
+||   C                     Z-ADDA9CODT    P#DATE
+||   C                     Z-ADDA9COTM    P#TIME
+||   C*
+|+---C                     ELSE
+||   C*                    ____________
+||   C           K@D3ZR    READEALDPL3Z                  91
+||   C*                    ~~~~~~~~~~~~
+|E---C                     ENDIF
+E----C                     ENDDO
+     C*
+     C*==< STOCK >==*
+     C*                    ____________
+     C           K@NZUP    SETLLNZUPL20
+     C           K@NZUP    READENZUPL20                  92
+     C*                    ~~~~~~~~~~~~
+D----C           *IN92     DOWEQ'0'
+|    C           P#STCK    ANDEQ'N'
+|I---C           N2TEHI    IFEQ P#TEHA
+||   C           N2PAGN    ANDEQP#PAGE
+||   C           N2NYHZ    ANDNE*ZERO
+||   C           N2TEHI    OREQ P#TEHA
+||   C           N2PAGN    ANDEQP#PAGE
+||   C           N2DEHZ    ANDNE*ZERO
+||   C                     MOVEL'Y'       P#STCK
+||   C*
+|+---C                     ELSE
+||   C*                    ____________
+||   C           K@NZUP    READENZUPL20                  92
+||   C*                    ~~~~~~~~~~~~
+|E---C                     ENDIF
+E----C                     ENDDO
+     C*
+     C*==< FINL >==*
+     C                     SETON                     LR
+     C                     RETRN
+     C*

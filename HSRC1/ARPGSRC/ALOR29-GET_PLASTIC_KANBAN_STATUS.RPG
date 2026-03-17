@@ -1,0 +1,666 @@
+     H            Y.
+     F** ALOR29 **************************************
+     F* GET PLASTIC KANBAN STATUS                    *
+     F*        T.SAKAKI     2019.09.17               *
+JW1  F*  JW    2020.19.18 ADD 2 PARAMETERS           *
+     F* ------------------------------               *
+     F* PARAMETER
+     F*  IN   P1SHN1  5    IAF PART1
+     F*  "    P1SHN2  5    IAF PART2
+     F*  "    P1SHN3  2    IAF PART3
+     F*  OUT  P9BZK   40   COMPLETE BZ WEIGH
+     F*  "    P9DSK   40   COMPLETE DS WEIGH
+     F*  "    P9JCK   40   COMPLETE JC WEIGH
+     F*  "    P9BZI   40   IN PROCESS (BZ       )
+     F*  "    P9DSI   40   IN PROCESS (DS       )
+     F*  "    P9JCI   40   IN PROCESS (JC       )
+     F*  "    P9PLBZ  40   PRELOAD (BZ       )
+     F*  "    P9PLDS  40   PRELOAD (DS       )
+     F*  "    P9PLJC  40   PRELOAD (JC       )
+     F*  "    P9LPLD  80   LAST PRELOAD DATE
+     F*  "    P9LPLT  60   LAST PRELOAD TIME
+JW1  F*  "    P9PLPD  80   PT BF OUT DATE
+"    F*  "    P9PLPS  40   PT SHIP PRELOAD
+     F************************************************
+     FALCPL03 IF  E           K        DISK
+      * BZ LOADING
+     FAJSPL12 IF  E           K        DISK
+     FAJSPL16 IF  E           K        DISK
+      * BZ UNLOADING
+     FAJSPL2B IF  E           K        DISK
+      * DS LOADING
+     FAJSPL52 IF  E           K        DISK
+     FAJSPL56 IF  E           K        DISK
+      * DS UNLOADING
+     FAJSPL62 IF  E           K        DISK
+      * JC LOADING
+     FAJHPL11 IF  E           K        DISK
+     FAJHPL13 IF  E           K        DISK
+      * JC UNLOADING
+     FAJHPL26 IF  E           K        DISK
+      *
+     E                    J1          4  2
+     E                    J5          4  2
+     E                    JC          4  2
+      *
+     I              '0123456789'          C         WKCKSU
+      *
+     I            DS
+     I                                        1   8 J1
+     I                                        1   2 J1PAG1
+     I                                        3   4 J1PAG2
+     I                                        5   6 J1PAG3
+     I                                        7   8 J1PAG4
+      *
+     I            DS
+     I                                        1   8 J5
+     I                                        1   2 J5PAG1
+     I                                        3   4 J5PAG2
+     I                                        5   6 J5PAG3
+     I                                        7   8 J5PAG4
+     I            DS
+     I                                        1   8 JC
+     I                                        1   2 JCPAG1
+     I                                        3   4 JCPAG2
+     I                                        5   6 JCPAG3
+     I                                        7   8 JCPAG4
+      *
+     I            DS
+     I                                        1   80J1WIHZ
+     I                                        1   40J1WINY
+     I                                        5   60J1WINM
+     I                                        7   80J1WIND
+     I            DS
+     I                                        1   80J2KEHZ
+     I                                        1   40J2KEIY
+     I                                        5   60J2KEIM
+     I                                        7   80J2KEID
+     I            DS
+     I                                        1   80J5WIHZ
+     I                                        1   40J5WINY
+     I                                        5   60J5WINM
+     I                                        7   80J5WIND
+     I            DS
+     I                                        1   80J6KEHZ
+     I                                        1   40J6KEIY
+     I                                        5   60J6KEIM
+     I                                        7   80J6KEID
+     I            DS
+     I                                        1   80JCWIHZ
+     I                                        1   40JCWINY
+     I                                        5   60JCWINM
+     I                                        7   80JCWIND
+     I            DS
+     I                                        1   80JDKEHZ
+     I                                        1   40JDKEIY
+     I                                        5   60JDKEIM
+     I                                        7   80JDKEID
+     I*
+     I            DS
+     I                                        1  140Q@DTTM
+     I                                        1   80Q@DATE
+     I                                        1   40Q@10YY
+     I                                        5   60Q@10MM
+     I                                        7   80Q@10DD
+     I                                        9  140Q@TIME
+     I                                        9  100Q@10JJ
+     I                                       11  120Q@10FF
+      *
+     I            DS
+     I                                        1   80W1SDAT
+     I                                        1   40WW10YY
+     I                                        5   60WW10MM
+     I                                        7   80WW10DD
+      *
+     I            DS
+     I                                        1   60W1STIM
+     I                                        1   20WW10JJ
+     I                                        3   40WW10FF
+      *
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60WJFB
+     I                                        1   40WJFF
+     I                                        1   20TIMHH
+     I                                        3   40TIMMM
+     I                                        5   60TIMSS
+     I                                        7  140WTIHZ
+     I                                        7  100WTIYY
+     I                                       11  120WTIMM
+     I                                       13  140WTIDD
+     I            DS
+     I                                        1  140W2DTTM
+     I                                        1   80W2DATE
+     I                                        9  140W2TIME
+      *
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W$WSID
+     I                                      254 263 @@USER
+     I                                      264 269 W$JBNO
+     I              '0123456789'          C         NUM
+      *----------------------------------------------------*
+      * PLIST                                              *
+      *----------------------------------------------------*
+     C           *ENTRY    PLIST
+     C                     PARM           P1SHN1  5
+     C                     PARM           P1SHN2  5
+     C                     PARM           P1SHN3  2
+     C                     PARM           P1PPRC  3
+     C                     PARM           P1PMCN  3
+     C                     PARM           P1SDAT  80
+     C                     PARM           P1STIM  60
+     C* OUT
+     C                     PARM           P9BZK   40        BZ計量済み
+     C                     PARM           P9DSK   40        DS計量済み
+     C                     PARM           P9JCK   40        JC計量済み
+     C* IN
+     C                     PARM           P9BZI   40        BZ投入中
+     C                     PARM           P9DSI   40        DS投入中
+     C                     PARM           P9JCI   40        JC投入中
+     C* PRELOAD
+     C                     PARM           P9PLBZ  40        BZ PRELOAD
+     C                     PARM           P9PLDS  40        DS PRELOAD
+     C                     PARM           P9PLJC  40        JC PRELOAD
+     C* LAST PRELOAD
+     C                     PARM           P9LPLD  80        LAST PL DATE
+     C                     PARM           P9LPLT  60        LAST PL TIME
+JW1  C* P/T STATUS
+"    C                     PARM           P9PLPD  80        PT BF OUT DATE
+"    C                     PARM           P9PLPS  40        PT SHIP PRELOAD
+      *----------------------------------------------------*
+      * KEY LIST                                           *
+      *----------------------------------------------------*
+     C           KEYCF1    KLIST
+     C                     KFLD           P1SHN1
+     C                     KFLD           P1SHN2
+     C                     KFLD           P1SHN3
+     C                     KFLD           P1SDAT
+     C                     KFLD           P1STIM
+      *
+     C           KEYCF2    KLIST
+     C                     KFLD           P1SHN1
+     C                     KFLD           P1SHN2
+     C                     KFLD           P1SHN3
+     C*
+     C           KEYCF3    KLIST
+     C                     KFLD           P1SHN1
+     C                     KFLD           P1SHN2
+     C                     KFLD           P1SHN3
+     C                     KFLD           WW10YY
+     C                     KFLD           WW10MM
+     C                     KFLD           WW10DD
+     C                     KFLD           WW10JJ
+     C                     KFLD           WW10FF
+      *----------------------------------------------------*
+      * MAIN                                             *
+      *--------------------------------------------------*
+     C                     Z-ADDP1SDAT    W1SDAT
+     C                     Z-ADDP1STIM    W1STIM
+     C                     Z-ADD0         P9BZK
+     C                     Z-ADD0         P9DSK
+     C                     Z-ADD0         P9JCK
+     C                     Z-ADD0         P9BZI
+     C                     Z-ADD0         P9DSI
+     C                     Z-ADD0         P9JCI
+     C                     Z-ADD0         P9PLBZ
+     C                     Z-ADD0         P9PLDS
+     C                     Z-ADD0         P9PLJC
+     C                     Z-ADD0         P9LPLD
+     C                     Z-ADD0         P9LPLT
+     C                     Z-ADD0         W2DTTM
+     C*
+     C                     MOVELP1PPRC    P1PPR2  2
+     C*
+     C** BZ/DS
+     C                     MOVEL'0'       PHBFLG  1
+     C**  CHECK DS PROCESS
+     C                     MOVEL*BLANK    KB1     1
+     C           P1PPRC    IFEQ 'DS '
+     C                     MOVELP1PMCN    KB1
+     C           KB1       IFEQ 'G'                        DS1
+     C           KB1       OREQ 'H'                        DS2
+     C           KB1       OREQ 'J'                        DS3
+     C           KB1       OREQ 'K'                        DS4
+     C                     MOVEL'1'       PHBFLG  1
+     C                     ENDIF
+     C                     ENDIF
+     C** JC
+     C                     MOVEL'0'       PHAFLG  1
+     C           P1PMCN    IFEQ 'JC3'
+     C           P1PMCN    OREQ 'JC4'
+     C                     MOVEL'1'       PHAFLG  1
+     C                     ENDIF
+      ** SB
+     C                     MOVEL'0'       PHSBFL  1
+      *
+     C                     Z-ADD0         WMAIS   40
+      * PRELOAD -> LOADING
+     C                     EXSR #SB100
+      * LOADING -> UNLOADING
+     C                     Z-ADD0         WMAIS
+     C                     SELEC
+     C           P1PPR2    WHEQ 'BZ'
+     C                     EXSR #SB200
+     C           P1PPR2    WHEQ 'DS '
+     C                     EXSR #SB300
+     C                     OTHER
+     C           PHAFLG    IFEQ '1'
+     C                     EXSR #SB400                     JC3,4
+     C                     ENDIF
+      *
+     C                     ENDSL
+      ****
+     C                     SETON                     LR
+     C                     RETRN
+      *====================================================
+      * CHECK PRELOAD SCAN                               *
+      *--------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C           KEYCF1    SETLLALCPP011
+     C                     DO   *HIVAL
+     C           KEYCF2    READEALCPP011                 21
+     C   21                LEAVE
+      *
+     C           A8SKJY    IFEQ 'D'
+     C           A8ERR     ORNE *BLANK
+     C           A8BRC3    ORNE *BLANK
+     C           A8KIND    ORNE 'P'                        PLASTIC
+     C                     ITER
+     C                     ENDIF
+      *BARCODE 2
+     C                     MOVEL*BLANK    WBK12   2
+     C                     MOVEL*BLANK    WBK15   5
+     C                     MOVEL*BLANK    WBK31   1
+     C           2         SUBSTA8BRC2:1  WBK12
+     C           5         SUBSTA8BRC2:1  WBK15
+     C           1         SUBSTA8BRC2:3  WBK31
+      *
+     C                     SELEC
+     C           P1PPR2    WHEQ 'BZ'
+     C           P1PPR2    OREQ 'DS'
+     C           WBK12     IFNE P1PPR2
+     C                     ITER
+     C                     ENDIF
+      * JC
+     C                     OTHER
+     C           WBK31     IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ENDSL
+      *
+      *  BARCODE 1
+     C                     MOVEL*BLANK    WAK11   1
+     C                     MOVEL*BLANK    WAK24   4
+     C                     MOVEL*BLANK    WAK63   3
+     C                     MOVEL*BLANK    WAK92   2
+     C           1         SUBSTA8BRC1:1  WAK11
+     C           4         SUBSTA8BRC1:2  WAK24
+     C           3         SUBSTA8BRC1:6  WAK63
+     C           2         SUBSTA8BRC1:9  WAK92
+     C                     MOVELP1SHN1    WKHIN1  5
+     C                     MOVELP1SHN2    WKHIN2  5
+     C                     MOVELP1SHN3    WKHIN3  2
+     C                     MOVELWAK11     WKANK   1
+     C                     MOVELWAK24     WKZETI  4
+     C                     MOVELWAK63     WKTHAI  3
+     C                     MOVE WAK92     WKPAGE  2
+      *
+     C                     Z-ADDA8DATE    Q@DATE
+     C                     Z-ADDA8TIME    Q@TIME
+      *
+     C           Q@DTTM    IFGE W2DTTM
+     C                     Z-ADDQ@DATE    W2DATE
+     C                     Z-ADDQ@TIME    W2TIME
+     C                     ENDIF
+      *
+     C                     ADD  4         WMAIS   40       # OF PRELOAD
+      *
+      * GET # OF LOADING BOXES
+     C                     SELEC
+     C           P1PPR2    WHEQ 'BZ'
+     C                     EXSR #SB110                     BZ
+     C           P1PPR2    WHEQ 'DS'
+     C                     EXSR #SB120                     DS
+     C                     OTHER
+     C           PHAFLG    IFEQ '1'
+     C                     EXSR #SB130                     JC3,4
+     C                     ELSE
+     C                     EXSR #SB140                     OTHERS
+     C                     ENDIF
+      *
+     C                     ENDSL
+      *
+     C                     ENDDO
+      *
+     C                     Z-ADDW2DATE    P9LPLD
+     C                     Z-ADDW2TIME    P9LPLT
+      *
+      * GET # OF LOADING BOXES
+     C                     SELEC
+     C           P1PPR2    WHEQ 'BZ'
+     C           WMAIS     SUB  P9BZI     P9PLBZ
+     C           P1PPR2    WHEQ 'DS'
+     C           WMAIS     SUB  P9DSI     P9PLDS
+     C                     OTHER
+     C           WMAIS     SUB  P9JCI     P9PLJC
+     C                     ENDSL
+      *
+     CSR         ESB100    ENDSR
+      *--------------------------------------------------*
+      * BZ LOAD    AJSPP10                               *
+      *--------------------------------------------------*
+     CSR         #SB110    BEGSR
+      *
+     C           #KEY1     KLIST
+     C                     KFLD           WKHIN1  5
+     C                     KFLD           WKHIN2  5
+     C                     KFLD           WKHIN3  2
+     C                     KFLD           WKTHAI  3
+     C                     KFLD           Q@10YY  40
+     C                     KFLD           Q@10MM  20
+     C                     KFLD           Q@10DD  20
+     C                     KFLD           Q@10JJ  20
+     C                     KFLD           Q@10FF  20
+     C           #KEY11    KLIST
+     C                     KFLD           WKHIN1  5
+     C                     KFLD           WKHIN2  5
+     C                     KFLD           WKHIN3  2
+     C                     KFLD           WKTHAI  3
+      *
+     C                     Z-ADD0         P@KEHZ  80
+     C           #KEY1     SETLLAJSPL16
+     C*
+     C           #KEY11    READEAJSPL16                  90
+     C*
+     C           *IN90     DOWEQ*OFF
+     C           J1PAG1    IFEQ WKPAGE
+     C           J1PAG2    OREQ WKPAGE
+     C           J1PAG3    OREQ WKPAGE
+     C           J1PAG4    OREQ WKPAGE
+     C                     Z-ADDJ1WIHZ    P@KEHZ  80       WORK ADMITTABLE DATE
+     C                     LEAVE
+     C                     ENDIF
+     C           #KEY11    READEAJSPL16                  90
+     C                     ENDDO
+      *-------
+     C           P@KEHZ    IFNE 0
+     C                     ADD  4         P9BZI
+     C                     ENDIF
+      *
+     CSR         ESB110    ENDSR
+      *====================================================
+      * DS LOADING  AJSPP50                              *
+      *--------------------------------------------------*
+     CSR         #SB120    BEGSR
+      *
+     C                     Z-ADD0         P@KEHZ  80
+     C           #KEY1     SETLLAJSPL56
+     C*
+     C           #KEY11    READEAJSPL56                  90
+     C*
+     C           *IN90     DOWEQ*OFF
+     C           J5PAG1    IFEQ WKPAGE
+     C           J5PAG2    OREQ WKPAGE
+     C           J5PAG3    OREQ WKPAGE
+     C           J5PAG4    OREQ WKPAGE
+     C                     Z-ADDJ5WIHZ    P@KEHZ  80       WORK ADMITTABLE DATE
+     C                     LEAVE
+     C                     ENDIF
+     C           #KEY11    READEAJSPL56                  90
+     C                     ENDDO
+      *-------
+     C           P@KEHZ    IFNE 0
+     C                     ADD  4         P9DSI
+     C                     ENDIF
+      *
+     CSR         ESB120    ENDSR
+      *====================================================
+      * JC LOADING  AJHPP11 JC3,4 ONLY                   *
+      *--------------------------------------------------*
+     CSR         #SB130    BEGSR
+      *
+     C                     Z-ADD0         P@KEHZ  80
+     C           #KEY1     SETLLAJHPL13
+     C*
+     C           #KEY11    READEAJHPL13                  90
+     C*
+     C           *IN90     DOWEQ*OFF
+     C           JCPAG1    IFEQ WKPAGE
+     C           JCPAG2    OREQ WKPAGE
+     C           JCPAG3    OREQ WKPAGE
+     C           JCPAG4    OREQ WKPAGE
+     C                     Z-ADDJCWIHZ    P@KEHZ  80       WORK ADMITTABLE DATE
+     C                     LEAVE
+     C                     ENDIF
+     C           #KEY11    READEAJHPL13                  90
+     C                     ENDDO
+      *-------
+     C           P@KEHZ    IFNE 0
+     C                     ADD  1         P9JCI
+     C                     ENDIF
+      *
+     CSR         ESB130    ENDSR
+      *====================================================
+      * JC UNLOADING  AJHPP20                            *
+      *--------------------------------------------------*
+     CSR         #SB140    BEGSR
+      *
+     C                     Z-ADD0         P@KEHZ  80
+     C           #KEY1     SETLLAJHPL26
+     C*
+     C           #KEY11    READEAJHPL26                  90
+     C*
+     C           *IN90     DOWEQ*OFF
+     C           JDPAG1    IFEQ WKPAGE
+     C                     Z-ADDJDKEHZ    P@KEHZ  80       WORK ADMITTABLE DATE
+     C                     LEAVE
+     C                     ENDIF
+     C           #KEY11    READEAJHPL26                  90
+     C                     ENDDO
+      *-------
+     C           P@KEHZ    IFNE 0
+     C                     ADD  4         P9JCI
+     C                     ENDIF
+      *
+     CSR         ESB140    ENDSR
+      *====================================================
+      *====================================================
+      *====================================================
+      * BZ LOADING  AJSPP10                              *
+      *--------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C           KEYCF3    SETLLAJSPL121
+     C                     DO   *HIVAL
+     C           KEYCF2    READEAJSPL121                 21
+     C   21                LEAVE
+      *
+     C           J1SKJY    IFEQ 'D'
+     C           J1MKKB    OREQ '22'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    WKPAGE  2
+     C                     MOVELJ1KANK    WKANK   1
+     C                     MOVELJ1ZETI    WKZETI  4
+     C                     MOVELJ1THAI    WKTHAI  3
+     C                     Z-ADDJ1WINY    Q@10YY
+     C                     Z-ADDJ1WINM    Q@10MM
+     C                     Z-ADDJ1WIND    Q@10DD
+     C                     Z-ADDJ1WINJ    Q@10JJ
+     C                     Z-ADDJ1WINF    Q@10FF
+      *
+      * GET # OF UNLOADING BOXES
+     C           1         DO   4         X       20
+     C           J1,X      IFNE *BLANK
+     C                     MOVE J1,X      WKPAGE  2
+     C                     ADD  1         WMAIS   40       # OF LOAD
+     C                     EXSR #SB210
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDDO
+      *
+     C           WMAIS     SUB  P9BZK     P9BZI
+      *
+     CSR         ESB200    ENDSR
+      *--------------------------------------------------*
+      * BZ UNLOAD  AJSPP20                               *
+      *--------------------------------------------------*
+     CSR         #SB210    BEGSR
+      *
+     C                     Z-ADD0         P@KEHZ  80
+     C           #KEY1     SETLLAJSPL2B
+     C*
+     C           #KEY11    READEAJSPL2B                  90
+     C*
+     C           *IN90     DOWEQ*OFF
+     C           J2PAG1    IFEQ WKPAGE
+     C           J2PAG2    OREQ WKPAGE
+     C           J2PAG3    OREQ WKPAGE
+     C           J2PAG4    OREQ WKPAGE
+     C                     Z-ADDJ2KEHZ    P@KEHZ  80       WORK ADMITTABLE DATE
+     C                     LEAVE
+     C                     ENDIF
+     C           #KEY11    READEAJSPL2B                  90
+     C                     ENDDO
+      *-------
+     C           P@KEHZ    IFNE 0
+     C                     ADD  4         P9BZK
+     C                     ENDIF
+      *
+     CSR         ESB210    ENDSR
+      *====================================================
+      * DS LOADING  AJSPP50                              *
+      *--------------------------------------------------*
+     CSR         #SB300    BEGSR
+      *
+     C           KEYCF3    SETLLAJSPL521
+     C                     DO   *HIVAL
+     C           KEYCF2    READEAJSPL521                 21
+     C   21                LEAVE
+      *
+     C           J5SKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELJ5KANK    WKANK   1
+     C                     MOVELJ5ZETI    WKZETI  4
+     C                     MOVELJ5THAI    WKTHAI  3
+     C                     Z-ADDJ5WINY    Q@10YY
+     C                     Z-ADDJ5WINM    Q@10MM
+     C                     Z-ADDJ5WIND    Q@10DD
+     C                     Z-ADDJ5WINJ    Q@10JJ
+     C                     Z-ADDJ5WINF    Q@10FF
+      *
+      * GET # OF UNLOADING BOXES
+     C           1         DO   4         X       20
+     C           J5,X      IFNE *BLANK
+     C                     MOVE J5,X      WKPAGE  2
+     C                     ADD  1         WMAIS   40       # OF LOAD
+     C                     EXSR #SB210
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDDO
+      *
+     C           WMAIS     SUB  P9DSK     P9DSI
+      *
+     CSR         ESB300    ENDSR
+      *--------------------------------------------------*
+      * DS UNLOAD RESULT                                 *
+      *--------------------------------------------------*
+     CSR         #SB310    BEGSR
+      *
+     C                     Z-ADD0         P@KEHZ  80       WORK ADMITTABLE DATE
+     C           #KEY1     SETLLAJSPL62
+     C*
+     C           #KEY11    READEAJSPL62                  90
+     C*
+     C           *IN90     DOWEQ*OFF
+     C           J6PAG1    IFEQ WKPAGE
+     C           J6PAG2    OREQ WKPAGE
+     C           J6PAG3    OREQ WKPAGE
+     C           J6PAG4    OREQ WKPAGE
+     C                     Z-ADDJ6KEHZ    P@KEHZ  80       WORK ADMITTABLE DATE
+     C                     LEAVE
+     C                     ENDIF
+     C           #KEY11    READEAJSPL62                  90
+     C                     ENDDO
+     C*
+      *-------
+     C           P@KEHZ    IFNE 0
+      * PHBFLG = '1' DS1,2,3,4
+     C           PHBFLG    IFEQ '1'
+     C                     ADD  2         P9DSK
+     C                     ELSE
+     C                     ADD  4         P9DSK
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     CSR         ESB310    ENDSR
+      *====================================================
+      * JC LOADING  AJHPP11                              *
+      *--------------------------------------------------*
+     CSR         #SB400    BEGSR
+      *
+     C           KEYCF3    SETLLAJHPL111
+     C                     DO   *HIVAL
+     C           KEYCF2    READEAJHPL111                 21
+     C   21                LEAVE
+      *
+     C           JCSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELJCKANK    WKANK   1
+     C                     MOVELJCZETI    WKZETI  4
+     C                     MOVELJCTHAI    WKTHAI  3
+     C                     Z-ADDJCWINY    Q@10YY
+     C                     Z-ADDJCWINM    Q@10MM
+     C                     Z-ADDJCWIND    Q@10DD
+     C                     Z-ADDJCWINJ    Q@10JJ
+     C                     Z-ADDJCWINF    Q@10FF
+      *
+      * GET # OF LOADING BOXES
+     C           1         DO   4         X       20
+     C           JC,X      IFNE *BLANK
+     C                     MOVE JC,X      WKPAGE  2
+     C                     ADD  1         WMAIS   40       # OF LOAD
+     C                     EXSR #SB410
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDDO
+      *
+     C           WMAIS     SUB  P9JCK     P9JCI
+      *
+     CSR         ESB400    ENDSR
+      *--------------------------------------------------*
+      * JC UNLOAD RESULT     AJHPP20                     *
+      *--------------------------------------------------*
+     CSR         #SB410    BEGSR
+      *
+     C                     Z-ADD0         P@KEHZ  80       WORK ADMITTABLE DATE
+     C           #KEY1     SETLLAJHPL26
+     C*
+     C           #KEY11    READEAJHPL26                  90
+     C*
+     C           *IN90     DOWEQ*OFF
+     C           JDPAG1    IFEQ WKPAGE
+     C                     Z-ADDJDKEHZ    P@KEHZ  80       WORK ADMITTABLE DATE
+     C                     LEAVE
+     C                     ENDIF
+     C           #KEY11    READEAJHPL26                  90
+     C                     ENDDO
+     C*
+     C           P@KEHZ    IFNE 0
+     C                     ADD  4         P9JCK
+     C                     ENDIF
+      *
+     CSR         ESB410    ENDSR

@@ -1,0 +1,241 @@
+     H            Y.
+      ** IWAR70U ******************************************************
+      *  UPDATE WASHER KANBAN IN INVENTORY AND LOG
+      *   LEC   2025.07.07
+      *  DON'T USE  -  CORRECT SOURCE IS IN IRPGLESRC
+      *****************************************************************
+     FALBPL30 IF  E           K        DISK
+     FIZAPL02 IF  E           K        DISK
+     FCACPL02 IF  E           K        DISK
+     FIZAPP70 UF  E           K        DISK                      A
+     FIZAPP7L O   E           K        DISK                      A
+      *
+     E                    WK1        20  1
+     E                    WK2        20  1
+      *
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60@SYSTM
+     I                                        7  140@SYSHZ
+      *
+     I            DS
+     I                                        1  17 @WKBN
+     I                                        1   1 @WTYPE
+     I                                        2   5 @WZETI
+     I                                        6  12 @WMFG#
+     I                                       13  15 @WCOIL
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           PWKBN  20
+     C                     PARM           PLOCN   6
+     C                     PARM           PWKCD   6
+     C                     PARM           PPGMN  10
+     C                     PARM           PLOTN   8
+     C                     PARM           PCHRG#  7
+     C                     PARM           PWGT    51
+     C                     PARM           PCHGQ   1
+     C                     PARM           PNEWQ   21
+     C                     PARM           #RTNC   1
+      *
+      * GET WORKER NAME...
+     C                     MOVELPWKCD     NUM6    60
+     C           NUM6      CHAINALBPL30              98
+     C           *IN98     IFEQ *OFF
+     C                     MOVELALWKNM    ##TMNM 20
+     C                     ELSE
+     C                     MOVEL*BLANK    ##TMNM
+     C                     ENDIF
+      *
+      *----------------------------------------------------*
+      * MAINLINE                                           *
+      *----------------------------------------------------*
+      *
+     C                     EXSR #EDIT
+     C                     MOVELPWKBN     @WKBN
+     C                     EXSR #SB100
+      *
+     C           VALID     IFEQ 'Y'
+     C                     EXSR #SB500
+     C           LOGFLG    IFEQ 'Y'
+     C                     EXSR #SB501
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     MOVE VALID     #RTNC
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *
+      *------------------------------------------------------*
+      * CHECK WIRE MATERIAL MASTER FILE                      *
+      *------------------------------------------------------*
+     C           #SB100    BEGSR
+      *
+      * CHECK FOR PART ID IN MATERIAL MASTER...
+     C           KEY1      KLIST
+     C                     KFLD           @WTYPE
+     C                     KFLD           @WZETI
+      *
+      *
+     C           KEY1      SETGTIZAPL02
+     C           KEY1      REDPEIZAPL02                  91
+      *
+     C  N91      ZCSKJY    IFEQ 'D'
+     C                     SETON                     91
+     C                     ENDIF
+      *
+     C  N91      ZCSTYY    IFNE 9999
+     C                     SETON                     91
+     C                     ENDIF
+      *
+     C           *IN91     IFEQ *ON
+     C                     MOVE 'N'       VALID   1
+     C                     ELSE
+     C                     MOVE 'Y'       VALID
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  WIRE KANBAN SCAN TO INVENTORY FILE
+      *----------------------------------------------------*
+     C           #SB500    BEGSR
+      *
+     C                     TIME           @TIME
+     C                     CLEARIZAPP701
+      *
+     C                     MOVELPWKBN     KBNQR  20
+     C           KBNQR     CHAINIZAPP70              62
+     C           *IN62     IFEQ *ON
+     C                     Z-ADD@SYSHZ    WICODT
+     C                     Z-ADD@SYSTM    WICOTM
+     C                     MOVEL##TMNM    WICOUS
+     C                     MOVELPPGMN     WIKOPG
+      *
+     C                     MOVELPWKBN     WIKBQR
+     C                     MOVEL@WZETI    WIZETI
+     C                     MOVELZCZAIS    WIMATN
+     C                     Z-ADDZCZAIK    WIDIAM
+     C                     MOVELZCKAKE    WISUPP
+      *
+     C           WIMATN    CHAINCACPL02              55
+     C           *IN55     IFEQ *OFF
+     C                     MOVELC1ZAIR    WIMATC
+     C                     ENDIF
+      *
+     C                     MOVEL@WMFG#    WIQA#
+     C                     MOVEL@WCOIL    WICOIL
+     C                     MOVELPLOCN     WICLOC
+     C           PCHGQ     IFEQ 'Y'
+     C                     Z-ADDPNEWQ     WIQTY
+     C                     ELSE
+     C                     Z-ADD1         WIQTY
+     C                     ENDIF
+      *
+     C           PLOTN     IFNE *BLANK
+     C                     MOVELPLOTN     WILOT
+     C                     ENDIF
+      *
+     C           PCHRG#    IFNE *BLANK
+     C                     MOVELPCHRG#    WICHRG
+     C                     ENDIF
+      *
+     C           PWGT      IFGT *ZERO
+     C           WISUPP    IFEQ '4550'
+     C           PWGT      MULT 10        WIWGT
+     C                     ELSE
+     C                     MOVELPWGT      WIWGT
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     WRITEIZAPP701
+     C                     MOVE 'Y'       LOGFLG  1
+      *
+     C                     ELSE
+      *********  PLOCN     IFNE WICLOC
+     C                     Z-ADD@SYSHZ    WIKODT
+     C                     Z-ADD@SYSTM    WIKOTM
+     C                     MOVEL##TMNM    WIKOUS
+     C                     MOVELPPGMN     WIKOPG
+     C                     MOVELWICLOC    WIPLOC
+     C                     MOVELPLOCN     WICLOC
+     C           PCHGQ     IFEQ 'Y'
+     C                     Z-ADDPNEWQ     WIQTY
+     C                     ENDIF
+      *
+     C           PLOTN     IFNE *BLANK
+     C                     MOVELPLOTN     WILOT
+     C                     ENDIF
+      *
+     C           PCHRG#    IFNE *BLANK
+     C                     MOVELPCHRG#    WICHRG
+     C                     ENDIF
+      *
+     C           PWGT      IFNE *ZERO
+     C                     MOVELPWGT      WIWGT
+     C                     ENDIF
+      *
+     C                     UPDATIZAPP701
+     C                     MOVE 'Y'       LOGFLG
+      *
+      *********            ENDIF
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * WRITE WIRE KANBAN SCAN TO INVENTORY LOG FILE
+      *----------------------------------------------------*
+     C           #SB501    BEGSR
+      *
+     C                     CLEARIZAPP7L1
+     C                     Z-ADD@SYSHZ    LGKODT
+     C                     Z-ADD@SYSTM    LGKOTM
+     C                     MOVEL##TMNM    LGKOUS
+     C                     MOVELPPGMN     LGKOPG
+      *
+     C                     MOVELWIKBQR    LGKBQR
+     C                     MOVELWIZETI    LGZETI
+     C                     MOVELWIMATN    LGMATN
+     C                     Z-ADDWIDIAM    LGDIAM
+     C                     MOVELWISUPP    LGSUPP
+     C                     MOVELWIMATC    LGMATC
+     C                     MOVELWIQA#     LGQA#
+     C                     MOVELWICOIL    LGCOIL
+     C                     MOVELWIPLOC    LGPLOC
+     C                     MOVELWICLOC    LGCLOC
+     C                     Z-ADDWIQTY     LGQTY
+     C                     MOVELWILOT     LGLOT
+     C                     MOVELWICHRG    LGCHRG
+     C                     Z-ADDWIWGT     LGWGT
+      *
+     C                     WRITEIZAPP7L1
+      *
+     C                     ENDSR
+      *------------------------------------------------------------*
+      * EDIT WIRE KANBAN BARCODE - REMOVE DASHES UNLSESS CHECK DIGIT
+      *------------------------------------------------------------*
+     C           #EDIT     BEGSR
+      *
+     C                     MOVEAPWKBN     WK1       P
+     C                     MOVEA*BLANK    WK2
+     C                     Z-ADD*ZERO     X       20
+     C                     Z-ADD*ZERO     Y       20
+      *
+     C           1         DO   20        X
+     C           WK1,X     IFNE '-'
+     C           WK1,X     ANDNE*BLANK
+     C           X         ORGT 15
+     C                     ADD  1         Y
+     C                     MOVE WK1,X     WK2,Y
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     MOVEAWK2       PWKBN     P
+      *
+     C                     ENDSR
+      *
+      *----------------------------------------------------*

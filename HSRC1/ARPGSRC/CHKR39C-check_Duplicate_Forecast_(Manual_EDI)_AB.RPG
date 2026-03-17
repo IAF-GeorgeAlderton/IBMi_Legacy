@@ -1,0 +1,180 @@
+     H            Y.
+     F***CHKR39*****************************************************************
+     F*  PROGRAM    : CHECK DUPLICATE FORECAST ORDER (MANUAL/EDI)              *
+     F*             : READ ABBPL04                                             *
+     F*  WRITTEN    : JW   2022.12.02                                          *
+     F**************************************************************************
+     FABBPL05 IF  E           K        DISK
+     FQPRINT  O   F     198     OF     PRINTER
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1  23 Q5MHIN
+     I                                        1   5 Q5MHN1
+     I                                        6   6 HP1
+     I                                        7  11 Q5MHN2
+     I                                       12  12 HP2
+     I                                       13  17 Q5MHN3
+     I                                       18  18 HP3
+     I                                       19  23 Q5MHN4
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+     C                     DO   *HIVAL
+     C                     READ ABBPL05                  98
+     C   98                LEAVE
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     Z-ADDQ5TOKU    SVTOKU  40
+     C                     Z-ADDQ5NONY    SVNONY  40
+     C                     MOVELQ5MHIN    SVMHIN 23
+     C                     MOVELQ5NKOJ    SVNKOJ  1
+     C                     ENDIF
+      * BREAK?
+     C           Q5NONY    IFNE SVNONY
+     C           Q5MHIN    ORNE SVMHIN
+     C           Q5NKOJ    ORNE SVNKOJ
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * PROC
+     C                     ADD  1         PCNT
+     C                     SELEC
+     C           PCNT      WHEQ 1
+     C                     MOVELQ5NOKU    S1NOKU
+     C                     MOVELQ5NUKE    S1NUKE
+     C           PCNT      WHEQ 2
+     C                     MOVELQ5NOKU    S2NOKU
+     C                     MOVELQ5NUKE    S2NUKE
+     C           PCNT      WHEQ 3
+     C                     MOVELQ5NOKU    S3NOKU
+     C                     MOVELQ5NUKE    S3NUKE
+     C                     ENDSL
+      *
+     C                     ENDDO
+      * LAST BREAK
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * SET FLAG
+     C           SEQ#      IFEQ 0
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  BREAK1                                            *
+      *----------------------------------------------------*
+     C           #BRK1     BEGSR
+      *
+     C           PCNT      IFGE 2
+     C                     EXSR #PRNT1
+      *
+     C           Q5NONY    IFNE SVNONY
+     C                     EXSR #PRNT2
+     C                     ENDIF
+     C                     ENDIF
+      * RESET
+     C                     Z-ADDQ5TOKU    SVTOKU
+     C                     Z-ADDQ5NONY    SVNONY
+     C                     MOVELQ5MHIN    SVMHIN
+     C                     MOVELQ5NKOJ    SVNKOJ
+     C                     MOVE *BLANK    S1NOKU
+     C                     MOVE *BLANK    S2NOKU
+     C                     MOVE *BLANK    S3NOKU
+     C                     MOVE *BLANK    S1NUKE
+     C                     MOVE *BLANK    S2NUKE
+     C                     MOVE *BLANK    S3NUKE
+     C                     Z-ADD0         PCNT
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT 1                                           *
+      *----------------------------------------------------*
+     C           #PRNT1    BEGSR
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL1
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT 2                                           *
+      *----------------------------------------------------*
+     C           #PRNT2    BEGSR
+      *
+     C                     EXCPT@DTL2
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $RTN    1
+      *
+     C                     MOVE *BLANK    $RTN
+     C                     TIME           SDATE
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+     C                     MOVE 'Y'       FIRST   1
+     C                     MOVE *BLANK    S1NOKU  1
+     C                     MOVE *BLANK    S2NOKU  1
+     C                     MOVE *BLANK    S3NOKU  1
+     C                     MOVE *BLANK    S1NUKE  4
+     C                     MOVE *BLANK    S2NUKE  4
+     C                     MOVE *BLANK    S3NUKE  4
+     C                     Z-ADD0         PCNT    20
+      *
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   40 '** DUPLICATE FORECAS'
+     O                                   60 'T DATA (ABBPP01) ** '
+     O                                   99 'DATE'
+     O                         TODAY     82 '    .  .  '
+     O                         NOW       92 '  :  :  '
+     O                                   95 'P.'
+     O                         PAGE  Z   99
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   10 'CUST'
+     O                                   15 'DELV'
+     O                                   17 'F'
+     O                                   27 'USER_PART'
+     O                                   48 'F1____'
+     O                                   57 'F2____'
+     O                                   66 'F3____'
+     O        E 1              @DTL1
+     O                         SEQ#  Z +001
+     O                         SVTOKU  +001
+     O                         SVNONY  +001
+     O                         SVMHIN  +001
+     O                         SVNKOJ  +001
+      *
+     O                         S1NUKE  +001
+     O                         S1NOKU  +001
+     O                                 +000 '  '
+     O                         S2NUKE  +001
+     O                         S2NOKU  +001
+     O                                 +000 '  '
+     O                         S3NUKE  +001
+     O                         S3NOKU  +001
+     O        E 1              @DTL2
+     O                                 +000 '.'

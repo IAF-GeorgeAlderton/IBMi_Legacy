@@ -1,0 +1,693 @@
+      *** GDLR82 *************************************
+      *        UNIT PRICE MASTER UPDATE              *
+      *  TCH(N.HYOTO) 2000.12.11                     *
+      *                                              *
+      * *IN90=1 (NOT READ GDKPL01)                   *
+      * *IN91=1 (NOT READ AGDPL12)                   *
+      * *IN99=1 (INPUT DATA ERROR)                   *
+      * *IN92=1 (NOT READ IZAPL01)                   *
+      * *IN93=1 (NOT READ IZBPL01)                   *
+      ************************************************
+     H            Y/                                    1
+     FGDLPW82 CF  E                    WORKSTN
+      *        DETAIL CODE MANAGEMENT RECORD .LAYOUT ..LOGICAL FILE .. *
+     FFGBPL01 IF  E           K        DISK
+      * AOYAMA PRODUCTION PLACE CALENDAR FILE(INCLUDE HOLIDAY)
+     FAGDPL12 IF  E           K        DISK
+      * FINISHED MATERIAL KANBAN MASTER    *
+     FIZAPL01 IF  E           K        DISK
+      * ROD MATERIAL KANBAN MASTER  *
+     FIZBPL01 IF  E           K        DISK
+      * UNIT PRICE MASTER           *
+     FGDLPL80 UF  E           K        DISK                      A
+      *
+     FQPRINT  O   F     198     OF     PRINTER                        UC
+     E****************************************************************
+     E                    NAME    1   3 10
+     E                    MSG     1  15 59
+     I****************************************************************
+     I            DS
+     I                                        1   60W@TIME
+     I                                        1   40W@HM
+     I*  SAKUJYO
+     I            DS
+     I                                        1   80LHSKDT
+     I                                        1   40LHSKYY
+     I                                        5   60LHSKMM
+     I                                        7   80LHSKDD
+     I*  KOUSINN
+     I            DS
+     I                                        1   80LHKODT
+     I                                        1   40LHKOYY
+     I                                        5   60LHKOMM
+     I                                        7   80LHKODD
+     I*
+     I            DS
+     I                                        1   40LHKOHS
+     I                                        1   20LHKOHH
+     I                                        3   40LHKOSS
+     I* STARTING DATE (DISPLAY)
+     I            DS
+     I                                        1   80D2STDT
+     I                                        1   40D2STYY
+     I                                        5   60D2STMM
+     I                                        7   80D2STDD
+     I* ENDING DATE (DISPLAY)
+     I            DS
+     I                                        1   80D2ENDT
+     I                                        1   40D2ENYY
+     I                                        5   60D2ENMM
+     I                                        7   80D2ENDD
+     I* STARTING DATE (MASTER FILE)
+     I            DS
+     I                                        1   80LHSTHZ
+     I                                        1   40LHSTYY
+     I                                        5   60LHSTMM
+     I                                        7   80LHSTDD
+     I* ENDING DATE (MASTER FILE)
+     I            DS
+     I                                        1   80LHENHZ
+     I                                        1   40LHENYY
+     I                                        5   60LHENMM
+     I                                        7   80LHENDD
+     I* ENDING DATE (MASTER FILE)
+     I            DS
+     I                                        1   80@ZENST
+     I                                        1   40K51
+     I                                        5   60K52
+     I                                        7   80K53
+     I            DS
+     I                                        1   80@@ENDT
+     I                                        1   40@@ENYY
+     I                                        5   60@@ENMM
+     I                                        7   80@@ENDD
+     I* START DATE(SAVE FILE DATA BEFORE UPDATING)
+     I            DS
+     I                                        1   80@@STDT
+     I                                        1   40W2STYY
+     I                                        5   60W2STMM
+     I                                        7   80W2STDD
+     I* DATE *
+     I            DS
+     I                                        1   80WWYMD
+     I                                        1   40WWYY
+     I                                        5   60WWMM
+     I                                        7   80WWDD
+     I*
+     C****************************************************************
+     C*           PARM LIST                                          *
+     C****************************************************************
+     C           *ENTRY    PLIST
+     C                     PARM           PPUSER 10
+     C****************************************************************
+     C*           KEY LIST                                           *
+     C****************************************************************
+     C* FINISHED MATERIAL MASTER (IZAPL01)
+     C           KEY1      KLIST
+     C                     KFLD           D1WIRE
+     C                     KFLD           D1WDIA
+     C                     KFLD           K11
+     C                     KFLD           D1VEND
+     C* ROD MATERIAL KANBAN MASTER(IZBPL01)
+     C           KEY2      KLIST
+     C                     KFLD           D1WIRE
+     C                     KFLD           D1WDIA
+     C                     KFLD           K11
+     C                     KFLD           D1VEND
+     C* UNIT PRICE MASTER(GDLPL80)
+     C           KEY3      KLIST
+     C                     KFLD           K30
+     C                     KFLD           K31
+     C                     KFLD           D1WIRE
+     C                     KFLD           D1WDIA
+     C                     KFLD           D1TYPE
+     C                     KFLD           W2STYY
+     C                     KFLD           W2STMM
+     C                     KFLD           W2STDD
+     C*
+     C           KEY4      KLIST
+     C                     KFLD           K30
+     C                     KFLD           K31
+     C                     KFLD           D1WIRE
+     C                     KFLD           D1WDIA
+     C                     KFLD           D1TYPE
+     C*
+     C           KEY5      KLIST
+     C                     KFLD           K30
+     C                     KFLD           K31
+     C                     KFLD           D1WIRE
+     C                     KFLD           D1WDIA
+     C                     KFLD           D1TYPE
+     C                     KFLD           K51
+     C                     KFLD           K52
+     C                     KFLD           K53
+     C*
+     C           F8KEY     KLIST
+     C                     KFLD           WWYY
+     C                     KFLD           WWMM
+     C                     KFLD           WWDD
+     C*================================================================
+     C*           MAIN ROUTINE                                       *
+     C*================================================================
+     C                     MOVE '#INIT   '@STEP   8
+     C*
+     C           @STEP     DOUEQ'#END    '
+     C           @STEP     CASEQ'#INIT   '#INIT
+     C           @STEP     CASEQ'#DSP1   '#DSP1
+     C           @STEP     CASEQ'#CHK1   '#CHK1
+     C           @STEP     CASEQ'#SET1   '#SET1
+     C           @STEP     CASEQ'#DSP2   '#DSP2
+     C           @STEP     CASEQ'#CHK2   '#CHK2
+     C           @STEP     CASEQ'#CHK2U  '#CHK2
+     C           @STEP     CASEQ'#UPD    '#UPD
+     C                     ENDCS
+     C                     ENDDO
+     C*
+     C           @@PRT     IFEQ '1'
+     C                     CLOSEQPRINT
+     C                     ENDIF
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+     C*================================================================
+     C*  INIT
+     C*================================================================
+     C           #INIT     BEGSR
+     C                     MOVEA*ALL'0'   *IN
+     C                     MOVE *BLANK    D1UPDT
+     C                     MOVE *BLANK    D1VEND
+     C                     MOVE *BLANK    D1TYPE
+     C                     MOVE *BLANK    D1WIRE
+     C                     MOVE *BLANK    D1WDIA
+     C                     MOVE *BLANK    D1ERR
+     C                     MOVE *BLANK    K31     1
+     C                     Z-ADD111       K11     40
+     C*
+     C                     MOVE '#DSP1   '@STEP
+     C*
+     C                     ENDSR
+     C*================================================================
+     C*  DSP1
+     C*================================================================
+     C           #DSP1     BEGSR
+     C                     EXFMTDSP01
+     C                     MOVE '#CHK1   '@STEP
+     C* < F1=ON >
+     C           *INKA     IFEQ *ON
+     C                     MOVE '#END    '@STEP
+     C                     ENDIF
+     C                     ENDSR
+     C*================================================================
+     C*  CHK1
+     C*================================================================
+     C           #CHK1     BEGSR
+     C                     MOVEA'00000'   *IN,11           <11 - 15>
+     C                     MOVEA'0'       *IN,99           <99>
+     C                     MOVE *BLANK    D1ERR
+     C*
+     C** UPDATE **
+     C*
+     C           D1UPDT    IFNE '0'
+     C           D1UPDT    ANDNE'1'
+     C           D1UPDT    ANDNE'2'
+     C  N99                MOVELMSG,1     D1ERR
+     C                     SETON                     9911
+     C                     ENDIF
+     C*
+     C** VENDOR **
+     C*
+     C                     MOVE *BLANK    D2VDNM
+     C           D1VEND    IFEQ *ZERO
+     C  N99                MOVELMSG,12    D1ERR
+     C                     SETON                     9912
+     C                     ELSE
+     C                     MOVELD1VEND    B2CODE
+     C           B2CODE    CHAINFGBPL011             90
+     C           *IN90     IFEQ *ON
+     C  N99                MOVELMSG,7     D1ERR
+     C                     SETON                     9912
+     C                     ELSE
+     C                     MOVELB2SMEI    D2VDNM
+     C                     Z-ADDD1VEND    K30     40
+     C                     ENDIF
+     C                     ENDIF
+     C*
+     C** PART TYPE **
+     C*
+     C           D1TYPE    IFEQ 'W'
+     C                     MOVEL'WIRE'    D2PTNM
+     C*
+     C                     ELSE
+     C           D1TYPE    IFEQ 'R'
+     C                     MOVEL'WIRE ROD'D2PTNM
+     C*
+     C                     ELSE
+     C  N99                MOVELMSG,11    D1ERR
+     C                     SETON                     9913
+     C                     END
+     C                     END
+     C*
+     C*
+     C* MASTER FILE CHECK(FINISHED MATERIAL)
+     C           D1TYPE    IFEQ 'W'
+     C           KEY1      CHAINIZAPL01              92
+     C           *IN92     IFEQ '1'
+     C  N99                MOVELMSG,9     D1ERR
+     C                     SETON                     991418
+     C                     END
+     C                     END
+     C*
+     C* MASTER FILE CHECK(ROD MATERIAL)
+     C           D1TYPE    IFEQ 'R'
+     C           KEY2      CHAINIZBPL01              93
+     C           *IN93     IFEQ '1'
+     C  N99                MOVELMSG,10    D1ERR
+     C                     SETON                     991418
+     C                     END
+     C                     END
+     C*--------------------
+     C** FILE **
+     C*
+S1   C           *IN99     IFEQ *OFF
+     C           KEY4      SETGTGDLPL801
+     C                     MOVE ' '       @@SAKJ  1
+     C                     DO   *HIVAL
+     C           KEY4      REDPEGDLPL801            N    90
+     C   90                LEAVE
+     C           LHSKJY    IFEQ 'D'                        DELETE CODE
+     C           LHSKDT    ANDLE*DATE                      DELETE DATE
+     C                     MOVE '1'       @@SAKJ
+     C                     ITER
+     C                     ENDIF
+     C                     LEAVE
+     C                     ENDDO
+     C*
+     C*
+ S2  C           *IN90     IFEQ *ON
+  S3 C           D1UPDT    IFEQ '0'                        "DLT"
+  S3 C           D1UPDT    OREQ '1'                        "CHG"
+     C  N99                MOVELMSG,2     D1ERR
+     C                     SETON                     9911
+  E3 C                     ENDIF
+ X2  C                     ELSE
+  S3 C           D1UPDT    IFEQ '2'                        "ADD"
+     C  N99                MOVELMSG,3     D1ERR
+     C                     SETON                     9911
+  E3 C                     ENDIF
+ E2  C                     ENDIF
+     C*
+E1   C                     ENDIF
+     C*
+      *
+     C           *IN99     IFEQ *ON
+     C                     MOVE '#DSP1   '@STEP
+     C                     ELSE
+     C                     MOVE '#SET1   '@STEP
+     C                     ENDIF
+     C*
+     C                     ENDSR
+     C*================================================================
+      *  SET1
+     C*================================================================
+     C           #SET1     BEGSR
+     C*
+     C                     MOVEA'000'     *IN,15           <15-17>
+     C                     MOVEA'0'       *IN,51           <51>
+     C                     MOVEA'0'       *IN,99           <99>
+     C                     MOVE *BLANK    D2ERR
+     C                     MOVELD1VEND    D2VEND
+     C                     MOVELD1TYPE    D2TYPE
+     C                     MOVELD1WIRE    D2WIRE
+     C                     MOVELD1WDIA    D2WDIA
+     C*
+     C** FILE **
+     C*
+     C           KEY4      SETGTGDLPL801
+     C                     DO   *HIVAL
+     C           KEY4      REDPEGDLPL801            N    90
+     C   90                LEAVE
+     C           LHSKJY    IFEQ 'D'                        DELETE CODE
+     C           LHSKDT    ANDLE*DATE                      DELETE DATE
+     C                     ITER
+     C                     ENDIF
+     C                     LEAVE
+     C                     ENDDO
+     C*
+     C           *IN90     IFEQ *OFF
+     C                     Z-ADDLHSTHZ    D2STDT
+     C                     Z-ADDLHENHZ    D2ENDT
+     C                     Z-ADDLHTANK    D2SEA
+     C                     ELSE
+     C                     Z-ADD*ZERO     D2STDT
+     C                     Z-ADD*ZERO     D2ENDT
+     C                     Z-ADD*ZERO     D2SEA
+     C                     ENDIF
+     C*
+     C                     SELEC
+     C           D1UPDT    WHEQ '0'                        "DLT"
+     C                     MOVELNAME,1    D2UPNM
+     C                     MOVEA'1'       *IN,51           <51>
+     C           D1UPDT    WHEQ '1'                        "CHG"
+     C                     MOVELNAME,2    D2UPNM
+     C           D1UPDT    WHEQ '2'                        "ADD"
+     C                     MOVELNAME,3    D2UPNM
+     C                     ENDSL
+     C*
+     C                     Z-ADDD2STDT    @@STDT  80
+     C                     Z-ADDD2ENDT    @@ENDT  80
+     C                     Z-ADDD2SEA     @@SEA  145
+     C*
+     C                     MOVE '#DSP2   '@STEP
+     C*
+     C                     ENDSR
+     C*================================================================
+     C*  DSP2
+     C*================================================================
+     C           #DSP2     BEGSR
+     C                     EXFMTDSP02
+     C                     MOVE '#CHK2   '@STEP
+     C* < F3=ON >
+     C           *INKC     IFEQ *ON
+     C                     MOVEA'0'       *IN,99           <99>
+     C                     MOVE '#INIT   '@STEP
+     C                     ENDIF
+     C* < F5=ON >
+     C           *INKE     IFEQ *ON
+     C                     MOVE '#CHK2U  '@STEP
+     C                     ENDIF
+     C                     ENDSR
+     C*================================================================
+     C*  CHK2
+     C*================================================================
+     C           #CHK2     BEGSR
+     C                     MOVEA'000'     *IN,15           <15-17>
+     C                     MOVEA'0'       *IN,99           <99>
+     C                     MOVE *BLANK    D2ERR
+     C*
+     C*
+     C*----------
+S1   C           D1UPDT    IFNE '0'                        NE"DLT"
+     C*
+ S2  C           D2STDT    IFEQ *ZERO
+     C  N99                MOVELMSG,13    D2ERR
+     C                     SETON                     9915
+ X2  C                     ELSE
+     C                     Z-ADDD2STDT    WWYMD
+     C           F8KEY     CHAINAGDPL12              90
+     C           *IN90     IFEQ *ON
+     C  N99                MOVELMSG,6     D2ERR
+     C                     SETON                     9915
+     C                     ENDIF
+ E2  C                     ENDIF
+     C*
+ S2  C           D2ENDT    IFEQ *ZERO
+     C  N99                MOVELMSG,14    D2ERR
+     C                     SETON                     9916
+ X2  C                     ELSE
+  S3 C           D2ENDT    IFNE 99999999
+     C                     Z-ADDD2ENDT    WWYMD
+     C           F8KEY     CHAINAGDPL12              90
+     C           *IN90     IFEQ *ON
+     C                     ENDIF
+  E3 C                     ENDIF
+ E2  C                     ENDIF
+     C*
+ S2  C           *IN99     IFEQ *OFF
+     C           D2STDT    ANDGTD2ENDT
+     C  N99                MOVELMSG,1     D2ERR
+     C                     SETON                     991516
+ E2  C                     ENDIF
+     C*
+     C** UNIT PRICE BY SEA **
+ S2  C           *IN99     IFEQ *OFF
+     C           D2SEA     ANDEQ*ZERO
+     C  N99                MOVELMSG,15    D2ERR
+     C                     SETON                     9917
+ E2  C                     ENDIF
+E1   C                     ENDIF
+     C*----------
+S1   C           D1UPDT    IFEQ '1'                        "CHG"
+     C           *IN99     ANDEQ*OFF
+     C           KEY3      SETLLGDLPL801
+     C                     Z-ADD0         @ZENST
+ S2  C                     DO   *HIVAL
+     C           KEY4      REDPEGDLPL801            N    90
+     C   90                LEAVE
+     C           LHSKJY    IFEQ 'D'                        DELETE CODE
+     C           LHSKDT    ANDLE*DATE                      DELETE DATE
+     C                     ITER
+     C                     ENDIF
+     C                     Z-ADDLHSTHZ    @ZENST
+     C                     LEAVE
+ E2  C                     ENDDO
+ S2  C           D2STDT    IFLE @ZENST
+     C  N99                MOVELMSG,5     D2ERR
+     C                     SETON                     9915
+ E2  C                     ENDIF
+E1   C                     ENDIF
+     C*----------
+     C           *IN99     IFEQ *OFF
+     C           @STEP     ANDEQ'#CHK2U  '
+     C                     MOVE '#UPD    '@STEP
+     C                     ELSE
+     C                     MOVE '#DSP2   '@STEP
+     C                     ENDIF
+     C*
+     C                     ENDSR
+     C*================================================================
+      *    UPD
+     C*================================================================
+     C           #UPD      BEGSR
+     C*
+     C                     MOVE *BLANK    UPDT    6
+     C*--------------------
+     C                     SELEC
+      *
+      * "DLT"
+      *
+     C           D1UPDT    WHEQ '0'                        "DLT"
+     C           KEY4      SETLLGDLPL801
+ S2  C                     DO   *HIVAL
+     C           KEY4      READEGDLPL801                 90
+     C   90                LEAVE
+     C                     MOVE 'D'       LHSKJY           DELETE CODE
+     C                     Z-ADD*DATE     LHSKDT           DELETE DATE
+     C                     Z-ADD*DATE     LHKODT
+     C                     TIME           W@TIME
+     C                     Z-ADDW@HM      LHKOHS
+     C                     MOVELPPUSER    LHKOME
+     C                     UPDATGDLPL801
+     C                     MOVEL'DLT   '  UPDT
+     C                     EXSR #PRT
+ E2  C                     ENDDO
+      *
+      * "CHG"
+      *
+     C           D1UPDT    WHEQ '1'                        "CHG"
+     C           KEY3      SETLLGDLPL801
+ S2  C                     DO   *HIVAL
+     C           KEY3      READEGDLPL801                 90
+     C   90                LEAVE
+     C           LHSKJY    IFEQ 'D'                        DELETE CODE
+     C           LHSKDT    ANDLE*DATE                      DELETE DATE
+     C                     ITER
+     C                     ENDIF
+     C                     LEAVE
+ E2  C                     ENDDO
+ S2  C           *IN90     IFEQ *OFF
+     C                     MOVEL'CHG /B'  UPDT
+     C                     EXSR #PRT
+     C                     Z-ADD*DATE     LHKODT
+     C                     TIME           W@TIME
+     C                     Z-ADDW@HM      LHKOHS
+     C                     MOVELPPUSER    LHKOME
+     C                     Z-ADDD2STDT    WWYMD
+     C           F8KEY     SETLLAGDPL12
+     C                     READPAGDPL12                  91
+     C  N91                Z-ADDF8KAYY    LHENYY
+     C  N91                Z-ADDF8KAMM    LHENMM
+     C  N91                Z-ADDF8KADD    LHENDD
+     C   91                Z-ADDD2STYY    LHENYY
+     C   91                Z-ADDD2STMM    LHENMM
+     C   91                Z-ADDD2STDD    LHENDD
+  S3 C           D2STDT    IFLE @@STDT
+     C                     Z-ADDD2STYY    LHSTYY
+     C                     Z-ADDD2STMM    LHSTMM
+     C                     Z-ADDD2STDD    LHSTDD
+     C                     Z-ADDD2ENYY    LHENYY
+     C                     Z-ADDD2ENMM    LHENMM
+     C                     Z-ADDD2ENDD    LHENDD
+     C                     Z-ADDD2SEA     LHTANK
+  E3 C                     ENDIF
+     C                     UPDATGDLPL801
+     C                     MOVEL'    /A'  UPDT
+     C                     EXSR #PRT
+     C*
+  S3 C           D2STDT    IFGT @@STDT
+     C                     Z-ADDD2STYY    LHSTYY
+     C                     Z-ADDD2STMM    LHSTMM
+     C                     Z-ADDD2STDD    LHSTDD
+     C                     Z-ADDD2ENYY    LHENYY
+     C                     Z-ADDD2ENMM    LHENMM
+     C                     Z-ADDD2ENDD    LHENDD
+     C                     Z-ADDD2SEA     LHTANK
+     C                     WRITEGDLPL801
+     C                     MOVEL'    /A'  UPDT
+     C                     EXSR #PRT
+  E3 C                     ENDIF
+      *
+  S3 C           D2STDT    IFLT @@STDT
+     C           KEY5      SETLLGDLPL801
+  S4 C                     DO   *HIVAL
+     C           KEY5      READEGDLPL801                 90
+     C   90                LEAVE
+     C           LHSKJY    IFEQ 'D'                        DELETE CODE
+     C           LHSKDT    ANDLE*DATE                      DELETE DATE
+     C                     ITER
+     C                     ENDIF
+     C                     MOVEL'CHG /B'  UPDT
+     C                     EXSR #PRT
+     C                     Z-ADDD2STDT    WWYMD
+     C           F8KEY     SETLLAGDPL12
+     C                     READPAGDPL12                  91
+     C  N91                Z-ADDF8KAYY    LHENYY
+     C  N91                Z-ADDF8KAMM    LHENMM
+     C  N91                Z-ADDF8KADD    LHENDD
+     C   91                Z-ADDD2STYY    LHENYY
+     C   91                Z-ADDD2STMM    LHENMM
+     C   91                Z-ADDD2STDD    LHENDD
+     C                     UPDATGDLPL801
+     C                     MOVEL'    /A'  UPDT
+     C                     EXSR #PRT
+     C                     LEAVE
+  E4 C                     ENDDO
+  E3 C                     ENDIF
+     C*
+ E2  C                     ENDIF
+      *
+      * "ADD"
+      *
+     C           D1UPDT    WHEQ '2'                        "ADD"
+     C                     MOVE ' '       LHSKJY           DELETE CODE
+     C                     Z-ADD0         LHSKDT           DELETE DATE
+     C                     Z-ADD*DATE     LHKODT
+     C                     TIME           W@TIME
+     C                     Z-ADDW@HM      LHKOHS
+     C                     MOVELPPUSER    LHKOME
+     C                     MOVELD2VEND    LHSIRE
+     C                     MOVELD2TYPE    LHPTCD
+     C                     Z-ADDD2STYY    LHSTYY
+     C                     Z-ADDD2STMM    LHSTMM
+     C                     Z-ADDD2STDD    LHSTDD
+     C                     Z-ADDD2ENYY    LHENYY
+     C                     Z-ADDD2ENMM    LHENMM
+     C                     Z-ADDD2ENDD    LHENDD
+     C                     Z-ADDD2SEA     LHTANK
+     C                     WRITEGDLPL801
+     C                     MOVEL'ADD   '  UPDT
+     C                     EXSR #PRT
+     C*
+     C                     ENDSL
+     C*--------------------
+     C                     MOVE *BLANK    D1UPDT
+     C                     MOVE *BLANK    D1VEND
+     C                     MOVE *BLANK    D1TYPE
+     C                     MOVE *BLANK    D1WIRE
+     C                     MOVE *BLANK    D1WDIA
+     C                     MOVE '#DSP1   '@STEP
+     C*--------------------
+     C                     ENDSR
+     C*================================================================
+     C*          #PRT      PRINT SECTION                             *
+     C*================================================================
+     C           #PRT      BEGSR
+     C**
+     C           @@PRT     IFEQ ' '
+     C                     OPEN QPRINT
+     C                     SETON                     OF
+     C                     MOVE '1'       @@PRT   1
+     C                     ENDIF
+     C**
+     C   OF                EXCPTHED
+     C   OF                MOVE *OFF      *INOF
+     C*
+     C                     EXCPTDIT
+     C**
+     C                     ENDSR
+     C*================================================================
+     O*  PRINTER FILE (QPRINT)                        *
+     O*================================================================
+     OQPRINT  E   02           HED
+     O                                    7 'GDLR82'
+     O                                   57 'UNIT PRICE MASTER'
+     O                                   81 'UPDATE LIST            '
+     O                                  178 'PAGE'
+     O                         PAGE  Z  189
+     O        E   03           HED
+     O                                  178 'DATE'
+     O                         UDATE    189 '  .  .  '
+     O        E   05           HED
+     O                                  150 '............. UNIT PRICE'
+     O                                  164 '............'
+     O                                  192 '.... EFFECTIVE TERM ...'
+     O        E   06           HED
+     O                                   12 'UPDATE'
+     O                                   24 'VENDOR'
+     O                                   67 'PART TYPE'
+     O                                  103 'WIRE'
+     O                                  128 'DIAMETER'
+     O                                  163 'BY SEA'
+     O                                  178 'STARTING'
+     O                                  190 'ENDING'
+     O        E   0708         HED
+     O                                   12 '------'
+     O                                   35 '-----------------'
+     O                                   54 '-------------------'
+     O                                   75 '-----------------'
+     O                                   93 '------------------'
+     O                                  119 '--------------------'
+     O                                  143 '-----------------'
+     O                                  163 '-----------------'
+     O                                  179 '----------'
+     O                                  192 '----------'
+     O*****
+     O        E  1             DIT
+     O                         UPDT      12
+     O                         D2VEND    22
+     O                         D2VDNM    54
+     O                         LHPTCD    61
+     O                         D2PTNM    93
+     O                         D2WIRE   109
+     O                         D2WDIA   120
+     O                         LHTANK   163 '   ,   , 0 .     '
+      *
+     O                         LHSTYY   173
+     O                                  174 '.'
+     O                         LHSTMM   176
+     O                                  177 '.'
+     O                         LHSTDD   179
+     O                         LHENYY   186
+     O                                  187 '.'
+     O                         LHENMM   189
+     O                                  190 '.'
+     O                         LHENDD   192
+**  NAME  **
+"0":DELETE
+"1":CHANGE
+"2":ADD
+**  MSG  **
+01:INPUT ERROR.
+02:UNIT PRICE MASTER FILE NOT FOUND.
+03:UNIT PRICE MASTER FILE FOUND.
+04:INPUTED NUMBER IS INCORRECT.
+05:DATA OVERLAP.
+06:INCORRECT DATE.
+07:DETAIL M/F <CODE COMPLETION> NOT FOUND.
+08:INPUT ERROR. ONLY THE LATEST RECORD CAN BE ERASED.
+09:FINISHED MATERIAL MASTER DOES NOT EXIST.
+10:ROD MATERIAL MASTER DOES NOT EXIST.
+11:PART TYPE INCORRECT
+12:PLEASE INPUT VENDOR CODE
+13:PLEASE INPUT START DATE
+14:PLEASE INPUT END DATE
+15:PLEASE INPUT UNIT PRICE

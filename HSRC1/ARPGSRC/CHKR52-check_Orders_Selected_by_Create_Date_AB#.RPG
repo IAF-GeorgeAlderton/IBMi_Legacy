@@ -1,0 +1,255 @@
+     H            Y.
+     F***CHKR52*****************************************************************
+     F*  PROGRAM    : CHECK ORDERS SELECTED BY CREATE DATE                     *
+     F*             : RUN IN FCKC00 (10:10AM BY JOBSCDE)                       *
+     F*  WRITTEN    : 2019.06.04                                               *
+     F*  WRITTEN BY : JW (SRA)                                                 *
+     F**************************************************************************
+     FAB#PLA1 IF  E           K        DISK
+     FQPRINT  O   F     198     OF     PRINTER
+     E                    NON     1  20  4   MSG    20
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+     C           @CRDAT    SETLLAB#PLA1
+     C                     DO   *HIVAL
+     C                     READ AB#PLA1                  98
+     C   98                LEAVE
+      * SELECT ENTRY TYPE
+     C           $TYPE     IFNE *BLANK
+     C           BAEDIK    ANDNE$TYPE
+     C                     ITER
+     C                     ENDIF
+      * SELECT DELIVERY CODE
+     C**         BANONY    IFNE 1012                       TI FLUID
+     C**         BANONY    IFNE 7610                       TRACE DIE CAST
+      **
+     C**         BANONY    IFNE 3032                       DENSO MI
+     C**         BANONY    ANDNE3056                       DENSO NC
+     C**         BANONY    ANDNE3062                       DENSO MX,T
+     C**         BANONY    ANDNE3070                       DENSO MX,S
+     C**         BANONY    ANDNE3076                       DENSO AR
+     C**         BANONY    ANDNE3086                       DENSO CAN
+     C**         BANONY    ANDNE3201                       TBTN
+     C**         BANONY    ANDNE0701                       TBA TISA WEST
+     C**         BANONY    ANDNE3319                       TBA TISA EAST
+     C**         BANONY    ANDNE6022                       THAI SUMMIT
+     C**         BANONY    ANDNE0531                       ISUZU
+     C                     ITER
+     C**                   ENDIF
+      *
+     C           BASKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * CHECK DAY FOR DENSO
+     C           BANONY    IFEQ 3032                       DENSO MI
+     C           BANONY    OREQ 3056                       DENSO NC
+     C           BANONY    OREQ 3062                       DENSO MX,T
+     C           BANONY    OREQ 3070                       DENSO MX,S
+     C           BANONY    OREQ 3076                       DENSO AR
+     C           BANONY    OREQ 3086                       DENSO CAN
+     C                     EXSR #CHKSP
+     C           *IN85     IFEQ *OFF
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      * CHECK CUSTOMER CODE
+     C           BANONY    IFEQ 3201                       TBTN
+     C           BATOKU    ANDEQ3315
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     EXSR #PRINT
+     C                     Z-ADDBANONY    SVNONY  40
+     C                     MOVELBANKOJ    SVNKOJ  1
+     C                     MOVELBANUKE    SVNUKE  4
+     C                     Z-ADDBANOHZ    SVNOHZ  80
+     C                     Z-ADDBANOBN    SVNOBN  20
+      *
+     C                     ENDDO
+      *
+     C           SEQ#      IFNE 0
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  CHECK SHIP DATE                                   *
+      *----------------------------------------------------*
+     C           #CHKSP    BEGSR
+      *
+     C                     MOVE *OFF      *IN85
+      *
+     C                     MOVELBANOHZ    $DATE
+     C                     CALL 'UTLR02'
+     C                     PARM           $DATE   8
+     C                     PARM           $DAY    1
+     C                     PARM           $WEEK#  1
+     C                     PARM           $RTN    1
+      * SHIP DATE SHOULD BE MONDAY
+     C           BANONY    IFEQ 3032
+     C           BANONY    OREQ 3086
+     C           $DAY      IFNE '1'
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHKSP
+     C                     ENDIF
+     C                     ENDIF
+      * SHIP DATE SHOULD BE TUESDAY
+     C           BANONY    IFEQ 3056
+     C           $DAY      IFNE '2'
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHKSP
+     C                     ENDIF
+     C                     ENDIF
+      * SHIP DATE SHOULD BE TUE/THU
+     C           BANONY    IFEQ 3062
+     C           BANONY    OREQ 3070
+     C           $DAY      IFNE '2'
+     C           $DAY      ANDNE'4'
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHKSP
+     C                     ENDIF
+     C                     ENDIF
+      * SHIP DATE SHOULD BE THURSDAY
+     C           BANONY    IFEQ 3076
+     C           $DAY      IFNE '4'
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHKSP
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           XCHKSP    ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      * GET CUSTOMER NAME
+     C                     MOVELBANONY    $DLV
+     C                     CALL 'UTLR62'
+     C                     PARM           $DLV    4
+     C                     PARM           $GRP    3
+     C                     PARM           $NAME1 15
+     C                     PARM           $NAME2 50
+     C                     PARM           $RTN    1
+     C                     MOVEL$NAME1    XNAME  15
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      *
+     C           BANONY    IFNE SVNONY
+     C           BANKOJ    ORNE SVNKOJ
+     C           BANUKE    ORNE SVNUKE
+     C           BANOHZ    ORNE SVNOHZ
+     C           BANOBN    ORNE SVNOBN
+     C           SVNONY    IFNE 0
+     C                     EXCPT@DTL2
+     C                     ADD  1         LIN#
+     C                     ENDIF
+     C                     ENDIF
+      * MSG
+     C                     Z-ADD1         IX      20
+     C                     MOVELBANONY    LTR4    4
+     C           LTR4      LOKUPNON,IX                   95
+     C           *IN95     IFEQ *ON
+     C                     MOVELMSG,IX    XMSG   20
+     C                     ELSE
+     C                     MOVE *BLANK    XMSG
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $DATE   8
+     C                     PARM           $TYPE   1        ORD TYPE E/M/I/S
+     C                     PARM           $RTN    1
+      *
+      *
+     C                     MOVEL$DATE     @CRDAT  80
+     C                     MOVE *BLANK    $RTN
+     C                     TIME           SDATE
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   40 '** CHECK ORDERS **  '
+     O                                   60 '                    '
+     O                                   89 'DATE'
+     O                         TODAY     92 '    .  .  '
+     O                         NOW      102 '  :  :  '
+     O                                  106 'P.'
+     O                         PAGE  Z  110
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   14 'CRT_DATE'
+     O                                   21 'TIME'
+     O                                   30 'TYPE'
+     O                                   35 'CUST'
+     O                                   40 'DELV'
+     O                                   57 'USER_PART'
+     O                                   74 'SHP_DATE'
+     O                                   79 'BN'
+     O                                   86 'ORDER#'
+     O                                  104 'QTY'
+     O        E 1              @DTL
+     O                         SEQ#  1 +000
+     O                         BACRHZ  +001 '    /  /  '
+     O                         BACRTM  +001 '0 :  :  '
+     O                         BAEDIK  +002
+     O                         BATOKU  +003
+     O                         BANONY  +001
+     O                         BANKOJ  +001
+     O                         BANUKE  +001
+     O                         BAMHN1  +001
+     O                         BAMHN2  +001
+     O                         BAMHN3  +001
+     O                         BANOHZ  +001 '    /  /  '
+     O                         BANOBN  +001
+     O                         BAODRN  +001
+     O                         BASRYO1 +001
+     O                         XNAME   +001
+     O                         XMSG    +001
+     O        E 1              @DTL2
+     O                                    1 '.'
+** NON/MSG...1.........2
+3511 CHG BIN# BY PO#       1
+3512 CHG BIN# BY PO#       2
+3550 CHG BIN# BY PO#       3
+3556 CHG BIN# BY PO#       4
+6022 FIRST EDI. OK?        5
+3032 SHIP MONDAY           6
+3056 SHIP TUESDAY          7
+3062 SHIP TUE / THU        8
+3070 SHIP TUE / THU        9
+3076 SHIP THURSDAY        10
+3086 SHIP MONDAY          11
+1012 CUST# 295/390?       12
+3201 CUST# S/B 3315       13
+0701 DOCK OK? 9/7 SHIP?   14
+3319 DOCK OK? 9/7 SHIP?   15
+0531 CHECK PO# INV#?      16
+7610 NEW EDI ORDER!       17
+                          18
+                          19
+                          20

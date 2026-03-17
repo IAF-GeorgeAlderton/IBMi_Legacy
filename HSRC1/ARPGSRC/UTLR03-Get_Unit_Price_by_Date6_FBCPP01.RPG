@@ -1,0 +1,171 @@
+     H            Y.
+     F** UTLR03 ********************************************
+     F*  PROGRAM: UTILITY - GET UNIT PRICE BY DATE         *
+     F*  WRITTEN: JW (SRA)  2016.01.22                     *
+     F*   ----------------------------                     *
+     F*  JW       2022.10.28 ADD GET SECOND PRICE          *
+     F*----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UTLR03'
+     F*                    PARM           $DATE   6
+     F*                    PARM           $TOKU   4
+     F*                    PARM           $NONY   4
+     F*                    PARM           $CPART 20
+     F*                    PARM           $UP     9
+     F*                    PARM           $RTN    1
+     F*  IN  $DATE  :  6A DATE (YYYYMM)
+     F*      $TOKU  :  4A CUST#
+     F*      $NONY  :  4A DELIVERY#
+     F*      $CPART : 20A CUSTMER PART
+     F*  OUT $UP    :  9A PRICE 9(5)
+     F*      $RTN   :  1A RETURN CODE (BLANK/*)
+     F******************************************************
+     FFBCPL07 IF  E           K        DISK
+      *--------------------------------------------------------
+     E                    DAT        10  1
+     IW@DATE      DS
+     I                                        1   40W@YY
+     I                                        5   60W@MM
+     I                                        7   80W@DD
+     I            DS
+     I                                        1   60EF@DT
+     I                                        1   40FBTKYY
+     I                                        5   60FBTKMM
+     I                                        7   80FBTKDD
+     I            DS
+     I                                        1   60EX@DT
+     I                                        1   40FBTSYY
+     I                                        5   60FBTSMM
+     I                                        7   80FBTSDD
+     I            DS
+     I                                        1  20 @MHN
+     I                                        1   5 @MHN1
+     I                                        6  10 @MHN2
+     I                                       11  15 @MHN3
+     I                                       16  20 @MHN4
+      *********************************************************
+      *                    MAIN PROCESS
+      *********************************************************
+     C                     EXSR #INIT
+      *
+      * SEARCH BY ORIGINAL PART#
+     C                     EXSR #PRC1
+      * SECOND PRICE
+     C           UPRICE    IFEQ 0
+     C                     EXSR #PRC2
+     C                     ENDIF
+      *
+     C                     MOVE UPRICE    $UP
+      *
+     C           UPRICE    IFEQ 0
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *=============================================================
+      * SEARCH BY ORIGINAL PART#
+      *=============================================================
+     C           #PRC1     BEGSR
+      *
+     C                     Z-ADD0         UPRICE  95
+     C           KEY       CHAINFBCPL07              90
+     C           *IN90     IFEQ *ON
+     C                     GOTO XPRC1
+     C                     ENDIF
+      *
+     C           KEY       SETLLFBCPL07
+     C           *IN91     DOWEQ*OFF
+     C           KEY       READEFBCPL07                  91
+     C           *IN91     IFEQ *OFF
+     C           FBSKJY    ANDEQ' '
+     C           TGT@DT    IFGE EF@DT
+     C           TGT@DT    ANDLEEX@DT
+     C                     Z-ADDFBNTAN    UPRICE
+     C                     ENDIF
+     C           EX@DT     IFEQ 999999
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           XPRC1     ENDSR
+      *=============================================================
+      * SEARCH BY CHANGED P3
+      *=============================================================
+     C           #PRC2     BEGSR
+     C                     Z-ADD0         UPRICE
+      * CHAGE CUST-PART3
+     C                     SELEC
+     C           KBMHN3    WHEQ '  '
+     C                     MOVEL'00'      KBMHN3
+     C           KBMHN3    WHEQ '00'
+     C                     MOVEL'  '      KBMHN3
+     C                     OTHER
+     C                     GOTO XPRC2
+     C                     ENDSL
+      *
+     C           KEY       CHAINFBCPL07              90
+     C           *IN90     IFEQ *ON
+     C                     GOTO XPRC2
+     C                     ENDIF
+      *
+     C           KEY       SETLLFBCPL07
+     C           *IN91     DOWEQ*OFF
+     C           KEY       READEFBCPL07                  91
+     C           *IN91     IFEQ *OFF
+     C           FBSKJY    ANDEQ' '
+     C           TGT@DT    IFGE EF@DT
+     C           TGT@DT    ANDLEEX@DT
+     C                     Z-ADDFBNTAN    UPRICE
+     C                     ENDIF
+     C           EX@DT     IFEQ 999999
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           XPRC2     ENDSR
+      *=============================================================
+      *                    INITIAL PROCESS
+      *=============================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $DATE   6
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $CPART 20
+     C                     PARM           $UP     9
+     C                     PARM           $RTN    1
+      *
+     C           KEY       KLIST
+     C                     KFLD           KBTOKU
+     C                     KFLD           KBNONY
+     C                     KFLD           KBMHN1
+     C                     KFLD           KBMHN2
+     C                     KFLD           KBMHN3
+     C                     KFLD           KBMHN4
+      *
+     C           *LIKE     DEFN FBTOKU    KBTOKU
+     C           *LIKE     DEFN FBNONY    KBNONY
+     C           *LIKE     DEFN FBMHN1    KBMHN1
+     C           *LIKE     DEFN FBMHN2    KBMHN2
+     C           *LIKE     DEFN FBMHN3    KBMHN3
+     C           *LIKE     DEFN FBMHN4    KBMHN4
+      *
+     C                     MOVEL$CPART    @MHN
+     C                     MOVEL$TOKU     KBTOKU
+     C                     MOVEL$NONY     KBNONY
+     C                     MOVEL@MHN1     KBMHN1
+     C                     MOVEL@MHN2     KBMHN2
+     C                     MOVEL@MHN3     KBMHN3
+     C                     MOVEL@MHN4     KBMHN4
+      *
+     C                     MOVEL' '       $RTN
+      * SET TARGET DATE
+     C                     MOVEL$DATE     TGT@DT  60
+      *
+     C                     ENDSR

@@ -1,0 +1,93 @@
+     H            Y.
+     F** UEXR24 *********************************************
+     F*  PROGRAM: EXSUB - CALCULATE KANBAN QTY              *
+     F*  WRITTEN: JW (SRA) 2020.04.21                       *
+     F*  JW       2020.04.28 ADD $ZAIS $ZAIK                *
+     F*-----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UEXR24'
+     F*                    PARM           $ZAIS  15
+     F*                    PARM           $ZAIK   5 2
+     F*                    PARM           $MSET   8 0
+     F*                    PARM           $CWGT   5 0
+     F*                    PARM           $SCOE   3 2
+     F*                    PARM           $LT     3 0
+     F*                    PARM           $LOT    2 0
+     F*                    PARM           $ADJ    3 0
+     F*                    PARM           $KQTY   3 0
+     F*                    PARM           $RTN    1
+     F*  IN  $ZAIS  15    MATERIAL
+     F*      $ZAIK   5 2  DIAMETER
+     F*      $MSET   8 0  MONTHLY SET WGT
+     F*      $CWGT   5 0  COIL WGT
+     F*      $SCOE   3 2  SAFETY COEF.
+     F*      $LT     3 0  LEAD TIME
+     F*      $LOT    2 0  LOT SIZE
+     F*      $ADJ    3 0  ADJUST QTY
+     F*  OUT $KQTY   3 0  KANBAN QTY
+     F*      $RTN    1A   ETURN CODE (OK:BLANK, *:ERROR)
+     F*
+      *===================================================
+      * PARAMETER
+      *===================================================
+     C           *ENTRY    PLIST
+     C                     PARM           $ZAIS  15
+     C                     PARM           $ZAIK   52
+     C                     PARM           $MSET   80
+     C                     PARM           $CWGT   50
+     C                     PARM           $SCOE   32
+     C                     PARM           $LT     30
+     C                     PARM           $LOT    20
+     C                     PARM           $ADJ    30
+     C                     PARM           $KQTY   30
+     C                     PARM           $RTN    1
+      *===================================================
+      *           MAIN ROUTINE
+      *===================================================
+     C                     Z-ADD0         $KQTY
+     C                     MOVE *BLANK    $RTN
+      * IF WGT=0,
+     C           $CWGT     IFEQ 0
+     C                     GOTO ENDP
+     C                     ENDIF
+      *
+      * 1.GET DAYLY USAGE (WDAY)  -------------------
+     C           $MSET     DIV  20        WKQTY  127H
+     C           WKQTY     DIV  $CWGT     WDAY   127H
+      *
+      * 2.TENTATIVE KANBAN (TKQTY) ------------------
+     C           WDAY      MULT $SCOE     WTQTY  127H
+     C                     MULT $LT       WTQTY     H
+      * KURIAGE (ROUND UP)
+     C                     Z-ADDWTQTY     NUM3    30
+     C           WTQTY     IFEQ NUM3
+     C                     Z-ADDNUM3      TKQTY   30
+     C                     ELSE
+     C           NUM3      ADD  1         TKQTY
+     C                     ENDIF
+      *
+      * 3.MULTIPLE MASHINE ADJ ----------------------
+     C                     CALL 'UEXC28'
+     C                     PARM           $ZAIS  15
+     C                     PARM           $ZAIK   52
+     C                     PARM           $MSET   80
+     C                     PARM           $CWGT   50
+     C                     PARM           @ADJ    30
+     C                     ADD  @ADJ      TKQTY
+      *
+      * 4. ADD 1 IF MSET > 100  ---------------------  XXX
+     C           TKQTY     IFEQ 1
+     C           $MSET     ANDGE100
+     C                     ADD  1         TKQTY
+     C                     ENDIF
+      *
+      * 5.ADJUSTMENT (WADJ) -------------------------
+     C           $LOT      SUB  1         WADJ    20
+     C                     ADD  $ADJ      WADJ
+      *
+      * 6.FINAL KANBAN QTY --------------------------
+     C           TKQTY     ADD  WADJ      $KQTY
+      *
+     C           ENDP      TAG
+     C                     MOVE *ON       *INLR
+     C                     RETRN

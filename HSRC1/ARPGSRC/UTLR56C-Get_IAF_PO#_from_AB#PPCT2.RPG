@@ -1,0 +1,90 @@
+     H            Y.
+      ** UTLR56C ************************************************
+      *  GET IAF-PO# FROM AB#PPCT2                              *
+      *  J.WATANABE   2022.11.14                                *
+      ***********************************************************
+      *  CALLING SEQ.                                           *
+      *                    CALL 'UTLR56C'
+      *                    PARM           $DATE   8
+      *                    PARM           $UPD    1
+      *                    PARM           $IAF#  10
+      *   IN  $DATE   8A CREATE DATE (BLANK=TODAY)              *
+      *       $UPD    1A "Y"= UPDATE FILE                       *
+      *                  "N"= NOT UPDATE                        *
+      *   OUT $IAF#  10A CREATE DATE(YYJJJ) + SEQ#(5)           *
+      *                  EX.
+      *                  $DATE=20221114 --> $IAF#=22318XXXXX    *
+      ***********************************************************
+     FAB#PPCT2UF  E           K        DISK                      A
+      ***********************************************************
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1   80@DATE
+     I                                        1   60@YYMM
+     I                                        3   40@YY2
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     I              '0000000000'          C         NUM10
+      *==================================================
+     C           *ENTRY    PLIST
+     C                     PARM           $DATE   8
+     C                     PARM           $UPD    1
+     C                     PARM           $IAF#  10
+      *
+     C           K#PPCT    KLIST
+     C                     KFLD           #KEY1   8
+     C                     KFLD           #KEY2   8
+      *
+     C                     Z-ADD0         SEQ#    50
+     C                     MOVELNUM10     $IAF#
+     C                     TIME           WSDT
+     C           $DATE     IFEQ *BLANK
+     C                     Z-ADDTODAY     @DATE   80
+     C                     ELSE
+     C                     MOVEL$DATE     @DATE
+     C                     ENDIF
+      * GET JULIAN DATE
+     C                     MOVEL@DATE     $DAT8
+     C                     CALL 'UTLC56 '
+     C                     PARM           $DAT8   8
+     C                     PARM           $JUL7   7
+     C                     MOVE $JUL7     $JUL5   5
+      *
+      ****************************************************
+      * MAIN ROUTINE
+      ****************************************************
+     C                     MOVEL'IAFPO#  '#KEY1
+     C                     MOVEL$JUL7     #KEY2
+     C           K#PPCT    CHAINAB#PPCT2             98
+      *
+     C                     SELEC
+     C           *IN98     WHEQ *ON
+     C                     CLEARAB#PCT21
+     C                     MOVEL#KEY1     CTKEY1
+     C                     MOVEL#KEY2     CTKEY2
+     C                     Z-ADD1         CTNBR1
+     C                     MOVEL@DATE     CTCHR1
+      *
+     C           $UPD      IFEQ 'Y'
+     C                     WRITEAB#PCT21
+     C                     ENDIF
+      *
+     C                     OTHER
+     C                     ADD  1         CTNBR1
+      *
+     C           $UPD      IFEQ 'Y'
+     C                     UPDATAB#PCT21
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     Z-ADDCTNBR1    SEQ#
+     C                     MOVEL$JUL5     $IAF#
+     C                     MOVE SEQ#      $IAF#
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN

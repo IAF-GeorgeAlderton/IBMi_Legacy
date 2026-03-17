@@ -1,0 +1,149 @@
+     H            Y.
+     F** UEXR07D *******************************************
+     F*  PROGRAM: GET ORDER QTY AND BOX BY P/L# V02        *
+     F*  WRITTEN: JW (SRA) 2021.10.06                      *
+     F*----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UEXR07D'
+     F*                    PARM           $PL#    9
+     F*                    PARM           $QTY    8
+     F*                    PARM           $BOX    4
+     F*                    PARM           $PLT    3
+     F*                    PARM           $MAX    3
+     F*                    PARM           $RTN    1
+     F*  IN  $PL#  :  9A PACKING LIST#
+     F*  OUT $QTY  :  8A ORDER QTY
+     F*      $BOX  :  4A ORDER BOX
+     F*      $PLT  :  3A PALETTE#
+     F*      $MAX  :  3A BOX / PALLET
+     F*      $RTN  :  1A RETURN CODE (BLANK/*)
+     F******************************************************
+     FAB#PL76 IF  E           K        DISK
+     FAB#PL1A IF  E           K        DISK
+     FAB#PL90 IF  E           K        DISK
+      * KEY FIELDS
+     I            DS
+     I                                        1   80PUNOHZ
+     I                                        1   40PUNOYY
+     I                                        5   60PUNOMM
+     I                                        7   80PUNODD
+      *===================================================
+      *           MAIN ROUTINE
+      *===================================================
+     C                     EXSR #INIT
+      * CHECK P/L#
+     C           $PL#      CHAINAB#PL76              99
+     C   99                GOTO ENDP
+      *
+     C                     Z-ADDPUNOHZ    K#NOHZ  80
+     C                     Z-ADDPUBINN    K#NOBN  20
+     C                     Z-ADDPUNONY    K#NONY  40
+     C                     MOVELPUNKOJ    K#NKOJ  1
+     C                     MOVELPUNUKE    K#NUKE  4
+     C                     MOVELPUODRN    K#ODRN 10
+      *
+     C                     EXSR #BOX
+      *
+     C           ENDP      TAG
+     C           @QTY      IFEQ 0
+     C                     MOVE '*'       $RTN
+     C                     ELSE
+     C                     MOVEL@QTY      $QTY
+     C                     MOVEL@BOX      $BOX
+     C                     MOVEL@PLT      $PLT
+     C                     MOVEL@MAX      $MAX
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *======================================================
+      * CALCULATE BOX
+      *======================================================
+     C           #BOX      BEGSR
+      * CALCULATE BOX
+     C           K#PP1A    SETLLAB#PL1A
+     C                     DO   *HIVAL
+     C           K#PP1A    READEAB#PL1A                  97
+     C   97                LEAVE
+      *
+     C           BASKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           K#ODRN    IFNE *BLANK
+     C           K#ODRN    ANDNEBAODRN
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ADD  BASRYO    @QTY
+      * SAVE Q/C
+     C                     Z-ADD0         WQPC
+      *
+     C           BASYOS    IFNE 0
+     C                     Z-ADDBASYOS    WQPC
+     C                     ENDIF
+     C           BASYOS    IFEQ 0
+     C           BAUSYS    ANDNE0
+     C                     Z-ADDBAUSYS    WQPC
+     C                     ENDIF
+      *
+     C           WQPC      IFEQ 0
+     C                     Z-ADD1         SHO     80
+     C                     ELSE
+     C           BASRYO    DIV  WQPC      SHO
+     C                     MVR            REM     80
+     C           REM       IFNE 0
+     C                     ADD  1         SHO
+     C                     ENDIF
+     C                     ENDIF
+     C                     ADD  SHO       @BOX
+      *
+     C                     ENDDO
+      * CALCULATE PALETTE
+     C                     MOVELK#NONY    LTR4    4
+     C           LTR4      CHAINAB#PL90              99
+     C           *IN99     IFEQ *OFF
+     C                     Z-ADDYAMXPL    @MAX    30
+     C                     ELSE
+     C                     Z-ADD60        @MAX
+     C                     ENDIF
+      *
+     C           @BOX      DIV  @MAX      SHO
+     C                     MVR            REM
+     C           REM       IFNE 0
+     C                     ADD  1         SHO
+     C                     ENDIF
+     C                     Z-ADDSHO       @PLT
+      *
+     C                     ENDSR
+      *======================================================
+      * INITIAL SET
+      *======================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $PL#    9
+     C                     PARM           $QTY    8
+     C                     PARM           $BOX    4
+     C                     PARM           $PLT    3
+     C                     PARM           $MAX    3
+     C                     PARM           $RTN    1
+      *
+     C           K#PP1A    KLIST
+     C                     KFLD           K#NOHZ  80
+     C                     KFLD           K#NOBN  20
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#NKOJ  1
+     C                     KFLD           K#NUKE  4
+      *
+     C                     MOVE *ALL'0'   $QTY
+     C                     MOVE *ALL'0'   $BOX
+     C                     MOVE *BLANK    $RTN
+     C                     Z-ADD0         @QTY    80
+     C                     Z-ADD0         @BOX    40
+     C                     Z-ADD0         @PLT    30
+     C                     Z-ADD0         @MAX    30
+     C                     Z-ADD0         WQPC    60
+      *
+     C                     ENDSR
+      *====================================================

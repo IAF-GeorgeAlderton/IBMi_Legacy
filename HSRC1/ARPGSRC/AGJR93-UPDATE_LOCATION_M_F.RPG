@@ -1,0 +1,159 @@
+     H            Y.
+     F** AGJR93 **************************************
+     F* UPDATE   LOCATION M/F                        *
+     F*        ITS.         2013.12.05               *
+     F************************************************
+     FAAJPL11 UF  E           K        DISK
+     FAGJPL02 IF  E           K        DISK
+      *
+     E                    @A     32  32  1
+     E                    @SRT      999  2
+      *
+     I            DS
+     I                                        1   2 ##BLK
+     I                                        1   1 ##BLK1
+     I                                        2   2 ##BLK2
+      *
+     I            DS
+     I                                        1   80WKHZ
+     I                                        1   40WKYY
+     I                                        5   60WKMM
+     I                                        7   80WKDD
+      *
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   60STIME
+     I                                        7  140SDATE
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *----------------------------------------------------*
+      * PLIST                                              *
+      *----------------------------------------------------*
+     C           *ENTRY    PLIST
+     C                     PARM           PPSORT  5
+     C                     PARM           PPSITE  1
+     C                     PARM           PPBAN1  1
+     C                     PARM           PPBAN2  2
+     C                     PARM           PPBAN3  2
+     C                     PARM           P1BLK3  4
+     C                     PARM           P2BLK3  4
+      *----------------------------------------------------*
+      *   K  E  Y   L I  S  T                              *
+      *----------------------------------------------------*
+     C           KEYCJ     KLIST
+     C                     KFLD           KKBAN1  1
+     C                     KFLD           KKBAN2  2
+     C                     KFLD           KKBAN3  2
+      *----------------------------------------------------*
+      *   M A I N                                          *
+      *----------------------------------------------------*
+     C                     TIME           WTIME
+     C                     EXSR #SB001
+      *
+     C                     MOVELPPBAN1    KKBAN1
+     C                     MOVELPPBAN2    KKBAN2
+     C                     MOVELPPBAN3    KKBAN3
+      *
+     C                     MOVE P1BLK3    #1BLK3  40
+     C                     MOVE P2BLK3    #2BLK3  40
+     C           KEYCJ     SETLLAAJPL111
+     C           KEYCJ     READEAAJPL111                 80
+     C           *IN80     DOWEQ'0'
+     C                     EXSR #SB411
+     C           KEYCJ     READEAAJPL111                 80
+     C                     ENDDO
+      *
+     C                     MOVE #1BLK3    P1BLK3
+     C                     MOVE #2BLK3    P2BLK3
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------*
+      *                                        *
+      *----------------------------------------*
+     CSR         #SB411    BEGSR
+      *
+     C                     MOVE PPSORT    WKSORT  50
+     C                     MOVELPPSITE    WKSITE  1
+     C****                 Z-ADD0         ##SORT  20
+     C****       100       SUB  WKSORT    ##SORT
+     C****                 MOVE ##SORT    ##BLK
+     C                     Z-ADDWKSORT    K
+     C                     MOVEL@SRT,K    ##BLK
+      *
+     C                     Z-ADD0         ##BLK3  30
+     C                     SELEC
+     C           WKSITE    WHEQ '1'
+     C                     SUB  1         #1BLK3
+     C                     Z-ADD#1BLK3    ##BLK3
+     C           WKSITE    WHEQ '2'
+     C                     ADD  1         #2BLK3
+     C                     Z-ADD#2BLK3    ##BLK3
+     C                     ENDSL
+      *
+     C                     MOVEL##BLK1    CJBLK1
+     C                     MOVEL##BLK2    CJBLK2
+     C                     MOVEL##BLK3    CJBLK3
+     C                     UPDATAAJPL111
+      *
+     CSR         ESB411    ENDSR
+      *---------------------------------------------------*
+      *  #SB001                                           *
+      *---------------------------------------------------*
+     C           #SB001    BEGSR
+     C*
+     C                     MOVEL*BLANK    @SRT
+     C                     Z-ADD*ZERO     I       30        BLK1 INDEX
+     C                     Z-ADD99        J       30        BLK2 INDEX
+     C*
+     C           *HIVAL    SETGTAGJPL02
+     C                     EXSR #GJ02                       AGJPL02 READ
+     C*
+D----C           *IN20     DOWEQ'0'
+|    C                     ADD  1         J                 BLK2 INDEX
+|I---C           J         IFGT 32
+||   C                     ADD  1         I                 BLK1 INDEX
+||   C                     Z-ADD1         J                 BLK2 INDEX
+|E---C                     ENDIF
+|    C*
+|    C                     MOVEL*BLANK    ##BLK
+|    C                     MOVEL@A,I      ##BLK1            BLK1
+|    C                     MOVEL@A,J      ##BLK2            BLK2
+|I---C           ##BLK     IFEQ '00'
+||   C                     ADD  1         J                 BLK2 INDEX
+||   C                     MOVEL@A,J      ##BLK2            BLK2
+|E---C                     ENDIF
+|    C*
+|    C                     Z-ADDCISORT    K       30        PRIORITY
+|    C                     MOVEL##BLK     @SRT,K
+|    C*
+|    C                     EXSR #GJ02                       AGJPL02 READ
+E----C                     ENDDO
+     C*
+     C           ESB001    ENDSR
+      *---------------------------------------------------*
+      *   #GJ02                                           *
+      *---------------------------------------------------*
+     C           #GJ02     BEGSR
+     C*
+     C           #GJ021    TAG
+     C*
+     C                     READPAGJPL02                  20
+     C*
+     C           *IN20     CABEQ'1'       #GJ02E
+     C*
+I----C           CISKJY    IFEQ 'D'
+|    C           CISKHZ    ANDLESDATE
+|    C                     GOTO #GJ021
+E----C                     ENDIF
+     C*
+I----C           CIBLK     IFEQ *BLANK
+|    C                     GOTO #GJ021
+E----C                     ENDIF
+     C*
+     C           #GJ02E    ENDSR
+**  @A
+ABCDEFGHJKLMNPRSTUVWXY0123456789

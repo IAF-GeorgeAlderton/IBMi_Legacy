@@ -1,0 +1,205 @@
+     H            Y.
+     F***CHKR81*****************************************************************
+     F*  PROGRAM    : CHECK LOCATION CHANGE BY DATE                            *
+     F*             : RUN IN FCKC00 (10:10AM BY JOBSCDE)                       *
+     F*  WRITTEN    : 2020.06.29                                               *
+     F*  WRITTEN BY : JW (SRA)                                                 *
+     F**************************************************************************
+     FFCEPL01AIF  E           K        DISK
+     FFCEPL30 IF  E           K        DISK
+     FQPRINT  O   F     132     OF     PRINTER
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      * LOCATION CHG DATE
+     I            DS
+     I                                        1   80A2TRHZ
+     I                                        1   40A2TRYY
+     I                                        5   60A2TRMM
+     I                                        7   80A2TRDD
+      * PARAMETER (KEY)
+     I            DS
+     I                                        1   80K#YMD
+     I                                        1   40K#YY
+     I                                        5   60K#MM
+     I                                        7   80K#DD
+      * LOCATION (OLD) PRINT
+     I            DS
+     I                                        1   9 XLOC1
+     I                                        1   1 A2KTRK
+     I                                        2   2 PH11
+     I                                        3   4 A2KTRT
+     I                                        5   5 PH12
+     I                                        6   7 A2KTRR
+     I                                        8   8 PH13
+     I                                        9   9 A2KTRD
+      * LOCATION (NEW) PRINT
+     I            DS
+     I                                        1   9 XLOC2
+     I                                        1   1 A2STRK
+     I                                        2   2 PH21
+     I                                        3   4 A2STRT
+     I                                        5   5 PH22
+     I                                        6   7 A2STRR
+     I                                        8   8 PH23
+     I                                        9   9 A2STRD
+      * LOCATION (SERVICE PART)
+     I            DS
+     I                                        1   9 XLOC3
+     I                                        1   1 XLOC31
+     I                                        2   2 PH31
+     I                                        3   4 XLOC32
+     I                                        5   5 PH32
+     I                                        6   7 XLOC33
+     I                                        8   8 PH33
+     I                                        9   9 XLOC34
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      *
+     C           K#PL01    SETLLFCEPL01A
+     C                     DO   *HIVAL
+     C                     READ FCEPL01A                 98
+     C   98                LEAVE
+      *
+     C           A2GSKD    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * CHECK SERVICE PART
+     C                     EXSR #SVC
+      *
+     C                     EXSR #PRINT
+     C                     Z-ADDA2TRHZ    SVTRHZ
+      *
+     C                     ENDDO
+      *
+     C           SEQ#      IFNE 0
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  GET SERVICE PART                                  *
+      *----------------------------------------------------*
+     C           #SVC      BEGSR
+      *
+     C                     MOVELA2BHB1    K#BHB1
+     C                     MOVELA2BHB2    K#BHB2
+     C                     MOVELA2BHB3    K#BHB3
+     C                     MOVEL'*N*'     XLOC3     P
+      *
+     C           K#PL30    SETLLFCEPL30
+     C                     DO   *HIVAL
+     C           K#PL30    READEFCEPL30                  97
+     C   97                LEAVE
+      *
+     C           F3GSKD    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELF3STRK    XLOC31
+     C                     MOVE '-'       PH31
+     C                     MOVELF3STRT    XLOC32
+     C                     MOVE '-'       PH32
+     C                     MOVELF3STRR    XLOC33
+     C                     MOVE '-'       PH33
+     C                     MOVELF3STRD    XLOC34
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      *
+     C           LIN#      IFGE 66
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      * BREAK
+     C           A2TRHZ    IFNE SVTRHZ
+     C           SVTRHZ    ANDNE0
+     C                     EXCPT@DTL2
+     C                     ADD  1         LIN#
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $DATE   8
+     C                     PARM           $RTN    1
+      *
+     C           K#PL01    KLIST
+     C                     KFLD           K#YY
+     C                     KFLD           K#MM
+     C                     KFLD           K#DD
+      *
+     C           K#PL30    KLIST
+     C                     KFLD           K#BHB1  5
+     C                     KFLD           K#BHB2  5
+     C                     KFLD           K#BHB3  2
+      *
+     C                     MOVE *BLANK    $RTN
+     C                     TIME           SDATE
+     C                     Z-ADD0         SVTRHZ  80
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+     C                     MOVE '-'       PH11    1
+     C                     MOVE '-'       PH12    1
+     C                     MOVE '-'       PH13    1
+     C                     MOVE '-'       PH21    1
+     C                     MOVE '-'       PH22    1
+     C                     MOVE '-'       PH23    1
+      *
+     C           $DATE     IFEQ *BLANK
+     C           $DATE     OREQ '00000000'
+     C                     MOVELTODAY     $DATE
+     C                     ENDIF
+     C                     MOVEL$DATE     K#YMD
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   40 '** CHANGE LOCATION L'
+     O                                   60 'IST ** (START FROM: '
+     O                         K#YMD     70 '    /  /  '
+     O                                   71 ')'
+     O                                   89 'DATE'
+     O                         TODAY     92 '    .  .  '
+     O                         NOW      102 '  :  :  '
+     O                                  106 'P.'
+     O                         PAGE  Z  110
+     O        E   03           @HDR
+     O                                    5 'SEQ#'
+     O                                   18 'SCHD_CHG_DT'
+     O                                   27 'PART1'
+     O                                   33 'PART2'
+     O                                   45 'CUR-LOC'
+     O                                   58 'NEW-LOC'
+     O                                   71 'SRV-LOC'
+     O        E 1              @DTL
+     O                         SEQ#  1 +000
+     O                         A2TRHZ  +002 '    /  /  '
+     O                         A2BHB1  +005
+     O                         A2BHB2  +001
+     O                         A2BHB3  +001
+     O                         XLOC1   +002
+     O                         XLOC2   +004
+     O                         XLOC3   +004
+     O        E 1              @DTL2
+     O                                    1 '.'

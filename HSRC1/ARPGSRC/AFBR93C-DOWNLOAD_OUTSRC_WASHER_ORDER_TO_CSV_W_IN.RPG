@@ -1,0 +1,218 @@
+     H            Y.                                    1
+     H** AFBR93C ******************************************************
+     H*  DOWNLOAD OUTSRC WASHER ORDER TO CSV W/INSTRUCTION            *
+     H*  JW1       2024.06.20                                         *
+     H*****************************************************************
+     FAFBPW93CCF  E                    WORKSTN
+     F                                              KINFDS @INFDS
+      *--------------------------------------------------------------
+     E                    ERR     1  10 60
+     I**************************************************************************
+     I@INFDS      DS
+     I                                    B 370 3710@@LIN
+     I                                    B 378 3790@@REC
+     I            DS
+     I                                        1  12 XSHIN
+     I                                        1   5 XSHN1
+     I                                        6  10 XSHN2
+     I                                       11  12 XSHN3
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *-----------------------------------------------
+      *  MAIN ROUTINE
+      *-----------------------------------------------
+     C                     EXSR #INIT
+      *
+     C                     DO   *HIVAL
+     C                     EXFMTDSP01
+      *
+     C                     SELEC
+      * F3: END
+     C           *INKC     WHEQ *ON
+     C                     LEAVE
+      * F1/12: END
+     C           *INKA     WHEQ *ON
+     C           *INKL     OREQ *ON
+     C                     LEAVE
+      * F5: CSV
+     C           *INKE     WHEQ *ON
+     C                     EXSR #CHK1
+      *
+     C           *IN85     IFEQ *ON
+     C                     MOVELERR,1     XMSG             NO DATA
+     C                     ITER
+     C                     ENDIF
+      *
+     C           XSUPP     IFEQ *BLANK
+     C           XSUPP     OREQ '*ALL'
+     C           XSUPP     OREQ '0000'
+     C                     MOVEL'9999'    $SUPP
+     C                     ELSE
+     C                     MOVELXSUPP     $SUPP
+     C                     ENDIF
+      *
+     C                     MOVELXFROM     $FROM
+     C                     MOVELXTO       $TO
+     C                     MOVELXSHIN     $PART
+     C                     CALL 'AFBC93B'
+     C                     PARM           $SUPP   4
+     C                     PARM           $FROM   8
+     C                     PARM           $TO     8
+     C                     PARM           $PART  12
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ '*'
+     C                     MOVELERR,1     XMSG             NO DATA
+     C                     ENDIF
+      * ENTR
+     C                     OTHER
+     C                     EXSR #CHK1
+     C           *IN85     IFEQ *OFF
+     C                     MOVELERR,2     XMSG             PRESS F5 TO DOWNLOAD
+     C                     ENDIF
+     C                     ENDSL
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+     C**************************************************************************
+     C* CHECK ENTRY DATA
+     C**************************************************************************
+     C           #CHK1     BEGSR
+     C*
+     C                     SETOF                     414285
+     C                     MOVE *BLANK    XMSG
+     C*  CHECK DATE FROM
+     C           XFROM     IFEQ 0
+     C                     SETON                     41  85
+     C                     MOVELERR,3     XMSG             ENTER DATE FROM!
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XFROM     IFLE 20000000
+     C                     SETON                     41  85
+     C                     MOVELERR,5     XMSG             DATE_FROM IS INCORRET
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVELXFROM     $SRC      P
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+      *
+     C           $RTN      IFNE ' '
+     C                     SETON                     41  85
+     C                     MOVELERR,5     XMSG             DATE_FROM IS INCORRET
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C*  CHECK DATE TO
+     C           XTO       IFEQ 0
+     C                     Z-ADD99999999  XTO
+     C                     ENDIF
+      *
+     C           XTO       IFLE 20000000
+     C                     SETON                     42  85
+     C                     MOVELERR,6     XMSG             DATE_TO IS INCORRET
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XTO       IFNE 99999999
+     C                     MOVELXTO       $SRC      P
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+     C           $RTN      IFNE ' '
+     C                     SETON                     42  85
+     C                     MOVELERR,6     XMSG             DATE_TO IS INCORRET
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           XTO       IFLT XFROM
+     C                     SETON                     414285
+     C                     MOVELERR,4     XMSG             FROM > TO
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * IF NO ERROR  ----
+     C                     EXSR #CHK2
+      *
+     C           XCHK1     ENDSR
+      *-----------------------------------------------
+      * CHECK ORDER
+      *-----------------------------------------------
+     C           #CHK2     BEGSR
+      *
+     C           XSUPP     IFEQ *BLANK
+     C           XSUPP     OREQ '*ALL'
+     C                     MOVEL'9999'    $SUPP
+     C                     ELSE
+     C                     MOVELXSUPP     $SUPP
+     C                     ENDIF
+      *
+     C                     MOVELXFROM     $FROM
+     C                     MOVELXTO       $TO
+     C                     MOVELXSHIN     $PART
+     C                     CALL 'AFBR93D'
+     C                     PARM           $SUPP   4
+     C                     PARM           $FROM   8
+     C                     PARM           $TO     8
+     C                     PARM           $PART  12
+     C                     PARM           $RTN2   1
+      *
+     C           $RTN2     IFEQ '*'
+     C                     MOVELERR,1     XMSG             NO DATA
+     C                     MOVE *ON       *IN85
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *-----------------------------------------------
+      * INITIAL SET
+      *-----------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $SUPP   4
+     C                     PARM           $FROM   8
+     C                     PARM           $TO     8
+     C                     PARM           $PART  12
+      *
+     C                     TIME           SDATE
+      *
+     C           $SUPP     IFEQ *BLANK
+     C                     MOVEL'0000'    XSUPP
+     C                     ELSE
+     C                     MOVEL$SUPP     XSUPP
+     C                     ENDIF
+      *
+     C           $FROM     IFEQ *BLANK
+     C                     MOVELTODAY     XFROM
+     C                     ELSE
+     C                     MOVEL$FROM     XFROM
+     C                     ENDIF
+      *
+     C           $TO       IFEQ *BLANK
+     C                     MOVEL'99999999'XTO
+     C                     ELSE
+     C                     MOVEL$TO       XTO
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *---------------------------------------------------------
+** ERR(60A) ..+... 2 ...+... 3 ...+... 4 ...+... 5 ...+... 6
+NO DATA                                                      01
+PRESS F5 TO DOWNLOAD TO CSV...                               02
+ENTER DATE FROM!                                             03
+DATE_FROM IS LARGER THAN TO!                                 04
+DATE_FROM IS INCORRECT!                                      05
+DATE_TO IS INCORRECT!                                        06
+                                                             07
+                                                             08
+                                                             09
+                                                             10

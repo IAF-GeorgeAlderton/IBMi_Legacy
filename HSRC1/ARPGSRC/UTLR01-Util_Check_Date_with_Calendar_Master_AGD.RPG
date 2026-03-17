@@ -1,0 +1,366 @@
+     H            Y.
+     F** UTLR01 ********************************************
+     F*  PROGRAM: UTILITY - CHECK DATE WITH CALENDAR MASTER*
+     F*  WRITTEN: JW (SRA)                                 *
+     F*           10/7/2015                                *
+     F*  FUNCTION: VALIDATE AND CONVERT DATE               *
+     F*----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UTLR01'
+     F*                    PARM           $SRC   10
+     F*                    PARM           $TRUE   8
+     F*                    PARM           $RTN    1
+     F*   IN  $SRC : 10A DATE (MM/DD/YYYY, YYYYMMDD)
+     F*   OUT $TRUE:  8A FIXED DATE (YYYYMMDD)
+     F*       $RTN :  1A RETURN FLAG (BLANK=OK, 1=ERROR)
+     F*   ---------
+     F*   1. IF $SRC=BLANK, $TRUE=TODAY'S DATE
+     F******************************************************
+     FAGDPL12 IF  E           K        DISK
+      *--------------------------------------------------------
+     E                    DAT        10  1
+      *--------------------------------------------------------
+     I              '0123456789'          C         WKCKSU
+      *
+     I@TRUE       DS
+     I                                        1   4 @TRUYY
+     I                                        5   6 @TRUMM
+     I                                        7   8 @TRUDD
+     IX8KAYY      DS
+     I                                        1   1 Y1
+     I                                        2   2 Y2
+     I                                        3   3 Y3
+     I                                        4   4 Y4
+     IX8KAMM      DS
+     I                                        1   1 M1
+     I                                        2   2 M2
+     IX8KADD      DS
+     I                                        1   1 D1
+     I                                        2   2 D2
+     I            DS
+     I                                        1  140@DATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *--------------------------------------------------------
+     C           *ENTRY    PLIST
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+      *
+     C           KEY       KLIST
+     C                     KFLD           F8KAYY
+     C                     KFLD           F8KAMM
+     C                     KFLD           F8KADD
+      *
+     C                     MOVE *BLANK    $TRUE
+     C                     TIME           @DATE
+      *--------------------------------------------------------
+      *                    MAIN PROCESS
+      *--------------------------------------------------------
+      *
+     C                     MOVEL$SRC      LTR6    6
+     C           $SRC      IFEQ *BLANK
+     C           LTR6      OREQ '000000'
+     C                     MOVELTODAY     $TRUE
+     C                     MOVE *BLANK    $RTN
+     C                     GOTO ENDP
+     C                     ENDIF
+      *
+     C                     EXSR @CONV
+      *
+     C           #ERFLG    IFEQ *ON
+     C                     MOVE '1'       $RTN
+     C                     ELSE
+     C                     MOVELX8KAYY    F8KAYY
+     C                     MOVELX8KAMM    F8KAMM
+     C                     MOVELX8KADD    F8KADD
+     C           KEY       CHAINAGDPL12              99
+     C           *IN99     IFEQ *OFF
+     C                     MOVELF8KAYY    @TRUYY
+     C                     MOVELF8KAMM    @TRUMM
+     C                     MOVELF8KADD    @TRUDD
+     C                     MOVEL@TRUE     $TRUE
+     C                     MOVE ' '       $RTN
+     C                     ELSE
+     C                     MOVE '1'       $RTN
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           ENDP      TAG
+     C                     SETON                     LR
+     C                     RETRN
+      *=============================================================
+      *          @CONV: CONVERTY DATE TO YYYYMMDD
+      *=============================================================
+     C           @CONV     BEGSR
+     C                     MOVE *OFF      #ERFLG  1
+     C                     MOVEA$SRC      DAT
+      * CLEAR AFTER BLANK
+     C                     MOVE 'N'       BFLG    1
+     C           1         DO   10        IX      20
+     C           DAT,IX    IFEQ *BLANK
+     C           BFLG      ANDEQ'N'
+     C                     MOVE 'Y'       BFLG
+     C                     ITER
+     C                     ENDIF
+     C           DAT,IX    IFNE *BLANK
+     C           BFLG      ANDEQ'Y'
+     C                     MOVE *BLANK    DAT,IX
+     C                     ITER
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     SELEC
+      *-------------------
+      * CASE1A 'M/D/YY    '
+     C           DAT,2     WHEQ '/'
+     C           DAT,4     ANDEQ'/'
+     C           DAT,7     ANDEQ*BLANK
+     C           DAT,2     OREQ '-'
+     C           DAT,4     ANDEQ'-'
+     C           DAT,7     ANDEQ*BLANK
+     C           DAT,2     OREQ '.'
+     C           DAT,4     ANDEQ'.'
+     C           DAT,7     ANDEQ*BLANK
+     C                     MOVE '0'       M1
+     C                     MOVE DAT,1     M2
+     C                     MOVE '0'       D1
+     C                     MOVE DAT,3     D2
+     C                     MOVE '2'       Y1
+     C                     MOVE '0'       Y2
+     C                     MOVE DAT,5     Y3
+     C                     MOVE DAT,6     Y4
+      *-------------------
+      * CASE1B 'M/D/YYYY  '
+     C           DAT,2     WHEQ '/'
+     C           DAT,4     ANDEQ'/'
+     C           DAT,7     ANDNE*BLANK
+     C           DAT,2     OREQ '-'
+     C           DAT,4     ANDEQ'-'
+     C           DAT,7     ANDNE*BLANK
+     C           DAT,2     OREQ '.'
+     C           DAT,4     ANDEQ'.'
+     C           DAT,7     ANDNE*BLANK
+     C                     MOVE '0'       M1
+     C                     MOVE DAT,1     M2
+     C                     MOVE '0'       D1
+     C                     MOVE DAT,3     D2
+     C                     MOVE DAT,5     Y1
+     C                     MOVE DAT,6     Y2
+     C                     MOVE DAT,7     Y3
+     C                     MOVE DAT,8     Y4
+      *-------------------
+      * CASE2A 'M/DD/YY   '
+     C           DAT,2     WHEQ '/'
+     C           DAT,5     ANDEQ'/'
+     C           DAT,8     ANDEQ*BLANK
+     C           DAT,2     OREQ '-'
+     C           DAT,5     ANDEQ'-'
+     C           DAT,8     ANDEQ*BLANK
+     C           DAT,2     OREQ '.'
+     C           DAT,5     ANDEQ'.'
+     C           DAT,8     ANDEQ*BLANK
+     C                     MOVE '0'       M1
+     C                     MOVE DAT,1     M2
+     C                     MOVE DAT,3     D1
+     C                     MOVE DAT,4     D2
+     C                     MOVE '2'       Y1
+     C                     MOVE '0'       Y2
+     C                     MOVE DAT,6     Y3
+     C                     MOVE DAT,7     Y4
+      *-------------------
+      * CASE2B 'M/DD/YYYY '
+     C           DAT,2     WHEQ '/'
+     C           DAT,5     ANDEQ'/'
+     C           DAT,8     ANDNE*BLANK
+     C           DAT,2     OREQ '-'
+     C           DAT,5     ANDEQ'-'
+     C           DAT,8     ANDNE*BLANK
+     C           DAT,2     OREQ '.'
+     C           DAT,5     ANDEQ'.'
+     C           DAT,8     ANDNE*BLANK
+     C                     MOVE '0'       M1
+     C                     MOVE DAT,1     M2
+     C                     MOVE DAT,3     D1
+     C                     MOVE DAT,4     D2
+     C                     MOVE DAT,6     Y1
+     C                     MOVE DAT,7     Y2
+     C                     MOVE DAT,8     Y3
+     C                     MOVE DAT,9     Y4
+      *-------------------
+      * CASE3A 'MM/D/YY   '
+     C           DAT,3     WHEQ '/'
+     C           DAT,5     ANDEQ'/'
+     C           DAT,8     ANDEQ*BLANK
+     C           DAT,3     OREQ '-'
+     C           DAT,5     ANDEQ'-'
+     C           DAT,8     ANDEQ*BLANK
+     C           DAT,3     OREQ '.'
+     C           DAT,5     ANDEQ'.'
+     C           DAT,8     ANDEQ*BLANK
+     C                     MOVE DAT,1     M1
+     C                     MOVE DAT,2     M2
+     C                     MOVE '0'       D1
+     C                     MOVE DAT,4     D2
+     C                     MOVE '2'       Y1
+     C                     MOVE '0'       Y2
+     C                     MOVE DAT,6     Y3
+     C                     MOVE DAT,7     Y4
+      *-------------------
+      * CASE3B 'MM/D/YYYY '
+     C           DAT,3     WHEQ '/'
+     C           DAT,5     ANDEQ'/'
+     C           DAT,8     ANDNE*BLANK
+     C           DAT,3     OREQ '-'
+     C           DAT,5     ANDEQ'-'
+     C           DAT,8     ANDNE*BLANK
+     C           DAT,3     OREQ '.'
+     C           DAT,5     ANDEQ'.'
+     C           DAT,8     ANDNE*BLANK
+     C                     MOVE DAT,1     M1
+     C                     MOVE DAT,2     M2
+     C                     MOVE '0'       D1
+     C                     MOVE DAT,4     D2
+     C                     MOVE DAT,6     Y1
+     C                     MOVE DAT,7     Y2
+     C                     MOVE DAT,8     Y3
+     C                     MOVE DAT,9     Y4
+      *-------------------
+      * CASE4A 'MM/DD/YY'
+     C           DAT,3     WHEQ '/'
+     C           DAT,6     ANDEQ'/'
+     C           DAT,9     ANDEQ*BLANK
+     C           DAT,3     OREQ '-'
+     C           DAT,6     ANDEQ'-'
+     C           DAT,9     ANDEQ*BLANK
+     C           DAT,3     OREQ '.'
+     C           DAT,6     ANDEQ'.'
+     C           DAT,9     ANDEQ*BLANK
+     C                     MOVE DAT,1     M1
+     C                     MOVE DAT,2     M2
+     C                     MOVE DAT,4     D1
+     C                     MOVE DAT,5     D2
+     C                     MOVE '2'       Y1
+     C                     MOVE '0'       Y2
+     C                     MOVE DAT,7     Y3
+     C                     MOVE DAT,8     Y4
+      *-------------------
+      * CASE4B 'MM/DD/YYYY'
+     C           DAT,3     WHEQ '/'
+     C           DAT,6     ANDEQ'/'
+     C           DAT,9     ANDNE*BLANK
+     C           DAT,3     OREQ '-'
+     C           DAT,6     ANDEQ'-'
+     C           DAT,9     ANDNE*BLANK
+     C           DAT,3     OREQ '.'
+     C           DAT,6     ANDEQ'.'
+     C           DAT,9     ANDNE*BLANK
+     C                     MOVE DAT,1     M1
+     C                     MOVE DAT,2     M2
+     C                     MOVE DAT,4     D1
+     C                     MOVE DAT,5     D2
+     C                     MOVE DAT,7     Y1
+     C                     MOVE DAT,8     Y2
+     C                     MOVE DAT,9     Y3
+     C                     MOVE DAT,10    Y4
+      *-------------------
+      * CASE5 'YYYY/M/D  '
+     C           DAT,5     WHEQ '/'
+     C           DAT,7     ANDEQ'/'
+     C           DAT,9     ANDEQ' '
+     C           DAT,10    ANDEQ' '
+     C           DAT,5     OREQ '-'
+     C           DAT,7     ANDEQ'-'
+     C           DAT,9     ANDEQ' '
+     C           DAT,10    ANDEQ' '
+     C           DAT,5     OREQ '.'
+     C           DAT,7     ANDEQ'.'
+     C           DAT,9     ANDEQ' '
+     C           DAT,10    ANDEQ' '
+     C                     MOVE DAT,1     Y1
+     C                     MOVE DAT,2     Y2
+     C                     MOVE DAT,3     Y3
+     C                     MOVE DAT,4     Y4
+     C                     MOVE '0'       M1
+     C                     MOVE DAT,6     M2
+     C                     MOVE '0'       D1
+     C                     MOVE DAT,8     D2
+      *-------------------
+      * CASE6 'YYYY/M/DD '
+     C           DAT,5     WHEQ '/'
+     C           DAT,7     ANDEQ'/'
+     C           DAT,10    ANDEQ' '
+     C           DAT,5     OREQ '-'
+     C           DAT,7     ANDEQ'-'
+     C           DAT,10    ANDEQ' '
+     C           DAT,5     OREQ '.'
+     C           DAT,7     ANDEQ'.'
+     C           DAT,10    ANDEQ' '
+     C                     MOVE DAT,1     Y1
+     C                     MOVE DAT,2     Y2
+     C                     MOVE DAT,3     Y3
+     C                     MOVE DAT,4     Y4
+     C                     MOVE '0'       M1
+     C                     MOVE DAT,6     M2
+     C                     MOVE DAT,8     D1
+     C                     MOVE DAT,9     D2
+      *-------------------
+      * CASE7 'YYYY/MM/D '
+     C           DAT,5     WHEQ '/'
+     C           DAT,8     ANDEQ'/'
+     C           DAT,10    ANDEQ' '
+     C           DAT,5     OREQ '-'
+     C           DAT,8     ANDEQ'-'
+     C           DAT,10    ANDEQ' '
+     C           DAT,5     OREQ '.'
+     C           DAT,8     ANDEQ'.'
+     C           DAT,10    ANDEQ' '
+     C                     MOVE DAT,1     Y1
+     C                     MOVE DAT,2     Y2
+     C                     MOVE DAT,3     Y3
+     C                     MOVE DAT,4     Y4
+     C                     MOVE DAT,6     M1
+     C                     MOVE DAT,7     M2
+     C                     MOVE '0'       D1
+     C                     MOVE DAT,9     D2
+      *-------------------
+      * CASE8 'YYYY/MM/DD'
+     C           DAT,5     WHEQ '/'
+     C           DAT,8     ANDEQ'/'
+     C           DAT,10    ANDNE' '
+     C           DAT,5     OREQ '-'
+     C           DAT,8     ANDEQ'-'
+     C           DAT,10    ANDNE' '
+     C           DAT,5     OREQ '.'
+     C           DAT,8     ANDEQ'.'
+     C           DAT,10    ANDNE' '
+     C                     MOVE DAT,1     Y1
+     C                     MOVE DAT,2     Y2
+     C                     MOVE DAT,3     Y3
+     C                     MOVE DAT,4     Y4
+     C                     MOVE DAT,6     M1
+     C                     MOVE DAT,7     M2
+     C                     MOVE DAT,9     D1
+     C                     MOVE DAT,10    D2
+      *-------------------
+      * CASE9 'YYYYMMDD  '
+     C           DAT,9     WHEQ ' '
+     C           DAT,10    ANDEQ' '
+     C                     MOVE DAT,1     Y1
+     C                     MOVE DAT,2     Y2
+     C                     MOVE DAT,3     Y3
+     C                     MOVE DAT,4     Y4
+     C                     MOVE DAT,5     M1
+     C                     MOVE DAT,6     M2
+     C                     MOVE DAT,7     D1
+     C                     MOVE DAT,8     D2
+     C                     ENDSL
+      * CHECK NUMERIC ---------------------------------------
+     C           WKCKSU    CHECKX8KAYY                   99
+     C   99                MOVE *ON       #ERFLG
+     C           WKCKSU    CHECKX8KAMM                   99
+     C   99                MOVE *ON       #ERFLG
+     C           WKCKSU    CHECKX8KADD                   99
+     C   99                MOVE *ON       #ERFLG
+      *
+     C                     ENDSR

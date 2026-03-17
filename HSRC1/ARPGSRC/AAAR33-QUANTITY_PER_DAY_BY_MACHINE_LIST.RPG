@@ -1,0 +1,378 @@
+     H            Y.
+     F** AAAR33 ********************************************************
+     F*  QUANTITY PER DAY BY MACHINE LIST                              *
+     F*                                                                *
+     F* TCH 2000.08.03                                                 *
+     F*                                                                *
+     F* *IN90=1(NOT READ AGDPL11)                                      *
+     F* *IN91=1(NOT READ ABHPL02)                                      *
+     F* *IN92=1(NOT READ MFANL22)                                      *
+     F* *IN93=1(NOT READ MBEPL05)                                      *
+     F* *IN94=1(NOT READ GHCPP21)                                      *
+     F* *IN95=1(NOT READ AAAWP33)                                      *
+     F* 2021.01.20 DCS. T.MITSUI
+     F*   CHANGE WITH THE NUMBER OF FIGURES EXPANSION OF THE "KANBAN"
+     F************************ AAAR30 **********************************
+     FAGDPL11 IF  E           K        DISK
+     FABHPL02 IF  E           K        DISK
+     FMFANL22 IF  E           K        DISK
+     FMBEPL05 IF  E           K        DISK
+     FGHCPP21 IF  E           K        DISK
+     FAAAWP33 UF  E           K        DISK                      A
+     FQPRINT  O   F     132     OF     PRINTER
+     F******************************************************************
+     E                    SU         12  9 0             ACUTUAL QTY
+     I******************************************************************
+     I* ACTUAL SHIPPMENT QUANTITY
+     I            DS
+     I                                        1 1080SU
+     I                                        1   90I6SRO1
+     I                                       10  180I6SRO2
+     I                                       19  270I6SRO3
+     I                                       28  360I6SRO4
+     I                                       37  450I6SRO5
+     I                                       46  540I6SRO6
+     I                                       55  630I6SRO7
+     I                                       64  720I6SRO8
+     I                                       73  810I6SRO9
+     I                                       82  900I6SROA
+     I                                       91  990I6SROB
+     I                                      100 1080I6SROC
+     I* RPM(MACHINE TURN)
+     I            DS
+     I                                        1   50W6RPM
+     I                                        1   5 X6RPM
+     I* QTY/DAY (N-1) MONTH
+     I            DS
+     I                                        1   90W6PQTY
+     I                                        1   9 X6PQTY
+     I* QTY/DAY (N) MONTH
+     I            DS
+     I                                        1   90W6AQTY
+     I                                        1   9 X6AQTY
+     I* LOT SIZE
+     I            DS
+     I                                        1   60W6SIZE
+     I                                        1   6 X6SIZE
+     I* QTY PER CONTAINER
+     I            DS
+     I                                        1   50W6SYOS
+     I                                        1   5 X6SYOS
+     I* P/LOT
+     I            DS
+     I                                        1   30W6PLOT
+     I                                        1   3 X6PLOT
+     I* # OF KANBAN
+     I            DS
+     I                                        1   50W6#KAN
+     I                                        1   5 X6#KAN
+     I* SYSTEM TIME FOR AAAWP33
+     I            DS
+     I                                        1   60W6TIME
+     I                                        1   6 X6TIME
+     I* SYSTEM DATE FOR AAAWP33
+     I            DS
+     I                                        1   60W6DATE
+     I                                        1   6 X6DATE
+     I* SYSTEM(TIME + DATE)
+     I            DS
+     I                                        1  120WWTIME
+     I                                        1   60WKTIME
+     I                                        7  120WKDATE
+     I                                        9  100K01
+     C**************************************************************************
+     C*                    MAIN ROUTINE
+     C**************************************************************************
+     C*
+     C           *ENTRY    PLIST
+     C                     PARM           PUSR   10        USER ID
+     C                     PARM           PYYYY   40       REQUESTED YEAR
+     C                     PARM           PMM     20       REQUESTED MONTH
+     C                     PARM           PPDAY   20       #OF DAY OF REQ.
+     C                     PARM           PNDAY   20       #OF DAY OF ACT.
+     C*
+     C* GET # OF DAY OF REQUESTED(GADPLL01)
+     C           K0        KLIST
+     C                     KFLD           PYYYY            YEAR
+     C                     KFLD           K01              SYSTEM MONTH
+     C*
+     C           K1        KLIST
+     C                     KFLD           PYYYY            YEAR
+     C                     KFLD           PMM              N MONTH
+     C*
+     C           K2        KLIST
+     C                     KFLD           M7MSNO           MACHINE CODE
+     C                     KFLD           M7MBN1           LOCATION 1
+     C                     KFLD           M7MBN2                    2
+     C                     KFLD           M7MBN3                    3
+     C                     KFLD           M7MBN4                    4
+     C* FACILITY CONTROL MASTER(MFANL22)
+     C           K3        KLIST
+     C                     KFLD           K31     40       FACTORY CODE
+     C                     KFLD           M7MSNO           MACHINE CODE
+     C*
+     C* SALES TOTALIZATION FILEBY PART(MBEPL05)
+     C           K4        KLIST
+     C                     KFLD           PYYYY            YEAR
+     C                     KFLD           M7JHN1           PART 1
+     C                     KFLD           M7JHN2                2
+     C                     KFLD           M7JHN3                3
+     C*
+     C* INTRA-PROCESS KANBAN M/F(ABHPL02)
+     C           K5        KLIST
+     C                     KFLD           K31              MACHINE
+     C                     KFLD           M7JHN1           PART 1
+     C                     KFLD           M7JHN2                2
+     C                     KFLD           M7JHN3                3
+     C*
+     C                     EXSR @INT
+     C                     EXSR @MAIN
+     C                     EXSR @END
+     C**************************************************************************
+     C*                    @INT
+     C**************************************************************************
+     C           @INT      BEGSR
+     C*
+     C                     TIME           WWTIME
+     C                     Z-ADD*ZERO     WNDAY   20
+     C                     Z-ADD*ZERO     WPDAY   20
+     C                     Z-ADD*ZERO     I       20
+     C*
+     C                     EXCPTHD
+     C*
+     C* GET THE NUMBER OF DAY IN REQUESTED MONTH
+     C           K0        SETLLAGDPL111
+     C           K0        READEAGDPL111                 90
+     C           *IN90     DOWEQ'0'
+     C                     ADD  1         WPDAY
+     C           K0        READEAGDPL111                 90
+     C                     END
+     C*
+     C*
+     C* GET THE NUMBER OF DAY IN REQUESTED MONTH
+     C           K1        SETLLAGDPL111
+     C           K1        READEAGDPL111                 90
+     C           *IN90     DOWEQ'0'
+     C                     ADD  1         WNDAY
+     C           K1        READEAGDPL111                 90
+     C                     END
+     C*
+     C                     Z-ADDWPDAY     PPDAY
+     C                     Z-ADDWNDAY     PNDAY
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @MAIN
+     C**************************************************************************
+     C           @MAIN     BEGSR
+     C*
+     C* READ PROCESS MASTER
+     C                     READ GHCPP21                  94
+B01  C           *IN94     DOWEQ'0'
+     C*
+B02  C           M7MKTE    IFEQ 'BM'
+     C           M7MKTE    OREQ 'HD'
+     C           M7MKTE    OREQ 'RL'
+     C           M7MKTE    OREQ 'RRT'
+     C           M7MKTE    OREQ 'FRL'
+     C           M7MKTE    OREQ 'SK '
+     C           M7MKTE    OREQ 'RT '
+     C*
+     C           K2        CHAINAAAWP33              95
+     C*
+     C           *IN95     IFEQ '1'
+     C                     EXSR @WRT
+     C*
+     C                     ELSE
+     C                     EXSR @UPDAT
+     C                     END
+     C*
+E02  C                     END
+     C*
+     C                     READ GHCPP21                  94
+E01  C                     END
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @UPDAT
+     C**************************************************************************
+     C           @UPDAT    BEGSR
+     C*
+     C           K4        CHAINMBEPL05              93
+B01  C           *IN93     IFEQ '0'
+     C*
+     C* GET (N MONTH) QTY.
+     C                     Z-ADDPMM       I
+     C           SU,I      DIV  WNDAY     WWAQTY  90
+     C                     ADD  WWAQTY    W6AQTY
+     C*
+     C                     ELSE
+     C   OF                EXCPTHD
+     C                     EXCPTERR2
+E01  C                     END
+     C*
+     C* READ ABHPL02
+B01  C           W6PQTY    IFEQ *ZERO
+     C           K5        SETLLABHPL02
+     C           K5        READEABHPL02                  90
+B02  C           *IN90     DOWEQ'0'
+     C* USE LATEST DATA
+B03  C           M6STYY    IFEQ 9999
+     C           M6JBN1    ANDEQM7MBN1
+     C           M6JBN2    ANDEQM7MBN2
+     C           M6JBN3    ANDEQM7MBN3
+     C           M6JBN4    ANDEQM7MBN4
+     C*
+     C           M6KTSU    DIV  WPDAY     WWPQTY  90
+     C                     ADD  WWPQTY    W6PQTY           REQ.QTY.
+     C*
+     C                     MOVE M6HIN1    X6PAR1           PART 1
+     C                     MOVE M6HIN2    X6PAR2                2
+     C                     MOVE M6HIN3    X6PAR3                3
+     C*
+     C           M6SYUY    MULT M6LOTK    WWSIZE  60
+     C                     ADD  WWSIZE    W6SIZE           LOT SIZE
+     C                     Z-ADDM6SYUY    W6SYOS           QTY/CONT.
+     C                     Z-ADDM6LOTK    W6PLOT           P/LOT
+     C                     Z-ADDM6KMAX    W6#KAN           # OF KANBAN
+     C*
+E03  C                     END
+     C*
+     C           K5        READEABHPL02                  90
+E02  C                     END
+     C*
+E01  C                     END
+     C*
+     C                     Z-ADDWKTIME    W6TIME           # OF KANBAN
+     C                     Z-ADDWKDATE    W6DATE           # OF KANBAN
+     C                     UPDATAAAWP331
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @WRT
+     C**************************************************************************
+     C           @WRT      BEGSR
+     C*
+     C                     CLEARAAAWP331
+     C                     MOVE M7MSNO    X6MACH           MACHINE CODE
+     C                     MOVE M7MKTE    X6PRC1           PROCESS CODE
+     C                     MOVE M7MBN1    X6LOC1           LOCATION1
+     C                     MOVE M7MBN2    X6LOC2                   2
+     C                     MOVE M7MBN3    X6LOC3                   3
+     C                     MOVE M7MBN4    X6LOC4                   4
+     C*
+     C                     MOVE '0111'    K31
+     C           K3        CHAINMFANL22              92
+     C*
+     C  N92      M@RPMH    DIV  60        W6RPM
+     C   92                Z-ADD*ZERO     W6RPM
+     C   92 OF             EXCPTHD
+     C   92                EXCPTERR1
+     C*
+     C           K4        CHAINMBEPL05              93
+B03  C           *IN93     IFEQ '0'
+     C*
+     C* GET (N MONTH) QTY.
+     C                     Z-ADDPMM       I
+     C           SU,I      DIV  WNDAY     W6AQTY
+     C*
+     C                     ELSE
+     C                     Z-ADD*ZERO     W6AQTY
+     C   OF                EXCPTHD
+     C                     EXCPTERR2
+E03  C                     END
+     C*
+     C                     SETOF                     88
+     C           K5        SETLLABHPL02
+     C           K5        READEABHPL02                  90
+B03  C           *IN90     DOWEQ'0'
+     C* USE LATEST DATA
+B04  C           M6STYY    IFEQ 9999
+     C           M6JBN1    ANDEQM7MBN1
+     C           M6JBN2    ANDEQM7MBN2
+     C           M6JBN3    ANDEQM7MBN3
+     C           M6JBN4    ANDEQM7MBN4
+     C*
+     C                     MOVE M6HIN1    X6PAR1           PART 1
+     C                     MOVE M6HIN2    X6PAR2                2
+     C                     MOVE M6HIN3    X6PAR3                3
+     C           M6KTSU    DIV  WPDAY     W6PQTY
+     C           M6SYUY    MULT M6LOTK    W6SIZE           LOT SIZE
+     C                     Z-ADDM6SYUY    W6SYOS           QTY/CONT.
+     C                     Z-ADDM6LOTK    W6PLOT           P/LOT
+     C                     Z-ADDM6KMAX    W6#KAN           # OF KANBAN
+     C                     SETON                     88
+     C*
+E04  C                     END
+     C*
+     C           K5        READEABHPL02                  90
+E03  C                     END
+     C*
+     C           *IN88     IFEQ '0'
+     C                     Z-ADD*ZERO     W6PQTY
+     C                     Z-ADD*ZERO     W6SIZE
+     C                     Z-ADD*ZERO     W6SYOS
+     C                     Z-ADD*ZERO     W6PLOT
+     C                     Z-ADD*ZERO     W6#KAN
+     C                     END
+     C*
+     C                     Z-ADDWKTIME    W6TIME           SYSTEM TIME
+     C                     Z-ADDWKDATE    W6DATE                  DATE
+     C                     WRITEAAAWP331
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @END
+     C**************************************************************************
+     C           @END      BEGSR
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+     C*
+     C                     ENDSR
+     O*****************************************************************
+     OQPRINT  E   02           HD
+     O       OR        OF
+     O                                  131 '.....................'
+     O        E 1              HD
+     O       OR        OF
+     O                                  131 '.         .         .'
+     O        E 1              HD
+     O       OR        OF
+     O                                   89 'TIME'
+     O                         WKTIME    98 '  :  :  '
+     O                                  111 '.'
+     O                         PUSR     121
+     O                                  131 '.         .'
+     O        E 1              HD
+     O       OR        OF
+     O                                    8 'AAAR33'
+     O                                   52 '** ERROR LIST(QTY. / '
+     O                                   77 'DAY BY MACHINE LIST) **'
+     O                                   89 'DATE'
+     O                         UDATE Y   98
+     O                                  104 'PAGE'
+     O                         PAGE  Z  108
+     O                                  131 '.....................'
+     O        E 1              ERR1
+     O                                   40 'FACILITY CONTROL ERROR:'
+     O                         M7MSNO    50
+     O                         M7JHN1    60
+     O                         M7JHN2    66
+     O                         M7JHN3    69
+     O                         M7MBN1    70
+     O                         M7MBN2    73
+     O                         M7MBN3    76
+     O                         M7MBN4    78
+     O***********
+     O        E 1              ERR2
+     O                                   33 'SALES TOTALIZATION'
+     O                                   40 'ERROR:'
+     O                         M7MSNO    50
+     O                         M7JHN1    60
+     O                         M7JHN2    66
+     O                         M7JHN3    69
+     O                         M7MBN1    70
+     O                         M7MBN2    73
+     O                         M7MBN3    76
+     O                         M7MBN4    78

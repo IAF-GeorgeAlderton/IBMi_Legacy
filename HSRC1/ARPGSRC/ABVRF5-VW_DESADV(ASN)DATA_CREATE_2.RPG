@@ -1,0 +1,303 @@
+     H            Y.
+     F** ABVRF5 *******************************************************
+     F*  VW DESADV(ASN)DATA CREATE 2
+     F* T.SAKAKI 2015.09.10
+     F* -----------------------------
+JW1  F* JW       2021.07.01 ADD PRINT ASN
+     F*****************************************************************
+     FABVPWF5 CF  E                    WORKSTN
+     F                                              KINFDS INFDS
+     F                                        RRN   KSFILE SFREC1
+      * ASN LOG FILE
+     FAUDREC  IF  E           K        DISK
+      *================================================================
+     E                    ER      1  10 60
+      *================================================================
+     IINFDS       DS
+     I                                    B 378 3790$$RRN
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W$JBNO
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60@SYSTM
+     I                                        7  140@SYSHZ
+      *---------------------------------------------
+     I            DS
+     I                                        1   8 W$RCVD
+     I                                        1   2 W$YY1
+     I                                        2   80W$DCDT
+      *---------------------------------------------
+     I              'VOLKSWAGEN          'C         $$VW
+      *================================================================
+     C*
+     C                     MOVE '#INIT   '@STEP   8
+     C*
+     C           @STEP     DOUEQ'#END    '
+     C           @STEP     CASEQ'#INIT   '#INIT            初期処理
+     C           @STEP     CASEQ'#DSP1   '#DSP1
+     C           @STEP     CASEQ'#CHK1   '#CHK1
+     C           @STEP     CASEQ'#DSP2   '#DSP2
+     C           @STEP     CASEQ'#CHK2   '#CHK2
+     C                     ENDCS
+     C                     ENDDO
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+      *===============================================================
+      * INITIALIZATION
+      *===============================================================
+     C           #INIT     BEGSR
+     C                     MOVEA*ALL'0'   *IN
+      *
+     C                     CLEARDSP01
+     C                     TIME           @TIME
+     C                     MOVEL@SYSHZ    D1KARA
+     C                     MOVEL@SYSHZ    D1MADE
+     C                     MOVEL*BLANK    D1ERR
+     C*
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDSR
+     C*===============================================================
+      * SCREEN 1
+     C*===============================================================
+     C           #DSP1     BEGSR
+     C                     EXFMTDSP01
+     C                     MOVEA'000'     *IN,31
+     C                     MOVEA'0'       *IN,99
+      *----*
+     C                     SELEC
+     C* F1 *
+     C           *INKA     WHEQ *ON
+     C                     MOVE '#END    '@STEP
+      *
+     C                     OTHER
+     C                     MOVE '#CHK1   '@STEP
+     C                     ENDSL
+      *----*
+     C                     ENDSR
+     C*===============================================================
+      * CHECK SCREEN 1
+     C*===============================================================
+     C           #CHK1     BEGSR
+     C**
+     C           D1KARA    IFEQ *BLANK
+     C                     SETON                     3199
+     C                     MOVELER,1      D1ERR
+     C                     GOTO @CHK1
+     C                     ELSE
+     C                     CALL 'DATR10'
+     C                     PARM D1KARA    P$DATE  8
+     C                     PARM           P$RTN   1
+     C*                                              P$RTN='1':NG
+     C           P$RTN     IFEQ '1'
+     C                     SETON                     3199
+     C                     MOVELER,2      D1ERR
+     C                     GOTO @CHK1
+     C                     ENDIF
+     C                     ENDIF
+     C*
+     C           D1MADE    IFEQ *BLANK
+     C                     MOVE D1KARA    D1MADE
+     C                     ENDIF
+     C*
+     C                     CALL 'DATR10'
+     C                     PARM D1MADE    P$DATE  8
+     C                     PARM           P$RTN   1
+     C*                                              P$RTN='1':NG
+     C           P$RTN     IFEQ '1'
+     C                     SETON                     3299
+     C                     MOVELER,2      D1ERR
+     C                     GOTO @CHK1
+     C                     ENDIF
+     C*
+     C           D1KARA    IFGT D1MADE
+     C                     SETON                     313299
+     C                     MOVELER,3      D1ERR
+     C                     GOTO @CHK1
+     C                     ENDIF
+     C*
+     C                     EXSR #D2SET
+     C*
+     C           RRN       IFEQ 0
+     C                     SETON                     313299
+     C                     MOVELER,4      D1ERR
+     C                     GOTO @CHK1
+     C                     ENDIF
+      *-------------------------
+     C           @CHK1     TAG
+      *-------------------------
+     C           *IN99     IFEQ *OFF
+     C                     Z-ADDRRN       ENDRRN  40
+     C                     Z-ADD1         DSPRRN
+     C                     MOVEL*BLANK    D2ERR
+     C                     MOVE '#DSP2   '@STEP
+     C                     ELSE
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *===============================================================
+      * SET SCREEN 2 DATA
+      *===============================================================
+     C           #D2SET    BEGSR
+     C*  SFLCLR
+     C                     SETON                     72
+     C                     WRITESFCTL1
+     C                     SETOF                     72
+     C                     Z-ADD0         RRN     40
+     C                     Z-ADD0         ENDRRN  40
+      *
+     C           KEY01     KLIST
+     C                     KFLD           K$DTYP  1
+     C                     KFLD           K$DIPT 30
+      *
+     C                     MOVEL'T'       K$DTYP
+     C                     MOVEL$$VW      K$DIPT
+      * ASN LOG FILE
+     C           KEY01     SETLLAUDREC
+     C                     MOVE *BLANK    S1DCBM
+     C*-------------------------
+     C                     DO   *HIVAL
+     C           KEY01     READEAUDREC                   90
+     C   90                LEAVE
+     C*
+     C           AFDTID    IFNE 'DESADV'
+     C                     ITER
+     C                     ENDIF
+     C*
+     C                     MOVE AFDCDT    W$DCDT
+     C                     MOVE '20'      W$YY1
+     C           W$RCVD    IFLT D1KARA
+     C           W$RCVD    ORGT D1MADE
+     C                     ITER
+     C                     ENDIF
+     C           AFDCBM    IFEQ S1DCBM
+     C                     ITER
+     C                     ENDIF
+     C*
+     C                     MOVE *BLANK    S1SEL
+     C                     MOVE W$RCVD    S1RCVD
+     C                     MOVE AFDCTM    S1RCVT
+     C                     MOVE AFDTID    S1DTID
+     C                     MOVE AFDCBM    S1DCBM
+     C                     ADD  1         RRN
+     C                     SETOF                     41
+     C                     WRITESFREC1
+     C                     ENDDO
+     C*-------------------------
+     C*
+     C                     ENDSR
+      *===============================================================
+      * SCREEN 2
+      *===============================================================
+     C           #DSP2     BEGSR
+     C                     SETON                     71
+     C                     WRITEDSP02
+     C                     EXFMTSFCTL1
+     C                     SETOF                     71
+     C                     MOVEA'0'       *IN,99
+     C                     Z-ADD$$RRN     DSPRRN
+      *----*
+     C                     SELEC
+     C* F1 *
+     C           *INKA     WHEQ *ON
+     C                     MOVE '#END    '@STEP
+     C* F3 *
+     C           *INKC     WHEQ *ON
+     C                     MOVE '#DSP1   '@STEP
+     C* ROLL UP/DOWN
+     C           *IN73     WHEQ *ON
+     C           *IN74     OREQ *ON
+     C                     MOVE '#DSP2   '@STEP
+     C*     *
+     C                     OTHER
+     C                     MOVE '#CHK2   '@STEP
+     C                     ENDSL
+      *----*
+      *
+     C                     ENDSR
+      *===============================================================
+      * CHECK SCREEN 2
+      *===============================================================
+     C           #CHK2     BEGSR
+     C                     MOVEL*BLANK    D2ERR
+     C                     MOVEL*BLANK    X$DCBM  6
+JW1  C                     MOVEL*BLANK    P$DCBM  6
+     C                     Z-ADD0         SVRRN   40
+     C*-------------------------
+S1   C                     DO   ENDRRN    RRN
+     C           RRN       CHAINSFREC1               91
+     C   91                LEAVE
+     C*
+     C                     SETOF                     41
+     C*
+ S2  C                     SELEC
+ -2  C           S1SEL     WHEQ ' '
+CC    *
+JW1  C           S1SEL     WHEQ 'P'
+ .   C                     SETON                     4199
+ .   C                     MOVELER,7      D2ERR
+CC    *
+ -2  C           S1SEL     WHEQ 'X'
+  S3 C           X$DCBM    IFEQ *BLANK
+     C                     MOVE S1DCBM    X$DCBM
+     C                     Z-ADDRRN       SVRRN
+  X3 C                     ELSE
+     C                     SETON                     4199
+     C                     MOVELER,6      D2ERR
+     C                     Z-ADDRRN       DSPRRN
+  E3 C                     ENDIF
+      *
+ -2  C                     OTHER
+     C                     SETON                     4199
+     C                     MOVELER,5      D2ERR
+     C                     Z-ADDRRN       DSPRRN
+ E2  C                     ENDSL
+      *
+E1   C  N99                ENDDO
+      *-------------------------
+     C                     MOVE *BLANK    X$RTN   1
+     C           *IN99     IFEQ *OFF
+     C**JW1      X$DCBM    ANDNE*BLANK
+JW1   * DISPLAY ASN
+     C           X$DCBM    IFNE *BLANK
+     C                     CALL 'ABVCF6'
+     C                     PARM           X$DCBM
+     C                     PARM           X$RTN
+     C                     ENDIF
+JW1   * PRINT ASN
+     C           P$DCBM    IFNE *BLANK
+     C                     CALL 'ABVCF7'
+     C                     PARM           P$DCBM
+     C                     PARM           X$RTN
+     C                     ENDIF
+      * UPDATE SUBFILE
+     C           SVRRN     CHAINSFREC1               92
+     C           *IN92     IFEQ *OFF
+     C                     MOVE ' '       S1SEL
+     C                     UPDATSFREC1
+     C                     ENDIF
+     C                     ENDIF
+      *-------------------------
+     C           X$RTN     IFEQ '5'
+     C                     MOVE '#END    '@STEP
+     C                     ELSE
+     C                     MOVE '#DSP2   '@STEP
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *===============================================================
+**  ERR(60A) ......2.........3.........4.........5.........6
+ENTER DATE!                                                  01
+DATE IS INVALID!                                             02
+DATE ERROR(START-END)!                                       03
+NO DATA!                                                     04
+DETAIL SHOULD BE "X"                                         05
+SELECT ONLY ONE LINE!                                        06
+PRINT FUNCTION IS NOT READY!                                 07
+                                                             08
+                                                             09
+                                                             10

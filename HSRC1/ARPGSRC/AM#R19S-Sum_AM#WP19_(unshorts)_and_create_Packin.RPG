@@ -1,0 +1,251 @@
+     H            Y.
+      ** AM#R19S  ******************************************
+      *  SUM AM#WP19 (UNSHORTS) AND CREATE PACKING LIST W/F*
+      *                                                    *
+      * LEC   09/18/2020 CREATE                            *
+      ******************************************************
+     FAM#WL19 IF  E           K        DISK
+     FEDIPL40 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+     FAB#PL90 IF  E           K        DISK
+     FAB#WP37 O   E                    DISK
+      *
+      *
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   20WSSHHH
+     I                                        3   40WSSNNN
+     I                                        5   60WSSSSS
+     I                                        7  100WSSYYY
+     I                                       11  120WSSMMM
+     I                                       13  140WSSDDD
+     I                                        1   40WSSTM4
+     I                                        1   60WSTIME
+     I                                        7  140WSDATE
+      *
+      * PART NUMBER
+     I            DS
+     I                                        1  12 SVMHN
+     I                                        1   5 SVMHN1
+     I                                        6  10 SVMHN2
+     I                                       11  12 SVMHN3
+      * DELETE DATE (FCEPP01)
+     I            DS
+     I                                        1   80A2GSHZ
+     I                                        1   40A2GSYY
+     I                                        5   60A2GSMM
+     I                                        7   80A2GSDD
+      * EDITED PART NUMBER
+     I            DS
+     I                                        1  14 PART#
+     I                                        1   5 MHN1
+     I                                        6   6 DASH1
+     I                                        7  11 MHN2
+     I                                       12  12 DASH2
+     I                                       13  14 MHN3
+      *
+     C           KEY01     KLIST
+     C                     KFLD           MHN1
+     C                     KFLD           MHN2
+     C                     KFLD           MHNBLK  2
+      *
+     C           KEY02     KLIST
+     C                     KFLD           CHNONY
+      *
+     C                     DO   *HIVAL
+      *
+     C                     READ AM#WL19                  99
+     C   99                LEAVE
+      *
+      *  DELIVERY CODE CHANGE?
+     C           W1NONY    IFNE SVNONY
+     C                     EXSR DTL
+     C                     EXSR TTL
+     C                     Z-ADDW1NONY    SVNONY  40
+     C                     EXSR HDR
+     C                     MOVELW1MHN     SVMHN
+     C                     ENDIF
+      *
+      *  PART# CHANGE?
+     C           W1MHN     IFNE SVMHN
+     C                     EXSR DTL
+     C                     MOVELW1MHN     SVMHN
+     C                     ENDIF
+      *
+     C                     EXSR ACCUM
+      *
+     C                     ENDDO
+      *
+      *
+     C           DBOX      IFGT *ZERO
+     C                     EXSR DTL
+     C                     EXSR TTL
+     C                     ENDIF
+      *
+     C                     MOVEL*ON       *INLR
+     C                     RETRN
+      *-----------------------------------------------------
+      * HEADER RECORD
+      *-----------------------------------------------------
+     C           HDR       BEGSR
+      *
+     C                     TIME           WSDT
+     C                     Z-ADDWSDATE    WTODAY  80
+     C                     Z-ADDWSDATE    A7PDAT
+     C                     Z-ADDWSTIME    A7PTIM
+     C                     Z-ADD3411      A7TOKU
+     C                     Z-ADDW1NONY    A7NONY
+     C                     MOVE '0'       A7NKOJ
+     C                     MOVELW1NUKE    A7NUKE
+     C                     MOVEL'777'     A7SHP#
+     C                     MOVEL'EXPEDITE'A7EXPE
+     C           SVNONY    IFEQ 3503
+     C                     MOVEL'1731'    A7SIRE
+     C                     ELSE
+     C                     MOVEL'1406'    A7SIRE
+     C                     ENDIF
+     C                     MOVELW1SHID    A7DEDT
+     C                     Z-ADD33        A7DETM
+     C                     MOVEL'EXPEDITE'A7MAN#
+      *
+     C                     MOVELSVNONY    CHNONY  4
+     C           CHNONY    CHAINEDIPL40              90
+     C           *IN90     IFEQ *OFF
+     C                     MOVELE4ADD1    A7NAD1
+     C                     MOVELE4ADD2    A7NAD2
+     C                     MOVELE4ADD3    A7NAD3
+     C                     MOVELE4ADD4    A7NAD4
+     C                     MOVELE4ADD5    A7NAD5
+     C                     MOVELE4ADD6    A7NAD6
+     C                     ELSE
+     C                     MOVE *BLANKS   A7NAD1
+     C                     MOVE *BLANKS   A7NAD2
+     C                     MOVE *BLANKS   A7NAD3
+     C                     MOVE *BLANKS   A7NAD4
+     C                     MOVE *BLANKS   A7NAD5
+     C                     MOVE *BLANKS   A7NAD6
+     C                     ENDIF
+      *
+      *  get serial number...
+      *
+     C                     WRITEAB#WP371
+     C                     CLEARAB#WP371
+      *
+     C                     ENDSR
+      *
+      *-----------------------------------------------------
+      * DETAIL RECORD
+      *-----------------------------------------------------
+     C           DTL       BEGSR
+      *
+     C           DBOX      IFGT *ZERO
+     C                     MOVELSVMHN1    MHN1
+     C                     MOVEL'-'       DASH1
+     C                     MOVELSVMHN2    MHN2
+     C           SVMHN3    IFNE *BLANK
+     C                     MOVEL'-'       DASH2
+     C                     MOVELSVMHN3    MHN3
+     C                     ENDIF
+     C                     MOVELPART#     A7PART
+     C                     MOVELDSBAN     A7SBAN
+     C                     Z-ADDDBOX      A7EBOX
+     C                     Z-ADDDQPC      A7SYOS
+     C           DBOX      MULT DQPC      A7SRYO
+     C                     EXSR CALWGT
+     C                     Z-ADDNETKG     A7EPWG
+     C                     WRITEAB#WP371
+     C                     CLEARAB#WP371
+     C                     MOVE *BLANKS   PART#
+     C                     Z-ADD*ZERO     DBOX
+     C                     ENDIF
+      *
+     C                     MOVELW1SBAN    DSBAN   4
+     C                     Z-ADDW1QPC     DQPC    50
+      *
+     C                     ENDSR
+      *
+      *-----------------------------------------------------
+      * TOTAL RECORD
+      *-----------------------------------------------------
+     C           TTL       BEGSR
+      *
+     C           TBOX      IFGT *ZERO
+     C                     Z-ADDTBOX      A7TBOX
+     C                     Z-ADDTNETKG    A7TNWK
+     C           TNETKG    MULT 2.2046    A7TNWL    H
+     C                     WRITEAB#WP371
+     C                     CLEARAB#WP371
+      *
+     C                     Z-ADD*ZERO     TBOX
+     C                     Z-ADD*ZERO     TNETKG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *
+      *-----------------------------------------------------
+      * ACCUMULATE DETAIL COUNTS INTO TOTAL
+      *-----------------------------------------------------
+     C           ACCUM     BEGSR
+      *
+     C                     ADD  1         DBOX    50
+     C                     ADD  1         TBOX    50
+      *
+     C                     ENDSR
+      *
+      *-----------------------------------------------------
+      * CALCULATE WEIGHT
+      *-----------------------------------------------------
+     C           CALWGT    BEGSR
+      *
+      *  get part weight in grams...
+     C           KEY01     CHAINFCEPL011             50
+     C           *IN50     IFEQ *OFF
+     C                     Z-ADDA2KASI    WKASI   72
+     C                     ELSE
+     C                     Z-ADD*ZERO     WKASI
+     C                     ENDIF
+      *
+      *  calculate extended weight = quantity/container x part weight...
+     C           A7SYOS    MULT WKASI     EWGT    92
+      *
+      *  calculate extended weight in kg ...
+     C           EWGT      DIV  1000      EWKG    93
+      *
+     C                     Z-ADD*ZERO     @@MAX
+     C                     Z-ADD*ZERO     CNTWGT  52
+      *  get the weight of the actual container...
+     C           KEY02     SETLLAB#PL90
+      *
+     C           *IN50     DOUEQ*ON
+     C           KEY02     READEAB#PL90                  50
+      *
+     C           *IN50     IFEQ *OFF
+     C           YASKJY    ANDEQ*BLANK
+     C                     Z-ADDYAMXPL    @@MAX   50
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           @@MAX     IFGE 120
+     C                     Z-ADD1.07      CNTWGT
+     C                     ELSE
+     C                     Z-ADD.3        CNTWGT
+     C                     ENDIF
+      *
+      *  add container weight to extended wgt kg...
+     C                     ADD  CNTWGT    EWKG
+      *
+      *  calculate net wgt kg = extend gross wgt kg x # of boxes...
+     C           EWKG      MULT A7EBOX    NETKG   72
+      *
+      *  add net weight kg to total net weight kg...
+     C                     ADD  NETKG     TNETKG  92
+      *
+     C                     ENDSR
+      *
+      *-----------------------------------------------------

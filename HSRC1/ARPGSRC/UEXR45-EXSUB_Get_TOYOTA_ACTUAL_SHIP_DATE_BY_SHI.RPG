@@ -1,0 +1,132 @@
+     H            Y.
+      ** UEXR45 ****************************************************
+      *  GET TOYOTA ACTUAL SHIP DATE BY SHID                       *
+      *  LEC    2021.08.10                                         *
+JW1   *  JW     2021.09.15 USE AB#PL1H INSTEAD OF AB#PL15          *
+      **************************************************************
+      *  CALLING SEQ.                                              *
+      *                    CALL 'UEXR45 '
+      *                    PARM           $SHID  10
+      *                    PARM           $MAN#  10
+      *                    PARM           $MHIN  20
+      *                    PARM           $SHPDT  8
+      *   IN  $SHID  10A  SHIPMENT ID                              *
+      *   "   $MAN#  10A  MANIFEST #                               *
+      *   "   $MHIN  20A  CUSTOMER PART                            *
+      *   OUT $SHPDT  8A  ACTUAL SHIP DATE                         *
+      **************************************************************
+     FAB#EP60SIF  E           K        DISK
+JW1  FAB#PL1H IF  E           K        DISK
+     FAB#PL65EIF  E           K        DISK
+      ***********************************************************
+     I            DS
+     I                                        1  20 @@MHIN
+     I                                        1   5 MHN1
+     I                                        6  10 MHN2
+     I                                       11  15 MHN3
+     I                                       16  20 MHN4
+     I            DS
+     I                                        1   8 ASDATE
+     I                                        1   40A6DEYY
+     I                                        5   60A6DEMM
+     I                                        7   80A6DEDD
+JW1  I            DS
+ .   I                                        1  20 BAMHIN
+ .   I                                        1   5 BAMHN1
+ .   I                                        6  10 BAMHN2
+ .   I                                       11  15 BAMHN3
+JW1  I                                       16  20 BAMHN4
+      ****************************************************
+      * MAIN ROUTINE
+      ****************************************************
+      *
+     C                     EXSR #INIT
+      *
+      * find shipment id in ASN EDI file...
+     C           $SHID     CHAINAB#EP60S             50
+     C           *IN50     IFEQ *OFF
+      *
+      * use EDI info to get order# from order file...
+JW1  C           $MAN#     SETLLAB#PL1H
+ .   C           *IN51     DOWEQ*OFF
+JW1  C           $MAN#     READEAB#PL1H                  51
+      *
+     C           *IN51     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           BASKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           BAMHIN    IFNE $MHIN
+     C                     ITER
+     C                     ENDIF
+      *
+     C           BANOBN    IFEQ E1NBIN
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+      * if it was found in order file, use order# to check Pull file to get
+      * actual ship date...
+     C           *IN51     IFEQ *OFF
+     C                     MOVELBAINVN    @@ORD#
+     C                     MOVELE1NONY    CHNONY  4
+     C           K#PL65    SETLLAB#PL65E
+     C           *IN52     DOWEQ*OFF
+     C           K#PL65    READEAB#PL65E                 52
+      *
+     C           *IN52     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           A6SKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           A6NOBN    IFEQ E1NBIN
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDIF
+      *
+      * if found, this will be the actual ship date...
+     C           *IN52     IFEQ *OFF
+     C                     MOVELASDATE    $SHPDT
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      ****************************************************
+      * INITIALIZE
+      ****************************************************
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $SHID  10        IN
+     C                     PARM           $MAN#  10        IN
+     C                     PARM           $MHIN  20        IN
+     C                     PARM           $SHPDT  8        OUT
+      *
+     C           K#60S     KLIST
+     C                     KFLD           $SHID
+      *
+     C           K#PL65    KLIST
+     C                     KFLD           CHNONY
+JW1  C                     KFLD           BANUKE
+     C                     KFLD           @@ORD# 12
+     C                     KFLD           MHN1
+     C                     KFLD           MHN2
+     C                     KFLD           MHN3
+     C                     KFLD           MHN4
+      *
+     C                     MOVEL'00000000'$SHPDT
+     C                     MOVEL$MHIN     @@MHIN
+      *
+     C                     ENDSR

@@ -1,0 +1,104 @@
+             PGM
+             /** FCDC80 *******************************/
+             /* 作業日報の各時間項目の選択出力　　  */
+             /*        M-OKUDA     04.07.07  <CL>     */
+             /*****************************************/
+             DCL        VAR(&WSID)  TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT)   TYPE(*CHAR) LEN(7)
+             DCL        VAR(&TYPE)  TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG)  TYPE(*CHAR) LEN(10)
+             DCL        VAR(&MBAN) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&KOTAE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&KOJ) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&PYY) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&PMM) TYPE(*CHAR) LEN(2)
+             DCL        VAR(&PKB) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&DUS) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&US) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&FILE1) TYPE(*CHAR) LEN(5)
+             RTVJOBA    JOB(&WSID) USER(&US)
+             CHGVAR     VAR(&FILE1) VALUE(%SUBSTRING(&US 1 5))
+             CALL       PGM(KZZR00) PARM(&WSID &PRT &TYPE &PRTG)
+             CHGJOB     SWS(00000000)
+
+             CHGJOB     OUTQ(&PRTG)
+             CHKOBJ     OBJ(FCDACT80) OBJTYPE(*DTAARA)
+             MONMSG     MSGID(CPF9801) EXEC(GOTO CMDLBL(STEP04))
+             RTVDTAARA  DTAARA(FILELIB/FCDACT80 (1 10)) RTNVAR(&DUS)
+             IF         (&US *EQ &DUS) DO
+             DLTDTAARA  DTAARA(FILELIB/FCDACT80)
+             MONMSG     MSGID(CPF2105 CPF9999)
+             GOTO STEP04
+             ENDDO
+ STEP05:     SNDPGMMSG  MSG('( G ) このメニューを別の作業者' *CAT +
+                          &DUS *CAT +
+                          'が処理中なので１０分程待って下さい。') +
+                          TOMSGQ(&WSID) MSGTYPE(*INQ) KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTAE)
+             IF         (&KOTAE *EQ 'G') GOTO END
+             IF         (&US *EQ 'D6002     ') DO
+             IF         (&KOTAE *EQ 'D') GOTO STEP99
+             ENDDO
+             GOTO       STEP05
+
+ STEP04:     CRTDTAARA  DTAARA(FILELIB/FCDACT80) TYPE(*CHAR) LEN(10) +
+                          VALUE(&US) +
+                          TEXT('作業日報のパソコン転送データ+
+                          作成処理')
+             CLRPFM     FCDPP80
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CHGJOB     SWS(00000000)
+             CALL       FCDR80
+             IF         (%SWITCH(1XXXXXXX)) GOTO STEP99
+             IF         (%SWITCH(X1XXXXXX)) GOTO STEP00
+             DLTF       FILE(&FILE1)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(WORKLIB/&FILE1) SRCFILE(SRCLIB/ADDSSRC) +
+                          SRCMBR(FCDPP80) +
+                          TEXT('パソコン取込みデータ') +
+                          OPTION(*NOSOURCE *NOLIST) SIZE(3000 +
+                          100) LVLCHK(*NO)
+             /* 共通ファイルに複写 */
+             CPYF       FROMFILE(WORKLIB/FCDPP80) +
+                          TOFILE(WORKLIB/&FILE1) MBROPT(*ADD) +
+                          CRTFILE(*NO) FMTOPT(*DROP *MAP)
+
+             CLRPFM     FCDPP80
+             MONMSG     MSGID(CPF3261 CPF2105)
+             GOTO       STEP02
+ STEP00:     SNDPGMMSG  MSG('( G ) +
+                          指定された条件に合致したデータは１件も有+
+                          りませんでした。Ｇを選択すると終了します+
+                          。') TOMSGQ(&WSID) MSGTYPE(*INQ) +
+                          KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTAE)
+             IF         (&KOTAE = 'G') GOTO STEP99
+             GOTO       STEP00
+ STEP02:     SNDPGMMSG  MSG('設備負荷' *CAT &US *CAT +
+                          'がＷＯＲＫＬＩＢに作成されました。ＰＣ+
+                          へ自動転送しますか？、手動で転送操作をし+
+                          ますか？。自動の選択＜ＰＣに転送要求設定　+
+                          ＰＣ転送．ＴＴＯ　+
+                          が登録されている場合のみ可能＞はＡ、手動+
+                          の選択はＨで応答しなさい') +
+                          TOMSGQ(&WSID) MSGTYPE(*INQ) KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTAE)
+             IF         (&KOTAE = 'H') GOTO STEP03
+             IF         (&KOTAE = 'A') GOTO STEP06
+             GOTO       STEP02
+ STEP03:     DSPDBM     &FILE1
+             MONMSG     MSGID(CPA0701 CPF9999)
+ STEP99:     DLTDTAARA  DTAARA(FILELIB/FCDACT80)
+             MONMSG     MSGID(CPF2105 CPF9999)
+             GOTO       END
+ STEP06:     STRPCO     PCTA(*NO)
+             MONMSG     MSGID(CPF0000)
+             STRPCCMD   PCCMD('"C:$PROGRAM FILES$PERSONAL +
+                          COMMUNICATIONS$PCSFT5.EXE" +
+                          C:$AS400$TTO$ＰＣ転送.TTO') PAUSE(*NO)
+             DLTDTAARA  DTAARA(FILELIB/FCDACT80)
+             MONMSG     MSGID(CPF2105 CPF9999)
+ END:        ENDPGM

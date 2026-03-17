@@ -1,0 +1,329 @@
+     H            Y.                                    1
+      ***AM#R25W ***************************************************************
+      *  TSCS WRAPPER SCAN CONFIRMATION                                        *
+      *
+      **************************************************************************
+     FAM#PW25WCF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL010
+     F                                              KINFDS @INFDS
+     FAM#PL02 IF  E           K        DISK
+     FAGDPL12 IF  E           K        DISK
+     FAM#PL25 IF  E           K        DISK
+     FAM#PL21 IF  E           K        DISK
+     FAM#WP25WUF  E           K        DISK                      A
+      **************************************************************************
+     E                    MAN      9999 50
+     E                    ERR     1   4 70
+     E                    CMD     1   1 70
+      **************************************************************************
+     I@INFDS      DS
+     I                                     *STATUS  @STTS
+     I                                    B 370 3710@@LIN
+     I                                    B 378 3790@@REC
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60WSSTM6
+     I                                        1   40WSSTM4
+     I                                        1   20WSSHHH
+     I                                        3   40WSSNNN
+     I                                        5   60WSSSSS
+     I                                        7  140WSSDAT
+     I                                        7  100WSSYYY
+     I                                       11  120WSSMMM
+     I                                       13  140WSSDDD
+      * SHIP DATE
+     I            DS
+     I                                        1   80F1SHDT
+     I                                        1   40F1SHYY
+     I                                        5   60F1SHMM
+     I                                        7   80F1SHDD
+     I            DS
+     I                                        1   80W1SHDT
+     I                                        1   40W1SHYY
+     I                                        5   60W1SHMM
+     I                                        7   80W1SHDD
+     I            DS
+     I                                        1  50 MFBC
+     I                                        1  43 MFFIL1
+     I                                       44  44 MFSIDE
+     I                                       45  50 MFFIL2
+      **************************************************************************
+      *                    MAIN ROUTINE
+      **************************************************************************
+     C           @@ID      DOWNE'99'
+     C           @@ID      CASEQ'10'      #FMT10
+     C           @@ID      CASEQ'15'      #FMT15
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      **************************************************************************
+      *         INITIALIZE
+      **************************************************************************
+     C           *INZSR    BEGSR
+      *
+     C           K#25W     KLIST
+     C                     KFLD           MFBC
+      *
+     C                     TIME           WSDT
+      *
+     C                     Z-ADDWSSDAT    F1SHDT
+     C                     MOVEL*BLANK    MSG
+      *
+     C                     MOVEL'10'      @@ID    2
+     C                     MOVEL*OFF      *IN49
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     1ST SCREEN(SHIP DATE)
+      **************************************************************************
+     C           #FMT10    BEGSR
+      *
+     C                     SETOF                     48
+     C                     WRITEFMT099
+     C                     EXFMTFMT010
+     C                     MOVEL*BLANK    MSG
+     C                     MOVEL*OFF      *IN49
+      *
+     C                     SELEC
+     C           *INKA     WHEQ *ON
+     C                     MOVE '99'      @@ID
+     C                     OTHER
+     C                     EXSR #CHK10
+     C           *IN49     IFEQ *OFF
+     C                     EXSR #SET15
+     C                     MOVEL'15'      @@ID
+     C                     ENDIF
+     C           *IN49     IFEQ *ON
+     C                     MOVEL'10'      @@ID
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     1ST SCREEN CHECK
+      **************************************************************************
+     C           #CHK10    BEGSR
+      *
+     C                     SETOF                     3149
+     C                     TIME           WSDT
+      *
+     C           F1SHDT    IFEQ *ZERO
+     C                     SETON                     3149
+     C                     MOVELERR,1     MSG
+     C                     GOTO #EF10
+     C                     ENDIF
+      *
+     C                     Z-ADDF1SHDT    W1SHDT
+      *
+     C           K#AGDA    KLIST
+     C                     KFLD           W1SHYY
+     C                     KFLD           W1SHMM
+     C                     KFLD           W1SHDD
+      *
+     C           K#AGDA    CHAINAGDPL12              98
+     C           *IN98     IFEQ *ON
+     C                     SETON                     3149
+     C                     MOVELERR,1     MSG
+     C                     GOTO #EF10
+     C                     ENDIF
+      *
+      *
+     C           #EF10     ENDSR
+      *************************************************************************
+      *     2ND SCREEN SET
+      **************************************************************************
+     C           #SET15    BEGSR
+      *
+     C                     MOVEL*ON       *IN61
+     C                     WRITECTL010
+     C                     MOVEL*OFF      *IN61
+     C                     MOVEL*OFF      *IN62
+     C                     Z-ADD*ZERO     RRN1    40
+      *
+      * close and clear workfile before recreating.
+      *
+     C                     CLOSEAM#WP25W
+     C           P#CMD     PLIST
+     C                     PARM           P@CMD 256
+     C                     PARM           P@LEN  155
+     C                     Z-ADD70        P@LEN
+     C                     MOVELCMD,1     P@CMD
+     C                     CALL 'QCMDEXC' P#CMD
+     C                     OPEN AM#WP25W
+      *
+      * get all records starting with selected ship date going forward.
+      *
+     C                     MOVELF1SHDT    F1DATE  8
+     C                     MOVEA*BLANKS   MAN
+      *
+     C           KEY1      KLIST
+     C                     KFLD           F1DATE
+      *
+     C           KEY2      KLIST
+     C                     KFLD           F1DATE
+     C                     KFLD           R1IAFB
+     C                     KFLD           R1IAFP
+      *
+     C           KEY1      SETLLAM#PL02
+      *
+     C                     DO   *HIVAL
+      *
+     C           KEY1      READEAM#PL02                  97
+      *
+     C   97                LEAVE
+      *
+     C           R1HNTE    IFEQ 'NG'
+     C           R1SKJY    OREQ 'D'
+     C           R1EXCD    ORGT *BLANK
+     C                     ITER
+     C                     ENDIF
+      *
+      * check the wrapper scan file for this manifest...
+     C                     MOVE 'N'       WRSC    1
+     C                     MOVELR1MFBC    MFBC
+      *
+      * check if A side was scanned...
+     C                     MOVE 'A'       MFSIDE
+     C           K#25W     CHAINAM#PL25              88
+     C           *IN88     DOWEQ*OFF
+     C           R5APIC    IFGT *BLANKS
+     C                     MOVE 'Y'       WRSC
+     C                     LEAVE
+     C                     ENDIF
+     C           K#25W     READEAM#PL25                  88
+     C                     ENDDO
+      *
+      * if A side not found, check for B side...
+     C           WRSC      IFEQ 'N'
+     C                     MOVE 'B'       MFSIDE
+     C           K#25W     CHAINAM#PL25              88
+     C           *IN88     DOWEQ*OFF
+     C           R5APIC    IFGT *BLANKS
+     C                     MOVE 'Y'       WRSC
+     C                     LEAVE
+     C                     ENDIF
+     C           K#25W     READEAM#PL25                  88
+     C                     ENDDO
+     C                     ENDIF
+      *
+      * check the truck scan file for this manifest...
+     C                     MOVE 'N'       TKSC    1
+     C                     MOVELR1MFBC    MFBC
+      *
+      * check only A side because it's always A side for truck load...
+     C                     MOVE 'A'       MFSIDE
+     C           MFBC      CHAINAM#PL21              88
+     C           *IN88     DOWEQ*OFF
+     C           R2SKJY    IFEQ *BLANKS
+     C           R2HNTE    ANDEQ'OK'
+     C                     MOVE 'Y'       TKSC
+     C                     LEAVE
+     C                     ENDIF
+     C           MFBC      READEAM#PL21                  88
+     C                     ENDDO
+      *
+     C                     CLEARAM#WP251
+     C                     MOVELR1SHID    WSSHID
+     C                     MOVELR1SHIT    WSSHIT
+     C                     MOVELR1SURT    WSSURT
+     C                     MOVELR1IAFP    WSIAFP
+     C                     MOVELR1SMEI    WSSMEI
+     C                     MOVELR1MFBC    WSMFBC
+     C                     MOVELWRSC      WSWRSC
+     C                     MOVELTKSC      WSTKSC
+      *
+      * only write to workfile if it has not been scanned at the wrapper...
+     C           WRSC      IFEQ 'N'
+     C                     WRITEAM#WP251
+     C                     ENDIF
+      *
+     C           R1IAFB    IFNE SVIAFB
+     C           R1IAFP    ORNE SVIAFP
+     C           KEY2      SETGTAM#PL02
+     C                     MOVELR1IAFB    SVIAFB  3
+     C                     MOVELR1IAFP    SVIAFP  3
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+      *
+      * now read workfile and write to subfile to be displayed.
+      *
+     C           *LOVAL    SETLLAM#WP25W
+      *
+     C                     DO   *HIVAL
+      *
+     C                     READ AM#WP25W                 94
+     C   94                LEAVE
+      *
+     C                     CLEARSFL010
+     C                     Z-ADDWSSHID    S1SHID
+     C                     Z-ADDWSSHIT    S1SHIT
+     C                     MOVELWSSURT    S1SURT
+     C                     MOVELWSIAFP    S1IAFP
+     C                     MOVELWSSMEI    S1SMEI
+     C                     MOVELWSWRSC    S1WRSC
+     C                     MOVELWSTKSC    S1TKSC
+      *
+     C                     ADD  1         RRN1
+     C                     WRITESFL010
+      *
+     C                     ENDDO
+      *
+     C           RRN1      IFEQ *ZERO
+     C                     MOVELERR,3     MSG
+     C                     SETON                         49
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *************************************************************************
+      *     2ND SCREEN DISPLAY
+      **************************************************************************
+     C           #FMT15    BEGSR
+      *
+     C                     Z-ADD1         W#RNP1  40
+     C                     MOVEL*OFF      *IN49
+     C                     Z-ADDF1SHDT    S1SHDT
+      *
+     C                     DO   *HIVAL
+      *
+     C                     MOVEL*ON       *IN48
+     C                     WRITEFMT099
+     C                     Z-ADDW#RNP1    #RCN01
+     C                     EXFMTCTL010
+      *
+     C           @@REC     IFNE *ZERO
+     C                     Z-ADD@@REC     W#RNP1
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    MSG
+     C                     MOVEL*OFF      *IN49
+      *
+     C                     SELEC
+     C           *INKA     WHEQ *ON
+     C                     MOVEL'99'      @@ID
+     C                     LEAVE
+     C           *INKL     WHEQ *ON
+     C                     MOVEL'10'      @@ID
+     C                     LEAVE
+     C                     ENDSL
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *
+      **************************************************************************
+** ERR
+DATE ERROR
+ERROR 2
+NO DATA FOUND!
+ERROR 4
+** CMD
+CLRPFM QTEMP/AM#WP25W

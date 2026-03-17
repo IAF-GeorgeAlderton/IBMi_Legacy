@@ -1,0 +1,591 @@
+     H            Y/                                    1
+     H** AB#RO1 *******************************************************
+     H*  SALES ORDER LIST (BIN# >= 9)                                 *
+     H*  J.WATANABE  2019.03.21                                       *
+     H*  ---------------------------------------                      *
+JW1  H*  JW   2020.01.15 DLT AB#PP12                                  *
+JW2  H*  JW   2024.03.04 CHG AB#PLA1 TO AB#PL10E                      *
+     H*****************************************************************
+     FAB#PWO1 CF  E                    WORKSTN
+     F**AB#PLA1 IF  E           K        DISK
+JW2  FAB#PL10EIF  E           K        DISK
+     FFGBPL01 IF  E           K        DISK
+     FRGAPL11 IF  E           K        DISK
+JW1  F**AB#PP12 IF  E           K        DISK
+     FAB#WPO1 IF  E           K        DISK                      A    UC
+     FAB#WPO2 O   E                    DISK
+     FQPRINT  O   F     198     OF     PRINTER
+      *================================================================
+     E                    MSG     1   8 60
+      *
+     I            DS
+     I                                        1  17 @MHIN
+     I                                        1   5 BAMHN1
+     I                                        6   6 @MH1
+     I                                        7  11 BAMHN2
+     I                                       12  12 @MH2
+     I                                       13  17 BAMHN3
+      *
+     I            DS
+     I                                        1   80BANOHZ
+     I                                        1   40BANOYY
+     I                                        5   60BANOMM
+     I                                        7   80BANODD
+      *
+JW1  I            DS
+ |   I                                        1   80K#NOHZ
+ |   I                                        1   40K#NOYY
+ |   I                                        5   60K#NOMM
+JW1  I                                        7   80K#NODD
+      *
+     I            DS
+     I                                        1  14 @SHIN
+     I                                        1   5 BASHN1
+     I                                        6   6 @SH1
+     I                                        7  11 BASHN2
+     I                                       12  12 @SH2
+     I                                       13  14 BASHN3
+      *
+     I            DS
+     I                                        1  140@SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *
+     I           SDS
+     I                                     *PROGRAM #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     I                                      264 269 #JBNO
+     C*===============================================================
+     C*  START  PROGRAM
+     C*===============================================================
+     C                     EXSR #INIT
+      *
+     C                     DO   *HIVAL
+      *
+     C                     EXFMTDSP01
+     C                     SETOF                     414243
+     C                     SETOF                     85
+     C                     MOVE *BLANK    XMSG
+     C* F1: END
+     C           *INKA     IFEQ *ON
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     EXSR #CHK1
+      * F7: PRINT
+     C           *IN85     IFEQ *OFF
+     C           *INKG     ANDEQ*ON
+     C                     EXSR #OUT
+      * ERROR: OVER 10 PAGES
+     C           SEQ#      IFGE 800
+     C                     MOVELMSG,7     XMSG
+     C                     ITER
+     C                     ENDIF
+      * ERROR: NO DATA
+     C           SEQ#      IFEQ 0
+     C                     MOVELMSG,6     XMSG
+     C                     ITER
+     C                     ELSE
+     C                     EXSR #PRINT
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+      * F9: DOWNLOAD
+     C           *IN85     IFEQ *OFF
+     C           *INKI     ANDEQ*ON
+     C                     EXSR #OUT
+     C           SEQ#      IFEQ 0
+     C                     MOVELMSG,6     XMSG
+     C                     ITER
+     C                     ELSE
+     C                     MOVE 'Y'       $RTN
+     C                     EXSR #CSV
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDIF
+      * ENTER:
+     C           *IN85     IFEQ *OFF
+     C           *INKG     ANDEQ*OFF
+     C           *INKI     ANDEQ*OFF
+     C                     MOVELMSG,5     XMSG
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+     C*===============================================================
+     C*   CHECK ENTRY
+     C*===============================================================
+     C           #CHK1     BEGSR
+     C                     MOVE *OFF      *IN85
+      * CHECK FROM DATE
+     C           XFROM     IFEQ *BLANK
+     C                     MOVELMSG,1     XMSG
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVELXFROM     $SRC      P
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           @RTN1   1
+     C           @RTN1     IFNE *BLANK
+     C                     MOVELMSG,3     XMSG
+     C                     MOVE *ON       *IN41
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     MOVEL$TRUE     XFROM     P
+     C                     MOVEL$TRUE     @FROM
+      * CHECK TO DATE
+     C           XTO       IFEQ *BLANK
+     C                     MOVELMSG,2     XMSG
+     C                     MOVE *ON       *IN42
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVELXTO       $SRC      P
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           @RTN1   1
+     C           @RTN1     IFNE *BLANK
+     C                     MOVE *ON       *IN42
+     C                     MOVELMSG,4     XMSG
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     MOVEL$TRUE     XTO       P
+     C                     MOVEL$TRUE     @TO
+      * CHECK FROM > TO
+     C           @FROM     IFGT @TO
+     C                     MOVE *ON       *IN41
+     C                     MOVELMSG,8     XMSG
+     C                     MOVE *ON       *IN85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XCHK1     ENDSR
+     C*===============================================================
+     C* OUTPUT AB#WPO1 (WORK)
+     C*===============================================================
+     C           #OUT      BEGSR
+      *
+     C                     OPEN AB#WPO1
+     C                     Z-ADD0         SEQ#
+      * BY DATE ------------------------
+     C**         @FROM     SETLLAB#PLA1
+JW2  C           @FROM     SETLLAB#PL10E
+      *
+     C                     DO   *HIVAL
+     C**                   READ AB#PLA1                  98
+JW2  C                     READ AB#PL10E                 98
+     C   98                LEAVE
+      * END
+     C           BACRHZ    IFGT @TO
+     C                     LEAVE
+     C                     ENDIF
+      * SELECT ORDER
+     C           BASKJY    IFEQ 'D'
+     C           BANOBN    ORLE 08
+     C           BACRME    OREQ 'EDIUSER'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     WRITEAB#WPO11
+      *
+     C           *INKG     IFEQ *ON
+     C           SEQ#      ANDGE810
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *---------------------------------
+     C                     CLOSEAB#WPO1
+      *
+     C                     ENDSR
+     C*===============================================================
+     C* PRINT
+     C*===============================================================
+     C           #PRINT    BEGSR
+      *
+     C                     OPEN AB#WPO1
+     C                     MOVE 'Y'       FIRST
+     C                     Z-ADD0         SVTOKU
+      *
+     C                     DO   *HIVAL
+     C                     READ AB#WPO1                  97
+     C   97                LEAVE
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELBATOKU    SVTOKU
+     C                     ENDIF
+      * BREAK?
+     C           BATOKU    IFNE SVTOKU
+     C                     EXCPT#LINE
+     C                     ADD  1         LIN#
+     C                     MOVELBATOKU    SVTOKU
+     C                     ENDIF
+      *
+     C                     EXSR #PRT1
+     C                     ENDDO
+      *---------------------------------
+     C                     CLOSEAB#WPO1
+      *
+     C                     EXCPT#FOOT
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRT1     BEGSR
+      * ADJ
+      * USER PART
+     C           BAMHN2    IFEQ *BLANK
+     C                     MOVE ' '       @MH1
+     C                     ELSE
+     C                     MOVE '-'       @MH1
+     C                     ENDIF
+     C           BAMHN3    IFEQ *BLANK
+     C                     MOVE ' '       @MH2
+     C                     ELSE
+     C                     MOVE '-'       @MH2
+     C                     ENDIF
+      * IAF PART
+     C           BASHN2    IFEQ *BLANK
+     C                     MOVE ' '       @SH1
+     C                     ELSE
+     C                     MOVE '-'       @SH1
+     C                     ENDIF
+     C           BASHN3    IFEQ *BLANK
+     C                     MOVE ' '       @SH2
+     C                     ELSE
+     C                     MOVE '-'       @SH2
+     C                     ENDIF
+      * CUST NAME
+     C           BATOKU    CHAINFGBPL01              99
+     C           *IN99     IFEQ *OFF
+     C                     MOVELB2SMEI    @TOKUN
+     C                     ELSE
+     C                     MOVE *BLANK    @TOKUN
+     C                     ENDIF
+      * DELIVERY NAME
+     C           BANONY    CHAINFGBPL01              99
+     C           *IN99     IFEQ *OFF
+     C                     MOVELB2SMEI    @NONYN
+     C                     ELSE
+     C                     MOVE *BLANK    @NONYN
+     C                     ENDIF
+      * USER NAME
+     C           BACRME    CHAINRGAPL11              99
+     C           *IN99     IFEQ *OFF
+     C                     MOVELJ8NAME    @USNM
+     C                     ELSE
+     C                     MOVE *BLANK    @USNM
+     C                     ENDIF
+      *
+     C                     MOVELBACRME    @USR
+     C                     MOVELBACRTM    @CRTM
+      * EVENT NAME
+     C**                   Z-ADDBATOKU    K#TOKU
+     C**                   Z-ADDBANONY    K#NONY
+     C**                   MOVELBANKOJ    K#NKOJ
+     C**                   MOVELBANUKE    K#NUKE
+     C**                   Z-ADDBANOHZ    K#NOHZ
+     C**                   Z-ADDBANOBN    K#NOBN
+     C**                   MOVELBAODRN    K#ODRN
+     C**                   MOVELBAMHN1    K#MHN1
+     C**                   MOVELBAMHN2    K#MHN2
+     C**                   MOVELBAMHN3    K#MHN3
+     C**                   MOVE *BLANK    K#MHN4
+     C**         K#PP12    CHAINAB#PP12              98
+     C**         *IN98     IFEQ *OFF
+     C**                   MOVELB2EVNT    @EVNT  20
+JW1  C                     MOVELBAFLD1    @EVNT  10
+     C**                   ELSE
+     C**                   MOVE *BLANK    @EVNT
+     C**                   ENDIF
+      * PRINT HEADER
+     C           LIN#      IFGE 72
+     C                     EXCPT#HDR
+     C                     Z-ADD5         LIN#
+     C                     ENDIF
+      * PRINT DETAIL
+     C**                   ADD  1         SEQ#
+     C                     EXCPT#DTL
+     C                     ADD  1         LIN#
+      *
+     C                     ENDSR
+     C*===============================================================
+     C* CSV DOWNLOAD
+     C*===============================================================
+     C           #CSV      BEGSR
+      *
+     C                     OPEN AB#WPO1
+     C                     MOVE 'Y'       FIRST
+     C                     Z-ADD0         SVTOKU
+      *
+     C                     DO   *HIVAL
+     C                     READ AB#WPO1                  97
+     C   97                LEAVE
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELBATOKU    SVTOKU
+     C                     EXSR #CSV@H
+     C                     ENDIF
+      * BREAK?
+     C           BATOKU    IFNE SVTOKU
+     C**                   EXCPT#LINE
+     C                     MOVELBATOKU    SVTOKU
+     C                     ENDIF
+      *
+     C                     EXSR #CSV@D
+     C                     ENDDO
+      *---------------------------------
+     C                     CLOSEAB#WPO1
+      *
+     C                     EXSR #CSV@F
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  CSV HEADER                                        *
+      *----------------------------------------------------*
+     C           #CSV@H    BEGSR
+     C                     CLEARAB#WPO21
+      * HEADER
+     C                     MOVEL'CUSTOMER'WKTOKU
+     C                     MOVEL'NAME    'WKTONM
+     C                     MOVEL'DELIVERY'WKNONY
+     C                     MOVEL'NAME    'WKNONM
+     C                     MOVEL'FACTORY 'WKNKOJ
+     C                     MOVEL'DOCK    'WKNUKE
+     C                     MOVEL'USR_PART'WKMHIN
+     C                     MOVEL'IAF_PART'WKSHIN
+     C                     MOVEL'SHP_DATE'WKNOHZ
+     C                     MOVEL'BIN#    'WKNOBN
+     C                     MOVEL'ORD_QTY 'WKSRYO
+     C                     MOVEL'CRT_DATE'WKCRHZ
+     C                     MOVEL'TIME    'WKCRTM
+     C                     MOVEL'USER_ID 'WKUSR
+     C                     MOVEL'NAME    'WKUSRN
+     C                     MOVEL'EVENT_NM'WKEVNT
+      *
+     C                     WRITEAB#WPO21
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  CSV HEADER                                        *
+      *----------------------------------------------------*
+     C           #CSV@D    BEGSR
+     C                     CLEARAB#WPO21
+      * ADJ
+     C                     MOVELBANKOJ    WKNKOJ
+     C                     MOVELBANUKE    WKNUKE
+      * USER PART
+     C           BAMHN2    IFEQ *BLANK
+     C                     MOVE ' '       @MH1
+     C                     ELSE
+     C                     MOVE '-'       @MH1
+     C                     ENDIF
+     C           BAMHN3    IFEQ *BLANK
+     C                     MOVE ' '       @MH2
+     C                     ELSE
+     C                     MOVE '-'       @MH2
+     C                     ENDIF
+     C                     MOVEL@MHIN     WKMHIN
+      * IAF PART
+     C           BASHN2    IFEQ *BLANK
+     C                     MOVE ' '       @SH1
+     C                     ELSE
+     C                     MOVE '-'       @SH1
+     C                     ENDIF
+     C           BASHN3    IFEQ *BLANK
+     C                     MOVE ' '       @SH2
+     C                     ELSE
+     C                     MOVE '-'       @SH2
+     C                     ENDIF
+     C                     MOVEL@SHIN     WKSHIN
+      * CUST NAME
+     C                     MOVELBATOKU    WKTOKU
+     C           BATOKU    CHAINFGBPL01              99
+     C           *IN99     IFEQ *OFF
+     C                     MOVELB2SMEI    WKTONM
+     C                     ENDIF
+      * DELIVERY NAME
+     C                     MOVELBANONY    WKNONY
+     C           BANONY    CHAINFGBPL01              99
+     C           *IN99     IFEQ *OFF
+     C                     MOVELB2SMEI    WKNONM
+     C                     ENDIF
+      *
+     C                     MOVELBANOHZ    WKNOHZ
+     C                     MOVELBANOBN    WKNOBN
+     C                     MOVELBASRYO    WKSRYO
+     C                     MOVELBACRHZ    WKCRHZ
+     C                     MOVELBACRTM    WKCRTM
+      * USER NAME
+     C                     MOVELBACRME    WKUSR
+     C           BACRME    CHAINRGAPL11              99
+     C           *IN99     IFEQ *OFF
+     C                     MOVELJ8NAME    WKUSRN
+     C                     ENDIF
+      * EVENT NAME
+     C**                   Z-ADDBATOKU    K#TOKU
+     C**                   Z-ADDBANONY    K#NONY
+     C**                   MOVELBANKOJ    K#NKOJ
+     C**                   MOVELBANUKE    K#NUKE
+     C**                   Z-ADDBANOHZ    K#NOHZ
+     C**                   Z-ADDBANOBN    K#NOBN
+     C**                   MOVELBAODRN    K#ODRN
+     C**                   MOVELBAMHN1    K#MHN1
+     C**                   MOVELBAMHN2    K#MHN2
+     C**                   MOVELBAMHN3    K#MHN3
+     C**                   MOVE *BLANK    K#MHN4
+     C**         K#PP12    CHAINAB#PP12              98
+     C**         *IN98     IFEQ *OFF
+     C**                   MOVELB2EVNT    WKEVNT
+JW1  C                     MOVELBAFLD1    WKEVNT
+     C**                   ELSE
+     C**                   MOVE *BLANK    WKEVNT
+     C**                   ENDIF
+      *
+     C                     WRITEAB#WPO21
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  CSV FOOT                                          *
+      *----------------------------------------------------*
+     C           #CSV@F    BEGSR
+      *
+     C                     CLEARAB#WPO21
+     C                     MOVEL'*TOTAL* 'WKTOKU
+     C                     MOVELSEQ#      WKTONM
+     C                     WRITEAB#WPO21
+      *
+     C                     ENDSR
+     C*===============================================================
+     C*   << INIT >>
+     C*===============================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $RTN    1
+      *
+     C           K#PL06    KLIST
+     C                     KFLD           KMHN1   5
+     C                     KFLD           KMHN2   5
+     C                     KFLD           KMHN3   5
+     C                     KFLD           KMHN4   5
+      *
+     C**JW1      K#PP12    KLIST
+     C**                   KFLD           K#TOKU  40
+     C**                   KFLD           K#NONY  40
+     C**                   KFLD           K#NKOJ  1
+     C**                   KFLD           K#NUKE  4
+     C**                   KFLD           K#NOHZ  80
+     C**                   KFLD           K#NOBN  20
+     C**                   KFLD           K#ODRN 10
+     C**                   KFLD           K#MHN1  5
+     C**                   KFLD           K#MHN2  5
+     C**                   KFLD           K#MHN3  5
+     C**                   KFLD           K#MHN4  5
+      *
+     C                     MOVE *BLANK    $RTN
+     C                     TIME           @SDATE
+     C                     Z-ADD0         @FROM   80
+     C                     Z-ADD0         @TO     80
+     C                     Z-ADD88        LIN#    30
+     C                     Z-ADD0         SEQ#    90
+      *
+     C                     MOVELTODAY     XFROM
+     C                     MOVELTODAY     XTO
+      *
+     C                     MOVE *BLANK    @TOKUN 15
+     C                     MOVE *BLANK    @NONYN 15
+     C                     MOVE *BLANK    @USNM  15
+     C                     MOVE *BLANK    @USR    6
+     C                     MOVE *BLANK    @CRTM   40
+     C                     Z-ADD0         SVTOKU  40
+     C                     MOVE 'Y'       FIRST   1
+      *
+     C                     ENDSR
+      *===============================================================
+     OQPRINT  E   01           #HDR
+     O                         #PGM      11
+     O                         #USER     21
+     O                                   50 '** SALES ORDER LIST '
+     O                                   70 '(BIN# >= 9) **      '
+     O                         TODAY    105 '    .  .  '
+     O                         NOW      115 '  :  :  '
+     O                         PAGE  Z  123
+     O                                  119 'P.'
+     O        E   03           #HDR
+     O                                    6 'FROM:'
+     O                         @FROM     17 '    /  /  '
+     O                                   25 'TO:'
+     O                         @TO       36 '    /  /  '
+     O        E 1              #HDR
+     O                                    9 'CUSTOMER'
+     O                                   30 'DELIVERY'
+     O                                   45 'FC'
+     O                                   50 'DOCK'
+     O                                   60 'USER_PART'
+     O                                   77 'IAF_PART'
+     O                                   92 'DUE_DATE'
+     O                                   98 'BIN'
+     O                                  111 'QTY'
+     O                                  121 'CRT_DATE'
+     O                                  127 'TIME'
+     O                                  133 'USER'
+     O                                  140 'NAME'
+     O                                  163 'EVENT_NAME'
+     O        E 1              #HDR
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+     O                                  120 '--------------------'
+     O                                  140 '--------------------'
+     O                                  160 '--------------------'
+     O                                  180 '--------------------'
+     O        E 1              #DTL
+     O                         BATOKU  +001
+     O                         @TOKUN  +001
+     O                         BANONY  +001
+     O                         @NONYN  +001
+     O                         BANKOJ  +001
+     O                         BANUKE  +002
+     O                         @MHIN   +001
+     O                         @SHIN   +001
+     O                         BANOHZ  +001 '    /  /  '
+     O                         BANOBN  +001
+     O                         BASRYO1 +001
+     O                         BACRHZ  +001 '    /  /  '
+     O                         @CRTM   +001 '0 :  '
+     O                         @USR    +001
+     O                         @USNM   +001
+     O                         @EVNT   +002
+     O        E 1              #LINE
+     O                                    2 '**'
+     O        E 1              #FOOT
+     O                                   12 '** TOTAL **'
+     O                         SEQ#  1   24
+** MSG   +.........+.........+.........+.........+.........+
+ENTER DATE "FROM" !                                          01
+ENTER DATE "TO" !                                            02
+DATE "FROM" IS NOT IN CALENDAR MASTER !                      03
+DATE "TO" IS NOT IN CALENDAR MASTER !                        04
+PRESS F7 TO PRINT...                                         05
+THERE IS NO TARGET DATA !                                    06
+* ERROR * IT WILL BE OVER 10 PAGES. PLEASE USE F9 !          07
+DATE "FROM" IS GREATER THAN "TO" !                           08

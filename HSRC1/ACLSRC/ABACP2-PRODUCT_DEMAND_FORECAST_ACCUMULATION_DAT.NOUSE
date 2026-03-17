@@ -1,0 +1,128 @@
+             PGM
+             /** ABACP2 ********************************************/
+             /*  PRODUCT DEMAND FORECAST ACCUMULATION DATA CREATE  */
+             /*                            USER KANBAN M/F CREATE  */
+             /*                          K.YASUDA    1999.08.19    */
+             /******************************************** ABACP2 **/
+             DCLF       FILE(ABAPWP2)
+             DCL        VAR(&ABADS1) TYPE(*CHAR) LEN(48)
+             DCL        VAR(&ABBDS1) TYPE(*CHAR) LEN(54)
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&TYPE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&MBAN) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&KOTAE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&BHIZ) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&PYMD) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&WYMD) TYPE(*CHAR) LEN(8)
+             DCL        VAR(&PDEVT) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&PIGCD) TYPE(*CHAR) LEN(4)
+             RTVDTAARA  DTAARA(ABADS1) RTNVAR(&ABADS1)
+             RTVSYSVAL  SYSVAL(QDATE) RTNVAR(&PYMD)
+             RTVJOBA    JOB(&WSID)
+
+             CALL       PGM(AGAR01) PARM(&WSID &PDEVT &PIGCD)
+
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+
+             CHKOBJ     OBJ(HFILE1/ABAACT) OBJTYPE(*DTAARA)
+             MONMSG     MSGID(CPF9801) EXEC(GOTO CMDLBL(YTP1))
+
+ YTP2:       SNDPGMMSG  MSG('( G ) USER KANBAN M/F UPDATE HANDLING +
+                          IS ACTIVE, WAIT FOR A WHILE. < G= +
+                          EXECUTION >') TOMSGQ(&WSID) MSGTYPE(*INQ) +
+                          KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTAE)
+             IF         COND((&KOTAE *NE 'G') *AND (&KOTAE *NE 'g')) +
+                          THEN(GOTO CMDLBL(YTP2))
+             GOTO       SEND
+
+ YTP1:       CRTDTAARA  DTAARA(HFILE1/ABAACT) TYPE(*CHAR) LEN(10) +
+                          TEXT('DURING USER PROD DEMAND FORECAST +
+                          DATA UPD HANDLING') AUT(*ALL)
+
+             CHGJOB     RUNPTY(30) SWS(00000000)
+
+             CHGVAR     VAR(%SST(&WYMD 3 6)) VALUE(&PYMD)
+             CHGVAR     VAR(%SST(&WYMD 1 2)) VALUE('19')
+             IF         (%SST(&WYMD 3 2) *LT '97') DO
+             CHGVAR     VAR(%SST(&WYMD 1 2)) VALUE('20')
+             ENDDO
+
+             CHGVAR     VAR(&AYM) VALUE(%SST(&WYMD 1 6))
+
+             CALL       PGM(ABAR01) PARM(&AYM)
+
+             CHGVAR     VAR(&BHIZ) VALUE(%SST(&ABADS1 1 6))
+
+             CHGVAR     VAR(&IN01) VALUE('0')
+
+ STP1:       SNDRCVF    DEV(&WSID) RCDFMT(ABAPWP21)
+
+             IF         (&IN90 *EQ '1') GOTO END
+
+
+             IF         (%SST(&ABADS1 1 6) *EQ &AYM) GOTO STP8
+             IF         ((%SST(&ABADS1 1 6)) *LT &AYM) GOTO STP8
+
+             CHGVAR     VAR(&IN01) VALUE('1')
+
+ STP8:       IF         (&IN91 *EQ '0') GOTO STP1
+
+             IF         ((%SST(&ABADS1 1 6)) *GT &AYM) GOTO SAP1
+             IF         (%SST(&ABADS1 1 6) *EQ &AYM) GOTO SAP1
+
+             CHGVAR     VAR(%SST(&ABADS1 7 42)) +
+                          VALUE('000000000000000000000000000000000000+
+                          000000')
+
+             CHGDTAARA  DTAARA(ABADS1) VALUE(&ABADS1)
+
+             CHGVAR     VAR(%SST(&ABBDS1 27 1)) VALUE(' ')
+             CHGDTAARA  DTAARA(ABBDS1) VALUE(&ABBDS1)
+
+ SAP1:       DLTF       FILE(ABAWP42)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE1/ABAWP42) RCDLEN(300) +
+                          OPTION(*NOLIST) SIZE(15000 2000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             /*------------------------*/
+             /*  ..FILEOUT EDI(830)..  */
+             /*------------------------*/
+
+ ATP0:       OVRPRTF    FILE(QPRINT) DEVTYPE(&PDEVT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(K6H1) +
+                          IGCDTA(&PIGCD)
+             OVRPRTF    FILE(QPRINT2) DEVTYPE(&PDEVT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(K6H1) +
+                          IGCDTA(&PIGCD)
+
+             OVRDBF     FILE(INPUT) TOFILE(EDIFILEOUT)
+             CALL       PGM(ABAR40)
+
+             DLTF       FILE(ABAWP19)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE1/ABAWP19) RCDLEN(300) +
+                          OPTION(*NOLIST) SIZE(15000 2000) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CALL       PGM(ABAR19) PARM(&AYM)
+
+             CALL       PGM(ABAR20)
+             DLTF       FILE(ABAWP19)
+             DLTOVR     FILE(*ALL)
+
+             CALL       PGM(ABACJ2) PARM(&AYM &BHIZ)
+
+ END:        DLTF       FILE(ABAWP42)
+             MONMSG     MSGID(CPF3261 CPF2105)
+
+             DLTDTAARA  DTAARA(HFILE1/ABAACT)
+             MONMSG     MSGID(CPF2105)
+
+ SEND:       CHGJOB     RUNPTY(20)
+
+             ENDPGM

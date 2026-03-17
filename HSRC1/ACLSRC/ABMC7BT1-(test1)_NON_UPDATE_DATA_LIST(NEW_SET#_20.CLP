@@ -1,0 +1,76 @@
+             PGM
+             /** ABMC7B ************************/
+             /* NON UPDATE DATA LIST(NEW SET# 20 LESS) */
+             /*   HOTTA.           2018.09.13  */
+             /**********************************/
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PPUSER) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&TYPE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PDEVT) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&PIGCD) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&REC) TYPE(*DEC) LEN(10 0)
+             DCL        VAR(&WLIB)  TYPE(*CHAR) LEN(8)
+             DCL        VAR(&FLIB)  TYPE(*CHAR) LEN(8)
+             DCL        VAR(&DDATE) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&P@NTYM) TYPE(*DEC) LEN(6 0)
+             DCL        VAR(&P@ERR) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PCMD) TYPE(*CHAR) LEN(2)
+             DCL        VAR(&ABMWP70) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&ABMWP7B) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&WS3) TYPE(*CHAR) LEN(3)
+             DCL        VAR(&FNAM)  TYPE(*CHAR) LEN(30)
+             DCL        VAR(&PRTG@) TYPE(*CHAR) LEN(10)
+
+/*TEST*/
+             CHGVAR     VAR(&P@NTYM) VALUE(202001)
+             CHGVAR     VAR(&PRTG@) VALUE('EPRINT1 ')
+
+             RTVJOBA    JOB(&WSID) USER(&PPUSER) DATE(&DDATE)
+
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+             CALL       PGM(AGAR01) PARM(&WSID &PDEVT &PIGCD)
+             CHGVAR     VAR(&WS3) VALUE(%SST(&WSID 1 3))
+
+             CHGVAR     VAR(&FLIB) VALUE('HFILE1  ')
+             CALL       PGM(ALBC00) PARM(&PPUSER &WLIB)
+
+ /* TEST */
+             CHGVAR     VAR(&WLIB) VALUE('TWFILE1 ')
+             CHGVAR     VAR(&FLIB) VALUE('TFILE1  ')
+
+             CHGVAR     VAR(&ABMWP70) VALUE('ABMWP70')
+             CHGVAR     VAR(&ABMWP7B) VALUE('ABMWP7B')
+
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+ STP10:
+             DLTF       FILE(&WLIB/&ABMWP70)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/&ABMWP70) SRCFILE(HSRC1/ADDSSRC) +
+                          SRCMBR(ABMWP70) OPTION(*NOLIST *NOSRC) +
+                          SIZE(50000 5000 20) LVLCHK(*NO) AUT(*ALL)
+
+             OVRDBF     FILE(ABMWP70) TOFILE(&WLIB/&ABMWP70)
+             CALL       PGM(ABMR75) PARM(&P@NTYM '5' &FNAM)
+
+             DLTF       FILE(&ABMWP7B)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/&ABMWP7B) RCDLEN(0256) +
+                          OPTION(*NOLIST) SIZE(*NOMAX) LVLCHK(*NO) +
+                          AUT(*ALL)
+             OVRDBF     FILE(ABMWP70) TOFILE(&WLIB/&ABMWP70)
+             OVRDBF     FILE(ABMWP7B) TOFILE(&WLIB/&ABMWP7B)
+             CALL       PGM(ABMR7B)
+
+             CALL       PGM(APLC96) PARM('1' &ABMWP7B &WLIB +
+                          &FNAM 'Y' ' ')
+
+             OVRDBF     FILE(ABMWP70) TOFILE(&WLIB/&ABMWP70)
+             OVRPRTF    FILE(ABMPRJB) DEVTYPE(&PDEVT) PAGESIZE(66 +
+                          198) OVRFLW(60) RPLUNPRT(*YES) +
+                          OUTQ(&PRTG@) FORMTYPE(K6H1) IGCDTA(&PIGCD)
+             CALL       PGM(ABMRJB)
+
+ #END:
+ END:        ENDPGM

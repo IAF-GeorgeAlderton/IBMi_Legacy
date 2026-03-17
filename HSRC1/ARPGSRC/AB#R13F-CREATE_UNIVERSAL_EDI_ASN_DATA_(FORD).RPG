@@ -1,0 +1,150 @@
+     H            Y.
+      ** AB#R13F ************************************************
+      *  CREATE UNIVERSAL EDI ASN DATA (FORD)                   *
+      *  J.WATANABE   2025.05.07                                *
+      ***********************************************************
+     FAB#EP66 IF  E           K        DISK
+     FAB#EL14 IF  E           K        DISK
+     F            AB#EP141                          KRENAMEAB#EP14X
+     FAB#EP14 O   E                    DISK
+      ***********************************************************
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      254 263 #USER
+      ***********************************************************
+      * MAIN ROUTINE
+      ***********************************************************
+     C                     EXSR #INIT
+      * CREATE HEADER DATA
+     C           *LOVAL    SETLLAB#EP66
+     C                     DO   *HIVAL
+     C                     READ AB#EP66                  98
+     C   98                LEAVE
+      * FIX SHIP DATE
+     C           E6REHZ    IFEQ 0
+     C           E6REHZ    ANDNEE6NOHZ
+     C                     Z-ADDE6REHZ    E6NOHZ
+     C                     ENDIF
+      * CHECK DUPLICATE
+     C                     EXSR #CHK1
+     C           *IN85     IFEQ *ON
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     CLEARAB#EP141
+      * GET PARTNER
+     C                     MOVELE6NONY    $NONY
+     C                     MOVEL'FORD    'E4PRTN
+     C                     Z-ADDTODAY     E4RCHZ
+     C                     Z-ADDNOW       E4RCTM
+     C                     MOVELNOW       E4RCT4
+     C                     Z-ADDE6TOKU    E4TOKU
+     C                     Z-ADDE6NONY    E4NONY
+     C                     MOVELE6NKOJ    E4NKOJ
+     C                     MOVELE6NUKE    E4NUKE
+     C                     Z-ADDE6NOHZ    E4NOHZ
+     C                     MOVELE6SHID    E4SHID
+     C                     Z-ADDE6NBIN    E4NOBN
+     C                     MOVEL'856'     E4TRID
+     C                     MOVELEPICK     E4REF#
+     C                     MOVELE6SHID    E4ASN#
+     C                     MOVELE6ORDN    E4ODRN
+      * GET PACKING LIST#
+     C                     MOVELE6NOHZ    $NOHZ
+     C                     MOVELE6TOKU    $CUST
+     C                     MOVELE6NONY    $NONY
+     C                     MOVELE6NKOJ    $NKOJ
+     C                     MOVELE6NUKE    $NUKE
+     C                     MOVELE6NBIN    $BINN
+     C                     MOVELE6REHZ    $RLHZ
+     C                     MOVELE6ORDN    $ODRN
+     C                     CALL 'UTLR51D'
+     C                     PARM           $NOHZ   8
+     C                     PARM           $CUST   4
+     C                     PARM           $NONY   4
+     C                     PARM           $NKOJ   1
+     C                     PARM           $NUKE   4
+     C                     PARM           $BINN   2
+     C                     PARM           $RLHZ   8
+     C                     PARM           $ODRN  10
+     C                     PARM           $PICK#  9
+     C                     MOVEL$PICK#    E4PL#
+      * GET PLANT
+     C                     MOVELE6NONY    $NONY
+     C                     MOVELE6NUKE    $NUKE
+     C                     CALL 'UTLR34D'
+     C                     PARM           $NONY   4
+     C                     PARM           $NUKE   4
+     C                     PARM           $PLNT   5
+     C                     PARM           $RTN    1
+     C                     MOVEL$PLNT     E4PLNT
+     C                     MOVE ' '       E4SHCD
+      *
+     C                     Z-ADDTODAY     E4CRHZ
+     C                     Z-ADDNOW       E4CRTM
+     C                     MOVEL#PGM      E4CRPG
+     C                     MOVEL#USER     E4CRUS
+      *
+      * GET BATCH#
+     C**         E4PRTN    IFNE *BLANK
+     C**                   MOVELE4PRTN    $PRTN
+     C**                   MOVELE6DATE    $RCVD1
+     C**                   MOVELE6TIME    $RCVT1
+     C**                   CALL 'UEXC58TA'
+     C**                   PARM           $PRTN  30
+     C**                   PARM           $RCVD1  8
+     C**                   PARM           $RCVT1  4
+     C**                   PARM           $RCVD2  8
+     C**                   PARM           $RCVT2  6
+     C**                   PARM           $BCH#   7
+     C**                   PARM           $INT#  14
+      *
+     C**         $BCH#     IFNE *BLANK
+     C**         $BCH#     ANDNE*ZERO
+     C**                   MOVEL$BCH#     E4BCH#
+     C**                   MOVEL$INT#     E4INT#
+     C**                   ENDIF
+     C**                   ENDIF
+      *
+     C                     WRITEAB#EP141
+      *
+     C                     ADD  1         @REC
+      *
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *=================================================
+      * CHECK DUPLICATE
+      *=================================================
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE *OFF      *IN85
+      *
+     C           E6SHID    SETLLAB#EL14
+     C                     DO   *HIVAL
+     C           E6SHID    READEAB#EL14                  98
+     C   98                LEAVE
+      * CHECK DUPLICATE
+     C           E6NONY    IFEQ E4NONY
+     C                     MOVE *ON       *IN85
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *=================================================
+      * INITIAL SET
+      *=================================================
+     C           #INIT     BEGSR
+      *
+     C                     TIME           SDATE
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD0         @REC    60
+      *
+     C                     ENDSR

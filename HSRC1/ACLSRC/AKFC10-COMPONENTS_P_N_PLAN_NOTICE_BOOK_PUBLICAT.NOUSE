@@ -1,0 +1,113 @@
+             PGM
+             /** AKFC10 **************************/
+             /* COMPONENTS P/N PLAN NOTICE BOOK PUBLICATION */
+             /* I-HASADA             92.09.26    */
+             /************************** AKFC10 **/
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&TYPE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PRTG) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&MBAN) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&KOTE) TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PDEVT) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&PIGCD) TYPE(*CHAR) LEN(4)
+             RTVJOBA    JOB(&WSID)
+             CHGJOB     SWS(00000000)
+
+             CALL       PGM(AGAR01) PARM(&WSID &PDEVT &PIGCD)
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+
+             CHKOBJ     OBJ(HFILE1/AKCACT) OBJTYPE(*DTAARA)
+             MONMSG     MSGID(CPF9801) EXEC(GOTO CMDLBL(STP1))
+ STP2:       SNDPGMMSG  MSG('(G) +
+                          WAIT FOR A WHILE. BECAUSE IT IS ACTIVE THAT +
+                          COMPONENTS PART M/F UPDATE, COMPONENTS PART NUMBER +
+                          PLAN NOTICE PUBLICATION AND COMPONENTS PART DELIVERY +
+                          REQUEST SYSTEM.') +
+                          TOMSGQ(&WSID) MSGTYPE(*INQ) KEYVAR(&MBAN)
+             RCVMSG     MSGTYPE(*RPY) MSGKEY(&MBAN) WAIT(*MAX) +
+                          MSG(&KOTE)
+             IF         COND((&KOTE *NE 'G') *AND (&KOTE *NE 'g')) +
+                          THEN(GOTO CMDLBL(STP2))
+             GOTO       END
+
+ STP1:       CRTDTAARA  DTAARA(HFILE1/AKCACT) TYPE(*CHAR) LEN(10) +
+                          TEXT('COMPTS P/N PLAN NOTICE PUBLICATION +
+                          SYS IS ACTIVE') AUT(*ALL)
+
+             CLRPFM     FILE(HWFILE1/AKFWP10)
+
+             CALL       PGM(AKFR10)
+
+             IF         (%SWITCH(00XXXXXX)) DO
+             CLRPFM     FILE(HWFILE1/AKFWP10)
+             GOTO       SEND
+             ENDDO
+
+             IF         (%SWITCH(1XXXXXXX)) DO
+
+             DLTF       FILE(HWFILE1/AKFWP121)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE1/AKFWP121) RCDLEN(100) +
+                          OPTION(*NOLIST) SIZE(30000 5000 3) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             FMTDTA     INFILE((HWFILE1/AKFWP10)) +
+                          OUTFILE(HWFILE1/AKFWP121) SRCFILE(FMTSRC) +
+                          SRCMBR(AKFS11) OPTION(*NOPRT)
+             CLRPFM     FILE(HWFILE1/AKFWP10)
+
+             DLTF       FILE(HWFILE1/AKFWP122)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE1/AKFWP122) RCDLEN(100) +
+                          OPTION(*NOLIST) SIZE(30000 5000 3) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             DLTF       FILE(HWFILE1/AKFWP123)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE1/AKFWP123) RCDLEN(100) +
+                          OPTION(*NOLIST) SIZE(30000 5000 3) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             CALL       PGM(AKFR12)
+             DLTF       FILE(HWFILE1/AKFWP121)
+
+             CLRPFM     FILE(HWFILE1/AKFWP11)
+
+             FMTDTA     INFILE((HWFILE1/AKFWP122)) +
+                          OUTFILE(HWFILE1/AKFWP11) SRCFILE(FMTSRC) +
+                          SRCMBR(AKFS10) OPTION(*NOPRT)
+             DLTF       FILE(HWFILE1/AKFWP122)
+
+             DLTF       FILE(HWFILE1/AKFWP111)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(HWFILE1/AKFWP111) RCDLEN(100) +
+                          OPTION(*NOLIST) SIZE(30000 5000 3) +
+                          LVLCHK(*NO) AUT(*ALL)
+
+             FMTDTA     INFILE((HWFILE1/AKFWP123)) +
+                          OUTFILE(HWFILE1/AKFWP111) SRCFILE(FMTSRC) +
+                          SRCMBR(AKFS10) OPTION(*NOPRT)
+             DLTF       FILE(HWFILE1/AKFWP123)
+
+             CALL       PGM(AKFR13)
+
+             ENDDO
+
+             OVRPRTF    FILE(QPRINT) DEVTYPE(&PDEVT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(D622) +
+                          IGCDTA(&PIGCD)
+             OVRDBF     FILE(AKFWP11) TOFILE(AKFWP11)
+             CALL       PGM(AKFR11)
+             DLTOVR     FILE(*ALL)
+
+             OVRPRTF    FILE(QPRINT) DEVTYPE(&PDEVT) LPI(6) +
+                          RPLUNPRT(*YES) OUTQ(&PRTG) FORMTYPE(D622) +
+                          IGCDTA(&PIGCD)
+             OVRDBF     FILE(AKFWP11) TOFILE(AKFWP111)
+             CALL       PGM(AKFR11)
+             DLTOVR     FILE(*ALL)
+
+ SEND:       DLTDTAARA  DTAARA(HFILE1/AKCACT)
+
+ END:        ENDPGM

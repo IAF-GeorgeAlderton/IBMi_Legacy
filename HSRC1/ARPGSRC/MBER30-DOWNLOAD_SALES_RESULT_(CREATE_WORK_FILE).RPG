@@ -1,0 +1,313 @@
+     H            Y.
+      **MBER30 *****************************************************************
+      * DOWNLOAD SALES RESULT (CREATE WORK FILE)                                 *
+      * J.WATANABE  2026.03.05                                                 *
+      **************************************************************************
+     FMBEPW30 CF  E                    WORKSTN
+     FAB#PL01CIF  E           K        DISK
+     FAB#PL01DIF  E           K        DISK
+     FMBEWP30 O   E                    DISK                           UC
+      *------------------------------------------------------------
+     E                    ERR     1  12 60
+     E                    CMD     1   2 70
+      *------------------------------------------------------------
+     I* SYSTEM TIME
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      **************************************************************************
+      *                    MAIN ROUTINE
+      **************************************************************************
+     C                     EXSR #INIT
+     C                     OPEN MBEWP30
+      *
+     C           W@ID      DOWNE'99'
+     C           W@ID      CASEQ'01'      #SCRN1
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     CLOSEMBEWP30
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      **************************************************************************
+      *          DISPLAY SCREEN 1
+      **************************************************************************
+     C           #SCRN1    BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     SETOF                     414243
+     C                     SETOF                     44
+     C                     MOVE *OFF      *IN85
+     C                     MOVE *BLANK    XMSG
+      *
+     C                     SELEC
+      * F1/F3: END
+     C           *INKA     WHEQ *ON
+     C           *INKC     OREQ *ON
+     C                     MOVE '99'      W@ID
+      *
+     C                     OTHER
+     C                     EXSR #CHK1
+     C           *IN85     IFEQ *ON
+     C                     GOTO XSCRN1
+     C                     ENDIF
+      *
+      * IF NO ERROR ==========================
+     C           XHONDA    IFEQ 'N'
+     C                     EXSR #OUT1
+     C                     ELSE
+     C                     EXSR #OUT2
+     C                     ENDIF
+      *
+     C           SEQ#      IFEQ 0
+     C  N85                MOVELERR,12    XMSG             NO DATA
+     C                     SETON                     414285
+     C                     GOTO XSCRN1
+     C                     ENDIF
+      *
+     C           *INKE     IFEQ *OFF
+     C                     MOVELERR,8     XMSG             PRESS F5 TO RUN OR F1 TO EXIT...
+     C                     GOTO XSCRN1
+     C                     ENDIF
+      *
+     C                     MOVELERR,7     XMSG             DOWNLOAD SUCCESSFULLY...
+     C                     MOVE '99'      W@ID
+     C                     ENDSL
+      *
+     C           XSCRN1    ENDSR
+      **************************************************************************
+      *  CHECK--WORKER ID
+      **************************************************************************
+     C           #CHK1     BEGSR
+      *
+     C           XFROM     IFEQ 0
+     C  N85                MOVELERR,1     XMSG             ENTER FROM_DATE!
+     C                     SETON                     41  85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * CHECK CALENDAR
+     C                     MOVELXFROM     $SRC      P
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+      *
+     C           $RTN      IFNE *BLANK
+     C  N85                MOVELERR,2     XMSG             FROM_DATE IS INVALID!
+     C                     SETON                     41  85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XTO       IFEQ 0
+     C  N85                MOVELERR,3     XMSG             ENTER TO_DATE!
+     C                     SETON                     42  85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * CHECK CALENDAR
+     C                     MOVELXTO       $SRC      P
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+      *
+     C           $RTN      IFNE *BLANK
+     C  N85                MOVELERR,4     XMSG             TO_DATE IS INVALID!
+     C                     SETON                     42  85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XFROM     IFGT XTO
+     C  N85                MOVELERR,5     XMSG             INVALID DATE CONBINATION! (FROM > TO)
+     C                     SETON                     414285
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XNONY     IFEQ 0
+     C           XHONDA    ANDEQ'N'
+     C  N85                MOVELERR,10    XMSG             ENTER DELIVERY CODE !
+     C                     SETON                     43  85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XNONY     IFNE 0
+     C           XHONDA    ANDEQ'Y'
+     C  N85                MOVELERR,11    XMSG             SELECT DELIVERY# OR HONDA !
+     C                     SETON                     43  85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XHONDA    IFNE 'N'
+     C           XHONDA    ANDNE'Y'
+     C  N85                MOVELERR,9     XMSG             ENTER N OR Y !
+     C                     SETON                     44  85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XCHK1     ENDSR
+      **************************************************************************
+      *  OUTPUT1: BY DELIVERY CODE
+      **************************************************************************
+     C           #OUT1     BEGSR
+      *
+     C                     CLOSEMBEWP30
+     C                     CALL 'QCMDEXC' P#CMD
+     C                     OPEN MBEWP30
+      *
+     C                     Z-ADD0         SEQ#
+      *
+     C                     Z-ADDXFROM     K@NOHZ
+     C           XNONY     IFEQ 9999
+     C                     Z-ADD0         K@NONY
+     C                     ELSE
+     C                     Z-ADDXNONY     K@NONY
+     C                     ENDIF
+      *
+     C           K#PP1C    SETLLAB#PL01C
+     C                     DO   *HIVAL
+     C                     READ AB#PL01C                 98
+     C   98                LEAVE
+      *
+     C           B1NOHZ    IFGT XTO
+     C                     MOVE *ON       *IN98
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           XNONY     IFNE 9999
+     C           XNONY     ANDNEB1NONY
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     CLEARMBEWP301
+     C                     Z-ADDB1NOHZ    M3NOHZ
+     C                     Z-ADDB1TOKU    M3TOKU
+     C                     Z-ADDB1NONY    M3NONY
+     C                     Z-ADDB1NOBI    M3NOBN
+     C                     MOVELB1ODR1    M3ODRN
+     C                     Z-ADDB1URHZ    M3URHZ
+     C                     Z-ADDB1SRYO    M3SRYO
+     C                     Z-ADDB1SYUY    M3SYOS
+     C                     MOVELB1MHIN    M3MHIN
+     C                     MOVELB1SHIN    M3SHIN
+     C                     MOVELB1NUKE    M3NUKE
+     C                     Z-ADDB1HAKO    M3BOX
+     C                     MOVELB1NBAN    M3INVN
+     C                     Z-ADDB1TANK    M3UP
+     C           B1SRYO    MULT B1TANK    M3AMT
+     C                     WRITEMBEWP301
+     C                     ADD  1         SEQ#
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      **************************************************************************
+      *  OUTPUT2: HONDA ONLY
+      **************************************************************************
+     C           #OUT2     BEGSR
+      *
+     C                     CLOSEMBEWP30
+     C                     CALL 'QCMDEXC' P#CMD
+     C                     OPEN MBEWP30
+      *
+     C                     Z-ADD0         SEQ#
+      *
+     C                     Z-ADDXFROM     K@NOHZ
+     C                     Z-ADD0294      K@TOKU
+      *
+     C           K#PP1D    SETLLAB#PL01D
+     C                     DO   *HIVAL
+     C                     READ AB#PL01D                 98
+     C   98                LEAVE
+      *
+     C           B1NOHZ    IFGT XTO
+     C                     MOVE *ON       *IN98
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           B1TOKU    IFNE 0294
+     C           B1TOKU    ANDNE0295
+     C           B1TOKU    ANDNE0296
+     C           B1TOKU    ANDNE0390
+     C           B1TOKU    ANDNE0391
+     C           B1TOKU    ANDNE1602
+     C           B1TOKU    ANDNE3135
+     C           B1TOKU    ANDNE8080
+     C           B1TOKU    ANDNE5382
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     CLEARMBEWP301
+     C                     Z-ADDB1NOHZ    M3NOHZ
+     C                     Z-ADDB1TOKU    M3TOKU
+     C                     Z-ADDB1NONY    M3NONY
+     C                     Z-ADDB1NOBI    M3NOBN
+     C                     MOVELB1ODR1    M3ODRN
+     C                     Z-ADDB1URHZ    M3URHZ
+     C                     Z-ADDB1SRYO    M3SRYO
+     C                     Z-ADDB1SYUY    M3SYOS
+     C                     MOVELB1MHIN    M3MHIN
+     C                     MOVELB1SHIN    M3SHIN
+     C                     MOVELB1NUKE    M3NUKE
+     C                     Z-ADDB1HAKO    M3BOX
+     C                     MOVELB1NBAN    M3INVN
+     C                     Z-ADDB1TANK    M3UP
+     C           B1SRYO    MULT B1TANK    M3AMT
+     C                     WRITEMBEWP301
+     C                     ADD  1         SEQ#
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      **************************************************************************
+      * INITIAL SETTTINGS
+      **************************************************************************
+     C           #INIT     BEGSR
+      *
+     C           K#PP1C    KLIST
+     C                     KFLD           K@NOHZ  80
+     C                     KFLD           K@NONY  40
+      *
+     C           K#PP1D    KLIST
+     C                     KFLD           K@NOHZ  80
+     C                     KFLD           K@TOKU  40
+      *
+     C           P#CMD     PLIST
+     C                     PARM           P@CMD 256
+     C                     PARM           P@LEN  155
+     C                     MOVELCMD,1     P@CMD
+     C                     Z-ADD70        P@LEN
+      *
+     C                     TIME           SDATE
+     C                     MOVEL'01'      W@ID    2
+     C                     Z-ADD0         K@NOHZ
+     C                     Z-ADD0         K@NONY
+     C                     Z-ADD0         SEQ#    60
+      * SCREEN DEFAULT
+     C                     Z-ADDTODAY     XFROM
+     C                     Z-ADDTODAY     XTO
+     C                     Z-ADD9999      XNONY
+     C                     MOVE 'N'       XHONDA
+      *
+     C                     ENDSR
+      **************************************************************************
+** ERR (60A) ......2.........3.........4.........5.........6
+ENTER FROM_DATE!                                              01
+FROM_DATE IS INVALID!                                         02
+ENTER TO_DATE!                                                03
+TO_DATE IS INVALID!                                           04
+INVALID DATE CONBINATION! (FROM > TO)                         05
+THERE IS NO TARGET RECORD!                                    06
+DOWNLOADED SUCCESSFULLY...                                    07
+PRESS F5 TO RUN OR F1 TO EXIT...                              08
+ENTER Y OR N !                                                09
+ENTER DELIVERY CODE !                                         10
+SELECT DELIVERY CODE OR HONDA !                               11
+THERE IS NO TARGET DATA !                                     12
+** CMD (70A) ......2.........3.........4.........5.........6.........7
+CLRPFM     FILE(QTEMP/MBEWP30)                                          01
+                                                                        02

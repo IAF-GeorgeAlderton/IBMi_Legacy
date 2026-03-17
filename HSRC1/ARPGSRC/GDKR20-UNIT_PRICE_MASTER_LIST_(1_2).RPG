@@ -1,0 +1,244 @@
+      *** GDKR20 *************************************
+      *        UNIT PRICE MASTER LIST (1/2)          *
+      *                          SELECT              *
+      *  G.B.C                       2000/11/15      *
+      ************************************************
+     H            Y/                                    1
+     F*
+     FGDKPW20 CF  E                    WORKSTN
+      *
+      *        DETAIL CODE MANAGEMENT RECORD .LAYOUT ..LOGICAL FILE .. *
+     FFGBPL01 IF  E           K        DISK
+      *
+      *
+      * INPORT GOODS UNIT PRICE MASTER     *
+     FGDKPL01 IF  E           K        DISK
+      *
+     FGDKWP20 O   F     128            DISK
+     E*================================================================
+     E                    PT      1  10  1   PTN    30
+     E                    ERR     1  10 59
+     I*================================================================
+     I            DS
+     I                                        1   60W@TIME
+     I                                        1   40W@HM
+     C*================================================================
+     C*           PARM LIST                                          *
+     C*================================================================
+     C           *ENTRY    PLIST
+     C                     PARM           PPUSER 10
+     C*================================================================
+     C*           KEY LIST                                           *
+     C*================================================================
+     C*** INPORT GOODS UNIT PRICE M/F *** (GDKPL01)
+     C           ISKEY1    KLIST
+     C                     KFLD           D1VEND
+     C                     KFLD           D1TYPE
+     C*================================================================
+     C*           MAIN ROUTINE                                       *
+     C*================================================================
+     C                     MOVE '#INIT   '@STEP   8
+     C*
+     C           @STEP     DOUEQ'#END    '
+     C           @STEP     CASEQ'#INIT   '#INIT
+     C           @STEP     CASEQ'#DSP1   '#DSP1
+     C           @STEP     CASEQ'#CHK1   '#CHK1
+     C           @STEP     CASEQ'#CHK1U  '#CHK1
+     C           @STEP     CASEQ'#UPD    '#UPD
+     C                     ENDCS
+     C                     ENDDO
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+     C*================================================================
+     C*  INIT
+     C*================================================================
+     C           #INIT     BEGSR
+     C                     MOVEA*ALL'0'   *IN
+     C                     MOVE *BLANK    D1VEND
+     C                     MOVE *BLANK    D1TYPE
+     C                     MOVE *BLANK    MSG
+     C                     MOVE *BLANK    PTN              DUMMY
+     C*
+     C                     MOVE '#DSP1   '@STEP
+     C*
+     C                     ENDSR
+     C*================================================================
+     C*  DSP1
+     C*================================================================
+     C           #DSP1     BEGSR
+     C*
+     C                     EXFMTGDKPW201
+     C                     MOVE '#CHK1   '@STEP
+     C* < F1=ON >
+     C           *INKA     IFEQ *ON
+     C                     MOVE '#END    '@STEP
+     C                     ENDIF
+     C* < F5=ON >
+     C           *INKE     IFEQ *ON
+     C                     MOVE '#CHK1U  '@STEP
+     C                     ENDIF
+     C*
+     C                     ENDSR
+     C*================================================================
+     C*  CHK1
+     C*================================================================
+     C           #CHK1     BEGSR
+     C                     MOVEA'00'      *IN,11           <11 - 12>
+     C                     MOVEA'0'       *IN,99           <99>
+     C                     MOVE *BLANK    MSG
+     C*
+     C** VENDOR **
+     C*
+S1   C           D1VEND    IFEQ *BLANK
+     C  N99                MOVELERR,1     MSG
+     C                     SETON                     9911
+X1   C                     ELSE
+ S2  C           D1VEND    IFNE '9999'
+     C                     MOVELD1VEND    B2CODE
+     C           B2CODE    CHAINFGBPL011             90
+  S3 C           *IN90     IFEQ *ON
+     C  N99                MOVELERR,2     MSG
+     C                     SETON                     9911
+  E3 C                     ENDIF
+ E2  C                     ENDIF
+E1   C                     ENDIF
+     C*
+     C** PART TYPE **
+     C*
+     C                     Z-ADD1         J       20
+     C           D1TYPE    LOKUPPT,J                     90
+S1   C           *IN90     IFEQ *OFF
+     C  N99                MOVELERR,3     MSG
+     C                     SETON                     9912
+E1   C                     ENDIF
+     C*
+     C*--------------------
+      *
+     C           *IN99     IFEQ *OFF
+     C           @STEP     ANDEQ'#CHK1U  '
+     C                     MOVE '#UPD    '@STEP
+     C                     ELSE
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDIF
+     C*
+     C                     ENDSR
+     C*================================================================
+      *  UPD
+     C*================================================================
+     C           #UPD      BEGSR
+     C                     Z-ADD0         @@CTR   80
+     C*--------------------
+     C** SETLL *
+     C*--------------------
+S1   C           D1VEND    IFEQ '9999'
+     C*:::                     ( D1VEND =  '9999'                 )
+X1   C                     ELSE
+ S2  C           D1TYPE    IFEQ 'Z'
+     C*:::                     ( D1VEND <> '9999' & D1TYPE =  'Z' )
+     C           D1VEND    SETLLGDKPL01
+ X2  C                     ELSE
+     C*:::                     ( D1VEND <> '9999' & D1TYPE <> 'Z' )
+     C           ISKEY1    SETLLGDKPL01
+ E2  C                     ENDIF
+E1   C                     ENDIF
+     C*--------------------
+     C** READ  *
+     C*--------------------
+S1   C                     DO   *HIVAL
+ S2  C           D1VEND    IFEQ '9999'
+     C*:::                     ( D1VEND =  '9999'                 )
+     C                     READ GDKPL01                  90
+ X2  C                     ELSE
+  S3 C           D1TYPE    IFEQ 'Z'
+     C*:::                     ( D1VEND <> '9999' & D1TYPE =  'Z' )
+     C           D1VEND    READEGDKPL01                  90
+  X3 C                     ELSE
+     C*:::                     ( D1VEND <> '9999' & D1TYPE <> 'Z' )
+     C           ISKEY1    READEGDKPL01                  90
+  E3 C                     ENDIF
+ E2  C                     ENDIF
+     C*
+     C   90                LEAVE
+     C*
+     C*:::                     ( D1VEND =  '9999' & D1TYPE <> 'Z' )
+ S2  C           D1VEND    IFEQ '9999'
+ +2  C           D1TYPE    ANDNE'Z'
+ +2  C           D1TYPE    ANDNEISTYPE                     PART TYPE
+     C                     ITER
+ E2  C                     ENDIF
+     C*
+     C*   ('DELETE CODE & DATE ')
+     C           ISSKJY    IFEQ 'D'                        DELETE CODE
+     C           ISSKHZ    ANDLE*DATE                      DELETE DATE
+     C                     ITER
+     C                     ENDIF
+     C*
+     C*   ('ENDING DATE')
+     C           ISENHZ    IFLT *DATE
+     C                     ITER
+     C                     ENDIF
+     C*
+     C                     ADD  1         @@CTR
+     C                     EXCPT$OUTF
+     C*
+E1   C                     ENDDO
+     C*--------------------
+     C** READ-END
+     C*--------------------
+     C*
+     C*
+     C           @@CTR     IFEQ 0
+     C                     MOVE '#DSP1   '@STEP
+     C                     MOVELERR,4     MSG
+     C                     SETON                     991112
+     C                     ELSE
+     C                     MOVE '#END    '@STEP
+     C                     ENDIF
+     C*
+     C                     ENDSR
+     C*================================================================
+     C*================================================================
+     O*  WORK FILE
+     O*================================================================
+     OGDKWP20 E                $OUTF
+     O                         D1VEND     4
+     O                         D1TYPE     5
+     O*
+     O                         ISVEND     9
+     O                         ISHIN     29
+     O                         ISNAME    59
+     O                         ISTYPE    60
+     O                         ISSTYY    64
+     O                         ISSTMM    66
+     O                         ISSTDD    68
+     O                         ISENYY    72
+     O                         ISENMM    74
+     O                         ISENDD    76
+     O                         ISTKP1    90
+     O                         ISTKP2   104
+     O                         ISKIGO   107
+     O                         ISRATE   112
+     O*================================================================
+**  PT
+0 FINISHED PARTS
+6 HALF-FINESHED PARTS
+3 WASHER
+M MACHINERY
+W WIRE
+S INDIRECT MATERIAL
+R WIRE ROD
+P MACHINERY PARTS
+K DIE
+Z ALL
+**  ERR  **
+NO INPUT ERROR.
+DETAIL M/F <CODE COMPLETION> NOT FOUND.
+INPUT ERROR.
+UNIT PRICE MASTER FILE NOT FOUND.
+
+
+
+
+
+

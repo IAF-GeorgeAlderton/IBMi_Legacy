@@ -1,0 +1,58 @@
+             PGM
+             /** AC#C2F **********************************************/
+             /*  HONDA LATE EDI ORDER AFTER 12:00 RPORT              */
+             /*  RUN EVERY DAY AT 15:45PM IN VJBC74                  */
+             /*  J.WATANABE 2022.01.03                               */
+             /********************************************************/
+
+             DCL        VAR(&WSID)  TYPE(*CHAR) LEN(10)
+             DCL        VAR(&USER)  TYPE(*CHAR) LEN(10)
+             DCL        VAR(&NBR )  TYPE(*CHAR) LEN(6)
+             DCL        VAR(&RTN )  TYPE(*CHAR) LEN(1)
+             DCL        VAR(&UPD )  TYPE(*CHAR) LEN(1)
+
+             RTVJOBA    JOB(&WSID) USER(&USER) NBR(&NBR)
+
+             OVRPRTF    FILE(QPRINT) OUTQ(EPRINT1)
+             CALL       PGM(HOBJ1/AC#R2F ) PARM(&RTN)
+
+             IF         COND(&RTN *EQ '*') THEN(DO)
+
+             CRTDUPOBJ  OBJ(PRT132A) FROMLIB(HWFILE1) OBJTYPE(*FILE) +
+                          TOLIB(QTEMP)
+             MONMSG     MSGID(CPF0000)
+             CLRPFM QTEMP/PRT132A
+
+             CPYSPLF    FILE(QPRINT) TOFILE(QTEMP/PRT132A) +
+                          JOB(&NBR/&USER/&WSID) SPLNBR(*LAST)
+
+             OVRDBF     FILE(PRT132) TOFILE(QTEMP/PRT132A)
+
+             CALL       PGM(HOBJ1/AB#RW0)
+
+       /*    SNDDST     TYPE(*FILE) +                                  */
+       /*                 TOINTNET(('KAZ.WATANABE@iafi.com')) +        */
+       /*                 DSTD('HONDA EDI LATE ORDER AFTER 12:30') +   */
+       /*                 MSG('HONDA LATE EDI ORDER AFTER 12:30    +   */
+       /*                 REPORT. (AC#C2F).') +                        */
+       /*                 DOCFILE(QTEMP/PRT132A) DOCTYPE(*FFT) +       */
+       /*                 SNDFMT(*NOTE) DOCD('HONDA LATE EDI ORDER +   */
+       /*                 AFTER 12:30 REPORT')                         */
+
+             SNDDST     TYPE(*FILE) +
+                          TOINTNET(('ProductionControl@iafi.com')) +
+                          DSTD('HONDA EDI LATE ORDER AFTER 12:30') +
+                          MSG('HONDA LATE EDI ORDER AFTER 12:30    +
+                          REPORT. (AC#C2F).')                      +
+                          DOCFILE(QTEMP/PRT132A) DOCTYPE(*FFT)     +
+                          SNDFMT(*NOTE) DOCD('HONDA LATE EDI ORDER +
+                          AFTER 12:30 REPORT')
+
+             DLTOVR     FILE(PRT132)
+
+             ENDDO
+
+/** TEMP **/
+             CALL       PGM(AC#C2FT)
+
+             ENDPGM

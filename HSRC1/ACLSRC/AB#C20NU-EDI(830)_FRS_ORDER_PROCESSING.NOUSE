@@ -1,0 +1,142 @@
+             PGM
+             /** AB#C20 *******************************/
+             /*  ..EDI(830) FRS ORDER PROCESSING..    */
+             /*     I-HASADA           97.06.19       */
+             /*     N-HYOTO  ADD TEST MODE 00.10.10   */
+             /*     N-HYOTO  ADD E-KANBAN  01.01.22   */
+             /*     N-HYOTO  ADD ARVIN SANGO 03.08.01 */
+             /*     H-AMANO  ADD AWNC        07.28.01 */
+             /*     H-AMANO  ADD TAKATA      11.09.01 */
+             /*     H-AMANO  ADD TEXTRON     05.09.02 */
+             /***************************** AB#C20 ****/
+             DCLF       FILE(AB#PW20)
+             DCL        VAR(&WSID) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&USR)  TYPE(*CHAR) LEN(10)
+             DCL        VAR(&PRT)     TYPE(*CHAR) LEN(7)
+             DCL        VAR(&PRTG)    TYPE(*CHAR) LEN(10)
+             DCL        VAR(&TYPE)    TYPE(*CHAR) LEN(1)
+             DCL        VAR(&PDEVT) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&PIGCD) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&PSIRE) TYPE(*CHAR) LEN(4)
+             DCL        VAR(&KEN) TYPE(*DEC) LEN(10 0)
+             DCL        VAR(&WLIB)  TYPE(*CHAR) LEN(8)
+
+             RTVJOBA    JOB(&WSID) USER(&USR)
+
+             CALL       PGM(AGAR01) PARM(&WSID &PDEVT &PIGCD)
+             CALL       PGM(AGAR00) PARM(&WSID &PRT &TYPE &PRTG)
+             CALL       PGM(ALBC00) PARM(&USR &WLIB)
+
+ STP1:       SNDRCVF    DEV(&WSID) RCDFMT(AB#PW201)
+
+             CHGVAR     VAR(&IN02) VALUE('0')
+             CHGVAR     VAR(&IN03) VALUE('0')
+             CHGVAR     VAR(&IN99) VALUE('0')
+
+             IF         (&IN01 *EQ '1') GOTO END
+
+             IF         (&PSIRE *EQ '    ') DO
+             CHGVAR     VAR(&IN02) VALUE('1')
+             CHGVAR     VAR(&IN99) VALUE('1')
+             CHGVAR     VAR(&MSG) VALUE('INPUT NO. SUPPLIER')
+             GOTO       STP1
+             ENDDO
+
+/*                                                                   */
+/*           IF         (&PSIRE *EQ '3347') DO                       */
+/*           CHGVAR     VAR(&IN02) VALUE('1')                        */
+/*           CHGVAR     VAR(&IN99) VALUE('1')                        */
+/*           CHGVAR     VAR(&MSG) VALUE('TMMK IS NOT TRANSCTED HERE +*/
+/*                        BUT BY KANBAN SORTING DATA')               */
+/*           GOTO       STP1                                         */
+/*           ENDDO                                                   */
+/*                                                                   */
+
+             IF         (&PSIRK *EQ ' ') DO
+             CHGVAR     VAR(&IN03) VALUE('1')
+             CHGVAR     VAR(&IN99) VALUE('1')
+             CHGVAR     VAR(&MSG) VALUE('INPUT NO. SUPPLIER')
+             GOTO       STP1
+             ENDDO
+
+             IF         (&IN05 *EQ '0') GOTO STP1
+
+
+             DLTF       FILE(&WLIB/AB#WP2A)
+             MONMSG     MSGID(CPF3261 CPF2105)
+             CRTPF      FILE(&WLIB/AB#WP2A) RCDLEN(100) +
+                          OPTION(*NOLIST) LVLCHK(*NO) AUT(*ALL)
+
+/* TMMC */
+             IF         (&PSIRE *EQ '3503') DO
+             CALL       PGM(AB#C21) PARM(&PSIRE)
+             ENDDO
+
+/* NUMMI */
+             IF         (&PSIRE *EQ '0541') DO
+             CALL       PGM(AB#C24) PARM(&PSIRE)
+             ENDDO
+
+/* TMMK */
+             IF         (&PSIRE *EQ '3347') DO
+             CALL       PGM(AB#C27) PARM(&PSIRE)
+             ENDDO
+
+/* TMMI */
+             IF         (&PSIRE *EQ '3804') DO
+             CALL       PGM(AB#C28) PARM(&PSIRE)
+             ENDDO
+
+/* TMMWV */
+             IF         (&PSIRE *EQ '3931') DO
+             CALL       PGM(AB#C29) PARM(&PSIRE)
+             ENDDO
+
+/* SIA & DMAX */
+             IF        ((&PSIRE *EQ '0437') *OR +
+                        (&PSIRE *EQ '0590')) DO
+             CALL       PGM(AB#C2A) PARM(&PSIRE)
+             ENDDO
+
+/* HCM & MAP */
+             IF        ((&PSIRE *EQ '0295') *OR  +
+                        (&PSIRE *EQ '4126')) DO
+             CALL       PGM(AB#C2F) PARM(&PSIRE &PSIRK)
+             ENDDO
+
+/* ARVIN SANGO */
+             IF         (&PSIRE *EQ '0873') DO
+             CALL       PGM(AB#C2R) PARM(&PSIRE)
+             ENDDO
+/* AWNC        */
+             IF         (&PSIRE *EQ '0492') DO
+             CALL       PGM(AB#C2S) PARM(&PSIRE)
+             ENDDO
+/* HMA         */
+             IF         (&PSIRE *EQ '0390') DO
+             CALL       PGM(AB#C2T) PARM(&PSIRE)
+             ENDDO
+
+/* TAKATA */
+             IF         COND(&PSIRE *EQ '3712') THEN(DO)
+
+             CALL       PGM(AB#C2U) PARM(&PSIRE)
+             ENDDO
+
+/* TEXTRON*/
+             IF         COND(&PSIRE *EQ '5535') THEN(DO)
+
+             CALL       PGM(AB#C2W) PARM(&PSIRE)
+             ENDDO
+
+             RTVMBRD    FILE(AB#WP2A) NBRCURRCD(&KEN)
+             IF         (&KEN *GT 0) THEN(DO)
+             OVRPRTF    FILE(QPRINT) DEVTYPE(&PDEVT) PAGESIZE(66 +
+                          132) OVRFLW(60) RPLUNPRT(*YES) +
+                          OUTQ(&PRTG) FORMTYPE(K6H1) IGCDTA(&PIGCD)
+             CALL       PGM(AB#R2G) PARM(&PSIRE)
+             DLTF       FILE(AB#WP2A)
+             ENDDO
+
+
+ END:        ENDPGM

@@ -1,0 +1,253 @@
+     H            Y.
+     F** UEXR36C ********************************************
+     F*  PROGRAM: EXSUB - CREATE AB#PP70 WORK FILE          *
+     F*  WRITTEN: JW (SRA) 2020.10.14                       *
+     F*-----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UEXR36C'
+     F*                    PARM           $NONY   4
+     F*                    PARM           $NKOJ   1
+     F*                    PARM           $NUKE   4
+     F*                    PARM           $NOHZ   8
+     F*                    PARM           $NOBN   2
+     F*                    PARM           $ODRN  10
+     F*                    PARM           $RTN    1
+     F*  IN  $NONY   4A  IAF PART
+     F*      $NKOJ   1A  SHIP DATE
+     F*      $NUKE   4A  SHIP DATE
+     F*      $NOHZ   8A  SHIP DATE
+     F*      $NOBN   2A  BIN#
+     F*      $ODRN  10A  PO#
+     F*  OUT $RTN    1A  RETURN CODE (OK:BLANK, *:ERROR)
+     F******************************************************
+     FAB#PL7I IF  E           K        DISK
+     FAB#PL1Q IF  E           K        DISK
+     FAB#PL90 IF  E           K        DISK
+     FAB#WP7A UF  E           K        DISK                      A    UC
+      *===================================================
+      * SYSTEM DATE
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      * KEY FIELDS
+     I            DS
+     I                                        1   80@NOHZ
+     I                                        1   40@NOYY
+     I                                        5   60@NOMM
+     I                                        7   80@NODD
+     I            DS
+     I                                        1   80KKNOHZ
+     I                                        1   40KKNOYY
+     I                                        5   60KKNOMM
+     I                                        7   80KKNODD
+     I            DS
+     I                                        1  20 EKMHIN
+     I                                        1   5 EKMHN1
+     I                                        6  10 EKMHN2
+     I                                       11  15 EKMHN3
+     I                                       16  20 EKMHN4
+      *===================================================
+      *           MAIN ROUTINE
+      *===================================================
+     C                     EXSR #INIT
+     C                     OPEN AB#WP7A
+      * DELETE AB#WP7A
+     C                     EXSR #CLR7A
+      *
+     C           K#PL7I    SETLLAB#PL7I
+      *
+     C                     DO   *HIVAL
+     C           K#PL7I    READEAB#PL7I                  97
+     C   97                LEAVE
+      *
+     C           EKSKJY    IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+      *
+     C           $ODRN     IFNE *BLANK
+     C           $ODRN     ANDNEEKODRN
+     C                     ITER
+     C                     ENDIF
+      *
+     C**         EKLOC1    IFEQ ' '
+     C**                   ITER
+     C**                   ENDIF
+      *
+     C                     ADD  1         RCNT
+     C                     EXSR #ADJ
+     C                     WRITEAB#WP7A1
+     C                     ENDDO
+     C                     CLOSEAB#WP7A
+      * SET MASTER#
+      *
+     C           RCNT      IFEQ 0
+     C                     MOVE '*'       $RTN
+     C                     ELSE
+     C                     EXSR #SETM
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *======================================================
+      * ADJUST
+      *======================================================
+     C           #ADJ      BEGSR
+      *
+     C           RCNT      IFEQ 1
+     C                     MOVELEKSERL    @SERL  20 P
+     C                     ENDIF
+      * SET TTAI
+      *
+     C           EKLOC1    IFEQ ' '
+     C                     MOVE *ALL'*'   EKMST#
+     C                     ELSE
+     C                     MOVE *BLANK    EKMST#
+     C                     ENDIF
+      *
+     C                     MOVELEKNONY    EKNON2
+     C                     MOVELEKSYOS    EKSYO2
+     C                     MOVELEKNOBN    EKNOB2
+      *SBAN
+     C                     EXSR #SBAN
+     C                     MOVEL@SBAN     EKSBAN
+      *
+     C                     ENDSR
+      *======================================================
+      * GET SBAN
+      *======================================================
+     C           #SBAN     BEGSR
+      *
+     C                     MOVE '0000'    @SBAN   4
+     C                     MOVELEKNON2    KKNON2
+     C                     MOVELEKNOB2    KKNOB2
+     C                     MOVELEKODRN    KKODRN
+     C                     MOVELEKMHIN    KKMHIN
+     C           K#PL1Q    SETLLAB#PL1Q
+      *
+     C                     DO   *HIVAL
+     C           K#PL1Q    READEAB#PL1Q                  96
+     C   96                LEAVE
+      *
+     C           BASKJY    IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELBASBAN    @SBAN
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *======================================================
+      * SET MASTER#
+      *======================================================
+     C           #SETM     BEGSR
+      * GET MAX B/PALETTE
+     C           $NONY     CHAINAB#PL90              99
+     C           *IN99     IFEQ *OFF
+     C                     Z-ADDYAMXPL    MAX#    30
+     C                     ELSE
+     C                     Z-ADD60        MAX#
+     C                     ENDIF
+      *
+     C                     OPEN AB#WP7A
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD0         RCNT
+     C           *LOVAL    SETLLAB#WP7A
+      *
+     C                     DO   *HIVAL
+     C                     READ AB#WP7A                  95
+     C   95                LEAVE
+      *
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELEKSERL    @SERL  20 P
+     C                     ENDIF
+      *
+     C           EKSRYO    IFEQ 0
+     C                     ITER
+     C                     ENDIF
+      *
+     C           EKLOC1    IFNE ' '
+     C                     ADD  1         RCNT
+     C                     ENDIF
+      *
+     C           RCNT      DIV  MAX#      PLT#    20
+     C                     MVR            REM     20
+     C           REM       IFGE 1
+     C                     ADD  1         PLT#
+     C                     ENDIF
+      *
+     C           PLT#      IFEQ 0
+     C                     Z-ADD1         PLT#
+     C                     ENDIF
+      *
+     C                     MOVE @SERL     LTR10  10
+     C                     MOVE PLT#      LTR10
+     C                     MOVELLTR10     EKMST#    P
+     C                     MOVEL'IF'      EKMST#
+      *
+     C                     UPDATAB#WP7A1
+     C                     ENDDO
+     C                     CLOSEAB#WP7A
+      *
+     C                     ENDSR
+      *======================================================
+      * CLEAR AB#WP7A
+      *======================================================
+     C           #CLR7A    BEGSR
+      *
+     C           *LOVAL    SETLLAB#WP7A
+     C                     DO   *HIVAL
+     C                     READ AB#WP7A                  99
+     C   99                LEAVE
+     C                     DELETAB#WP7A1
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *======================================================
+      * INITIAL SET
+      *======================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $NONY   4
+     C                     PARM           $NKOJ   1
+     C                     PARM           $NUKE   4
+     C                     PARM           $NOHZ   8
+     C                     PARM           $NOBN   2
+     C                     PARM           $ODRN  10
+     C                     PARM           $RTN    1
+      *
+     C           K#PL7I    KLIST
+     C                     KFLD           KKNONY  4
+     C                     KFLD           KKNKOJ  1
+     C                     KFLD           KKNUKE  4
+     C                     KFLD           KKNOYY  40
+     C                     KFLD           KKNOMM  20
+     C                     KFLD           KKNODD  20
+     C                     KFLD           KKNOBN  2
+      *
+     C           K#PL1Q    KLIST
+     C                     KFLD           KKNON2  40
+     C                     KFLD           KKNKOJ
+     C                     KFLD           KKNUKE
+     C                     KFLD           KKNOHZ
+     C                     KFLD           KKNOB2  20
+     C                     KFLD           KKODRN 10
+     C                     KFLD           KKMHIN 20
+      * SET KEY
+     C                     MOVEL$NONY     KKNONY
+     C                     MOVEL$NKOJ     KKNKOJ
+     C                     MOVEL$NUKE     KKNUKE
+     C                     MOVEL$NOHZ     @NOHZ
+     C                     MOVEL@NOYY     KKNOYY
+     C                     MOVEL@NOMM     KKNOMM
+     C                     MOVEL@NODD     KKNODD
+     C                     MOVEL$NOBN     KKNOBN
+     C                     MOVEL$ODRN     KKODRN
+      *
+     C                     Z-ADD0         RCNT    40
+     C                     MOVE *BLANK    $RTN
+      *
+     C                     ENDSR

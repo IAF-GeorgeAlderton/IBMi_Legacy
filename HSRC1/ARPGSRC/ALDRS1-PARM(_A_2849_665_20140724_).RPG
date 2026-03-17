@@ -1,0 +1,120 @@
+     H            Y/
+     F** ALDRS1 ********************************************
+     F*  GET KANBAN QTY                                    *
+     F*----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'ALDRS1
+     F*                    PARM           P@CHYU  1
+     F*                    PARM           P@ZENO  4
+     F*                    PARM           P@THNO  3
+     F*                    PARM           P@HTHZ  8
+     F*                    PARM           P@MAIS  4
+     F*   IN  P@CHYU  1  KANBAN TYPE
+     F*       P@ZENO  4  ITEM#
+     F*       P@THNO  3  TEHI#
+     F*       P@HTHZ  8  ISSUE DATE
+     F*   OUT P@MAIS  4  QTY
+     F*  EX.  PARM('A' '4057' '676' '20230125' '    ')
+     F******************************************************
+     FALDPL30 IF  E           K        DISK
+     FADAPL01 IF  E           K        DISK
+     FALSPL01 IF  E           K        DISK
+     FALJPL10 IF  E           K        DISK
+      *
+     I            DS
+     I                                        1   80A3SYDT
+     I                                        1   40A3SYYY
+     I                                        5   60A3SYMM
+     I                                        7   80A3SYDD
+     I            DS
+     I                                        1   80ADKODT
+     I                                        1   40ADKOYY
+     I                                        5   60ADKOMM
+     I                                        7   80ADKODD
+      ***************************************************************
+     C           *ENTRY    PLIST
+     C                     PARM           P@CHYU  1
+     C                     PARM           P@ZENO  4
+     C                     PARM           P@THNO  3
+     C                     PARM           P@HTHZ  8
+     C                     PARM           P@MAIS  4
+      *
+     C                     MOVE P@CHYU    K@CHYU  1
+     C                     MOVE P@ZENO    K@ZENO  4
+     C                     MOVE P@THNO    K@THNO  3
+     C                     MOVE P@HTHZ    K@HTHZ  80
+      *
+     C           ALDKEY    KLIST
+     C                     KFLD           K@ZENO  4
+     C                     KFLD           K@THNO  3
+      * SHIPING SCAN
+     C           ALDKEY    SETLLALDPL30
+     C                     DO   *HIVAL
+     C           ALDKEY    READEALDPL30                  77
+     C   77                LEAVE
+     C           A3SYDT    IFLT K@HTHZ
+     C                     ITER
+     C                     END
+     C                     ADD  1         @CNT    40
+     C                     ENDDO
+      * 3 POINT SCAN
+     C                     EXSR #SBALS
+      * CREFORM SHIP SCAN
+     C                     EXSR #SBALJ
+      *
+     C           ADAKEY    KLIST
+     C                     KFLD           K@CHYU  1
+     C                     KFLD           K@ZENO  4
+     C                     KFLD           K@THNO  3
+      * PRODUCTION REORDER
+     C           ADAKEY    SETLLADAPL01
+     C                     DO   *HIVAL
+     C           ADAKEY    READEADAPL01                  77
+     C   77                LEAVE
+     C           ADKODT    IFLT K@HTHZ
+     C                     ITER
+     C                     END
+     C                     ADD  1         @CNT    40
+     C                     ENDDO
+      *
+     C                     MOVE @CNT      P@MAIS
+      *
+     C                     SETON                     LR
+     C                     RETRN
+     C* ----------------------------------------------------
+     C*  3 POINT SERVICE SCAN RESULTS
+     C* ----------------------------------------------------
+     CSR         #SBALS    BEGSR
+      *
+     C           ALDKEY    SETLLALSPL01
+     C           ALDKEY    READEALSPL01                  92
+     C           *IN92     DOWEQ'0'
+     C           ASSKJY    IFEQ 'D'
+     C           ASSKDT    ANDLE*DATE
+     C                     ELSE
+     C           ASCODT    IFGE K@HTHZ
+     C           ASOKNG    ANDEQ'OK'
+     C                     ADD  1         @CNT    40
+     C                     ENDIF
+     C                     ENDIF
+     C           ALDKEY    READEALSPL01                  92
+     C                     ENDDO
+      *
+     CSR         ESBALS    ENDSR
+     C* ----------------------------------------------------
+     C*  CREFORM MATERIAL SHIP SCAN RESULT
+     C* ----------------------------------------------------
+     CSR         #SBALJ    BEGSR
+      *
+     C           ALDKEY    SETLLALJPL10
+     C           ALDKEY    READEALJPL10                  92
+     C           *IN92     DOWEQ'0'
+      *
+     C           B0DATE    IFGE K@HTHZ
+     C                     ADD  1         @CNT    40
+     C                     ENDIF
+      *
+     C           ALDKEY    READEALJPL10                  92
+     C                     ENDDO
+      *
+     CSR         ESBALJ    ENDSR

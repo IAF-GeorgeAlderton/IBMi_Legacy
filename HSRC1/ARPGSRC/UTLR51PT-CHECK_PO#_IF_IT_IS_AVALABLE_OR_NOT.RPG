@@ -1,0 +1,237 @@
+     H            Y.
+     F** UTLR51P ************************************************************
+     F*  UTILITY - CHECK PO# IF IT IS AVALABLE OR NOT                       *
+     F*  WRITTEN : JW (SRA)  2023.10.02                                     *
+     F*  FUNCTION: CHECK PO# FOR ISSUEING PACKING LIST                      *
+     F*---------------------------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UTLR51P'
+     F*                    PARM           $NONY   4
+     F*                    PARM           $NKOJ   1
+     F*                    PARM           $NUKE   4
+     F*                    PARM           $NOHZ   8
+     F*                    PARM           $BINN   2
+     F*                    PARM           $RLHZ   8
+     F*                    PARM           $ODRN  10
+     F*                    PARM           $RTN    1
+     F*   IN  $NONY   4  DELIVERY
+     F*       $NKOJ   1  FACTORY
+     F*       $NUKE   4  DOCK
+     F*       $NOHZ   8  SHIP DATE
+     F*       $BINN   2  BIN
+     F*       $RLHZ   8  RELEASE DATE
+     F*       $ODRN  10  ORDER#
+     F*   OUT $RTN    1  RETURN FLAG (1=NOT ALLOW PO# BLANK)
+     F*                              (2=NOT ALLOW PO#      )
+     F*                              (9=PO# NOT FOUND      )
+     F*                              (' '=OK               )
+     F******************************************************
+     FAB#PL75EIF  E           K        DISK
+      *--------------------------------------------------------
+     E                    DAT        10  1
+      *--------------------------------------------------------
+     I            DS
+     I                                        1   80WNOHZ
+     I                                        1   40WNOYY
+     I                                        5   60WNOMM
+     I                                        7   80WNODD
+     I            DS
+     I                                        1   80WRLHZ
+     I                                        1   40WRLYY
+     I                                        5   60WRLMM
+     I                                        7   80WRLDD
+     I            DS
+     I                                        1   80PUNOHZ
+     I                                        1   40PUNOYY
+     I                                        5   60PUNOMM
+     I                                        7   80PUNODD
+     I            DS
+     I                                        1   80PURLHZ
+     I                                        1   40PURLYY
+     I                                        5   60PURLMM
+     I                                        7   80PURLDD
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *--------------------------------------------------------
+      *                    MAIN PROCESS
+      *--------------------------------------------------------
+     C                     EXSR #INIT
+      *
+      * PACKING LIST PRINTED?
+     C                     EXSR #CHK1
+     C           PFLG      IFEQ *OFF                       NOT PRINTED
+     C                     MOVE ' '       $RTN             OK
+     C                     GOTO ENDP
+     C                     ENDIF
+      *
+     C           $ODRN     IFEQ *BLANK
+     C                     EXSR #CHK2
+     C                     ELSE
+     C                     EXSR #CHK3
+     C                     ENDIF
+      *
+     C           ENDP      TAG
+     C                     SETON                     LR
+     C                     RETRN
+      *--------------------------------------------------------
+      * CHECK PACKING LIST WAS PRINTED?
+      *--------------------------------------------------------
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE *OFF      PFLG    1        PRINT FLG
+     C           KEY1      SETLLAB#PL75E
+      *
+     C                     DO   *HIVAL
+     C           KEY1      READEAB#PL75E                 91
+     C   91                LEAVE
+      * IGNORE
+     C           PUSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * IGNORE
+     C           WRLHZ     IFNE 0
+     C           WRLHZ     ANDNEPURLHZ
+     C                     ITER
+     C                     ENDIF
+      * IGNORE
+     C           $NUKE     IFNE *BLANK
+     C           $NUKE     ANDNEPUNUKE
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVE *ON       PFLG             PRINTED
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *--------------------------------------------------------
+      * WHEN PO# IS BLANK
+      *--------------------------------------------------------
+     C           #CHK2     BEGSR
+      *
+     C           KEY1      SETLLAB#PL75E
+      *
+     C                     DO   *HIVAL
+     C           KEY1      READEAB#PL75E                 91
+     C   91                LEAVE
+      * IGNORE
+     C           PUSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * IGNORE
+     C           WRLHZ     IFNE 0
+     C           WRLHZ     ANDNEPURLHZ
+     C                     ITER
+     C                     ENDIF
+      * IGNORE
+     C           $NUKE     IFNE *BLANK
+     C           $NUKE     ANDNEPUNUKE
+     C                     ITER
+     C                     ENDIF
+      * PO#=BLANK NOT ALLOWED
+     C           PUODRN    IFNE *BLANK
+     C                     MOVE '1'       $RTN             NOT BLANK EXIST
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *--------------------------------------------------------
+      * WHEN PO# IS NOT BLANK
+      *--------------------------------------------------------
+     C           #CHK3     BEGSR
+      *
+     C                     MOVE *OFF      OFLG    1        ORDER FLG
+     C                     MOVE *OFF      BFLG    1        BLANK FLG
+     C           KEY1      SETLLAB#PL75E
+      *
+     C                     DO   *HIVAL
+     C           KEY1      READEAB#PL75E                 91
+     C   91                LEAVE
+      * IGNORE
+     C           PUSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * IGNORE
+     C           WRLHZ     IFNE 0
+     C           WRLHZ     ANDNEPURLHZ
+     C                     ITER
+     C                     ENDIF
+      * IGNORE
+     C           $NUKE     IFNE *BLANK
+     C           $NUKE     ANDNEPUNUKE
+     C                     ITER
+     C                     ENDIF
+      * PO# NOT ALLOWED
+     C           PUODRN    IFEQ *BLANK
+     C                     MOVE *ON       BFLG             BLANK FLAG
+     C                     ITER
+     C                     ENDIF
+      *
+     C           PUODRN    IFEQ $ODRN
+     C                     MOVE *ON       OFLG             ORDER FLAG
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ENDDO
+      * PO# NOT EXIST
+     C                     SELEC
+     C           OFLG      WHEQ *ON
+     C                     MOVE ' '       $RTN             OK, PO# EXIST
+     C           BFLG      WHEQ *ON
+     C                     MOVE '2'       $RTN             PO# BLANK EXIST
+     C                     OTHER
+     C                     MOVE '9'       $RTN             NO DADA
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *--------------------------------------------------------
+      * INITIAL SETTINGS
+      *--------------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $NONY   4
+     C                     PARM           $NKOJ   1
+     C                     PARM           $NUKE   4
+     C                     PARM           $NOHZ   8
+     C                     PARM           $BINN   2
+     C                     PARM           $RLHZ   8
+     C                     PARM           $ODRN  10
+     C                     PARM           $RTN    1
+      *
+     C           KEY1      KLIST
+     C                     KFLD           K@NONY
+     C                     KFLD           K@NKOJ
+     C                     KFLD           K@NUKE
+     C                     KFLD           K@NOYY
+     C                     KFLD           K@NOMM
+     C                     KFLD           K@NODD
+     C                     KFLD           K@BINN
+      *
+     C           *LIKE     DEFN PUNONY    K@NONY
+     C           *LIKE     DEFN PUNKOJ    K@NKOJ
+     C           *LIKE     DEFN PUNUKE    K@NUKE
+     C           *LIKE     DEFN PUNOYY    K@NOYY
+     C           *LIKE     DEFN PUNOMM    K@NOMM
+     C           *LIKE     DEFN PUNODD    K@NODD
+     C           *LIKE     DEFN PUBINN    K@BINN
+      *
+     C                     MOVE *BLANK    $RTN
+      *
+     C                     MOVEL$NOHZ     WNOHZ
+     C                     MOVEL$RLHZ     WRLHZ
+     C                     MOVEL$BINN     @BINN   20
+     C                     MOVEL$NONY     @NONY   40
+      *
+     C                     Z-ADD@NONY     K@NONY
+     C                     MOVEL$NKOJ     K@NKOJ
+     C                     MOVEL$NUKE     K@NUKE
+     C                     Z-ADDWNOYY     K@NOYY
+     C                     Z-ADDWNOMM     K@NOMM
+     C                     Z-ADDWNODD     K@NODD
+     C                     Z-ADD@BINN     K@BINN
+      *
+     C                     ENDSR

@@ -1,0 +1,285 @@
+     H            Y.
+      ** AB#R99B *********************************************
+      *  ORDER INQUIRY BY PO#                                *
+      *  (COPIED FROM AB#RH5C)                               *
+      *  J.WATANABE  2022.10.25                              *
+      *  ----------------------                              *
+JW1   *  JW          2022.10.25 DELETE EDI ORDER SECTION     *
+      ********************************************************
+     FAB#PW99BCF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL01
+     F**JW1                                   RRN2  KSFILE SFL02
+     FAB#PL10AIF  E           K        DISK
+     FAB#PL83 IF  E           K        DISK
+      *
+     E                    ERR     1   7 60
+      *
+     I            DS
+     I                                        1   80BANOHZ
+     I                                        1   40BANOYY
+     I                                        5   60BANOMM
+     I                                        7   80BANODD
+     I            DS
+     I                                        1   60FDTIME
+     I                                        1   20HH1
+     I                                        3   40MM1
+     I                                        5   60SS1
+     I            DS
+     I                                        1   80DATE
+     I                                        1   20W@CT
+     I                                        3   40W@YY
+     I                                        5   60W@MM
+     I                                        7   80W@DD
+     I            DS
+     I                                        1   80DATE2
+     I                                        1   40W@YY2
+     I                                        5   60W@MM2
+     I                                        7   80W@DD2
+     I            DS
+     I                                        1   80KDATE2
+     I                                        1   40KW@YY
+     I                                        5   60KW@MM
+     I                                        7   80KW@DD
+     I            DS
+     I                                        1  120#TIME
+     I                                        1   20W@HH
+     I                                        3   40W@MIN
+     I                                        5   60W@SS
+      *
+      *-----------------------------------------------------------*
+      *     M  A  I  N  L  I  N  E                                *
+      *-----------------------------------------------------------*
+      *
+     C                     EXSR #INIT
+      *
+     C           W@ID      DOWNE'99'
+     C           W@ID      CASEQ'01'      #DSP1            PO# ENTRY
+     C           W@ID      CASEQ'02'      #DSP2            IAF ORDER
+     C**JW1      W@ID      CASEQ'03'      #DSP3            EDI ORDER
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *
+      *************************************************************
+      * SCREEN 1
+      *************************************************************
+     C           #DSP1     BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANKS   XMSG9
+     C                     SETOF                     313285
+      *
+     C                     EXSR #CHK1
+     C                     SELEC
+      * F1: END
+     C           *INKA     WHEQ *ON
+     C           *INKC     OREQ *ON
+     C                     MOVEL'99'      W@ID
+     C                     GOTO @END1
+      * F5: ORDER
+     C           *INKE     WHEQ *ON
+     C           *IN85     ANDEQ*OFF
+     C                     EXSR #SFL1
+     C           RRN1      IFGT 0
+     C                     MOVEL'02'      W@ID
+     C                     ELSE
+     C                     MOVELERR,4     XMSG9
+     C                     SETON                     313285
+     C                     ENDIF
+      * F7: STATUS
+     C**         *INKG     WHEQ *ON
+     C**         *IN85     ANDEQ*OFF
+     C**                   EXSR #SFL2
+     C**         RRN2      IFGT 0
+     C**                   MOVEL'03'      W@ID
+     C**                   ELSE
+     C**                   MOVELERR,2     XMSG9
+     C**                   SETON                     313285
+     C**                   ENDIF
+      * ENTR
+     C                     OTHER
+     C                     MOVEL'01'      W@ID
+     C                     ENDSL
+      *
+     C           @END1     ENDSR
+      *************************************************************
+      * CHECK SCREEN 1
+      *************************************************************
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE *BLANK    XMSG9
+     C                     MOVE *OFF      *IN31
+     C                     MOVE *OFF      *IN85
+      * PO#
+     C           XORD      IFEQ *BLANK
+     C                     MOVE *ON       *IN31
+     C                     MOVE *ON       *IN85
+     C                     MOVELERR,1     XMSG9
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * PO#=1111
+     C           XORD      IFEQ '11111'
+     C                     MOVE *ON       *IN31
+     C                     MOVE *ON       *IN85
+     C                     MOVELERR,5     XMSG9
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * DELIVERY CODE
+     C           XNONY     IFEQ 0
+     C                     MOVE *ON       *IN32
+     C                     MOVE *ON       *IN85
+     C                     MOVELERR,6     XMSG9
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * DELIVERY CODE
+     C                     MOVELXNONY     $DLV
+     C                     CALL 'UTLR62B'
+     C                     PARM           $DLV    4
+     C                     PARM           $GRP    3
+     C                     PARM           $NAME1 15
+     C                     PARM           $NAME2 50
+     C                     PARM           $RTN    1
+     C           $NAME1    IFEQ *BLANK
+     C                     MOVE *ON       *IN32
+     C                     MOVE *ON       *IN85
+     C                     MOVELERR,7     XMSG9
+     C                     GOTO XCHK1
+     C                     ELSE
+     C                     MOVEL$NAME1    XNAME
+     C                     ENDIF
+      * IF NO ERROR
+     C           *IN85     IFEQ *OFF
+     C                     MOVELERR,3     XMSG9
+     C                     ENDIF
+      *
+     C           XCHK1     ENDSR
+      *************************************************************
+      * SET DATA FOR DSP01
+      *************************************************************
+     C           #SFL1     BEGSR
+      * GET FROM AB#PLE1 (EDI824)
+     C                     Z-ADD0         SVCRDT  80
+     C                     Z-ADD0         SVCRTM  60
+     C                     Z-ADD0         RRN1
+     C                     MOVE *OFF      *IN51
+     C                     MOVELXORD      #ASN16 16 P
+     C           XORD      SETLLAB#PL10A
+      *
+     C                     DO   *HIVAL
+     C           XORD      READEAB#PL10A                 51
+     C   51                LEAVE
+      * CHECK DLT
+     C           BASKJY    IFNE *BLANK
+     C           BANONY    ORNE XNONY
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVELBAEDIK    @TYP
+     C                     Z-ADDBATOKU    @TOKU
+      *
+     C                     Z-ADDBANOHZ    @NOHZ
+     C                     Z-ADDBANOBN    @NOBN
+     C                     MOVELBAMHN1    @MHN1
+     C                     MOVELBAMHN2    @MHN2
+     C                     MOVELBAMHN3    @MHN3
+     C                     Z-ADDBASRYO    @SRYO
+     C                     MOVELBAINVN    @INVN
+     C                     Z-ADDBASYOS    @SYOS
+      * READ PP78
+     C                     Z-ADDBANOYY    K#NOYY  40
+     C                     Z-ADDBANOMM    K#NOMM  20
+     C                     Z-ADDBANODD    K#NODD  20
+     C                     Z-ADDBATOKU    K#CUST  40
+     C                     Z-ADDBANONY    K#NONY  40
+     C                     MOVELBANKOJ    K#NKOJ  1
+     C                     MOVELBANUKE    K#NUKE  4
+     C                     Z-ADDBANOBN    K#BINN  20
+     C           K#PL83    SETLLAB#PL83                  97
+     C                     DO   *HIVAL
+     C           K#PL83    READEAB#PL83                  97
+     C   97                LEAVE
+     C                     MOVELP8SERL    @SERL
+     C                     Z-ADDP8SPDT    @POHZ
+     C                     Z-ADDP8SPTM    @POTM
+     C                     Z-ADDP8ASDT    @ASHZ
+     C                     Z-ADDP8ASTM    @ASTM
+     C           P8ODRN    IFEQ XORD
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ADD  1         RRN1
+     C                     WRITESFL01
+      *
+     C                     ENDDO
+      *
+     C                     Z-ADDRRN1      COUNT1  60
+      *
+     C                     ENDSR
+      ************************************************************
+      * SCREEN 2 (ORDER)
+      ************************************************************
+     C           #DSP2     BEGSR
+      *
+     C                     WRITEFMT90
+     C                     MOVEL'1'       *IN70
+     C                     EXFMTCTL01
+     C                     MOVEL*BLANKS   XMSG9
+     C                     MOVEL'0'       *IN85
+     C                     MOVEL'0'       *IN70
+      *
+     C                     SELEC
+     C           *INKA     WHEQ *ON
+     C           *INKC     OREQ *ON
+     C                     MOVEL'99'      W@ID
+     C           *INKL     WHEQ *ON
+     C                     EXSR @CLR1
+     C                     Z-ADD0         RRN1
+     C                     MOVEL'01'      W@ID
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *************************************************************
+      * CLEAR SCREEN 1
+      *************************************************************
+     C           @CLR1     BEGSR
+     C                     SETON                     71
+     C                     WRITECTL01
+     C                     SETOF                     71
+     C                     Z-ADD0         RRN1
+      *
+     C                     ENDSR
+      *************************************************************
+      * INITIALIZE
+      *************************************************************
+     C           #INIT     BEGSR
+      *
+     C           K#PL83    KLIST
+     C                     KFLD           K#NOYY  40
+     C                     KFLD           K#NOMM  20
+     C                     KFLD           K#NODD  20
+     C                     KFLD           K#CUST  40
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#NKOJ  1
+     C                     KFLD           K#NUKE  4
+     C                     KFLD           K#BINN  20
+      *
+     C                     MOVEL*BLANKS   XMSG9
+     C                     MOVEL'01'      W@ID    2
+     C                     TIME           #TIME
+     C                     MOVE *DATE     DATE
+     C                     Z-ADD0         RRN1    50
+     C**                   Z-ADD0         RRN2    50
+      *
+     C                     ENDSR
+      *************************************************************
+** ERR (60A) ......2.........3.........4.........5.........6
+ENTER ORDER#                                                 01
+IAF DID NOT RECEIVE ANY EDI ORDER(862/850) WITH THIS ORDER#  02
+PRESS F5 TO DISPLAY ORDER DADA...                            03
+IAF ORDER NOT FOUND!                                         04
+FORD ORDER HAS ALWAYS PO# 11111...                           05
+ENTER DELIVERY CODE!                                         06
+DELIVARY CODE IS INCORRECT!                                  07

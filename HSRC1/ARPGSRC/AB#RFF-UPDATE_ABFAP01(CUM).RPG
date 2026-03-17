@@ -1,0 +1,132 @@
+     H            Y.
+     F** AB#RFF ************************************************
+     F*  UPDATE ABFAP01(CUM)                                   *
+     F*  N.HYOTO 2001.04.23                                    *
+     F*                                                        *
+     F*  ADD QTY ALSO TO CUM QTY FROM AUG                      *
+     F*      2001.07.30 (TCH)                                  *
+JW1  F*  JW  2020.11.24 ADD LOG FILE                           *
+     F*                                                        *
+     F*  *IN95=1 NOT READ FCEPL01                              *
+     F************************************ AB#RFF **************
+     FABFAP01 UF  E           K        DISK
+     FAB#PPCT UF  E           K        DISK                      A
+JW1  FABFAP02 O   E           K        DISK
+     I****************************************************
+     I* SYSTEM DATE & TIME
+     I            DS
+     I                                        1  140WTMDT
+     I                                        1   40WTIME
+     I                                        7  140WDATE
+     I* UPDATE DATE
+     I            DS
+     I                                        1   80CFUPHZ
+     I                                        1   40CFUPDY
+     I                                        5   60CFUPDM
+     I                                        7   80CFUPDD
+     I* UPDATE TIME
+     I            DS
+     I                                        1   40CFTIME
+     I                                        1   20CFUPTH
+     I                                        3   40CFUPTM
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     C***********************************************************
+     C*
+     C                     EXSR @INZ
+     C                     EXSR @MAIN
+     C                     EXSR @END
+     C*
+     C***********************************************************
+     C* INITIALIZE WORK AREA
+     C***********************************************************
+     C           @INZ      BEGSR
+     C*
+     C                     TIME           WTMDT
+     C           K#PCT     KLIST
+     C                     KFLD           K@KWD1  8
+     C                     KFLD           K@KWD2  8
+     C*
+     C                     MOVEL'FORD'    K@KWD1
+     C                     MOVEL'CUM'     K@KWD2
+     C           K#PCT     CHAINAB#PPCT              95
+     C           *IN95     IFEQ *OFF
+     C           CTNBR1    ANDEQ*DATE
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+     C                     ENDIF
+     C*
+     C                     ENDSR
+     C***********************************************************
+     C* MAIN
+     C***********************************************************
+     C           @MAIN     BEGSR
+     C*
+     C           *LOVAL    SETLLABFAP01
+     C                     READ ABFAP01                  90
+     C           *IN90     DOWEQ'0'
+     C*
+     C           CFTAMT    IFNE *ZERO
+JW1   * LOG
+ .   C                     MOVEL'BEFORE'  C2UPST
+ .   C                     EXSR #LOGU
+     C                     Z-ADDWDATE     CFUPHZ
+     C                     Z-ADDWTIME     CFTIME
+     C*
+     C                     ADD  CFTAMT    CFCAMT
+     C                     ADD  CFTAMT    CFCAMN
+     C                     Z-ADDCFTDAT    CFLDAT
+     C                     Z-ADD*ZERO     CFTAMT
+     C                     Z-ADD*ZERO     CFTDAT
+     C                     UPDATABFAP01R
+JW1   * LOG
+ .   C                     MOVEL'AFTER '  C2UPST
+  .  C                     EXSR #LOGU
+      *
+     C                     END
+     C*
+     C                     READ ABFAP01                  90
+     C                     END
+     C*
+     C                     ENDSR
+     C***********************************************************
+     C* LOG FILE
+     C***********************************************************
+     C           #LOGU     BEGSR
+      *
+     C                     MOVE *BLANK    C2DLCD
+     C                     Z-ADD0         C2DLHZ
+     C                     Z-ADD0         C2DLTM
+     C                     MOVE *BLANK    C2DLUS
+     C                     Z-ADDWDATE     C2UPHZ
+     C                     Z-ADDWTIME     C2UPTM
+     C                     MOVEL#USER     C2UPUS
+     C                     Z-ADD0         C2CRHZ
+     C                     Z-ADD0         C2CRTM
+     C                     MOVEL#PGM      C2CRUS
+     C                     WRITEABFAP02R
+      *
+     C                     ENDSR
+     C***********************************************************
+     C* END
+     C***********************************************************
+     C           @END      BEGSR
+     C*
+     C           K#PCT     CHAINAB#PPCT              95
+     C           *IN95     IFEQ *ON
+     C                     CLEARAB#PPCT1
+     C                     MOVELK@KWD1    CTKEY1
+     C                     MOVELK@KWD2    CTKEY2
+     C                     Z-ADD*DATE     CTNBR1
+     C                     WRITEAB#PPCT1
+     C                     ELSE
+     C                     Z-ADD*DATE     CTNBR1
+     C                     UPDATAB#PPCT1
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+     C*
+     C                     ENDSR

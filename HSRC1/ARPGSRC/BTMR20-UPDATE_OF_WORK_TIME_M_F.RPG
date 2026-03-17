@@ -1,0 +1,405 @@
+     H            Y.
+      ** BTMR20 *******************************************************
+      *  UPDATE OF WORK TIME M/F
+      *  KIRI                                            2017.06.28
+      *****************************************************************
+     FBTMPW20 CF  E                    WORKSTN
+      *
+      *   WORK TIME M/F
+     FBTMPL20 UF  E           K        DISK                      A
+      *
+      *===============================================================
+     E                    ER      1  20 60
+     E                    ES     13  13  1
+      *===============================================================
+      *---（時刻）
+     I            DS
+     I                                        1   40W$TM
+     I                                        1   20W$JJ
+     I                                        3   40W$FF
+     I****************************
+      *プログラム状況データ構造*
+     I****************************
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W$WSID
+     I                                      254 263 W$USER
+     I                                      264 269 W$JBNO
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60@SYSTM
+     I                                        7  140@SYSHZ
+     I            DS
+     I                                        1   3 D1SHP#
+     I                                        1   1 D1SHP1
+     I                                        2   2 D1SHP2
+     I                                        3   3 D1SHP3
+     C*===============================================================
+     C*
+     C*===============================================================
+     C                     MOVE '#INIT   '@STEP   8
+     C*
+     C           @STEP     DOUEQ'#END    '
+     C           @STEP     CASEQ'#INIT   '#INIT            初期処理
+     C           @STEP     CASEQ'#DSP1   '#DSP1
+     C           @STEP     CASEQ'#CHK1   '#CHK1
+     C           @STEP     CASEQ'#DSP2   '#DSP2
+     C           @STEP     CASEQ'#CHK2   '#CHK2
+     C           @STEP     CASEQ'#CHK2U  '#CHK2
+     C           @STEP     CASEQ'#UPDAT  '#UPDAT
+     C                     ENDCS
+     C                     ENDDO
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+     C*===============================================================
+      * 初期ﾈｮmb
+     C*===============================================================
+     C           #INIT     BEGSR
+     C                     MOVEA*ALL'0'   *IN
+     C                     TIME           @TIME
+      *
+     C                     MOVE *BLANK    D1KKBN           更新区分
+     C                     MOVE *BLANK    D1SHP#            SHIPPING#
+     C                     MOVE *BLANK    D1ERR            d[ｰxｮﾈｰﾆﾞ
+     C                     MOVE *BLANK    D2KKBN           更新区分
+     C                     MOVE *BLANK    D2SHP#            SHIPPING#
+      *
+      *
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDSR
+     C*===============================================================
+      *画面１*
+     C*===============================================================
+     C           #DSP1     BEGSR
+     C*
+     C                     EXFMTBTMPW201
+     C                     MOVEA'0000'    *IN,21
+     C                     SETOF                     99
+     C                     MOVE '#CHK1   '@STEP
+      *-------*
+      * (F1)  *
+      *-------*
+     C   KA                MOVE '#END    '@STEP
+      *-------*
+      * (F24) * DOWNLOAD
+      *-------*
+     C           *INKY     IFEQ *ON
+     C                     CALL 'BTMC21'
+     C                     MOVE '#END    '@STEP
+     C                     ENDIF
+     C*
+     C                     ENDSR
+     C*===============================================================
+      *画面１チェック
+     C*===============================================================
+     C           #CHK1     BEGSR
+      *----------------------*
+      * UPDATE更新区分
+      *----------------------*
+S1   C                     SELEC
+ 1   C           D1KKBN    WHEQ '0'                        :取消
+     C                     MOVEL'0-CANCEL'D2KKBN
+     C                     SETON                     29    (PR)
+ 1   C           D1KKBN    WHEQ '1'                        :変更
+     C                     MOVEL'1-CHANGE'D2KKBN
+     C                     SETOF                     29    (CS)
+ 1   C           D1KKBN    WHEQ '2'                        :追加
+     C                     MOVEL'2-ADD   'D2KKBN
+     C                     SETOF                     29    (CS)
+ 1   C                     OTHER
+     C                     SETON                     2199
+     C                     MOVELER,1      D1ERR
+     C                     GOTO $CHK1Z
+E1   C                     ENDSL
+      *----------------------*
+      * SHIPPING#
+      *----------------------*
+     C           D1SHP#    IFEQ *BLANK                      SHIPPING#
+     C                     SETON                     2299
+     C                     MOVELER,2      D1ERR
+     C                     GOTO $CHK1Z
+E1   C                     ENDIF
+      *----------------------*
+     C                     Z-ADD1         X       20
+     C           D1SHP1    LOKUPES,X                     23
+     C  N23      D1SHP2    LOKUPES,X                     23
+     C  N23      D1SHP3    LOKUPES,X                     23
+     C           *IN23     IFEQ *ON
+     C                     SETON                     2299
+     C                     MOVELER,8      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+      *----------------------*
+     C                     MOVELD1SHP#    D2SHP#            SHIPPING#
+     C*
+     C           D1SHP#    CHAINBTMPL20             N90
+      **
+S1   C                     SELEC
+     C*
+-1   C           D1KKBN    WHEQ '0'                        :CANCEL
+     C           *IN90     IFEQ *ON
+     C                     SETON                     212299
+     C                     MOVELER,3      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C           B2SKJY    IFEQ 'D'
+     C           B2SKHZ    ANDLE*DATE
+     C                     SETON                     212299
+     C                     MOVELER,4      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C*
+-1   C           D1KKBN    WHEQ '1'                        :CHANGE
+     C           *IN90     IFEQ *ON
+     C                     SETON                     212299
+     C                     MOVELER,3      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C           B2SKJY    IFEQ 'D'
+     C           B2SKHZ    ANDLE*DATE
+     C                     SETON                     212299
+     C                     MOVELER,4      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C*
+-1   C           D1KKBN    WHEQ '2'                        :ADD
+     C           *IN90     IFEQ *OFF
+     C           B2SKJY    ANDEQ' '
+     C                     SETON                     212299
+     C                     MOVELER,6      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+E1   C                     ENDSL
+      **
+      *----------------------*
+      *更新区分
+      *----------------------*
+     C                     MOVEA'00000000'*IN,31
+     C                     Z-ADD0         D2NLIT           NEW ISSUE START
+     C                     Z-ADD0         D2OLIT           OLD ISSUE START
+     C                     Z-ADD0         D2NLDT           NEW DIST. START
+     C                     Z-ADD0         D2OLDT           OLD DIST. START
+     C                     Z-ADD0         D2NPLT           NEW PULL. START
+     C                     Z-ADD0         D2OPLT           OLD PULL. START
+     C                     Z-ADD0         D2NBXT           NEW BOXING START
+     C                     Z-ADD0         D2OBXT           OLD BOXING START
+     C                     Z-ADD0         D2NPCT           NEW PACKING START
+     C                     Z-ADD0         D2OPCT           OLD PACKING START
+     C                     Z-ADD*DATE     D2CHDT           CHANGE OVER DATE
+     C                     MOVEL*BLANK    D2ERR
+S1   C                     SELEC
+ 1   C           D1KKBN    WHEQ '0'                        :CANCEL
+     C                     Z-ADDB2NLIT    D2NLIT           NEW ISSUE START
+     C                     Z-ADDB2OLIT    D2OLIT           OLD ISSUE START
+     C                     Z-ADDB2NLDT    D2NLDT           NEW DIST. START
+     C                     Z-ADDB2OLDT    D2OLDT           OLD DIST. START
+     C                     Z-ADDB2NPLT    D2NPLT           NEW PULL. START
+     C                     Z-ADDB2OPLT    D2OPLT           OLD PULL. START
+     C                     Z-ADDB2NBXT    D2NBXT           NEW BOXING START
+     C                     Z-ADDB2OBXT    D2OBXT           OLD BOXING START
+     C                     Z-ADDB2NPCT    D2NPCT           NEW PACKING START
+     C                     Z-ADDB2OPCT    D2OPCT           OLD PACKING START
+     C                     Z-ADDB2CHDT    D2CHDT           CHANGE OVER DATE
+ 1   C           D1KKBN    WHEQ '1'                        :CHANGE
+     C                     Z-ADDB2NLIT    D2OLIT           OLD ISSUE START
+     C                     Z-ADDB2NLDT    D2OLDT           OLD DIST. START
+     C                     Z-ADDB2NPLT    D2OPLT           OLD PULL. START
+     C                     Z-ADDB2NBXT    D2OBXT           OLD BOXING START
+     C                     Z-ADDB2NPCT    D2OPCT           OLD PACKING START
+     C                     Z-ADD*DATE     D2CHDT           CHANGE OVER DATE
+E1   C                     ENDSL
+     C*
+      *----------------------*
+     C           $CHK1Z    TAG
+      *----------------------*
+     C           *IN99     IFEQ *ON
+     C                     MOVE '#DSP1   '@STEP
+     C                     ELSE
+     C                     MOVE '#DSP2   '@STEP
+     C                     ENDIF
+      *----------------------*
+     C                     ENDSR
+      *===============================================================
+      *画面２表示
+      *===============================================================
+     C           #DSP2     BEGSR
+     C                     EXFMTBTMPW202
+     C                     MOVEA'0'       *IN,99
+     C                     MOVEA'00000000'*IN,31
+     C                     MOVE '#CHK2   '@STEP
+      *----*
+      * F3 *
+      *----*
+     C           *INKC     IFEQ *ON
+     C                     SETOF                     202122
+     C                     SETOF                         99
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDIF
+      *----*
+      * F5 *
+      *----*
+     C           *INKE     IFEQ *ON
+     C                     MOVE '#CHK2U  '@STEP
+     C                     ENDIF
+     C                     ENDSR
+     C*===============================================================
+      *画面２チェック
+     C*===============================================================
+     C           #CHK2     BEGSR
+     C*
+      *
+      *  追加・変更のみチェック
+S1   C           D1KKBN    IFEQ '0'                        :CANCEL
+     C                     GOTO $CHK2Z
+E1   C                     ENDIF
+     C*-------------------------
+      *
+      * NEW ISSUE START
+     C                     Z-ADDD2NLIT    W$TM
+     C                     EXSR ##TIM
+     C   99                SETON                     31
+     C   99                GOTO $CHK2Z
+      *
+      * NEW DISTRIBUTION START
+     C                     Z-ADDD2NLDT    W$TM
+     C                     EXSR ##TIM
+     C   99                SETON                     32
+     C   99                GOTO $CHK2Z
+      *
+      * NEW PULLING START
+     C                     Z-ADDD2NPLT    W$TM
+     C                     EXSR ##TIM
+     C   99                SETON                     33
+     C   99                GOTO $CHK2Z
+      *
+      * NEW BOXING START
+     C                     Z-ADDD2NBXT    W$TM
+     C                     EXSR ##TIM
+     C   99                SETON                     34
+     C   99                GOTO $CHK2Z
+      *
+      * NEW PACKING START
+     C                     Z-ADDD2NPCT    W$TM
+     C                     EXSR ##TIM
+     C   99                SETON                     35
+     C   99                GOTO $CHK2Z
+      *
+      * CHANGE OVER DATE
+     C           D2CHDT    IFEQ 0
+     C                     SETON                     3699
+     C                     MOVELER,13     D2ERR
+     C                     GOTO $CHK2Z
+     C                     ENDIF
+     C*
+     C                     MOVELD2CHDT    P1DATE
+     C                     CALL 'DATR10'
+     C                     PARM           P1DATE  8
+     C                     PARM           P1RTN   1
+     C           P1RTN     IFEQ '1'
+     C                     SETON                     3699
+     C                     MOVELER,14     D2ERR
+     C                     GOTO $CHK2Z
+     C                     ENDIF
+      *----------------------*
+     C           $CHK2Z    TAG
+      *----------------------*
+S1   C           *IN99     IFEQ *OFF
+     C           @STEP     ANDEQ'#CHK2U  '
+     C                     MOVE '#UPDAT  '@STEP
+     C                     ELSE
+     C                     MOVE '#DSP2   '@STEP
+E1   C                     ENDIF
+     C                     ENDSR
+      *================================================================
+      *===============================================================
+     C           ##TIM     BEGSR
+      *
+     C           W$TM      IFNE 9999
+      *時刻　時
+     C           W$JJ      IFLT 00
+     C           W$JJ      ORGT 24
+     C                     SETON                     99
+     C                     ENDIF
+      *時刻　分
+     C           W$FF      IFLT 00
+     C           W$FF      ORGT 60
+     C                     SETON                     99
+     C                     ENDIF
+      *
+     C   99                MOVELER,12     D2ERR
+      *
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C*===============================================================
+      *ファイル更新処理
+     C*===============================================================
+     C           #UPDAT    BEGSR
+     C*
+     C           D1SHP#    CHAINBTMPL20              90
+     C   90                CLEARBTMPL201
+     C*
+S1   C                     SELEC
+-1   C           D1KKBN    WHEQ '0'                        :CANCEL
+     C                     MOVEL'D'       B2SKJY           DELETE CODE D
+     C                     Z-ADD@SYSHZ    B2SKHZ           DELETE DATE
+     C                     Z-ADD@SYSTM    B2SKTM           DELETE TIME
+     C                     MOVELW$USER    B2SKNM           DELETE PERSON
+-1   C                     OTHER                           :ADD CHANGE
+     C                     MOVEL' '       B2SKJY           DELETE CODE D
+     C                     Z-ADD0         B2SKHZ           DELETE DATE
+     C                     Z-ADD0         B2SKTM           DELETE TIME
+     C                     MOVEL*BLANK    B2SKNM           DELETE PERSON
+     C                     Z-ADD@SYSHZ    B2KOHZ           UPDATE DATE
+     C                     Z-ADD@SYSTM    B2KOTM           UPDATE TIME
+     C                     MOVELW$PGM     B2KOPG           UPDATE PROGRAM
+     C                     MOVELW$USER    B2KONM           UPDATE PERSON
+     C                     MOVELD1SHP#    B2SHP#           SHIPPING#
+     C                     Z-ADDD2NLIT    B2NLIT           NEW ISSUE START
+     C                     Z-ADDD2OLIT    B2OLIT           OLD ISSUE START
+     C                     Z-ADDD2NLDT    B2NLDT           NEW DIST. START
+     C                     Z-ADDD2OLDT    B2OLDT           OLD DIST. START
+     C                     Z-ADDD2NPLT    B2NPLT           NEW PULL. START
+     C                     Z-ADDD2OPLT    B2OPLT           OLD PULL. START
+     C                     Z-ADDD2NBXT    B2NBXT           NEW BOXING START
+     C                     Z-ADDD2OBXT    B2OBXT           OLD BOXING START
+     C                     Z-ADDD2NPCT    B2NPCT           NEW PACKING START
+     C                     Z-ADDD2OPCT    B2OPCT           OLD PACKING START
+     C                     Z-ADDD2CHDT    B2CHDT           CHANGE OVER DATE
+E1   C                     ENDSL
+      *
+     C   90                WRITEBTMPL201
+     C  N90                UPDATBTMPL201
+     C*
+     C*
+     C                     MOVE *BLANK    D1KKBN           更新区分
+     C                     MOVE *BLANK    D1SHP#            SHIPPING#
+     C                     SETON                     20
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDSR
+      *================================================================
+      *================================================================
+**  ERROR
+E-01 UPDATE INSTRUCTION <0 1 2>
+E-02 INPUT SHIPPING#
+E-03 NO DATA
+E-04 DATA IS CANCELLED ALREADY
+E-05 NO DATA
+E-06 DATA EXIST
+E-07 INPUT L.T.
+E-08 CAN'T USE SYMBOLS -> #%&@/_\+-|?!
+E-09
+E-10
+E-11 INPUT TIME
+E-12 RANGE IS 00:00 -- 23:59  OR  99:99
+E-13 INPUT DATE
+E-14 DATE ERROR
+E-15
+E-16
+E-17
+E-18
+E-19
+E-20
+**  ERROR SYMBOL
+#\%&@/_$+-|?!

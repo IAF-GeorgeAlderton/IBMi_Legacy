@@ -1,0 +1,499 @@
+     H            Y/
+     F** ABFR90 **********************************************
+     F*  CREATE MONTHLY FC ORDER DATA(ABFPP80) (HONDA)       *
+     F*  J.WATANABE 2018.07.06                               *
+     F* ------------------------------------------------     *
+     F*  JW    2026.02.19 CHG ABBPL59 TO ABBPL52             *
+     F********************************************************
+     FFGBPL01 IF  E           K        DISK
+     F**ABBPL59 IF  E           K        DISK
+JW   FABBPL52 IF  E           K        DISK
+     FAGDPL11 IF  E           K        DISK
+     FABFPP80 UF  E           K        DISK                      A
+      *------------------------------------------------------------
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1   80BBSDAT
+     I                                        1   60BBSDYM
+     I            DS
+     I                                        1   80BBRCDT
+     I                                        1   60BBRCYM
+     I            DS
+     I                                        1   60TGTYM
+     I                                        1   40TGTYY
+     I                                        5   60TGTMM
+     I            DS
+     I                                        1   80@YMD1
+     I                                        1   40@YY1
+     I                                        5   60@MM1
+     I                                        7   80@DD1
+     I            DS
+     I                                        1   80@YMD2
+     I                                        1   40@YY2
+     I                                        5   60@MM2
+     I                                        7   80@DD2
+     I            DS
+     I                                        1   80F8KA
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+     I                                        1   60F8KAYM
+     I            DS
+     I                                        1   80LSTYMD
+     I                                        1   60LSTYM
+     I                                        1   40LSTYY
+     I                                        5   60LSTMM
+     I                                        7   80LSTDD
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *==================================================
+      * MAIN ROUTINE
+      *==================================================
+     C                     EXSR #INT
+      * MAIN LOOP
+     C                     Z-ADD0         B2CODE  40
+     C                     DO   *HIVAL
+     C                     READ FGBPL01                  91
+     C   91                LEAVE
+      *
+      * GET LATEST RECEIVE DATE
+     C                     Z-ADD0         @RCVDT  80
+     C                     EXSR #CHK80
+      *
+     C           OKFLG     IFEQ 'Y'
+     C                     EXSR #PROC1
+     C                     ELSE
+     C                     ITER
+     C                     ENDIF
+      * OUTPUT
+     C           @RCVDT    IFNE 0
+     C                     EXSR #PROC2
+     C                     EXSR #PROC3
+     C                     EXSR #PROC4
+     C                     EXSR #PROC5
+     C                     EXSR #PROC6
+     C                     EXSR #PROC7
+     C                     EXSR #PROC8
+     C                     EXSR #PROC9
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     MOVEL*ON       *INLR
+     C                     RETRN
+      *==================================================
+      *  CHECK ABFPP80 (AVOID DUPLICATE FORECAST)
+      *==================================================
+     C           #CHK80    BEGSR
+      *
+     C                     MOVE 'N'       OKFLG   1
+      *
+     C                     Z-ADDTGTYM     K8FCYM
+     C                     Z-ADDB2CODE    K8NONY
+     C           K#80X     CHAINABFPP80              98
+     C           *IN98     IFEQ *ON
+     C                     MOVE 'Y'       OKFLG
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *==================================================
+      *  1ST PROCESS (GET LATEST RECEIVE DATE)
+      *==================================================
+     C           #PROC1    BEGSR
+      *
+     C                     Z-ADD0         @RCVD3  80
+     C                     Z-ADD0         @RCVD4  80
+     C                     Z-ADD0         @RCVD5  80
+     C                     Z-ADD0         @RCVD6  80
+     C                     Z-ADD0         @RCVD7  80
+     C                     Z-ADD0         @RCVD8  80
+     C                     Z-ADD0         @RCVD9  80
+     C                     Z-ADDLSTYMD    @YMD1
+     C                     SUB  1         @YY1
+     C           K#50      SETLLABBPL52
+     C                     DO   *HIVAL
+     C                     READ ABBPL52                  92
+     C   92                LEAVE
+      * END?
+     C           BBNONY    IFNE B2CODE
+     C                     LEAVE
+     C                     ENDIF
+      * END?
+     C           BBRCYM    IFGT LSTYM
+     C                     LEAVE
+     C                     ENDIF
+      * IGNORE
+     C           BBSQTY    IFLE 0
+     C                     ITER
+     C                     ENDIF
+      * IGNORE
+     C           BBSDYM    IFLT LSTYM
+     C                     ITER
+     C                     ENDIF
+      * SAVE DATE
+     C           BBRCDT    IFGT @RCVDT
+     C                     Z-ADD@RCVD8    @RCVD9
+     C                     Z-ADD@RCVD7    @RCVD8
+     C                     Z-ADD@RCVD6    @RCVD7
+     C                     Z-ADD@RCVD5    @RCVD6
+     C                     Z-ADD@RCVD4    @RCVD5
+     C                     Z-ADD@RCVD3    @RCVD4
+     C                     Z-ADD@RCVDT    @RCVD3
+     C                     Z-ADDBBRCDT    @RCVDT
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+     C*=====================================================
+      *  2ND PROCESS (CREATE WORK ABBPP50)
+     C*=====================================================
+     C           #PROC2    BEGSR
+      *
+     C           @RCVDT    IFNE 0
+     C                     Z-ADD@RCVDT    @YMD1
+     C           K#50      SETLLABBPL52
+     C                     DO   *HIVAL
+     C           K#50      READEABBPL52                  93
+     C   93                LEAVE
+      *
+     C           BBSQTY    IFNE 0
+     C**TEMP     BBSDYM    ANDLETGTYM
+     C                     EXSR #DUP
+     C           DUPFLG    IFEQ 'N'
+     C                     EXSR #OUT
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C*=====================================================
+      *  CHECK DUPLICATE FC
+     C*=====================================================
+     C           #DUP      BEGSR
+      *
+     C                     MOVE *BLANK    DUPFLG  1
+     C                     MOVELBBSDAT    K8FCYM
+     C                     Z-ADDBBNONY    K8NONY
+     C                     MOVELBBNKOJ    K8NKOJ
+     C                     MOVELBBNUKE    K8NUKE
+     C                     Z-ADDBBSDAT    K8SDTO
+     C                     MOVELBBMHN1    K8MHN1
+     C                     MOVELBBMHN2    K8MHN2
+     C                     MOVELBBMHN3    K8MHN3
+     C                     MOVELBBMHN4    K8MHN4
+     C           K#80      CHAINABFPP80              99
+     C           *IN99     IFEQ *OFF
+     C                     MOVE 'Y'       DUPFLG
+     C                     ELSE
+     C                     MOVE 'N'       DUPFLG
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C*=====================================================
+      *  3RD PROCESS (   )
+     C*=====================================================
+     C           #PROC3    BEGSR
+      *
+     C           @RCVD3    IFNE 0
+     C                     Z-ADD@RCVD3    @YMD1
+     C           K#50      SETLLABBPL52
+     C                     DO   *HIVAL
+     C           K#50      READEABBPL52                  93
+     C   93                LEAVE
+      *
+     C           BBSQTY    IFNE 0
+     C**TEMP     BBSDYM    ANDLETGTYM
+     C                     EXSR #DUP
+     C           DUPFLG    IFEQ 'N'
+     C                     EXSR #OUT
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C*=====================================================
+      *  4TH PROCESS (   )
+     C*=====================================================
+     C           #PROC4    BEGSR
+      *
+     C           @RCVD4    IFNE 0
+     C                     Z-ADD@RCVD4    @YMD1
+     C           K#50      SETLLABBPL52
+     C                     DO   *HIVAL
+     C           K#50      READEABBPL52                  93
+     C   93                LEAVE
+      *
+     C           BBSQTY    IFNE 0
+     C**TEMP     BBSDYM    ANDLETGTYM
+     C                     EXSR #DUP
+     C           DUPFLG    IFEQ 'N'
+     C                     EXSR #OUT
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C*=====================================================
+      *  5TH PROCESS (   )
+     C*=====================================================
+     C           #PROC5    BEGSR
+      *
+     C           @RCVD5    IFNE 0
+     C                     Z-ADD@RCVD5    @YMD1
+     C           K#50      SETLLABBPL52
+     C                     DO   *HIVAL
+     C           K#50      READEABBPL52                  93
+     C   93                LEAVE
+      *
+     C           BBSQTY    IFNE 0
+     C**TEMP     BBSDYM    ANDLETGTYM
+     C                     EXSR #DUP
+     C           DUPFLG    IFEQ 'N'
+     C                     EXSR #OUT
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C*=====================================================
+      *  6TH PROCESS (   )
+     C*=====================================================
+     C           #PROC6    BEGSR
+      *
+     C           @RCVD6    IFNE 0
+     C                     Z-ADD@RCVD6    @YMD1
+     C           K#50      SETLLABBPL52
+     C                     DO   *HIVAL
+     C           K#50      READEABBPL52                  93
+     C   93                LEAVE
+      *
+     C           BBSQTY    IFNE 0
+     C**TEMP     BBSDYM    ANDLETGTYM
+     C                     EXSR #DUP
+     C           DUPFLG    IFEQ 'N'
+     C                     EXSR #OUT
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C*=====================================================
+      *  7TH PROCESS (   )
+     C*=====================================================
+     C           #PROC7    BEGSR
+      *
+     C           @RCVD7    IFNE 0
+     C                     Z-ADD@RCVD7    @YMD1
+     C           K#50      SETLLABBPL52
+     C                     DO   *HIVAL
+     C           K#50      READEABBPL52                  93
+     C   93                LEAVE
+      *
+     C           BBSQTY    IFNE 0
+     C**TEMP     BBSDYM    ANDLETGTYM
+     C                     EXSR #DUP
+     C           DUPFLG    IFEQ 'N'
+     C                     EXSR #OUT
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C*=====================================================
+      *  8TH PROCESS (   )
+     C*=====================================================
+     C           #PROC8    BEGSR
+      *
+     C           @RCVD8    IFNE 0
+     C                     Z-ADD@RCVD8    @YMD1
+     C           K#50      SETLLABBPL52
+     C                     DO   *HIVAL
+     C           K#50      READEABBPL52                  93
+     C   93                LEAVE
+      *
+     C           BBSQTY    IFNE 0
+     C**TEMP     BBSDYM    ANDLETGTYM
+     C                     EXSR #DUP
+     C           DUPFLG    IFEQ 'N'
+     C                     EXSR #OUT
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C*=====================================================
+      *  9TH PROCESS (   )
+     C*=====================================================
+     C           #PROC9    BEGSR
+      *
+     C           @RCVD9    IFNE 0
+     C                     Z-ADD@RCVD9    @YMD1
+     C           K#50      SETLLABBPL52
+     C                     DO   *HIVAL
+     C           K#50      READEABBPL52                  93
+     C   93                LEAVE
+      *
+     C           BBSQTY    IFNE 0
+     C**TEMP     BBSDYM    ANDLETGTYM
+     C                     EXSR #DUP
+     C           DUPFLG    IFEQ 'N'
+     C                     EXSR #OUT
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C                     ENDSR
+     C*=====================================================
+     C* OUTPUT DATA TO ABFPP80
+     C*=====================================================
+     C           #OUT      BEGSR
+      * GET SPLIT END DATE
+     C                     MOVELBBSDAT    $DT8
+     C                     MOVE '+'       $SIGN
+     C                     MOVEL'0006'    $DAYS
+     C                     MOVEL'N'       $IAF
+     C                     CALL 'UTLR10'
+     C                     PARM           $DT8    8
+     C                     PARM           $SIGN   1
+     C                     PARM           $DAYS   4
+     C                     PARM           $IAF    1
+     C                     PARM           $TGT8   8
+     C                     PARM           $RTN1   1
+     C           $RTN1     IFEQ *BLANK
+     C                     MOVEL$TGT8     BBEDAT  80
+     C                     ELSE
+     C                     MOVELBBSDAT    BBEDAT
+     C                     ENDIF
+      *
+      * GET SPLIT DAYS (DAYS=WORKING DAYS)
+     C                     MOVELBBSDAT    $DT81
+     C                     MOVELBBEDAT    $DT82
+     C                     MOVEL'Y'       $IAF
+     C                     MOVEL'Y'       $INC
+     C                     CALL 'UTLR24'
+     C                     PARM           $DT81   8
+     C                     PARM           $DT82   8
+     C                     PARM           $IAF    1
+     C                     PARM           $INC    1
+     C                     PARM           $DAYS   4
+     C                     PARM           $RTN2   1
+     C           $RTN2     IFEQ *BLANK
+     C                     MOVEL$DAYS     @DAYS   40
+     C                     ELSE
+     C                     MOVEL'0001'    @DAYS
+     C                     ENDIF
+      *
+     C           @DAYS     IFEQ 0
+     C                     Z-ADD0         @SQTY  112
+     C                     ELSE
+     C           BBSQTY    DIV  @DAYS     @SQTY
+     C                     ENDIF
+      * OUT
+     C                     Z-ADD0         SEQ#    20
+     C                     Z-ADDBBSDAT    @YMD2
+     C           K#11      SETLLAGDPL11
+     C                     DO   *HIVAL
+     C                     READ AGDPL11                  94
+     C   94                LEAVE
+     C           F8KA      IFGT BBEDAT
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           F8KAYM    IFLT LSTYM
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     CLEARABFPP801
+     C                     Z-ADDBBRCDT    B8RCDT
+     C                     MOVELBBSDAT    B8FCYM
+     C                     Z-ADDBBTOKU    B8TOKU
+     C                     Z-ADDBBNONY    B8NONY
+     C                     MOVELBBNKOJ    B8NKOJ
+     C                     MOVELBBNUKE    B8NUKE
+     C                     MOVELBBMHN1    B8MHN1
+     C                     MOVELBBMHN2    B8MHN2
+     C                     MOVELBBMHN3    B8MHN3
+     C                     MOVELBBMHN4    B8MHN4
+     C                     MOVELBBSHN1    B8SHN1
+     C                     MOVELBBSHN2    B8SHN2
+     C                     MOVELBBSHN3    B8SHN3
+     C                     Z-ADDF8KA      B8SDTS
+     C                     MOVELF8KA      B8SPYM
+     C                     Z-ADD@SQTY     B8SQTS
+     C                     Z-ADD@DAYS     B8SDTW
+     C                     ADD  1         SEQ#
+     C                     Z-ADDSEQ#      B8SDT#
+      *
+     C           SEQ#      IFEQ 1
+     C                     Z-ADDBBSQTY    B8SQTO
+     C                     ENDIF
+      *
+     C                     Z-ADDBBSDAT    B8SDTO
+     C                     MOVEL'ABBPP50' B8SFLO
+     C                     Z-ADDTODAY     B8CRDT
+     C                     Z-ADDNOW       B8CRTM
+     C                     MOVEL#USER     B8CRUS
+     C                     MOVEL#PGM      B8CRPG
+     C                     WRITEABFPP801
+     C                     ENDDO
+      *
+     C                     ENDSR
+     C*=====================================================
+     C* Initial SET
+     C*=====================================================
+     C           #INT      BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $TGTYM  6
+      *
+     C           K#50      KLIST
+     C                     KFLD           B2CODE
+     C                     KFLD           @YMD1   80
+      *
+     C           K#11      KLIST
+     C                     KFLD           @YY2
+     C                     KFLD           @MM2
+     C                     KFLD           @DD2
+      *
+     C           K#80      KLIST
+     C                     KFLD           K8FCYM  60
+     C                     KFLD           K8NONY  40
+     C                     KFLD           K8NKOJ  1
+     C                     KFLD           K8NUKE  4
+     C                     KFLD           K8SDTO  80
+     C                     KFLD           K8MHN1  5
+     C                     KFLD           K8MHN2  5
+     C                     KFLD           K8MHN3  5
+     C                     KFLD           K8MHN4  5
+      *
+     C           K#80X     KLIST
+     C                     KFLD           K8FCYM
+     C                     KFLD           K8NONY
+      * GET LAST YM
+     C                     MOVEL$TGTYM    TGTYM
+     C           TGTMM     IFEQ 01
+     C           TGTYY     SUB  1         LSTYM
+     C                     Z-ADD12        LSTMM
+     C                     ELSE
+     C                     Z-ADDTGTYY     LSTYY
+     C           TGTMM     SUB  1         LSTMM
+     C                     ENDIF
+     C*
+     C                     TIME           SDATE
+     C                     Z-ADD0         LSTDD
+     C*
+     C                     ENDSR

@@ -1,0 +1,212 @@
+     H            Y.
+     F** UEXR21C*******************************************************
+     F*  PROGRAM: EXSUB - GET LABEL ORD/SCN/UNS BY NONY.MHIN          *
+     F*  WRITTEN: JW (SRA) 2023.07.17                                 *
+     F*---------------------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UEXR21C'
+     F*                    PARM           $NONY   4
+     F*                    PARM           $NKOJ   1
+     F*                    PARM           $NUKE   4
+     F*                    PARM           $NOHZ   8
+     F*                    PARM           $NOBN   2
+     F*                    PARM           $MHIN  20
+     F*                    PARM           $ORD    6
+     F*                    PARM           $SCN    6
+     F*                    PARM           $UNS    6
+     F*  IN  $NONY   4A  DELIV#
+     F*      $NKOJ   1A  FACTORY
+     F*      $NUKE   4A  DOCK
+     F*      $NOHZ   8A  SHIP DATE
+     F*      $NOBN   2A  BIN#
+     F*      $MHIN  20A  USR PART#
+     F*  OUT $ORD    6A  ORDER   BOX
+     F*      $SCN    6A  SCANNED BOX
+     F*      $ORD    6A  UNSCAN  BOX
+     F******************************************************
+     FAB#PL1V IF  E           K        DISK
+     FAB#PL7J IF  E           K        DISK
+      *===================================================
+      * SYSTEM DATE
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      * KEY FIELDS
+     I            DS
+     I                                        1   80K#NOHZ
+     I                                        1   40K#NOYY
+     I                                        5   60K#NOMM
+     I                                        7   80K#NODD
+     I            DS
+     I                                        1   80BANOHZ
+     I                                        1   40BANOYY
+     I                                        5   60BANOMM
+     I                                        7   80BANODD
+     I            DS
+     I                                        1  20 K#MHIN
+     I                                        1   5 K#MHN1
+     I                                        6  10 K#MHN2
+     I                                       11  15 K#MHN3
+     I                                       16  20 K#MHN4
+      *===================================================
+      *           MAIN ROUTINE
+      *===================================================
+     C                     EXSR #INIT
+      * GET ORDER BOX
+     C           K#PL1V    SETLLAB#PL1V
+     C                     DO   *HIVAL
+     C           K#PL1V    READEAB#PL1V                  98
+     C   98                LEAVE
+      *
+     C           BASKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * GET QPC
+     C           @QPC      IFEQ 0
+     C                     EXSR #QPC
+     C                     ENDIF
+      *
+     C           @QPC      IFEQ 0
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           BASRYO    DIV  @QPC      @ORD
+     C                     MVR            REV     63
+     C           REV       IFNE 0
+     C                     ADD  1         @ORD
+     C                     ENDIF
+      *
+     C                     ADD  @ORD      @ORDT
+     C                     ENDDO
+      * GET SCAN QTY
+     C                     EXSR #SCAN
+      *
+     C           @ORDT     SUB  @SCN      @NUM    60
+     C           @NUM      IFGT 0
+     C                     Z-ADD@NUM      @UNS
+     C                     ELSE
+     C                     Z-ADD0         @UNS
+     C                     ENDIF
+      *
+     C                     MOVEL@ORDT     $ORD
+     C                     MOVEL@SCN      $SCN
+     C                     MOVEL@UNS      $UNS
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *======================================================
+      * GET QPC
+      *======================================================
+     C           #QPC      BEGSR
+     C                     MOVELBASHIN    $SHIN
+     C                     MOVELTODAY     $DATE
+     C                     MOVE 'Y'       $SRV
+     C                     CALL 'UTLR35B'
+     C                     PARM           $SHIN  12
+     C                     PARM           $DATE   8
+     C                     PARM           $SRV    1
+     C                     PARM           $QPC    6
+     C                     PARM           $RTN1   1
+     C                     MOVEL$QPC      @QPC
+      * USE SYOS
+     C           @QPC      IFEQ 0
+     C           BASYOS    ANDNE0
+     C                     Z-ADDBASYOS    @QPC
+     C                     ENDIF
+      *
+     C           @QPC      IFEQ 0
+     C           BAUSYS    ANDNE0
+     C                     Z-ADDBAUSYS    @QPC
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *======================================================
+      * GET SCAN QTY
+      *======================================================
+     C           #SCAN     BEGSR
+      *
+     C                     Z-ADD0         @SCN
+      *
+     C           K#PL7J    SETLLAB#PL7J
+      * SEARCH BY ORDER#
+     C                     DO   *HIVAL
+     C           K#PL7J    READEAB#PL7J                  97
+     C   97                LEAVE
+     C           EKSKJY    IFEQ *BLANK
+     C           EKSRYO    ANDNE0
+     C                     ADD  1         @SCN
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *======================================================
+      * INITIAL SET
+      *======================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $NONY   4        IN
+     C                     PARM           $NKOJ   1
+     C                     PARM           $NUKE   4
+     C                     PARM           $NOHZ   8
+     C                     PARM           $NOBN   2
+     C                     PARM           $MHIN  20
+     C                     PARM           $ORD    6        OUT
+     C                     PARM           $SCN    6
+     C                     PARM           $UNS    6
+      *
+     C           K#PL1V    KLIST
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#NKOJ  1
+     C                     KFLD           K#NUKE  4
+     C                     KFLD           K#NOHZ  80
+     C                     KFLD           K#NOBN  20
+     C                     KFLD           K#MHIN 20
+     C*
+     C           K#PL7J    KLIST
+     C                     KFLD           X#NONY  4
+     C                     KFLD           K#NKOJ
+     C                     KFLD           K#NUKE
+     C                     KFLD           K#NOYY
+     C                     KFLD           K#NOMM
+     C                     KFLD           K#NODD
+     C                     KFLD           X#NOBN  2
+     C                     KFLD           K#MHN1
+     C                     KFLD           K#MHN2
+     C                     KFLD           K#MHN3
+     C                     KFLD           K#MHN4
+      *
+     C                     TIME           SDATE
+     C                     MOVEL$NONY     K#NONY
+     C                     MOVEL$NKOJ     K#NKOJ
+     C                     MOVEL$NUKE     K#NUKE
+     C                     MOVEL$NOHZ     K#NOHZ
+     C                     MOVEL$NOBN     K#NOBN
+     C                     MOVEL$MHIN     K#MHIN
+     C                     MOVEL$NONY     X#NONY
+     C                     MOVEL$NOBN     X#NOBN
+     C                     MOVE *ZERO     $ORD
+     C                     MOVE *ZERO     $SCN
+     C                     MOVE *ZERO     $UNS
+     C                     Z-ADD0         @ORD    60
+     C                     Z-ADD0         @SCN    60
+     C                     Z-ADD0         @UNS    60
+     C                     Z-ADD0         @ORDT   60
+     C                     Z-ADD0         @QPC    60
+      * GET QPC
+     C                     MOVE *BLANK    $TOKU
+     C                     MOVEL'USR'     $HTYP
+     C                     MOVELTODAY     $DATE
+     C                     CALL 'UTLR35C'
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $HTYP   3
+     C                     PARM           $DATE   8
+     C                     PARM           $QPC    6
+     C                     PARM           $RTN2   1
+     C                     MOVEL$QPC      @QPC
+      *
+      *
+     C                     ENDSR

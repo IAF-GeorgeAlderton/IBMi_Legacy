@@ -1,0 +1,446 @@
+     ******************************************************************
+     **  プログラム名   :  CHECK DELAY DATA                       *
+     **  プログラムＩＤ :  MRHR69     <RPG>                        **
+     **  作成年月日     :  2024/06/24                              **
+     **  作成者         :  QY.LIU                                  **
+     **  プログラム概要 : 生産遅れリストの出力指示をおこなう     **
+     **--------------------------------------------------------------**
+     **  変更年月日     :  YYYY/MM/DD                              **
+     **  変更者         :                                          **
+     **  変更内容       :                                          **
+     ******************************************************************
+     ** <<使用標識説明>>
+     **        01       :プログラム終了 <F01>
+     **        05       :リスト出力     <F05>
+     **     41～58    :画面共通エラー標識（全画面共通）
+     **        80       :試作手配データファイル(L6)読込
+     **        81       :生産遅れリスト　印刷用ワークファイル(L1)読込
+     **        88       : LOOKUP(*EQ)
+     **        99       :代表エラー標識
+     ******************************************************************
+     H            Y/                                    1
+     **==============================================================**
+     **  ファイル
+     **==============================================================**
+     F*<<進捗確認　生産遅れリスト　エントリー画面>>
+     FMRHPW69 CF  E                    WORKSTN
+     F                                              KINFDS WSDS
+     F*<<試作手配データファイル(L6) >>
+     FMRHPL57 IF  E           K        DISK
+     FMRHPL59 IF  E           K        DISK
+     F*<<試作手配データ　進捗遅れリスト対象管理>>
+     FMRHPP91 IF  E           K        DISK
+     F*<< LOT.NO CHECK>>
+     FMRHWP65 UF  E           K        DISK                      A
+     F*<<生産遅れリスト　印刷用ワークファイル(L1) >>
+     FMRHWP72 UF  E           K        DISK                      A
+     **==============================================================**
+     **  配列
+     **==============================================================**
+     E                    @MS     1   9 53                ERR MSG
+     E*
+     **==============================================================**
+     **  ＤＳ
+     **==============================================================**
+     I*<<システム情報>>
+     I           SDS
+     I                                     *PROGRAM S@PGID
+     I                                      244 253 S@WSID
+     I                                      254 263 S@USID
+     I                                      264 269 S@JBID
+     I*<<システム日時>>
+     I            DS
+     I                                        1  140S@TIME
+     I                                        1   60S@HMS
+     I                                        1   20S@TMHH
+     I                                        3   40S@TMMM
+     I                                        5   60S@TMSS
+     I                                        7  140S@YYMD
+     I                                        7  100S@DYYY
+     I                                       11  120S@DYMM
+     I                                       13  140S@DYDD
+     I*<<カーソル制御>>
+     IWSDS        DS
+     I                                    B 370 3710S@CUR
+     I                                      370 370 S@LIN
+     I                                      371 371 S@COL
+     I                                    B 378 3790S@POS
+     **--------------------------------------------------------------**
+     I* <<共通>>
+     I            DS
+     I                                        1   80W@SYMD
+     I                                        1   20W@SDD
+     I                                        3   40W@SMM
+     I                                        5   80W@SYY4
+     I            DS
+     I                                        1   8 W@SEL
+     I                                        1   1 W@SEL1
+     I                                        2   2 W@HF
+     I                                        3   8 W@SEL2
+     I            DS
+     I                                        1   7 STMEKA
+     I                                        1   4 STMEK1
+     I                                        5   6 STMEK2
+     I                                        7   7 STMEK3
+     I            DS
+     I                                        1 200 STMMEI
+     I                                        1  50 STMME1
+     I                                       51 100 STMME2
+     **==============================================================**
+     **  パラメータ
+     **==============================================================**
+     C*
+     **==============================================================**
+     **  ＫＥＹ
+     **==============================================================**
+     C*<<試作手配データファイル(MRHPL59) >>
+     C           STKEY3    KLIST
+     C                     KFLD           STTHI1           * LOT.NO 1
+     C                     KFLD           STTHI2           * LOT.NO 2
+     C* <<試作手配データファイル(MRHPL57)>>
+     C           STKEY1    KLIST
+     C                     KFLD           K1THI1  4        * LOT.NO 1
+     C                     KFLD           K1THI2  3        * LOT.NO 2
+     C* <<試作手配データ　進捗遅れリスト対象管理>>
+     C           STKEY4    KLIST
+     C                     KFLD           STTHI1           *手配№　絶対番号
+     C                     KFLD           STTHI2           *手配№　連番
+     C                     KFLD           STNOHZ           *納期
+     C*
+     **==============================================================**
+     **  メインルーチン
+     **==============================================================**
+      *
+      *---<初期処理>---*
+     C                     EXSR #INIT
+      *
+      *---<主処理>---*
+     C           W@NEXT    DOUEQ'END  '                    ¬DO_01
+      * D1
+     C           W@NEXT    CASEQ'SET10'   #SET10           ~¬CAS
+     C           W@NEXT    CASEQ'PNL10'   #PNL10            |
+     C           W@NEXT    CASEQ'CHK10'   #CHK10            |
+      * DBOUT
+     C           W@NEXT    CASEQ'DBOUT'   #DBOUT            |
+      * CALL
+     C           W@NEXT    CASEQ'CAL10'   #CAL10            |
+     C                     END                             _｢CAS
+      *
+     C                     END                             ｢DO_01
+      *
+      *---<終了処理>---*
+     C                     SETON                     LR
+     C                     RETRN
+      *
+      **************************************************************************
+      *         Ｓ　Ｕ　Ｂ　－　Ｒ　Ｏ　Ｕ　Ｔ　Ｉ　Ｎ　Ｅ
+      **************************************************************************
+      *-------------------------------------------------------------------------
+      *          #INIT    初期処理
+      *-------------------------------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C                     TIME           S@TIME
+     C                     Z-ADDS@DYMM    W@SMM
+     C                     Z-ADDS@DYDD    W@SDD
+     C                     Z-ADDS@DYYY    W@SYY4
+     C                     Z-ADDW@SYMD    D1SYMD           * SYSTEM DATE
+      *
+     C                     MOVEL'S'       W@SEHI  1        *製品区分
+     C***                  MOVEL'S'       W@TEHI  1        *手配区分
+      *
+     C*生産遅れリスト　印刷用ワークファイル(MRHWP71)
+     C           *LOVAL    SETLLMRHWP721
+     C                     READ MRHWP721                 81
+     C           *IN81     DOWEQ'0'                        ¬DO_01
+     C                     DELETMRHWP721
+     C                     READ MRHWP721                 81
+     C                     ENDDO                           ｢DO_01
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'SET10'   W@NEXT  5        D1-SET
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #SET10   第一画面(D1) 項目セット処理
+      *-------------------------------------------------------------------------
+     C           #SET10    BEGSR
+      *
+     C                     SETOF                     9944
+      *
+     C                     MOVEL*BLANK    D1EMSG           * ERR MSG
+     C                     Z-ADDS@YYMD    D1KNHZ
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'PNL10'   W@NEXT           D1-PNL
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #PNL10   第一画面(D1) 表示処理
+      *-------------------------------------------------------------------------
+     C           #PNL10    BEGSR
+      *
+     C                     EXFMTMRHPW691
+      *
+     C                     SETOF                     4499
+     C                     MOVEL*BLANK    D1EMSG           * ERR MSG
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'CHK10'   W@NEXT           D1-CHK
+      * CF03
+     C           *IN03     IFEQ '1'                        ¬IF_01
+     C                     MOVEL'END  '   W@NEXT           END
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CHK10   第一画面(D1) チェック処理
+      *-------------------------------------------------------------------------
+     C           #CHK10    BEGSR
+      *エラーなし
+      *  試作手配データファイル(MRHPL56)
+     C                     Z-ADD*ZERO     STCOHZ           * CHECK OUT DATE
+     C                     MOVELW@SEHI    STSEHI           * PRODUCT INSTRUCTION
+     C***                  MOVELW@TEHI    STTEHI           * PRODUCTION ORDER IN
+     C                     MOVELS@YYMD    STKNHZ           * PROCESS DATE
+     C           *LOVAL    SETLLMRHPL591
+     C                     EXSR #RED1A
+      *
+     C           CNT       IFEQ *ZERO                      ~¬IF_02
+     C  N99                MOVEL@MS,02    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     99
+     C                     END                             _｢IF_02
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'PNL10'   W@NEXT           D1-PNL
+      * CF05
+     C           *IN05     IFEQ '1'                        ¬IF_01
+     C                     MOVEL'DBOUT'   W@NEXT           DBOUT
+     C                     END                             ｢IF_01
+      *エラーあり
+     C           *IN99     IFEQ '1'                        ¬IF_01
+     C                     MOVEL'PNL10'   W@NEXT           D1-PNL
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #RED1A   試作手配データファイル　読込処理
+      *-------------------------------------------------------------------------
+     C           #RED1A    BEGSR
+      *試作手配データファイル(MRHPL56)
+     C                     DO   *HIVAL                     ¬DO_01
+     C                     READ MRHPL591                 80
+     C   80                LEAVE
+      *  削除済み
+     C           STGSJY    IFEQ 'D'                        ~¬IF_01
+     C           STGSHZ    ANDLES@YYMD
+     C                     ITER
+     C                     ENDIF                           _｢IF_01
+      *  工程№
+     C                     MOVELSTTHI1    PPTHI1
+     C                     MOVELSTTHI2    PPTHI2
+     C                     MOVELSTGRHZ    PPGRHZ
+     C                     MOVELSTGRTM    PPGRTM
+     C                     MOVELSTCPNO    PPCPNO
+     C                     MOVELSTCPRC    PPCPRC
+     C                     MOVEL*BLANK    PPHNTE
+     C           STFFLG    IFEQ *BLANK
+     C           STBRHZ    ANDEQ0
+     C                     CALL 'MRHR67'
+     C                     PARM           PPTHI1  4
+     C                     PARM           PPTHI2  3
+     C                     PARM           PPGRHZ  8
+     C                     PARM           PPGRTM  6
+     C                     PARM           PPCPNO  2
+     C                     PARM           PPCPRC  4
+     C                     PARM           PPHNTE  1
+     C           PPHNTE    IFNE '9'
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C           PPHNTE    IFEQ '9'
+      *  同一ロット№
+     C           STKEY3    CHAINMRHWP65              65
+     C           *IN65     IFEQ '0'
+     C                     ITER
+     C                     ENDIF
+      *  工程納期
+     C           STKNHZ    IFGE *DATE
+     C                     ITER
+     C                     ENDIF
+     C           D1KNHZ    IFNE 0
+     C           STKNHZ    IFGT D1KNHZ
+     C                     ITER
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ADD  1         CNT     60
+      *
+     C                     CLEARMRHWP651
+     C                     MOVELSTTHI1    W6LNO1           * LOT NUMBER 1
+     C                     MOVELSTTHI2    W6LNO2           * LOT NUMBER 2
+      *
+     C                     WRITEMRHWP651
+      *
+     C                     ENDIF
+      *
+     C                     ENDDO                           ｢DO_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #DBOUT   Ｄ．Ｂ　アクセス処理
+      *-------------------------------------------------------------------------
+     C           #DBOUT    BEGSR
+      *
+     C                     SETOF                     80
+      *
+     C           *LOVAL    SETLLMRHWP651
+     C                     READ MRHWP651                 80
+     C           *IN80     DOWEQ'0'                        ¬DO_01
+     C                     MOVELW6LNO1    K1THI1           * LOT NUMBER 1
+     C                     MOVELW6LNO2    K1THI2           * LOT NUMBER 2
+     C                     EXSR #WRT10                     * WRITE
+     C                     READ MRHWP651                 80
+     C                     ENDDO                           ｢DO_01
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'CAL10'   W@NEXT           CALL
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #WRT10   生産遅れリスト　印刷用ワークファイル　追加処理(WRITE
+      *-------------------------------------------------------------------------
+     C           #WRT10    BEGSR
+      *
+     C           STKEY1    SETLLMRHPL571
+     C                     DO   *HIVAL                     ¬DO_01
+     C           STKEY1    READEMRHPL571                 80
+     C   80                LEAVE
+      *<対象範囲データ抽出>
+      *削除データ
+     C           STGSJY    IFEQ 'D'                        ~¬IF_01
+     C           STGSHZ    ANDLES@YYMD
+     C                     ITER
+     C                     ENDIF                           _｢IF_01
+      *
+     C                     EXSR #MRH91
+     C           W91FLG    IFEQ '*'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     EXSR #WRT11                     * WRITE
+      *
+     C                     ENDDO                           ｢DO_01
+      *
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #WRT11   生産遅れリスト　印刷用ワークファイル　追加処理(WRITE
+      *-------------------------------------------------------------------------
+     C           #WRT11    BEGSR
+      *
+      *生産遅れリスト　印刷用ワークファイル(MRHWP72)
+     C                     CLEARMRHWP721
+      *
+     C                     Z-ADDSTCPNO    W7CPNO           * CURRENT PROCESS
+     C           STCPNO    ADD  1         W7MPNO           * MINO PROCESS
+      *
+     C                     MOVELSTDVNM    W7DVNM           * DIVISION
+     C                     MOVELSTTEHI    W7TEHI           * PROD. INSTRUCTION
+     C                     MOVELSTSHN1    W7SHN1           * INHOUSE PART NO. 1
+     C                     MOVELSTSHN2    W7SHN2           * INHOUSE PART NO. 2
+     C                     MOVELSTSHN3    W7SHN3           * INHOUSE PART NO. 3
+     C                     MOVELSTBAN1    W7BAN1           * LOCATION 1
+     C                     MOVELSTBAN2    W7BAN2           * LOCATION 2
+     C                     MOVELSTBAN3    W7BAN3           * LOCATION 3
+     C                     MOVELSTBAN4    W7BAN4           * LOCATION 4
+     C                     MOVELSTMHN1    W7UHN1           * UESR PART NO. 1
+     C                     MOVELSTMHN2    W7UHN2           * UESR PART NO. 2
+     C                     MOVELSTMHN3    W7UHN3           * UESR PART NO. 3
+     C                     MOVELSTMHN4    W7UHN4           * UESR PART NO. 4
+     C                     MOVELSTTHI1    W7THI1           * LOT NUMBER 1
+     C                     MOVELSTTHI2    W7THI2           * LOT NUMBER 2
+     C                     Z-ADDSTTOKU    W7TOKU           * CUSTOMER CODE
+     C                     MOVELSTTKNM    W7TKNM           * CUSTOMER
+     C                     Z-ADDSTKTNO    W7KTNO           * PROCESS NO.
+     C                     MOVELSTKTEI    W7KTEI           * PROCESS CODE
+     C           W7MPNO    IFEQ STKTNO                     * MINO PROCESS
+     C                     MOVELSTKTEI    W7MTEI           * MINO PROCESS
+     C                     ENDIF                                       SS
+     C*                                                                .
+     C                     MOVELSTMSNO    W7MSNO           * MACHINE NO
+     C                     Z-ADDSTKNHZ    W7KNHZ           * PLANED DATE
+     C                     MOVELSTKBNM    W7KBNM           * MACHINE NO
+     C                     Z-ADDSTCOHZ    W7COHZ           * CHECK GATE DATE
+     C                     MOVELSTDPNM    W7DPNM           * DIVISION
+     C                     Z-ADDSTNOHZ    W7NOHZ           * DELV DATE
+     C                     Z-ADDSTTHSU    W7THSU           * DELV QTY
+     C                     Z-ADDSTSISU    W7SISU           * PROD QTY
+     C                     MOVELSTBHN1    W7BHN1           * BLANK PART NO. 1
+     C                     MOVELSTBHN2    W7BHN2           * BLANK PART NO. 2
+     C                     MOVELSTBHN3    W7BHN3           * BLANK PART NO. 3
+     C                     MOVELSTZANM    W7ZANM           * MATERIAL NAME
+     C*                    MOVELSTZAN2    W7ZAN2           * MATERIAL NAME2
+     C                     Z-ADDSTKAZI    W7KAZI           * DIAMETER
+      *
+     C                     MOVELSTMEKA    W7MEKA           * ST CODE
+     C                     MOVELSTMME1    W7MME1           * ST NAME 1
+     C                     MOVELSTMME2    W7MME2           * ST NAME 2
+     C                     MOVELSTSETR    W7SETR           * 2ND ST NAME
+     C                     Z-ADDSTSOZI    W7SOZI           * MATERIAL WEIGHT
+     C                     Z-ADDSTKASI    W7KASI           * FINISHED WEIGHT
+     C                     Z-ADDSTKUBI    W7KUBI           * NOMINAL LEGTH
+     C                     Z-ADDSTTUSZ    W7TUSZ           * NOMINAL SIZE
+     C                     Z-ADDSTKIKI    W7KIKI           * MATERIAL PROP
+      *
+     C                     Z-ADDSTHKSU    W7HKSU           * NUMBER OF BOXES
+     C*                    Z-ADDSTILOT    W7ILOT           * LOT
+     C                     Z-ADDSTSSYS    W7SSYS           * QPC.
+      *
+     C                     MOVELSTKH11    W7KH11           * COMP PART 1
+     C                     MOVELSTKH12    W7KH12           * COMP PART 1
+     C                     MOVELSTKH13    W7KH13           * COMP PART 1
+     C                     Z-ADDSTWHZ1    W7KH1D           * COMP P1 DELIV
+      *
+     C                     MOVELSTKH21    W7KH21           * COMP PART 2
+     C                     MOVELSTKH22    W7KH22           * COMP PART 2
+     C                     MOVELSTKH23    W7KH23           * COMP PART 2
+     C                     Z-ADDSTWHZ2    W7KH2D           * COMP P2 DELIV
+      *
+     C                     Z-ADDSTKTHZ    W7KTHZ           * TOOL DELIV
+     C                     Z-ADDSTZRHZ    W7ZRHZ           * MATERIAL DELIV
+      *
+     C                     WRITEMRHWP721
+      *
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CAL10   生産遅れリスト(MRHC66)呼出処理
+      *-------------------------------------------------------------------------
+     C           #CAL10    BEGSR
+      *
+     C                     CALL 'MRHC6B'
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'END  '   W@NEXT           END
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #MRH91    MRHPP91 CHECK
+      *-------------------------------------------------------------------------
+     C           #MRH91    BEGSR
+      *
+     C                     MOVE *BLANK    W91FLG  1
+     C           STKEY4    CHAINMRHPP91              90
+     C           *IN90     IFEQ '0'
+     C           S9GSJY    ANDEQ*BLANK
+     C                     MOVE '*'       W91FLG
+     C                     ENDIF
+      *
+     C           EMRH91    ENDSR
+      *-------------------------------------------------------------------------
+**  @MS  ( ERR MSG )
+ER01 SELECT " " OR "1" OR "2" OR "3" OR "4"
+ER02 NO .S.S. TODAY
+ER03 SELECT PRINTER

@@ -1,0 +1,599 @@
+     ******************************************************************
+     **  プログラム名   : 試作番地マスタ保守　　　　　　　　     **
+     **  プログラムＩＤ :  MRHR11     <RPG>                        **
+     **  作成年月日     :  2014/01/17                              **
+     **  作成者         :  TR-ITS                                  **
+     **  プログラム概要 : 試作番地マスタのメンテナンスをおこなう **
+     **--------------------------------------------------------------**
+     **  変更年月日     :  YYYY/MM/DD                              **
+     **  変更者         :                                          **
+     **  変更内容       :                                          **
+     ******************************************************************
+     ** <<使用標識説明>>
+     **        01       :プログラム終了 <F01>
+     **        03       :前画面に戻る   <F03>
+     **        05       :更新処理       <F05>
+     **        06       :スクラップ更新 <F06>
+     **     41～58    :画面共通エラー標識（全画面共通）
+     **        80       :試作番地マスタ読込
+     **     81～82    :他ファイル読込
+     **        88       : LOOKUP(*EQ)
+     **        90       :更新区分＝０（削除）＋　画面プロテクト
+     **        91       :更新区分＝１（変更）
+     **        92       :更新区分＝２（追加）
+     **        99       :代表エラー標識
+     ******************************************************************
+     H            Y/                                    1
+     **==============================================================**
+     **  ファイル
+     **==============================================================**
+     F*<<試作番地マスタ保守　画面>>
+     FMRHPW11 CF  E                    WORKSTN
+     F                                              KINFDS WSDS
+     F*<<試作番地マスタ>>
+     FMRHPL11 UF  E           K        DISK                      A
+     F*<<部品情報マスタ>>
+     FMRHPL21 IF  E           K        DISK
+     **==============================================================**
+     **  配列
+     **==============================================================**
+     E                    @SL     1   3  6                SELECT
+     E                    @MS     1   8 53                ERR MSG
+     **==============================================================**
+     **  ＤＳ
+     **==============================================================**
+     I*<<システム情報>>
+     I           SDS
+     I                                     *PROGRAM S@PGID
+     I                                      244 253 S@WSID
+     I                                      254 263 S@USID
+     I                                      264 269 S@JBID
+     I*<<システム日時>>
+     I            DS
+     I                                        1  140S@TIME
+     I                                        1   60S@HMS
+     I                                        1   20S@TMHH
+     I                                        3   40S@TMMM
+     I                                        5   60S@TMSS
+     I                                        7  140S@YYMD
+     I                                        7  100S@DYYY
+     I                                       11  120S@DYMM
+     I                                       13  140S@DYDD
+     I*<<カーソル制御>>
+     IWSDS        DS
+     I                                    B 370 3710S@CUR
+     I                                      370 370 S@LIN
+     I                                      371 371 S@COL
+     I                                    B 378 3790S@POS
+     **--------------------------------------------------------------**
+     I* <<共通>>
+     I            DS
+     I                                        1   80W@SYMD
+     I                                        1   20W@SMM
+     I                                        3   40W@SDD
+     I                                        5   80W@SYY4
+     I            DS
+     I                                        1   8 W@SEL
+     I                                        1   1 W@SEL1
+     I                                        2   2 W@HF
+     I                                        3   8 W@SEL2
+     **==============================================================**
+     **  パラメータ
+     **==============================================================**
+      *
+     **==============================================================**
+     **  ＫＥＹ
+     **==============================================================**
+     C* <<試作番地マスタ(MRHPL11) >>
+     C           SBKEY     KLIST
+     C                     KFLD           SBBAN1           *番地１
+     C                     KFLD           SBBAN2           *番地２
+     C                     KFLD           SBBAN3           *番地３
+     C                     KFLD           SBBAN4           *番地４
+     C* <<部品情報マスタ(MRHPL21) >>
+     C           EAKEY     KLIST
+     C                     KFLD           EASHN1           *社内品番１
+     C                     KFLD           EASHN2           *社内品番２
+     C                     KFLD           EASHN3           *社内品番３
+     C                     KFLD           EASEHI           *製品区分
+     C                     KFLD           EATEHI           *手配区分
+     **==============================================================**
+     **  メインルーチン
+     **==============================================================**
+      *
+      *---<初期処理>---*
+     C                     EXSR #INIT
+      *
+      *---<主処理>---*
+     C           W@NEXT    DOUEQ'END  '                    ¬DO_01
+      * G1
+     C           W@NEXT    CASEQ'SET10'   #SET10           ~¬CAS
+     C           W@NEXT    CASEQ'PNL10'   #PNL10            |
+     C           W@NEXT    CASEQ'CHK10'   #CHK10            |
+      * G2
+     C           W@NEXT    CASEQ'SET20'   #SET20            |
+     C           W@NEXT    CASEQ'PNL20'   #PNL20            |
+     C           W@NEXT    CASEQ'CHK20'   #CHK20            |
+     C           W@NEXT    CASEQ'WIN20'   #WIN20            |
+      *
+     C           W@NEXT    CASEQ'DBOUT'   #DBOUT            |
+     C                     END                             _｢CAS
+      *
+     C                     END                             ｢DO_01
+      *
+      *---<終了処理>---*
+     C                     SETON                     LR
+     C                     RETRN
+      *
+      **************************************************************************
+      *         Ｓ　Ｕ　Ｂ　－　Ｒ　Ｏ　Ｕ　Ｔ　Ｉ　Ｎ　Ｅ
+      **************************************************************************
+      *-------------------------------------------------------------------------
+      *          #INIT    初期処理
+      *-------------------------------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C                     TIME           S@TIME
+     C                     Z-ADDS@DYMM    W@SMM
+     C                     Z-ADDS@DYDD    W@SDD
+     C                     Z-ADDS@DYYY    W@SYY4
+     C                     Z-ADDW@SYMD    D1SYMD           * SYSTEM DATE
+      *
+     C                     MOVEL'S'       W@SEHI  1        *製品区分
+     C                     MOVEL'S'       W@TEHI  1        *手配区分
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'SET10'   W@NEXT  5
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #SET10   第一画面(G1) 項目セット処理
+      *-------------------------------------------------------------------------
+     C           #SET10    BEGSR
+      *
+     C                     SETOF                     909192
+     C                     SETOF                     414243
+     C                     SETOF                     4445
+     C                     SETOF                     99
+      *
+     C                     MOVEL*BLANK    D1SELC           *更新区分
+     C                     MOVEL*BLANK    D1BAN1           *番地１
+     C                     MOVEL*BLANK    D1BAN2           *番地２
+     C                     MOVEL*BLANK    D1BAN3           *番地３
+     C                     MOVEL*BLANK    D1BAN4           *番地４
+     C                     MOVEL*BLANK    D1EMSG           * ERR MSG
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'PNL10'   W@NEXT           G1-PNL
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #PNL10   第一画面(G1) 表示処理
+      *-------------------------------------------------------------------------
+     C           #PNL10    BEGSR
+      *
+     C                     EXFMTMRHPW111
+      *
+     C                     SETOF                     909192
+     C                     SETOF                     414243
+     C                     SETOF                     4445
+     C                     SETOF                     99
+     C                     MOVEL*BLANK    D1EMSG           * ERR MSG
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'CHK10'   W@NEXT
+      * CF03
+     C           *IN01     IFEQ '1'                        ¬IF_01
+     C                     MOVEL'END  '   W@NEXT
+     C                     END                             ｢IF_01
+      *
+     C           *IN12     IFEQ '1'                        ¬IF_01
+     C                     CALL 'MRHR12'
+     C                     PARM           D1BAN1  1
+     C                     PARM           D1BAN2  2
+     C                     PARM           D1BAN3  2
+     C                     PARM           D1BAN4  1
+     C                     MOVEL'PNL10'   W@NEXT
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CHK10   第一画面(G1) チェック処理
+      *-------------------------------------------------------------------------
+     C           #CHK10    BEGSR
+      *更新区分
+     C           D1SELC    IFNE '0'                        ¬IF_01
+     C           D1SELC    ANDNE'1'
+     C           D1SELC    ANDNE'2'
+     C  N99                MOVEL@MS,01    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     4199
+      *
+     C                     ELSE                            +ELSE_01
+     C                     SELEC                           ~¬SELEC_01
+     C           D1SELC    WHEQ '0'                        -+WHEN_01
+     C                     SETON                     90    * DELETE
+     C           D1SELC    WHEQ '1'                        -+WHEN_01
+     C                     SETON                     91    * CHANGE
+     C           D1SELC    WHEQ '2'                        -+WHEN_01
+     C                     SETON                     92    * ADD
+     C                     END                             _｢SELEC_01
+     C                     END                             ｢IF_01
+      *番地
+     C           D1BAN1    IFEQ *BLANK                     ¬IF_01
+     C           D1BAN2    ANDEQ*BLANK
+     C           D1BAN3    ANDEQ*BLANK
+     C           D1BAN4    ANDEQ*BLANK
+     C  N99                MOVEL@MS,02    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     424344
+     C  N99                SETON                     4599
+     C                     END                             ｢IF_01
+      *エラーなし
+     C           *IN99     IFEQ '0'                        ¬IF_01
+      *試作番地マスタ(MRHPL11)
+     C                     MOVELD1BAN1    SBBAN1           *番地１
+     C                     MOVELD1BAN2    SBBAN2           *番地２
+     C                     MOVELD1BAN3    SBBAN3           *番地３
+     C                     MOVELD1BAN4    SBBAN4           *番地４
+     C           SBKEY     CHAINMRHPL111            N80
+     C           *IN80     IFEQ '0'                        ~¬IF_02
+      * ADD
+     C           D1SELC    IFEQ '2'                        ~~¬IF_03
+     C           SBGSJY    IFEQ 'D'                        ~~~¬IF_04
+     C           SBGSHZ    ANDLES@YYMD
+     C                     ELSE                            ---+ELSE_04
+     C  N99                MOVEL@MS,05    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     424344
+     C  N99                SETON                     4599
+     C                     END                             ___｢IF_04
+     C                     END                             __｢IF_03
+      * CHANGE/DELETE
+     C           D1SELC    IFEQ '0'                        ~~¬IF_03
+     C           D1SELC    OREQ '1'
+     C           SBGSJY    IFEQ 'D'                        ~~~¬IF_04
+     C           SBGSHZ    ANDLES@YYMD
+     C  N99                MOVEL@MS,04    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     424344
+     C  N99                SETON                     4599
+     C                     END                             ___｢IF_04
+     C                     END                             __｢IF_03
+      *
+     C                     ELSE                            -+ELSE_02
+      * CHANGE/DELETE
+     C           D1SELC    IFEQ '0'                        ~~¬IF_03
+     C           D1SELC    OREQ '1'
+     C  N99                MOVEL@MS,03    D1EMSG    P      * ERR MSG
+     C  N99                SETON                     424344
+     C  N99                SETON                     4599
+     C                     END                             __｢IF_03
+      *
+     C                     END                             _｢IF_02
+      *
+     C                     END                             ｢IF_01
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'SET20'   W@NEXT
+      *エラーあり
+     C           *IN99     IFEQ '1'                        ¬IF_01
+     C                     MOVEL'PNL10'   W@NEXT
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #SET20   第二画面(G2) 項目セット処理
+      *-------------------------------------------------------------------------
+     C           #SET20    BEGSR
+      *
+     C                     SETOF                     464748
+     C                     SETOF                     495051
+     C                     SETOF                     99
+      *
+     C                     MOVEL*BLANK    D2SEL            *更新区分／名称
+     C                     Z-ADD*ZERO     D2HAKO           *番地サイズ
+     C                     MOVEL*BLANK    D2HIN1           *品番１
+     C                     MOVEL*BLANK    D2HIN2           *品番２
+     C                     MOVEL*BLANK    D2HIN3           *品番３
+     C                     MOVEL*BLANK    D2LNO1           *手配番号１
+     C                     MOVEL*BLANK    D2LNO2           *手配番号２
+     C                     MOVEL*BLANK    D2EMSG           * ERR MSG
+      *
+     C                     MOVELD1SELC    W@SEL1
+     C                     MOVEL'-'       W@HF
+     C                     SELEC                           ¬SELEC_01
+     C           D1SELC    WHEQ '0'                        +WHEN_01
+     C                     MOVEL@SL,01    W@SEL2
+     C           D1SELC    WHEQ '1'                        +WHEN_01
+     C                     MOVEL@SL,02    W@SEL2
+     C           D1SELC    WHEQ '2'                        +WHEN_01
+     C                     MOVEL@SL,03    W@SEL2
+     C                     END                             ｢SELEC_01
+     C                     MOVELW@SEL     D2SEL            *更新区分／名称
+      * CHANGE/DELETE
+     C           D1SELC    IFEQ '0'                        ¬IF_01
+     C           D1SELC    OREQ '1'
+     C                     Z-ADDSBHAKO    D2HAKO           *番地サイズ
+     C                     MOVELSBHIN1    D2HIN1           *品番１
+     C                     MOVELSBHIN2    D2HIN2           *品番２
+     C                     MOVELSBHIN3    D2HIN3           *品番３
+     C                     MOVELSBLNO1    D2LNO1           *手配番号１
+     C                     MOVELSBLNO2    D2LNO2           *手配番号２
+     C                     END                             ｢IF_01
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'PNL20'   W@NEXT
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #PNL20   第二画面(G2) 表示処理
+      *-------------------------------------------------------------------------
+     C           #PNL20    BEGSR
+      *
+     C                     EXFMTMRHPW112
+      *
+     C                     SETOF                     464748
+     C                     SETOF                     495051
+     C                     SETOF                     99
+     C                     MOVEL*BLANK    D2EMSG           * ERR MSG
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'CHK20'   W@NEXT
+      * CF03
+     C           *IN03     IFEQ '1'                        ¬IF_01
+     C                     MOVEL'PNL10'   W@NEXT
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CHK20   第二画面(G2) チェック処理
+      *-------------------------------------------------------------------------
+     C           #CHK20    BEGSR
+      * ADD/CHANGE
+     C           D1SELC    IFEQ '1'                        ¬IF_01
+     C           D1SELC    OREQ '2'
+      *番地サイズ
+     C           D2HAKO    IFEQ *ZERO                      ~¬IF_02
+     C  N99                MOVEL@MS,06    D2EMSG    P      * ERR MSG
+     C  N99                SETON                     4699
+     C                     END                             _｢IF_02
+      *品番
+     C           D2HIN1    IFEQ *BLANK                     ~¬IF_02
+     C           D2HIN2    ANDEQ*BLANK
+     C           D2HIN3    ANDEQ*BLANK
+      *
+     C                     ELSE                            -+ELSE_02
+      *部品情報マスタ(MRHPL21)
+     C                     MOVELD2HIN1    EASHN1           *社内品番１
+     C                     MOVELD2HIN2    EASHN2           *社内品番２
+     C                     MOVELD2HIN3    EASHN3           *社内品番３
+     C                     MOVELW@SEHI    EASEHI           *製品区分
+     C                     MOVELW@TEHI    EATEHI           *手配区分
+     C           EAKEY     CHAINMRHPL211             81
+     C           *IN81     IFEQ '1'                        ~~¬IF_03
+     C  N99                MOVEL@MS,07    D2EMSG    P      * ERR MSG
+     C  N99                SETON                     474849
+     C  N99                SETON                     99
+      *
+     C                     ELSE                            --+ELSE_03
+     C           EAGSJY    IFEQ 'D'                        ~~~¬IF_04
+     C           EAGSHZ    ANDLES@YYMD
+     C  N99                MOVEL@MS,08    D2EMSG    P      * ERR MSG
+     C  N99                SETON                     474849
+     C  N99                SETON                     99
+     C                     END                             ___｢IF_04
+     C                     END                             __｢IF_03
+      *
+     C                     END                             _｢IF_02
+      *
+     C                     END                             ｢IF_01
+      *
+     C                     MOVEL*BLANK    W@SCFL  1        * SCRAPフラグ
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'PNL20'   W@NEXT
+      * CF05
+     C           *IN05     IFEQ '1'                        ¬IF_01
+     C           *IN99     ANDEQ'0'
+     C                     MOVEL'DBOUT'   W@NEXT
+     C                     END                             ｢IF_01
+      * CF06 & CHANGE
+     C           *IN06     IFEQ '1'                        ¬IF_01
+     C           D1SELC    ANDEQ'1'
+     C           *IN99     ANDEQ'0'
+     C                     EXSR #CLR20                     * CLEAR
+     C                     MOVEL'WIN20'   W@NEXT
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #CLR20   クリア処理
+      *-------------------------------------------------------------------------
+     C           #CLR20    BEGSR
+      *
+     C                     SETOF                     99
+      *
+     C                     MOVELD2HIN1    W@HIN1  5        *品番１
+     C                     MOVELD2HIN2    W@HIN2  5        *品番２
+     C                     MOVELD2HIN3    W@HIN3  2        *品番３
+     C                     MOVELD2LNO1    W@LNO1  4        *手配番号１
+     C                     MOVELD2LNO2    W@LNO2  3        *手配番号２
+     C                     MOVEL*BLANK    D2HIN1           *品番１
+     C                     MOVEL*BLANK    D2HIN2           *品番２
+     C                     MOVEL*BLANK    D2HIN3           *品番３
+     C                     MOVEL*BLANK    D2LNO1           *手配番号１
+     C                     MOVEL*BLANK    D2LNO2           *手配番号２
+     C                     MOVEL*BLANK    D2EMSG           * ERR MSG
+      *
+     C                     MOVEL*BLANK    W@SCFL           * SCRAPフラグ
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #WIN20   ＷＩＮＤＯＷ画面 (WINDOW) 表示処理
+      *-------------------------------------------------------------------------
+     C           #WIN20    BEGSR
+      *
+     C                     WRITEMRHPW112
+     C                     EXFMTMRHPW113
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'WIN20'   W@NEXT
+      * CF03
+     C           *IN03     IFEQ '1'                        ¬IF_01
+     C                     MOVELW@HIN1    D2HIN1           *品番１
+     C                     MOVELW@HIN2    D2HIN2           *品番２
+     C                     MOVELW@HIN3    D2HIN3           *品番３
+     C                     MOVELW@LNO1    D2LNO1           *手配番号１
+     C                     MOVELW@LNO2    D2LNO2           *手配番号２
+     C                     MOVEL'PNL20'   W@NEXT
+     C                     END                             ｢IF_01
+      * CF05
+     C           *IN05     IFEQ '1'                        ¬IF_01
+     C                     MOVEL'DBOUT'   W@NEXT
+     C                     MOVEL'1'       W@SCFL           * SCRAPフラグ
+      *
+     C                     END                             ｢IF_01
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #DBOUT   Ｄ．Ｂ　アクセス処理
+      *-------------------------------------------------------------------------
+     C           #DBOUT    BEGSR
+      *
+     C                     TIME           S@TIME
+      *
+      *試作番地マスタ(MRHPL11)
+     C                     MOVELD1BAN1    SBBAN1           *番地１
+     C                     MOVELD1BAN2    SBBAN2           *番地２
+     C                     MOVELD1BAN3    SBBAN3           *番地３
+     C                     MOVELD1BAN4    SBBAN4           *番地４
+     C           SBKEY     CHAINMRHPL111             80
+      *
+      * DELETE
+     C           D1SELC    IFEQ '0'                        ¬IF_01
+     C           *IN80     IFEQ '0'                        ~¬IF_02
+     C                     EXSR #DEL10                     * DELETE(UPDAT)
+     C                     END                             _｢IF_02
+     C                     ELSE                            +ELSE_01
+      * ADD / CHANGE
+     C           *IN80     IFEQ '0'                        ~¬IF_02
+      * ADD(UPDAT)
+     C           D1SELC    IFEQ '2'                        ~~¬IF_03
+     C                     EXSR #WRT11                     * WRITE(UPDAT)
+     C                     END                             __｢IF_03
+      * CHANGE
+     C           D1SELC    IFEQ '1'                        ~~¬IF_03
+     C                     EXSR #UPD10                     * UPDAT
+     C                     END                             __｢IF_03
+     C                     ELSE                            -+ELSE_02
+      * ADD(WRITE)
+     C                     EXSR #WRT10                     * WRITE
+     C                     END                             _｢IF_02
+     C                     END                             ｢IF_01
+      *
+      * NEXT-CONTROL
+     C                     MOVEL'SET10'   W@NEXT
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #WRT10   試作番地マスタ(MRHPL11)追加処理(WRITE)
+      *-------------------------------------------------------------------------
+     C           #WRT10    BEGSR
+      *
+     C                     CLEARMRHPL111
+      *
+     C                     Z-ADDS@YYMD    SBGKHZ           * UPDATE DATE
+     C                     Z-ADDS@HMS     SBGKTM           * UPDATE TIME
+     C                     MOVELS@PGID    SBGKPG           * UPDATE PROGRAM
+     C                     MOVELS@USID    SBGKNM           * UPDATE PERSON
+     C                     MOVELD1BAN1    SBBAN1           * LOCATION CODE 1
+     C                     MOVELD1BAN2    SBBAN2           * LOCATION CODE 2
+     C                     MOVELD1BAN3    SBBAN3           * LOCATION CODE 3
+     C                     MOVELD1BAN4    SBBAN4           * LOCATION CODE 4
+     C                     Z-ADDD2HAKO    SBHAKO           * LOCATION SIZE
+     C                     Z-ADD*ZERO     SBSCHZ           * SCRAP DATE
+     C                     Z-ADDS@YYMD    SBGRHZ           * ADD DATE
+     C                     Z-ADDS@HMS     SBGRTM           * ADD TIME
+     C                     MOVELS@PGID    SBGRPG           * ADD PROGRAM
+     C                     MOVELS@USID    SBGRNM           * ADD PERSON'
+      *
+     C                     WRITEMRHPL111
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #WRT11   試作番地マスタ(MRHPL11)追加更新処理(UPDAT)
+      *-------------------------------------------------------------------------
+     C           #WRT11    BEGSR
+      *
+     C                     MOVEL*BLANK    SBGSJY           * DELETE CODE D
+     C                     Z-ADD*ZERO     SBGSHZ           * DELETE DATE
+     C                     MOVEL*BLANK    SBGSNM           * DELETE PERSON
+     C                     Z-ADDS@YYMD    SBGKHZ           * UPDATE DATE
+     C                     Z-ADDS@HMS     SBGKTM           * UPDATE TIME
+     C                     MOVELS@PGID    SBGKPG           * UPDATE PROGRAM
+     C                     MOVELS@USID    SBGKNM           * UPDATE PERSON
+     C                     Z-ADDD2HAKO    SBHAKO           * LOCATION SIZE
+     C                     MOVEL*BLANK    SBHIN1           * PART NUMBER 1
+     C                     MOVEL*BLANK    SBHIN2           * PART NUMBER 2
+     C                     MOVEL*BLANK    SBHIN3           * PART NUMBER 3
+     C                     MOVEL*BLANK    SBLNO1           * LOT NO 1
+     C                     MOVEL*BLANK    SBLNO2           * LOT NO 2
+     C                     Z-ADD*ZERO     SBSCHZ           * SCRAP DATE
+      *
+     C                     UPDATMRHPL111
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #UPD10   試作番地マスタ(MRHPL11)更新処理(UPDAT)
+      *-------------------------------------------------------------------------
+     C           #UPD10    BEGSR
+      *
+     C                     MOVEL*BLANK    SBGSJY           * DELETE CODE D
+     C                     Z-ADD*ZERO     SBGSHZ           * DELETE DATE
+     C                     MOVEL*BLANK    SBGSNM           * DELETE PERSON
+     C                     Z-ADDS@YYMD    SBGKHZ           * UPDATE DATE
+     C                     Z-ADDS@HMS     SBGKTM           * UPDATE TIME
+     C                     MOVELS@PGID    SBGKPG           * UPDATE PROGRAM
+     C                     MOVELS@USID    SBGKNM           * UPDATE PERSON
+     C                     Z-ADDD2HAKO    SBHAKO           * LOCATION SIZE
+     C                     MOVELD2HIN1    SBHIN1           * PART NUMBER 1
+     C                     MOVELD2HIN2    SBHIN2           * PART NUMBER 2
+     C                     MOVELD2HIN3    SBHIN3           * PART NUMBER 3
+     C                     MOVELD2LNO1    SBLNO1           * LOT NO 1
+     C                     MOVELD2LNO2    SBLNO2           * LOT NO 2
+      *
+     C                     Z-ADD*ZERO     SBSCHZ           * SCRAP DATE
+     C           W@SCFL    IFEQ '1'                        ¬IF_01
+     C                     Z-ADDS@YYMD    SBSCHZ           * SCRAP DATE
+     C                     END                             ｢IF_01
+      *
+     C                     UPDATMRHPL111
+      *
+     C                     ENDSR
+      *-------------------------------------------------------------------------
+      *          #DEL10   試作番地マスタ(MRHPL11)削除更新処理(DELETE)
+      *-------------------------------------------------------------------------
+     C           #DEL10    BEGSR
+      *
+     C                     MOVEL'D'       SBGSJY           * DELETE CODE D
+     C                     Z-ADDS@YYMD    SBGSHZ           * DELETE DATE
+     C                     MOVELS@USID    SBGSNM             DELETE PERSON
+     C                     Z-ADDS@YYMD    SBGKHZ           * UPDATE DATE
+     C                     Z-ADDS@HMS     SBGKTM           * UPDATE TIME
+     C                     MOVELS@PGID    SBGKPG           * UPDATE PROGRAM
+     C                     MOVELS@USID    SBGKNM           * UPDATE PERSON
+      *
+     C                     UPDATMRHPL111
+      *
+     C                     ENDSR
+      *----------------------------------------------------------------
+**  @SL  ( SELECT )
+DELETE
+CHANGE
+ADD
+**  @MS  ( ERR MSG )
+ER01 SELECT 0 OR 1 OR 2
+ER02 INPUT PRODUCT LOCATION CODE
+ER03 NOT EXSIST IN PILOT LOCATION CODE DATA
+ER04 LOCATION CODE ALREADY DELETED
+ER05 EXIST IN PILOT LOCATION CODE DATA
+ER06 LOCATION SIZE IS NOT CORRECT(INPUT NUMBER)
+ER07 NOT EXSIST IN PART DATA
+ER08 PART DATA ALREADY DELETED

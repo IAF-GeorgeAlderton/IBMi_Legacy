@@ -1,0 +1,266 @@
+     H            Y/
+     F** ABFR85 **********************************************
+     F*  PRINT "FORECAST VS SALES (%) REPORT" (DAY)          *
+     F*  J.WATANABE 2018.07.27                               *
+     F*    PROC1: SUMMARISE ABFWP80 TO ABFWP82               *
+     F*    PROC2: PRINT REPORT                               *
+     F********************************************************
+     FABFWL80 IF  E           K        DISK
+     FFGBPL01 IF  E           K        DISK
+     FABFWP82 UF  E           K        DISK                      A    UC
+     FABFWL82 IF  E           K        DISK                           UC
+     F            ABFWP821                          KRENAMEABFWL821
+     FQPRINT  O   F     198     OF     PRINTER
+     F********************************************************
+     I            DS
+     I                                        1  102C8FBOX
+     I                                        1   80INT1
+     I                                        9  100DCM1
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1  10 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *************************************************************************
+     C                     EXSR #INIT
+      * PROCESS 1
+     C                     OPEN ABFWP82
+     C                     EXSR #PROC1
+     C                     CLOSEABFWP82
+      * PROCESS 2
+     C                     OPEN ABFWL82
+     C                     EXSR #PROC2
+     C                     CLOSEABFWL82
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  PROCESS 1: SUMMARIZE                              *
+      *----------------------------------------------------*
+     C           #PROC1    BEGSR
+      *
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD0         SVNONY  40
+      *
+     C                     DO   *HIVAL
+     C                     READ ABFWL80                  98
+     C   98                LEAVE
+      * IGNORE
+     C**         C8FCYM    IFNE @TGTYM
+     C**                   ITER
+     C**                   ENDIF
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     Z-ADDC8NONY    SVNONY
+     C                     ENDIF
+      * BREAK?
+     C           C8NONY    IFNE SVNONY
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * DETAIL PROCESS
+     C                     Z-ADDC8TOKU    SVTOKU  40
+     C**                   Z-ADDC8FCYM    SVFCYM  60
+     C                     ADD  C8SQTY    SVSQTY
+     C                     ADD  C8SBOX    SVSBOX
+     C                     ADD  C8FQTY    SVFQTY
+     C                     ADD  C8FBOX    SVFBOX
+     C           DCM1      IFNE 0
+     C                     ADD  1         SVFBOX
+     C                     ENDIF
+      *
+     C                     ENDDO
+      * LAST BREAK?
+     C           FIRST     IFNE 'Y'
+     C                     EXSR #BRK1
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  BREAK PROCESS                                     *
+      *----------------------------------------------------*
+     C           #BRK1     BEGSR
+      *
+     C           K#P82     CHAINABFWP82              50
+     C           *IN50     IFEQ *OFF
+     C                     ADD  SVSQTY    C2SQTY
+     C                     ADD  SVSBOX    C2SBOX
+     C                     ADD  SVFQTY    C2FQTY
+     C                     ADD  SVFBOX    C2FBOX
+      *
+     C           C2FBOX    IFEQ 0
+     C                     Z-ADD0         C2RATE
+     C                     ELSE
+     C           C2SBOX    MULT 100       NUM12  120
+     C           NUM12     DIV  C2FBOX    C2RATE    H
+     C                     ENDIF
+      *
+     C                     UPDATABFWP821
+     C                     ELSE
+     C                     Z-ADD@TGTYM    C2FCYM
+     C                     Z-ADDSVNONY    C2NONY
+     C                     Z-ADDSVSQTY    C2SQTY
+     C                     Z-ADDSVSBOX    C2SBOX
+     C                     Z-ADDSVFQTY    C2FQTY
+     C                     Z-ADDSVFBOX    C2FBOX
+      *
+     C           C2FBOX    IFEQ 0
+     C                     Z-ADD0         C2RATE
+     C                     ELSE
+     C           C2SBOX    MULT 100       NUM12  120
+     C           NUM12     DIV  C2FBOX    C2RATE    H
+     C                     ENDIF
+      *
+     C                     Z-ADDSVTOKU    C2TOKU
+     C                     Z-ADDTODAY     C2CRDT
+     C                     Z-ADDNOW       C2CRTM
+     C                     MOVEL#USER     C2CRUS
+     C                     MOVEL#PGM      C2CRPG
+     C                     WRITEABFWP821
+     C                     ENDIF
+      * RESET
+     C                     Z-ADDC8NONY    SVNONY
+     C                     Z-ADD0         SVSQTY
+     C                     Z-ADD0         SVSBOX
+     C                     Z-ADD0         SVFQTY
+     C                     Z-ADD0         SVFBOX
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PROCESS 2: PRINT                                  *
+      *----------------------------------------------------*
+     C           #PROC2    BEGSR
+      *
+     C                     DO   *HIVAL
+     C                     READ ABFWL82                  97
+     C   97                LEAVE
+      *
+     C**         C2FCYM    IFNE @TGTYM
+     C**                   ITER
+     C**                   ENDIF
+      *
+     C           C2NONY    CHAINFGBPL01              96
+     C   96                MOVE *BLANK    B2SMEI
+      *
+     C                     EXSR #PRINT
+     C                     ADD  C2FQTY    G2FQTY
+     C                     ADD  C2SQTY    G2SQTY
+     C                     ADD  C2FBOX    G2FBOX
+     C                     ADD  C2SBOX    G2SBOX
+      *
+     C           G2FBOX    IFNE 0
+     C           G2SBOX    MULT 100       NUM12  120
+     C           NUM12     DIV  G2FBOX    G2RATE    H
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C           $PRINT    IFEQ 'Y'
+     C                     EXCPT@GTL1
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  PRINT                                             *
+      *----------------------------------------------------*
+     C           #PRINT    BEGSR
+      *
+     C           $PRINT    IFEQ 'Y'
+     C           LIN#      IFGE 64
+     C                     EXCPT@HDR
+     C                     Z-ADD3         LIN#
+     C                     ENDIF
+      *
+     C                     ADD  1         SEQ#
+     C                     EXCPT@DTL1
+     C                     ADD  1         LIN#
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  INITIAL SETTING                                   *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $TGTYM  6
+     C                     PARM           $PRINT  1
+      *
+     C           K#P82     KLIST
+     C                     KFLD           @TGTYM
+     C                     KFLD           SVNONY
+      *
+     C                     MOVEL$TGTYM    @TGTYM  60
+     C                     MOVEL$TGTYM    LTR4    4
+     C                     MOVE $TGTYM    LTR2    2
+     C                     MOVEL'    /  ' XTGTYM  7
+     C                     MOVELLTR4      XTGTYM
+     C                     MOVE LTR2      XTGTYM
+      *
+     C                     TIME           SDATE
+     C                     Z-ADD0         SEQ#    40
+     C                     Z-ADD88        LIN#    30
+      *
+     C                     Z-ADD0         G2FQTY 100
+     C                     Z-ADD0         G2SQTY 100
+     C                     Z-ADD0         G2FBOX 100
+     C                     Z-ADD0         G2SBOX 100
+     C                     Z-ADD0         G2RATE  61
+      *
+     C                     Z-ADD0         SVSQTY  90
+     C                     Z-ADD0         SVSBOX  90
+     C                     Z-ADD0         SVFQTY  90
+     C                     Z-ADD0         SVFBOX  90
+      *
+     C                     ENDSR
+      *****************************************************************
+     OQPRINT  E   01           @HDR
+     O                         #PGM      10
+     O                                   30 '** FORECAST VS SALES'
+     O                                   50 ' (%) REPORT **  FOR '
+     O                         XTGTYM    57
+     O                                   66 '==DAY=='
+     O                                   99 'DATE'
+     O                         TODAY    102 '    .  .  '
+     O                         NOW      112 '  :  :  '
+     O                                  116 'P.'
+     O                         PAGE  Z  120
+     O        E   03           @HDR
+     O                                    6 'DELIV'
+     O                                   12 'NAME'
+     O                                   36 'FORECAST'
+     O                                   50 'SALES'
+     O                                   66 'FORECAST'
+     O                                   80 'SALES'
+     O        E   04           @HDR
+     O                                   36 '   (QTY)'
+     O                                   50 ' (QTY)'
+     O                                   66 '   (BOX)'
+     O                                   80 ' (BOX)'
+     O                                   93 'BOX RATE%'
+      *
+     O        E 1              @DTL1
+     O                         C2NONY  +002
+     O                         B2SMEI  +002
+     O                         C2FQTYJ +002
+     O                         C2SQTYJ +002
+     O                         C2FBOXJ +002
+     O                         C2SBOXJ +002
+     O                         C2RATEJ +004
+      *
+     O        E 1              @GTL1
+     O                                   20 '--------------------'
+     O                                   40 '--------------------'
+     O                                   60 '--------------------'
+     O                                   80 '--------------------'
+     O                                  100 '--------------------'
+      *
+     O        E 1              @GTL1
+     O                         G2FQTYJ   37
+     O                         G2SQTYJ   51
+     O                         G2FBOXJ   67
+     O                         G2SBOXJ   81
+     O                         G2RATEJ   94
+      *

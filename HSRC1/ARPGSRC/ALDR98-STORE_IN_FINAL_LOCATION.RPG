@@ -1,0 +1,1296 @@
+     H            Y.
+     F** ALDR98 *********************************************
+     F* STORE IN FINAL LOCATION                             *
+     F*   .....................     2015.10.05              *
+%2   F* 2019.12.25 ALDPP96 LOT#=BLANK対応                 *
+JW1  F* 2020.09.25 CHK FOR CHARTER STEEL(4540)              *
+JW2  F* 2020.12.18 CHG LF ALRPL21R TO ALRPL21A              *
+.    F*            CHG LF ALRPL22R TO ALRPL22A              *
+     F* 2023.05.18 ADD LOGIC FOR SHIP OVERFLOW SCANS        *
+     F* 2025.03.17 ADD LOGIC FOR CHARTER STEEL MACH# S90    *
+     F*******************************************************
+     FALDPW98 CF  E                    WORKSTN
+     FFCETL11 IF  E           K        DISK
+      *                  prefix(A2)    part information master file (logical)
+     FGDGPL28 IF  E           K        DISK
+      *                  prefix(IE)    invoice no. management       (logical)
+     FNZUPL01 UF  E           K        DISK
+      *                  prefix(N2)    apics kanban shipped information
+     FNZUPL11 UF  E           K        DISK                      A
+      *                  prefix(N3)    passthru kanban shipped information
+     FALDPP96 IF  E           K        DISK
+     FALDPP97 IF  E           K        DISK
+     FAM#PP31 IF  E           K        DISK
+JW2  FALRPL21AUF  E           K        DISK
+"    FALRPL22AUF  E           K        DISK
+     FALDPP9O IF  E           K        DISK
+     FALDPP25 UF  E                    DISK                      A
+      *                  prefix(A9)    final store location file
+      *
+     E                    ER      1  25 60
+     E                    KBN        32256
+      *
+     I            DS
+     I                                        1  14 D2SHN
+     I                                        1   5 D2SHN1
+     I                                        6   6 D2SF1
+     I                                        7  11 D2SHN2
+     I                                       12  12 D2SF2
+     I                                       13  14 D2SHN3
+      *
+%1   ID2BAR2      DS
+     I*                                    *  1 512 D2BAR2
+     I                                        1   1 BCTYPE
+     I                                        2   5 A@ZETI
+     I                                        6   8 A@LOT#
+     I                                        2   5 P@ZETI
+     I                                        6  11 P@ORD#
+     I                                       13  16 P@LOT#
+JW1  I                                        7  10 QRZETI
+%1   I*
+ |   I                                        1   3 QRTYPE
+ |   I                                        1 256 D2BARA
+ |   I                                      257 512 D2BARB
+JW1  I                                        1 256 D2BARK
+ |    *
+ |   I@@BAR       DS
+ |   I                                        1 256 @@BARA
+     I                                      257 512 @@BARB
+%1    *
+      *
+     I            DS
+     I                                        1   80A2GSHZ
+     I                                        1   40A2GSYY
+     I                                        5   60A2GSMM
+     I                                        7   80A2GSDD
+      * service part location tag
+     I            DS
+     I                                        1  10 SPLOC
+     I                                        1   4 SPZETI
+     I                                        5   5 SPLC1
+     I                                        6   7 SPLC2
+     I                                        8   9 SPLC3
+     I                                       10  10 SPLC4
+      *
+     I            DS
+     I                                        1   80A2TRHZ
+     I                                        1   40A2TRYY
+     I                                        5   60A2TRMM
+     I                                        7   80A2TRDD
+      *
+     I            DS
+     I                                        1   80M1SKHZ
+     I                                        1   40M1SKYY
+     I                                        5   60M1SKMM
+     I                                        7   80M1SKDD
+     I            DS
+     I                                        1  140WTIME
+     I                                        1   20WJI
+     I                                        3   40WFN
+     I                                        5   60WSC
+     I                                        7  140WDATE
+     I                                        7  100WYY
+     I                                       11  120WMM
+     I                                       13  140WDD
+JW1  I                                        1   60NOW
+      *
+     I            DS
+     I                                        1   80IEYMD
+     I                                        1   40IESKOY
+     I                                        5   60IESKOM
+     I                                        7   80IESKOD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           POPR    6
+     C                     PARM           PITANT 20
+      *
+      *  dummy read
+     C                     READ ALDPP25             N    77
+     C                     CLEARALDPP251
+      *----------------------------------------------------*
+      * MAINLINE                                           *
+      *----------------------------------------------------*
+     C                     MOVEL'01'      DSPSW   2
+      *
+     C           DSPSW     DOUEQ'99'
+      *
+     C                     SELEC
+     C           DSPSW     WHEQ '01'
+     C                     EXSR #SB100
+     C           DSPSW     WHEQ '02'
+     C                     EXSR #SB200
+     C                     ENDSL
+      *
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *
+      *----------------------------------------------------*
+      * FIRST SCREEN - Display Screen for Location Entry   *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     EXFMTALDPW251
+     C                     SETOF                     9931
+     C                     MOVEL*BLANKS   D9ERR
+      *
+     C                     MOVEL*BLANK    FNCHK1  5
+     C                     MOVEL*BLANK    FNCHK2  2
+     C           5         SUBSTD1BAR1:1  FNCHK1
+     C*
+     C           FNCHK1    IFEQ 'XXXXX'
+     C           2         SUBSTD1BAR1:6  FNCHK2
+     C           FNCHK2    IFEQ '01'
+     C                     SETON                     01
+     C                     ELSE
+     C                     SETON                     99
+     C                     MOVELER,6      D9ERR
+     C                     EXSR #SB290
+     C                     MOVEL*BLANK    D1BAR1
+     C                     GOTO ESB100
+     C                     ENDIF
+     C                     ENDIF
+      *
+      * if any Function Key was hit other than F1, just display
+      * screen 1 again.
+     C                     SELEC
+     C           *IN01     WHEQ '1'
+     C                     MOVEL'99'      DSPSW
+     C                     GOTO ESB100
+     C           *IN02     WHEQ '1'
+     C           *IN03     OREQ '1'
+     C           *IN04     OREQ '1'
+     C           *IN05     OREQ '1'
+     C           *IN06     OREQ '1'
+     C           *IN07     OREQ '1'
+     C           *IN08     OREQ '1'
+     C           *IN09     OREQ '1'
+     C           *IN10     OREQ '1'
+     C           *IN11     OREQ '1'
+     C           *IN12     OREQ '1'
+     C                     GOTO ESB100
+     C                     OTHER
+     C                     ENDSL
+      *
+      * if location scan was for the shipping overflow area,
+      *    call pgm to scan.
+     C                     MOVELD1BAR1    LOCN4   4
+     C                     MOVELD1BAR1    LOCN6   6
+     C           LOCN4     IFEQ 'SHOV'
+      *
+     C           LOCN6     CHAINALDPP9O              62
+     C           *IN62     IFEQ *ON
+     C                     SETON                     99
+     C                     MOVELER,14     D9ERR
+     C                     EXSR #SB290
+     C                     MOVEL*BLANK    D1BAR1
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+     C                     CALL 'ALDR9V'
+     C                     PARM           POPR
+     C                     PARM           PITANT
+     C                     PARM           LOCN6
+     C                     MOVE *BLANKS   D1BAR1
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+     C           D1BAR1    IFEQ *BLANK
+     C                     SETON                     99
+     C                     MOVELER,1      D9ERR
+     C                     EXSR #SB290
+     C                     MOVEL*BLANK    D1BAR1
+     C                     GOTO ESB100
+     C                     ENDIF
+      *
+      * if length of location barcode value is > 7, set service part fl
+     C           ' '       SCAN D1BAR1    POS     40
+     C           POS       IFGT 8
+     C                     MOVE 'Y'       SRVPRT  1
+     C                     ELSE
+     C                     MOVE 'N'       SRVPRT
+     C                     ENDIF
+      *
+      * if NOT a Service Part Location, check check-digit...
+      * CHECK DIGIT - if check digit is not correct, display
+      * error screen.
+     C           SRVPRT    IFEQ 'N'
+     C                     MOVELD1BAR1    PMAREA
+     C                     MOVEL'007'     PMBYTE
+     C           1         SUBSTD1BAR1:8  WKCHK   1
+     C                     EXSR #SB600
+     C           WKCHK     IFNE PMCHK
+     C                     SETON                     99
+     C                     MOVELER,2      D9ERR
+     C                     EXSR #SB290
+     C                     MOVEL*BLANK    D1BAR1
+     C                     GOTO ESB100
+     C                     ENDIF
+     C                     ELSE
+     C                     MOVELD1BAR1    SPLOC
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    A2BHB1
+     C                     MOVEL*BLANK    A2BHB2
+     C                     MOVEL*BLANK    A2BHB3
+      *
+     C                     MOVEL*BLANK    W1SHN1  5
+     C                     MOVEL*BLANK    W1SHN2  5
+     C                     MOVEL*BLANK    W1SHN3  2
+     C                     MOVEL*BLANK    W1TBN1  1
+     C                     MOVEL*BLANK    W1TBN2  2
+     C                     MOVEL*BLANK    W1TBN3  2
+     C                     MOVEL*BLANK    W1TBN4  1
+     C                     MOVEL*BLANK    D1ZETI  4
+     C           4         SUBSTD1BAR1:1  D1ZETI
+      *
+     C                     TIME           WTIME
+      *
+      * get part information from PART INFORMATION M/F
+      *
+     C           D1ZETI    CHAINFCETL111             21
+     C           *IN21     IFEQ *OFF
+     C           A2GSKD    ANDEQ'D'
+     C           A2GSHZ    ANDLE*DATE
+     C                     SETON                     21
+     C                     ENDIF
+      *
+     C                     MOVELA2BHB1    W1SHN1
+     C                     MOVELA2BHB2    W1SHN2
+     C                     MOVELA2BHB3    W1SHN3
+      *
+     C           *IN21     IFEQ *OFF
+     C           A2TRHZ    IFGT WDATE
+      * old location code
+     C                     MOVELA2KTRK    W1TBN1  1
+     C                     MOVELA2KTRT    W1TBN2  2
+     C                     MOVELA2KTRR    W1TBN3  2
+     C                     MOVELA2KTRD    W1TBN4  1
+     C                     ELSE
+      * else new location code
+     C                     MOVELA2STRK    W1TBN1  1
+     C                     MOVELA2STRT    W1TBN2  2
+     C                     MOVELA2STRR    W1TBN3  2
+     C                     MOVELA2STRD    W1TBN4  1
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+      * service part location...
+     C           SRVPRT    IFEQ 'Y'
+     C                     MOVELSPLC1     W1TBN1
+     C                     MOVELSPLC2     W1TBN2
+     C                     MOVELSPLC3     W1TBN3
+     C                     MOVELSPLC4     W1TBN4
+     C                     ENDIF
+      *
+     C                     MOVELD1BAR1    D2BAR1
+     C                     MOVEL*BLANK    D2SHN
+     C                     MOVELW1SHN1    D2SHN1
+     C                     MOVEL'-'       D2SF1
+     C                     MOVELW1SHN2    D2SHN2
+     C                     MOVEL'-'       D2SF2
+     C                     MOVELW1SHN3    D2SHN3
+     C                     MOVEL*BLANK    D2BAR2
+     C                     Z-ADD0         D2CNT
+     C                     MOVEL'02'      DSPSW
+      *
+     CSR         ESB100    ENDSR
+      *------------------------------------------------------*
+      * SECOND SCREEN - Display Screen to Input APICS KANBAN *
+      *------------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C                     EXFMTALDPW252
+     C                     SETOF                     9931
+     C                     MOVEL*BLANKS   D9ERR
+JW1   * F1: BACK
+ .   C           *IN01     IFEQ *ON
+ .   C                     MOVEL'01'      DSPSW
+ .   C                     MOVEL*BLANK    D1BAR1
+ .   C                     GOTO ESB200
+JW1  C                     ENDIF
+     C*
+     C                     MOVEL*BLANK    FNCHK1
+     C                     MOVEL*BLANK    FNCHK2
+     C           5         SUBSTD2BAR2:1  FNCHK1
+      *
+     C           FNCHK1    IFEQ 'XXXXX'
+     C           2         SUBSTD2BAR2:6  FNCHK2
+      *
+     C           FNCHK2    IFEQ '03'
+     C                     SETON                     01
+     C                     ELSE
+     C                     SETON                     99
+     C                     MOVELER,6      D9ERR
+     C                     EXSR #SB290
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+     C                     ENDIF
+JW1   * CHECK CHARTER STEEL
+ |   C                     EXSR #CHRTC
+ |   C           CHRFLG    IFEQ 'Y'
+ |   C           OKFLG     ANDEQ'1'
+ |   C                     SETON                     99
+ |   C                     MOVELER,11     D9ERR
+ |   C                     EXSR #SB290
+ |   C                     GOTO ESB200
+JW1  C                     ENDIF
+      *
+ |   C           CHRFLG    IFEQ 'Y'
+ |   C           OKFLG     ANDEQ'2'
+ |   C                     SETON                     99
+ |   C                     MOVELER,12     D9ERR
+ |   C                     EXSR #SB290
+ |   C                     GOTO ESB200
+JW1  C                     ENDIF
+      *
+JW1  C           CHRFLG    IFEQ 'Y'
+ |   C           OKFLG     ANDEQ'N'
+ |   C                     SETON                     99
+ |   C                     MOVELER,10     D9ERR
+ |   C                     EXSR #SB290
+ |   C                     GOTO ESB200
+JW1  C                     ENDIF
+      *
+      * if any Function Key was hit other than F1, just display
+      * screen 2 again.
+     C                     SELEC
+     C           *IN01     WHEQ '1'
+     C                     MOVEL'01'      DSPSW
+     C                     MOVEL*BLANK    D1BAR1
+     C                     GOTO ESB200
+     C           *IN02     WHEQ '1'
+     C           *IN03     OREQ '1'
+     C           *IN04     OREQ '1'
+     C           *IN05     OREQ '1'
+     C           *IN06     OREQ '1'
+     C           *IN07     OREQ '1'
+     C           *IN08     OREQ '1'
+     C           *IN09     OREQ '1'
+     C           *IN10     OREQ '1'
+     C           *IN11     OREQ '1'
+     C           *IN12     OREQ '1'
+     C                     GOTO ESB200
+     C                     OTHER
+     C                     ENDSL
+      *
+      * if APICS KANBAN is blank, display error and start over.
+     C           D2BAR2    IFEQ *BLANK
+     C                     SETON                     99
+     C                     MOVELER,4      D9ERR
+     C                     EXSR #SB290
+     C                     MOVEL*BLANK    D2BAR2
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+      * CHECK DIGIT - call program to get check digit and compare
+      *  to make sure it's correct.
+      *
+      *  if kanban barcode starts with an "I" then it's a Pass Thru
+      *   kanban, so it will be 16 chars instead of 14 like the apics kanban
+      *
+%1   C           QRTYPE    IFNE 'C01'
+      *
+     C           1         SUBSTD2BAR2:1  BCID
+     C           BCID      IFEQ 'I'
+     C                     SETON                     99
+     C                     MOVELER,15     D9ERR
+     C                     EXSR #SB290
+     C                     MOVEL*BLANK    D2BAR2
+     C                     GOTO ESB200
+      *
+      **********           MOVELD2BAR2    PMAREA
+      **********           MOVEL'016'     PMBYTE
+      ********** 1         SUBSTD2BAR2:17 WKCHK
+     C                     ELSE
+     C                     MOVELD2BAR2    PMAREA
+     C                     MOVEL'014'     PMBYTE
+     C           1         SUBSTD2BAR2:15 WKCHK   1
+     C                     ENDIF
+      *
+     C                     EXSR #SB600
+      *
+      * if check digits don't match, display error, go back to screen2.
+     C           WKCHK     IFNE PMCHK
+     C                     SETON                     99
+     C                     MOVELER,2      D9ERR
+     C                     EXSR #SB290
+     C                     MOVEL*BLANK    D2BAR2
+     C                     GOTO ESB200
+     C                     ENDIF
+%1   C                     ENDIF
+      *
+     C                     MOVEL*BLANK    W2SHN1  5
+     C                     MOVEL*BLANK    W2SHN2  5
+     C                     MOVEL*BLANK    W2SHN3  2
+     C                     MOVEL*BLANK    W2ABN1  1
+     C                     MOVEL*BLANK    W2ABN2  2
+     C                     MOVEL*BLANK    W2ABN3  2
+     C                     MOVEL*BLANK    W2ABN4  1
+     C                     MOVEL*BLANK    D2ZETI  4
+      *
+      * get part information from PART INFORMATION M/F
+      *
+%1   C           QRTYPE    IFEQ 'C01'
+     C           4         SUBSTD2BAR2:7  D2ZETI
+%1   C                     ELSE
+     C           4         SUBSTD2BAR2:2  D2ZETI
+%1   C                     ENDIF
+     C           D2ZETI    CHAINFCETL111             21
+      *
+     C           *IN21     IFEQ '0'
+     C           A2GSKD    ANDEQ'D'
+     C           A2GSHZ    ANDLE*DATE
+     C                     SETON                     21
+     C                     ENDIF
+      *
+      * part number found and not marked for delete.
+     C           *IN21     IFEQ '0'
+     C                     MOVELA2BHB1    W2SHN1
+     C                     MOVELA2BHB2    W2SHN2
+     C                     MOVELA2BHB3    W2SHN3
+      *
+     C           A2TRHZ    IFGT WDATE
+      * old location code
+     C                     MOVELA2KTRK    W2ABN1  1
+     C                     MOVELA2KTRT    W2ABN2  2
+     C                     MOVELA2KTRR    W2ABN3  2
+     C                     MOVELA2KTRD    W2ABN4  1
+     C                     ELSE
+      * else new location code
+     C                     MOVELA2STRK    W2ABN1  1
+     C                     MOVELA2STRT    W2ABN2  2
+     C                     MOVELA2STRR    W2ABN3  2
+     C                     MOVELA2STRD    W2ABN4  1
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+      * service part location...
+     C           SRVPRT    IFEQ 'Y'
+     C                     MOVELSPLC1     W2ABN1
+     C                     MOVELSPLC2     W2ABN2
+     C                     MOVELSPLC3     W2ABN3
+     C                     MOVELSPLC4     W2ABN4
+     C                     ENDIF
+%1    * **
+ |   C                     MOVEL*BLANK    C2BAR2256
+ |   C**
+ |   C           QRTYPE    IFEQ 'C01'
+ |   C                     CLEAR@@BAR
+ |   C                     MOVELD2BARA    @@BARA
+ |   C                     MOVELD2BARB    @@BARB
+ |   C                     MOVEL*BLANK    P9BAR  20
+ |   C* CREATE CODE39
+ |   C                     CALL 'UEXR13'
+ |   C                     PARM           @@BARA
+ |   C                     PARM           @@BARB
+ |   C                     PARM           P9BAR
+ |   C                     MOVELP9BAR     C2BAR2
+ |   C                     ELSE
+ |   C                     MOVELD2BAR2    C2BAR2
+ |   C                     ENDIF
+%1    * **
+      *
+      * if this was an apics kanban,
+     C           1         SUBSTD2BAR2:1  BCD     1
+     C           BCD       IFNE 'I'
+      *
+      * check to make sure it's NOT in the last 32 kanbans scanned.
+      *   if so, set error as duplicate kanban.
+%1   C*       ** D2BAR2    LOKUPKBN                      41
+%1   C           C2BAR2    LOKUPKBN                      41
+     C           *IN41     IFEQ *ON
+     C                     MOVEL'NG'      WKOKNG
+     C                     MOVELER,7      D9ERR
+     C                     MOVE '07'      ERRCOD  2
+     C                     EXSR #SB500
+     C                     SETON                     99
+     C                     EXSR #SB290
+     C                     MOVEL*BLANK    D2BAR2
+     C                     GOTO ESB200
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+      * check for stop alerts.
+      *   if stop alert was found, display error.
+%1   C           QRTYPE    IFNE 'C01'
+     C           BCD       IFNE 'I'
+     C                     EXSR ALERT1
+     C                     ELSE
+     C                     EXSR ALERT2
+     C                     ENDIF
+      *
+     C           STOP      IFEQ 'Y'
+     C                     EXSR #AM#31
+      *
+      * pasflg = 1 if user = team leader.
+     C           PASFLG    IFEQ '1'
+     C                     EXFMTDSP95
+      *
+     C                     MOVEL*BLANK    D95NC#
+     C                     MOVEL*BLANK    D95DEP
+     C                     MOVEL*BLANK    AFNC##
+     C                     MOVEL*BLANK    AFDEPT
+     C                     MOVEL*BLANK    AGNC##
+     C                     MOVEL*BLANK    AGDEPT
+      *
+     C           *INKH     IFEQ *OFF
+     C                     MOVEL*ON       W@INKH  1
+     C                     ENDIF
+      *
+     C                     ELSE
+      *
+     C                     MOVELER,8      MSG@2
+     C                     EXFMTDSP98
+      *
+     C                     ENDIF
+      *
+     C                     MOVEL'NG'      WKOKNG
+     C                     MOVELER,8      D9ERR
+     C                     MOVE '08'      ERRCOD  2
+     C                     EXSR #SB500
+     C                     MOVEL*BLANK    D2BAR2
+     C                     MOVE *BLANKS   ERRCOD
+     C                     GOTO ESB200
+     C                     ENDIF
+%1   C                     ENDIF
+      * JC CHECK
+      *
+     C           D2ZETI    IFEQ D1ZETI
+      *
+     C           QRTYPE    IFEQ 'C01'
+     C                     MOVELC2BAR2    P#BARC
+     C                     ELSE
+     C                     MOVELD2BAR2    P#BARC
+     C                     ENDIF
+      *
+     C                     MOVE 'JC '     P#KOTE  3
+     C                     MOVE '0111'    P#BMON  4
+     C                     MOVE *BLANK    P#KIBN  3
+     C                     MOVE *BLANK    P#RTN   1
+      *
+     C* * *                CALL 'AAMRSK'
+     C                     CALL 'AAMRSJ'
+     C                     PARM           P#BARC 20
+     C                     PARM           P#KOTE  3
+     C                     PARM           P#BMON  4
+     C                     PARM           P#KIBN  3
+     C                     PARM           P#RTN   1
+      *
+     C           P#RTN     IFEQ '*'
+     C                     CALL 'AJHRS1'
+     C                     PARM           P#BARC 20
+     C                     PARM           P#RTN   1
+     C                     PARM           P#WINY  40
+     C                     PARM           P#WINM  20
+     C                     PARM           P#WIND  20
+     C                     PARM           P#WINJ  20
+     C                     PARM           P#WINF  20
+     C                     PARM           P#WMJY  20
+     C                     PARM           P#MKKB  2
+     C           P#RTN     IFNE '*'
+     C                     MOVEL'NG'      WKOKNG
+     C                     MOVE '13'      ERRCOD
+     C                     EXSR #SB500
+     C                     SETON                     99
+     C                     MOVELER,13     D9ERR
+     C                     EXSR #SB290
+     C                     END
+     C                     END
+      *
+     C                     ENDIF
+      *
+     C           @JUMP     TAG
+      *
+      * check to make sure it's a match.
+     C           D2ZETI    IFEQ D1ZETI
+     C                     MOVEL'OK'      WKOKNG  2
+     C                     MOVE *BLANKS   ERRCOD
+     C                     EXSR #SB500
+     C                     ADD  1         D2CNT
+     C                     ELSE
+     C                     MOVELER,5      D9ERR
+     C                     SETON                     99
+     C                     MOVEL'NG'      WKOKNG
+     C                     MOVE '05'      ERRCOD
+     C                     EXSR #SB500
+     C                     MOVELER,5      D9ERR
+     C                     SETON                     99
+     C                     EXSR #SB290
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    D2BAR2
+      *
+      * after 16 have been entered, clear location and start
+      * with screen 1 again to get new location.
+     C           D2CNT     IFEQ 16
+     C                     MOVEL'01'      DSPSW
+     C                     MOVEL*BLANK    D1BAR1
+     C                     ENDIF
+      *
+     CSR         ESB200    ENDSR
+      *
+      *----------------------------------------------------*
+      * ALDPP25 - Write Record to Final Store Location     *
+      *         If NOT PT Kanban,                          *
+      *           Update Id/Lot/Page in NZUPP01 with       *
+      *           Final Store Information.                 *
+      *         Else                                       *
+      *           Update Id/Order#/Lot# in NZUPL11 with    *
+      *           Final Store Information.                 *
+      *----------------------------------------------------*
+     C           #SB500    BEGSR
+      *
+      * write to ALDPP25
+     C                     TIME           WTIME
+     C                     CLEARALDPP251
+     C                     Z-ADDWDATE     A9KODT
+     C                     TIME           A9KOTM
+     C                     MOVELW#WSID    A9WSID
+     C                     MOVELW#USER    A9USER
+     C                     MOVELW#JBNO    A9JOBN
+     C                     MOVELW#PGM     A9KOPG
+     C                     MOVELPOPR      A9WOKR
+     C                     Z-ADDWDATE     A9CODT
+     C                     TIME           A9COTM
+     C                     MOVELD1BAR1    A9LBAR
+     C                     MOVELD1ZETI    A9LZET
+     C                     MOVELW1SHN1    A9LHN1
+     C                     MOVELW1SHN2    A9LHN2
+     C                     MOVELW1SHN3    A9LHN3
+     C                     MOVELW1TBN1    A9TBN1
+     C                     MOVELW1TBN2    A9TBN2
+     C                     MOVELW1TBN3    A9TBN3
+     C                     MOVELW1TBN4    A9TBN4
+%1   C**                   MOVELD2BAR2    A9ABAR
+     C                     MOVELD2ZETI    A9AZET
+     C                     MOVELW2SHN1    A9AHN1
+     C                     MOVELW2SHN2    A9AHN2
+     C                     MOVELW2SHN3    A9AHN3
+     C                     MOVELW2ABN1    A9ABN1
+     C                     MOVELW2ABN2    A9ABN2
+     C                     MOVELW2ABN3    A9ABN3
+     C                     MOVELW2ABN4    A9ABN4
+%1   C**
+ |   C           QRTYPE    IFEQ 'C01'
+ |   C                     MOVELC2BAR2    A9ABAR
+ |   C                     MOVELD2BAR2    A9ABQR
+ |   C                     ELSE
+ |   C                     MOVELD2BAR2    A9ABAR
+ |   C                     ENDIF
+%1   C**
+      *
+      * PASS THRU kanban barcodes start with an I...
+      * if barcode is a pass thru kanban, then blank out
+      * apics product and page numbers.
+%1   C           QRTYPE    IFEQ 'C01'
+ |   C           3         SUBSTD2BAR2:53 A9TEHA
+ |   C           2         SUBSTD2BAR2:59 A9PAGE
+ |   C                     MOVE *BLANKS   A9PTOR
+ |   C                     MOVE *BLANKS   A9PTLT
+%1   C                     ELSE
+     C           1         SUBSTD2BAR2:1  BCID    1
+     C           BCID      IFEQ 'I'
+     C                     MOVE *BLANKS   A9TEHA
+     C                     MOVE *BLANKS   A9PAGE
+     C           6         SUBSTD2BAR2:6  A9PTOR
+     C           1         SUBSTD2BAR2:12 KANTYP  1
+     C           4         SUBSTD2BAR2:13 A9PTLT
+     C                     ELSE
+     C           3         SUBSTD2BAR2:6  A9TEHA
+     C           2         SUBSTD2BAR2:9  A9PAGE
+     C                     MOVE *BLANKS   A9PTOR
+     C                     MOVE *BLANKS   A9PTLT
+     C                     ENDIF
+%1   C                     ENDIF
+      *
+     C                     MOVELWKOKNG    A9OKNG
+     C                     MOVELERRCOD    A9ERCD
+     C                     WRITEALDPP251
+      *
+      * if there are no errors, write to shipping output files.
+     C           D9ERR     IFEQ *BLANKS
+     C           *IN99     ANDEQ*OFF
+JW1   * update ALRR20
+"    C                     EXSR #CHRTU
+      *
+      * save kanban barcode with the last 32 successful scans.
+     C                     EXSR SAVKBN
+      *
+      * call pgm to remove kanban barcode from shipping overflow
+     C                     MOVELW#PGM     PGM10  10 P
+     C                     CALL 'ALDR9U'
+     C                     PARM           POPR
+     C                     PARM           PGM10
+     C                     PARM           A9ABAR
+      *
+      * if this is an passthru kanban, update pt kanban ship info file
+      * if this is an apics kanban, update apics kanban ship info file
+     C           BCID      IFEQ 'I'
+     C                     EXSR #SB510
+     C                     ELSE
+     C                     EXSR #SB520
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *
+      *----------------------------------------------------*
+JW1   * CHECK CHARTER STEEL EXIST IN ALRPP20
+ .    *----------------------------------------------------*
+ .   C           #CHRTC    BEGSR
+ .    * GET SUPP CODE
+     C                     MOVE 'N'       OKFLG   1
+     C                     MOVE 'N'       CHRFLG  1
+      *
+     C           QRTYPE    IFEQ 'B01'
+     C           QRTYPE    OREQ 'C01'
+     C                     MOVELQRZETI    $ZETI
+     C                     MOVE 'Q'       BRFLG   1
+     C                     ELSE
+     C                     MOVELA@ZETI    $ZETI
+     C                     MOVE 'A'       BRFLG   1
+     C                     ENDIF
+      *
+     C                     MOVE *BLANK    $SHIN
+     C                     CALL 'UTLR21C'
+     C                     PARM           $ZETI   4
+     C                     PARM           $SHIN  12
+     C                     PARM           $SUPP   4
+     C                     PARM           $RTNX   1
+      *
+     C           $SUPP     IFNE '4540'
+     C                     MOVE 'N'       CHRFLG
+     C                     GOTO XCHART
+     C                     ENDIF
+      *
+      * if the supplier is charter steel,
+      * check for machine S90 in process master for this part#...
+     C           $SUPP     IFEQ '4540'
+     C                     CALL 'UTLR21X'
+     C                     PARM           $ZETI
+     C                     PARM           $SHIN
+     C                     PARM           $RTNYN  1
+      *
+      * if not S90 turn off check flag...
+     C           $RTNYN    IFEQ 'N'
+     C                     MOVE 'N'       CHRFLG
+     C                     GOTO XCHART
+     C                     ENDIF
+     C                     ENDIF
+      *
+      * IF CHARTER STEEL AND MACH# = 'S90'...
+     C                     MOVE 'Y'       CHRFLG
+      *
+     C           BRFLG     IFEQ 'A'
+     C                     MOVELD2BAR2    LTR20  20
+      *JW2       LTR20     SETLLALRPL21
+JW2  C           LTR20     SETLLALRPL21A
+     C                     ELSE
+      *JW2       D2BARK    SETLLALRPL22
+JW2  C           D2BARK    SETLLALRPL22A
+     C                     ENDIF
+      *
+     C                     DO   *HIVAL
+      *
+     C           BRFLG     IFEQ 'A'
+      *JW2       LTR20     READEALRPL21             N    98
+JW2  C           LTR20     READEALRPL21A            N    98
+     C                     ELSE
+      *JW2       D2BARK    READEALRPL22             N    98
+JW2  C           D2BARK    READEALRPL22A            N    98
+     C                     ENDIF
+     C   98                LEAVE
+      *
+     C           L2SKJY    IFEQ ' '
+     C           L2OKNG    ANDEQ'OK'
+     C           L2IDAT    ANDNE0
+     C                     EXSR #CHKDT
+     C           #DAYS     IFLE 40
+     C                     MOVE '1'       OKFLG
+     C                     LEAVE
+ .   C                     ENDIF
+ .   C                     ENDIF
+      *
+     C           L2SKJY    IFEQ ' '
+     C           L2OKNG    ANDEQ'OK'
+     C           L2ODAT    ANDNE0
+     C                     EXSR #CHKDT
+     C           #DAYS     IFLE 40
+     C                     MOVE '2'       OKFLG
+     C                     LEAVE
+ .   C                     ENDIF
+ .   C                     ENDIF
+      *
+     C           L2SKJY    IFEQ ' '
+     C           L2OKNG    ANDEQ'OK'
+     C           L2ODAT    ANDEQ0
+     C                     EXSR #CHKDT
+     C           #DAYS     IFLE 40
+     C                     MOVE 'Y'       OKFLG
+     C                     LEAVE
+ .   C                     ENDIF
+ .   C                     ENDIF
+ .   C                     ENDDO
+ .    *
+JW1  C           XCHART    ENDSR
+      *----------------------------------------------------*
+JW1   * CHECK SCAN DATE IS NEW ENOUGH
+ .    *----------------------------------------------------*
+ .   C           #CHKDT    BEGSR
+ .    *
+     C                     Z-ADD0         #DAYS   40
+     C                     MOVELWDATE     $DT81
+     C                     MOVELL2CODT    $DT82
+     C                     MOVEL'Y'       $IAF
+     C                     MOVEL'N'       $INC
+     C                     CALL 'UTLR24'
+     C                     PARM           $DT81   8
+     C                     PARM           $DT82   8
+     C                     PARM           $IAF    1
+     C                     PARM           $INC    1
+     C                     PARM           $DAYS   4
+     C                     PARM           $RTNX   1
+      *
+     C           $RTNX     IFEQ *BLANK
+     C                     MOVEL$DAYS     #DAYS
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+JW1   * UPDATE ALRPP20 (STORE IN)
+ .    *----------------------------------------------------*
+ .   C           #CHRTU    BEGSR
+ .    * SET QR FLAG
+ .   C           QRTYPE    IFEQ 'B01'
+     C           QRTYPE    OREQ 'C01'
+     C                     MOVE 'Q'       BRFLG
+     C                     ELSE
+     C                     MOVE 'A'       BRFLG
+     C                     ENDIF
+      *
+     C                     MOVELA9LZET    $ZETI
+ .    * GET SUPP CODE
+     C                     MOVELA9LZET    $ZETI
+      *
+     C                     MOVE *BLANK    $SHIN
+     C                     CALL 'UTLR21C'
+     C                     PARM           $ZETI   4
+     C                     PARM           $SHIN  12
+     C                     PARM           $SUPP   4
+     C                     PARM           $RTNX   1
+      * IF CHARTER STEEL..
+     C           $SUPP     IFEQ '4540'
+      *
+     C           BRFLG     IFEQ 'A'
+     C                     MOVELA9ABAR    LTR20  20
+      *JW2       LTR20     SETLLALRPL21
+JW2  C           LTR20     SETLLALRPL21A
+     C                     ELSE
+      *JW2       D2BARK    SETLLALRPL22
+JW2  C           D2BARK    SETLLALRPL22A
+     C                     ENDIF
+      *
+     C                     DO   *HIVAL
+      *
+     C           BRFLG     IFEQ 'A'
+      *JW2       LTR20     READEALRPL21                  98
+JW2  C           LTR20     READEALRPL21A                 98
+     C                     ELSE
+      *JW2       D2BARK    READEALRPL22                  98
+JW2  C           D2BARK    READEALRPL22A                 98
+     C                     ENDIF
+      *
+     C   98                LEAVE
+      *
+     C           L2SKJY    IFEQ ' '
+     C           L2OKNG    ANDEQ'OK'
+     C           L2IDAT    ANDEQ0
+     C           L2ODAT    ANDEQ0
+     C                     EXSR #CHKDT
+     C           #DAYS     IFLE 40
+     C                     Z-ADDWDATE     L2IDAT
+     C                     Z-ADDNOW       L2ITIM
+      *
+     C           BRFLG     IFEQ 'A'
+      *JW2                 UPDATALRPL211
+JW2  C                     UPDATALRP21A1
+     C                     ELSE
+      *JW2                 UPDATALRPL221
+JW2  C                     UPDATALRP22A1
+     C                     ENDIF
+      *
+     C                     LEAVE
+ .   C                     ENDIF
+ .   C                     ENDIF
+ .   C                     ENDDO
+ .   C                     ENDIF
+ .    *
+JW1  C                     ENDSR
+      *----------------------------------------------------*
+      * update NZUPL11 with passthru kanban ship info
+      *----------------------------------------------------*
+     C           #SB510    BEGSR
+     C*
+     C           N3KEY     KLIST
+     C                     KFLD           A9AZET
+     C                     KFLD           A9PTOR
+     C                     KFLD           A9PTLT
+      *
+     C           N3KEY     CHAINNZUPL111             51
+      *
+      * if id/ord#/lot# is found update record, else add record.
+     C           *IN51     IFEQ *OFF
+      *
+     C                     MOVELA9CODT    N3KOHZ
+     C                     MOVELA9COTM    N3KOTI
+     C                     MOVELA9WOKR    N3KOME
+     C                     MOVELA9KOPG    N3KOPG
+     C                     MOVE '0'       N3ONOF
+     C                     MOVELA9CODT    N3NYHZ
+     C                     MOVELA9COTM    N3NYTI
+      *
+     C                     MOVELA9AHN1    N3SHN1
+     C                     MOVELA9AHN2    N3SHN2
+     C                     MOVELA9AHN3    N3SHN3
+     C                     MOVELA9ABN1    N3JTK1
+     C                     MOVELA9ABN2    N3JTK2
+     C                     MOVELA9ABN3    N3JTK3
+     C                     MOVELA9ABN4    N3JTK4
+      *
+     C                     MOVE BCID      N3KANR
+     C                     MOVELA9AZET    N3SZET
+     C                     MOVELA9PTOR    N3SORD
+     C                     MOVE KANTYP    N3STYP
+     C                     MOVELA9PTLT    N3SLOT
+     C                     MOVELWKCHK     N3CHKD
+      *
+     C                     EXSR #SB515
+      *
+     C                     UPDATNZUPL111
+      *
+     C                     ELSE
+      *
+     C                     CLEARNZUPL111
+     C                     MOVELA9AZET    N3ZETI
+     C                     MOVELA9PTOR    N3ORDN
+     C                     MOVELA9PTLT    N3LOTN
+      *
+     C                     MOVELA9CODT    N3KOHZ
+     C                     MOVELA9COTM    N3KOTI
+     C                     MOVELA9WOKR    N3KOME
+     C                     MOVELA9KOPG    N3KOPG
+     C                     MOVE '0'       N3ONOF
+     C                     MOVELA9CODT    N3NYHZ
+     C                     MOVELA9COTM    N3NYTI
+      *
+     C                     MOVELA9AHN1    N3SHN1
+     C                     MOVELA9AHN2    N3SHN2
+     C                     MOVELA9AHN3    N3SHN3
+     C                     MOVELA9ABN1    N3JTK1
+     C                     MOVELA9ABN2    N3JTK2
+     C                     MOVELA9ABN3    N3JTK3
+     C                     MOVELA9ABN4    N3JTK4
+      *
+     C                     MOVE BCID      N3KANR
+     C                     MOVELA9AZET    N3SZET
+     C                     MOVELA9PTOR    N3SORD
+     C                     MOVE KANTYP    N3STYP
+     C                     MOVELA9PTLT    N3SLOT
+     C                     MOVELWKCHK     N3CHKD
+      *
+     C                     EXSR #SB515
+      *
+     C                     WRITENZUPL111
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *
+      *----------------------------------------------------*
+      * get order info from invoice management
+      *----------------------------------------------------*
+     C           #SB515    BEGSR
+     C*
+     C           GDKEY     KLIST
+     C                     KFLD           A9LHN1
+     C                     KFLD           A9LHN2
+     C                     KFLD           A9LHN3
+     C*
+     C           GDKEY     SETGTGDGPP251
+     C           GDKEY     REDPEGDGPP251                 51
+      *
+      * if read until order number is found.
+     C           *IN51     DOWEQ*OFF
+      *
+     C                     MOVE IEODER    IEORCH  6
+     C           IEORCH    IFEQ A9PTOR
+     C                     Z-ADDIESYOS    N3KSYU           BOX QTY
+     C                     MOVE 'C'       N3KSTI           BOX TYPE
+     C                     MOVELIEYMD     N3DEJD           DEPART YMD
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           GDKEY     REDPEGDGPP251                 51
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *
+      *----------------------------------------------------*
+      * update NZUPL01 with apics kanban ship info
+      *----------------------------------------------------*
+     C           #SB520    BEGSR
+     C*
+     C           N2KEY     KLIST
+     C                     KFLD           A9AZET
+     C                     KFLD           A9TEHA
+     C                     KFLD           A9PAGE
+     C*
+     C           N2KEY     SETGTNZUPL011
+     C           N2KEY     REDPENZUPL011                 51
+      *
+      * if id/lot/page num is found, update record and leave.
+     C           *IN51     DOWEQ*OFF
+     C           N2SKJY    IFEQ *BLANK
+     C           N2NYHZ    ANDEQ*ZERO
+     C                     MOVELA9CODT    N2KOHZ
+     C                     MOVELA9COTM    N2KOTI
+     C                     MOVELA9WOKR    N2KOME
+     C                     MOVELA9KOPG    N2KOPG    P
+     C                     MOVELA9CODT    N2NYHZ
+     C                     MOVELA9COTM    N2NYTI
+     C                     UPDATNZUPL011
+     C                     LEAVE
+     C                     ENDIF
+     C           N2KEY     REDPENZUPL011                 51
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *
+      *----------------------------------------------------*
+      * Call Program to Get Check Digit                    *
+      *----------------------------------------------------*
+     C           #SB600    BEGSR
+      *
+     C                     CALL 'ALBRCC'
+     C                     PARM           PMAREA100        INPUT DATA
+     C                     PARM           PMBYTE  3        LENGTH
+     C                     PARM           PMCHK   1        CHECKS DIGITS
+     C                     PARM           PMRTCD  1        RETRN CODE
+      *
+     C                     ENDSR
+      *
+      *----------------------------------------------------*
+      * ERROR SCREEN - Display Error on Screen             *
+      *----------------------------------------------------*
+     C           #SB290    BEGSR
+      *
+     C           D9ERR     IFEQ ER,5
+JW1  C           D9ERR     OREQ ER,10
+JW1  C           D9ERR     OREQ ER,13
+      *
+     C*  PASSWORD LOCK
+     C                     Z-ADD1         P1PGM
+     C                     MOVELD9ERR     P1ERR
+     C                     MOVELW#PGM     P1PID
+     C                     MOVELPOPR      P1KOME    P
+     C                     Z-ADD*ZERO     P1DTTM
+     C                     CALL 'AM#R09'
+     C                     PARM           P1PGM   20
+     C                     PARM           P1ERR  25
+     C                     PARM           P1PID  10
+     C                     PARM           P1KOME 10
+     C                     PARM           P1DTTM 140
+     C                     MOVEL*ON       W@ERCK  1
+      *
+     C                     ELSE
+      *
+     C                     WRITEALDPW208
+     C                     EXFMTALDPW209
+      *
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * Save Kanban barcode with the last 32 scanned.      *
+      *----------------------------------------------------*
+     C           SAVKBN    BEGSR
+      *
+     C           IX        IFEQ 32
+     C                     Z-ADD1         IX      20
+     C                     ELSE
+     C                     ADD  1         IX
+     C                     ENDIF
+      *
+     C                     MOVELA9ABAR    KBN,IX
+      *
+     C                     ENDSR
+      *
+      *----------------------------------------------------*
+      * SEARCH APICS STOP ALERTS                           *
+      *----------------------------------------------------*
+     C           ALERT1    BEGSR
+      *
+     C                     MOVE 'N'       STOP    1
+      *
+     C           K#L96A    KLIST
+     C                     KFLD           A@ZETI
+     C                     KFLD           A@LOT#
+      *
+     C           K#L96A    SETGTALDPP96
+      *
+     C                     DO   *HIVAL
+      *
+     C           K#L96A    REDPEALDPP96                  95
+     C   95                LEAVE
+     C           AFSKJY    IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+%2   C           AFTYPE    IFEQ '2'                        2:STORE OUT
+ |   C                     ITER
+%2   C                     ENDIF
+      *
+     C                     MOVE 'Y'       STOP
+     C                     MOVELAFNC##    D95NC#
+     C                     MOVELAFDEPT    D95DEP
+     C                     LEAVE
+      *
+     C                     ENDDO
+      *
+%2    **** LOT# = BLANK ***
+ |   C           STOP      IFNE 'Y'
+ |   C           K#L96B    KLIST
+ |   C                     KFLD           A@ZETI
+ |   C                     KFLD           K#LOT#  3
+ |   C                     MOVE *BLANK    K#LOT#
+ |   C*
+ |   C           K#L96B    SETGTALDPP96
+ |   C*
+ |   C                     DO   *HIVAL
+ |   C           K#L96B    REDPEALDPP96                  95
+ |   C   95                LEAVE
+ |   C           AFSKJY    IFNE *BLANK
+ |   C                     ITER
+ |   C                     ENDIF
+ |   C           AFTYPE    IFEQ '2'                        2:STORE OUT
+ |   C                     ITER
+ |   C                     ENDIF
+ |   C                     MOVE 'Y'       STOP
+ |   C                     MOVELAFNC##    D95NC#
+ |   C                     MOVELAFDEPT    D95DEP
+ |   C                     LEAVE
+ |   C                     ENDDO
+ |   C*
+ |   C                     ENDIF
+%2    **** LOT# = BLANK ***
+     C                     ENDSR
+      *
+      *----------------------------------------------------*
+      * SEARCH PASSTHRU STOP ALERTS                        *
+      *----------------------------------------------------*
+     C           ALERT2    BEGSR
+      *
+     C                     MOVE 'N'       STOP
+      *
+     C           K#L97A    KLIST
+     C                     KFLD           K1ZETI  4
+     C                     KFLD           K1ORDR  6
+     C                     KFLD           K1LOTN  4
+      *
+     C                     MOVELP@ZETI    K1ZETI
+     C                     MOVELP@ORD#    K1ORDR
+     C                     MOVELP@LOT#    K1LOTN
+      *
+     C           K#L97A    SETGTALDPP97
+      *
+     C                     DO   *HIVAL
+      *
+     C           K#L97A    REDPEALDPP97                  95
+     C   95                LEAVE
+     C           AGSKJY    IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVE 'Y'       STOP
+     C                     MOVELAGNC##    D95NC#
+     C                     MOVELAGDEPT    D95DEP
+     C                     LEAVE
+      *
+     C                     ENDDO
+      *
+     C           *IN95     IFEQ *ON
+     C                     MOVEL*BLANK    K1LOTN
+     C           K#L97A    SETGTALDPP97
+     C                     DO   *HIVAL
+     C           K#L97A    REDPEALDPP97                  95
+     C   95                LEAVE
+     C           AGSKJY    IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+     C                     LEAVE
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C           *IN95     IFEQ *ON
+     C                     MOVEL*BLANK    K1ORDR
+     C           K#L97A    SETGTALDPP97
+     C                     DO   *HIVAL
+     C           K#L97A    REDPEALDPP97                  95
+     C   95                LEAVE
+     C           AGSKJY    IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+     C                     LEAVE
+     C                     ENDDO
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *
+      *----------------------------------------------------*
+      * PASSWORD                                           *
+      *----------------------------------------------------*
+     CSR         #AM#31    BEGSR
+      *
+     C                     MOVE POPR      WWWKCD  60
+     C           WWWKCD    CHAINAM#PP311             49
+     C           *IN49     IFEQ *OFF
+     C           R3SKJY    ANDEQ'D'
+     C           R3SKHZ    ANDLE*DATE
+     C                     SETON                     49
+     C                     ENDIF
+      *
+     C                     MOVEL*BLANK    PASFLG  1
+     C           *IN49     IFEQ '0'
+     C                     MOVELR3PGM1    PASFLG
+     C                     ENDIF
+      *
+     CSR         EAM#31    ENDSR
+      *
+      *----------------------------------------------------*
+** ER (60A) .......2.........3.........4.........5.........6
+INPUT LOCATION BARCODE!                                       01
+CHECK DIGIT ERROR!                                            02
+PARTS MASTER ERROR!                                           03
+INPUT STORE IN KANBAN!                                        04
+PART UNMATCH ERROR!                                           05
+FNC KEY ERROR!                                                06
+DUPLICATE KANBAN!                                             07
+APICS STOP ALERT!                                             08
+PT STOP ALERT!                                                09
+CHR_STL NOT SCAN SORTING!                                     10 JW1
+CHR_STL ALREADY STORE IN!                                     11 JW1
+CHR_STL ALREADY OUT!                                          12 JW1
+PROC. JC  SKIPPED!                                            13
+INVALID LOCATION                                              14
+INVALID APICS KANBAN                                          15

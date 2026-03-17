@@ -1,0 +1,175 @@
+     H            Y.
+      ** AB#R13T ************************************************
+      *  CREATE UNIVERSAL EDI ASN DATA (TOYOTA)                 *
+      *  J.WATANABE   2025.05.02                                *
+      ***********************************************************
+     FAB#EP60 IF  E                    DISK
+     FAB#EL14 IF  E           K        DISK
+     F            AB#EP141                          KRENAMEAB#EP14X
+     FAB#EP14 O   E                    DISK
+      ***********************************************************
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      254 263 #USER
+      ***********************************************************
+      * MAIN ROUTINE
+      ***********************************************************
+     C                     EXSR #INIT
+      * CREATE HEADER DATA
+     C           1         SETLLAB#EP60
+     C                     DO   *HIVAL
+     C                     READ AB#EP60                  98
+     C   98                LEAVE
+      *
+      * SELECT
+     C                     EXSR #CHK1
+     C           *IN85     IFEQ *ON
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     CLEARAB#EP141
+      * GET PARTNER
+     C                     MOVELE1NONY    $NONY
+     C                     CALL 'UEXR29E'
+     C                     PARM           $NONY   4
+     C                     PARM           $PRTN1 30
+     C                     MOVEL$PRTN1    E4PRTN
+      *
+     C                     Z-ADDTODAY     E4RCHZ
+     C                     Z-ADDNOW       E4RCTM
+     C                     MOVELNOW       E4RCT4
+     C                     Z-ADDE1TOKU    E4TOKU
+     C                     Z-ADDE1NONY    E4NONY
+     C                     MOVELE1NKOJ    E4NKOJ
+     C                     MOVELE1NUKE    E4NUKE
+     C                     Z-ADDE1NOHZ    E4NOHZ
+     C                     MOVELE1SHID    E4SHID
+     C                     Z-ADDE1NBIN    E4NOBN
+     C                     MOVEL'856'     E4TRID
+     C                     MOVELE1SHID    E4ASN#
+      *
+     C           E1NONY    IFEQ 0323                       TMS
+     C                     MOVELE1ORDN    E4REF#
+     C                     ELSE
+     C                     MOVELE1INVN    E4REF#
+     C                     ENDIF
+      *
+     C           E1NONY    IFEQ 3512                       TTCA
+     C                     MOVE E1INVN    LTR10  10
+     C                     MOVELLTR10     E4ODRN
+     C                     ELSE
+     C                     MOVELE1ORDN    E4ODRN
+     C                     ENDIF
+      *
+      * GET PACKING LIST#
+     C                     MOVELE1NOHZ    $NOHZ
+     C                     MOVELE1TOKU    $CUST
+     C                     MOVELE1NONY    $NONY
+     C                     MOVELE1NKOJ    $NKOJ
+     C                     MOVELE1NUKE    $NUKE
+     C                     MOVELE1NBIN    $BINN
+     C                     MOVEL'00000000'$RLHZ
+      * ORDER#
+     C                     SELEC
+     C           E1NONY    WHEQ 3550                       TOYOTESTSU
+     C           E1NONY    OREQ 3556
+     C           E1NONY    OREQ 3511
+     C           E1NONY    OREQ 3512
+     C                     MOVE E1INVN    $ODRN
+     C                     OTHER
+     C                     MOVELE1ORDN    $ODRN
+     C                     ENDSL
+      *
+     C                     CALL 'UTLR51D'
+     C                     PARM           $NOHZ   8
+     C                     PARM           $CUST   4
+     C                     PARM           $NONY   4
+     C                     PARM           $NKOJ   1
+     C                     PARM           $NUKE   4
+     C                     PARM           $BINN   2
+     C                     PARM           $RLHZ   8
+     C                     PARM           $ODRN  10
+     C                     PARM           $PICK#  9
+     C                     MOVEL$PICK#    E4PL#
+      *
+     C                     MOVE ' '       E4PLNT
+     C                     MOVE ' '       E4SHCD
+      *
+     C                     Z-ADDTODAY     E4CRHZ
+     C                     Z-ADDNOW       E4CRTM
+     C                     MOVEL#PGM      E4CRPG
+     C                     MOVEL#USER     E4CRUS
+      *
+      * GET BATCH#
+     C           E4PRTN    IFNE *BLANK
+     C                     MOVELE4PRTN    $PRTN
+     C                     MOVELE1DATE    $RCVD1
+     C                     MOVELE1TIME    $RCVT1
+     C                     CALL 'UEXC58TA'
+     C                     PARM           $PRTN  30
+     C                     PARM           $RCVD1  8
+     C                     PARM           $RCVT1  4
+     C                     PARM           $RCVD2  8
+     C                     PARM           $RCVT2  6
+     C                     PARM           $BCH#   7
+     C                     PARM           $INT#  14
+      *
+     C           $BCH#     IFNE *BLANK
+     C           $BCH#     ANDNE*ZERO
+     C                     MOVEL$BCH#     E4BCH#
+     C                     MOVEL$INT#     E4INT#
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     WRITEAB#EP141
+      *
+     C                     ADD  1         @REC
+      *
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *=================================================
+      * CHECK DUPLICATE
+      *=================================================
+     C           #CHK1     BEGSR
+      *
+     C                     MOVE *OFF      *IN85
+      * CHECK DUPLICATE
+     C           E1SHID    SETLLAB#EL14
+     C                     DO   *HIVAL
+     C           E1SHID    READEAB#EL14                  98
+     C   98                LEAVE
+      *
+     C           E1NONY    IFEQ E4NONY
+     C           E1DATE    ANDEQE4CRHZ
+     C                     MOVE *ON       *IN85
+     C                     LEAVE
+     C                     ENDIF
+     C                     ENDDO
+      *
+      * CHECK EDI ASN CUSTOMER
+     C           *IN85     IFEQ *OFF
+     C                     MOVELE1NONY    $NONY
+     C                     CALL 'UEXR60 '
+     C                     PARM           $NONY   4
+     C                     PARM           $RTN    1
+     C           $RTN      IFNE 'Y'
+     C                     MOVE *ON       *IN85
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *=================================================
+      * INITIAL SET
+      *=================================================
+     C           #INIT     BEGSR
+      *
+     C                     TIME           SDATE
+     C                     Z-ADD0         @REC    60
+      *
+     C                     ENDSR

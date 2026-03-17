@@ -1,0 +1,421 @@
+     H            Y.
+      ** AHDR06 ********************************************
+      *  PT PART ORDER APART RATE MASTER UPDATE            *
+      *                                                    *
+      * TCHK  12/15/11 CREATE                              *
+      ******************************************************
+     FAHDPW06 CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL010
+     F                                              KINFDS @INFDS
+     FAHDPP06 UF  E           K        DISK                      A
+      *---------------------------------------------------
+     E                    ERR     1  15 60
+      *---------------------------------------------------
+     I@INFDS      DS
+     I                                     *STATUS  @STTS
+     I                                    B 370 3710@@LIN
+     I                                    B 378 3790@@REC
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      * SYSTEM TIME(6) + DATE(6)
+     I            DS
+     I                                        1  140WWTIME
+     I                                        1   60WTIME
+     I                                        1   40WTIM4
+     I                                        1   20WTIMH
+     I                                        3   40WTIMM
+     I                                        7  120WSDATE
+     I                                        9  120@@YM4
+     I                                        7  120@@YM6
+     I                                        7  140@@YMD
+     I                                        7  100@@YY
+     I                                       11  120@@MM
+     I                                       13  140@@DD
+     I            DS
+     I                                        1  14 W@SHIN
+     I                                        1   5 W@SHN1
+     I                                        6   6 W@SHNA
+     I                                        7  11 W@SHN2
+     I                                       12  12 W@SHNB
+     I                                       13  14 W@SHN3
+      * ----------------------------------------------------
+     C                     TIME           WWTIME
+      ******************************************************
+      *  MAIN
+      ******************************************************
+     C*
+     C                     EXSR @S1INT
+     C                     EXSR @S1SET
+      *
+     C                     DO   *HIVAL
+      *
+     C                     WRITEFMT090
+     C                     Z-ADDW#RCN1    #RCN01
+     C                     EXFMTCTL010
+     C   KA                LEAVE
+      *
+     C           @@REC     IFNE *ZERO
+     C                     Z-ADD@@REC     W#RCN1
+     C                     END
+      *
+     C                     MOVEL*BLANK    MSG
+     C                     MOVEL*OFF      W#P1ER  1
+      * add new
+     C           *INKH     IFEQ *ON
+     C                     EXSR @S2ADD
+     C   KA                LEAVE
+     C                     EXSR @S1INT
+     C                     EXSR @S1SET
+     C                     ITER
+     C                     END
+      * change
+     C                     EXSR @S2CHG
+     C   KA                LEAVE
+     C                     EXSR @S1INT
+     C                     EXSR @S1SET
+     C                     ITER
+      *
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+     C*----------------------------------------------------*
+      *  1ST SCREEN INITIALIZE
+     C*----------------------------------------------------*
+     C           @S1INT    BEGSR
+      *
+     C                     MOVEL*ON       *IN41
+     C                     WRITECTL010
+     C                     MOVEL*OFF      *IN41
+      *
+     C                     Z-ADD1         W#RCN1  40
+      *
+     C                     ENDSR
+     C*----------------------------------------------------*
+      *  SET
+     C*----------------------------------------------------*
+     C           @S1SET    BEGSR
+      *
+     C                     Z-ADD*ZERO     RRN1    40
+     C           *LOVAL    SETLLAHDPP06
+      *
+     C                     DO   *HIVAL
+      *
+     C                     READ AHDPP06             N    98
+     C   98                LEAVE
+     C           AISKJY    IFNE *BLANK
+     C                     ITER
+     C                     END
+      *
+     C                     CLEARSFL010
+     C*
+     C                     MOVELAISHN1    S1SHN1
+     C                     MOVELAISHN2    S1SHN2
+     C                     MOVELAISHN3    S1SHN3
+     C                     Z-ADDAIKISU    S1RATE
+     C*
+     C                     MOVE S1SHN1    P$HIN1  5        PART NO1
+     C                     MOVE S1SHN2    P$HIN2  5        PART NO2
+     C                     MOVE S1SHN3    P$HIN3  2        PART NO3
+     C                     EXSR ##FACT                     工場CHECK
+     C                     MOVEL@@FACT    S1FACT
+     C*
+     C                     ADD  1         RRN1
+     C                     WRITESFL010
+     C*
+     C                     ENDDO
+     C*
+     C           RRN1      IFEQ *ZERO
+     C                     CLEARSFL010
+     C                     Z-ADD1         RRN1
+     C                     MOVEL*ON       *IN31
+     C                     WRITESFL010
+     C                     MOVEL*ON       *IN69
+     C                     MOVELERR,1     MSG
+     C                     MOVEL*OFF      *IN31
+     C                     END
+     C*
+     C                     ENDSR
+     C*----------------------------------------------------*
+      *  ADD NEW RECORD
+     C*----------------------------------------------------*
+     C           @S2ADD    BEGSR
+      *
+     C                     EXSR @S2INT
+     C                     MOVEL'    ADD' F2ACTN    P
+      *
+     C                     DO   *HIVAL
+      *
+     C                     EXFMTFMT020
+     C                     MOVEL*OFF      *IN69
+     C   KA
+     COR KL                LEAVE
+      *
+     C                     EXSR @S2CHK
+     C           *IN69     IFEQ *OFF
+     C           *INKE     IFEQ *ON
+     C                     EXSR @ADDF
+     C           *IN69     IFEQ *OFF
+     C                     LEAVE
+     C                     END
+     C                     END
+     C                     END
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+     C*----------------------------------------------------*
+      *  INITIAL SET TO FMT020
+     C*----------------------------------------------------*
+     C           @S2INT    BEGSR
+     C*
+     C                     SETOF                     5152
+     C                     SETOF                     616269
+     C*
+     C                     MOVEL*BLANK    F2SHN1
+     C                     MOVEL*BLANK    F2SHN2
+     C                     MOVEL*BLANK    F2SHN3
+     C                     Z-ADD*ZERO     F2RATE
+     C*
+     C                     MOVEL*BLANK    MSG
+     C*
+     C                     ENDSR
+     C*----------------------------------------------------*
+     C*  CHECK FMT020
+     C*----------------------------------------------------*
+     C           @S2CHK    BEGSR
+     C*
+     C                     SETOF                     5152
+     C                     MOVEL*BLANK    MSG
+     C*
+     C                     DO
+     C*
+     C           F2SHN1    IFEQ *BLANK
+     C           F2SHN2    ANDEQ*BLANK
+     C           F2SHN3    ANDEQ*BLANK
+     C                     SETON                     5169
+     C           MSG       IFEQ *BLANK
+     C                     MOVELERR,2     MSG
+     C                     END
+     C                     ELSE
+     C                     MOVE F2SHN1    P$HIN1  5        PART NO1
+     C                     MOVE F2SHN2    P$HIN2  5        PART NO2
+     C                     MOVE F2SHN3    P$HIN3  2        PART NO3
+     C                     EXSR ##FACT                     工場CHECK
+     C                     MOVEL@@FACT    F2FACT
+     C           F2FACT    IFNE 'ASJ'
+     C                     SETON                     5169
+     C           MSG       IFEQ *BLANK
+     C                     MOVELERR,5     MSG
+     C                     END
+     C                     ENDIF
+     C*
+     C                     END
+     C*
+     C           F2RATE    IFEQ *ZERO
+     C                     SETON                     5269
+     C           MSG       IFEQ *BLANK
+     C                     MOVELERR,3     MSG
+     C                     END
+     C                     END
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+     C*----------------------------------------------------*
+      *  WRITE NEW RECORD
+     C*----------------------------------------------------*
+     C           @ADDF     BEGSR
+      *
+     C                     DO
+      *
+     C           K#FSHN    KLIST
+     C                     KFLD           F2SHN1
+     C                     KFLD           F2SHN2
+     C                     KFLD           F2SHN3
+     C           K#FSHN    CHAINAHDPP06              98
+     C           *IN98     IFEQ *OFF
+     C           AISKJY    ANDEQ*BLANK
+     C                     SETON                     515269
+     C                     MOVELERR,04    MSG
+     C                     LEAVE
+     C                     END
+     C*
+     C                     CLEARAHDPP061
+     C*
+     C                     EXSR @EDTF
+      *
+     C           *IN98     IFEQ *OFF
+     C                     UPDATAHDPP061
+     C                     ELSE
+     C                     WRITEAHDPP061
+     C                     END
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+     C*----------------------------------------------------*
+      *  EDIT RECORD (NEW/CHANGE)
+     C*----------------------------------------------------*
+     C           @EDTF     BEGSR
+     C*
+     C                     TIME           WWTIME
+     C                     Z-ADD@@YY      AIKOYY
+     C                     Z-ADD@@MM      AIKOMM
+     C                     Z-ADD@@DD      AIKODD
+     C                     Z-ADDWTIMH     AIKOHH
+     C                     Z-ADDWTIMM     AIKOSS
+     C                     MOVEL#PGM      AIPGMN
+     C                     MOVEL#USER     AIKOME
+     C*
+     C                     MOVELF2SHN1    AISHN1
+     C                     MOVELF2SHN2    AISHN2
+     C                     MOVELF2SHN3    AISHN3
+     C                     Z-ADDF2RATE    AIKISU
+     C*
+     C                     ENDSR
+     C*----------------------------------------------------*
+      *  CHANGE/DELETE MAIN
+     C*----------------------------------------------------*
+     C           @S2CHG    BEGSR
+      *
+     C                     Z-ADD*ZERO     RRN1
+      *
+     C                     DO   *HIVAL
+      *
+     C                     ADD  1         RRN1
+     C           RRN1      CHAINSFL010               98
+     C   98                LEAVE
+     C           S1SEL     IFEQ *BLANK
+     C                     ITER
+     C                     END
+      *
+     C                     EXSR @S2CDP
+     C   KA                LEAVE
+      *
+     C                     MOVEL*BLANK    S1SEL
+     C                     MOVEL*ON       *IN32
+     C                     UPDATSFL010
+     C                     MOVEL*OFF      *IN32
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+     C*----------------------------------------------------*
+      *  CHANGE/DELETE SET
+     C*----------------------------------------------------*
+     C           @S2CDP    BEGSR
+      *
+     C                     EXSR @S2INT
+     C           S1SEL     IFEQ 'C'
+     C                     MOVEL'  CHANGE'F2ACTN    P
+     C                     MOVEL*ON       *IN61
+     C                     MOVEL*OFF      *IN62
+     C                     ELSE
+     C                     MOVEL'  DELETE'F2ACTN    P
+     C                     MOVEL*ON       *IN61
+     C                     MOVEL*ON       *IN62
+     C                     END
+     C                     MOVELS1SHN1    F2SHN1
+     C                     MOVELS1SHN2    F2SHN2
+     C                     MOVELS1SHN3    F2SHN3
+     C                     Z-ADDS1RATE    F2RATE
+      *
+     C                     DO   *HIVAL
+      *
+     C                     EXFMTFMT020
+     C   KA
+     COR KL                LEAVE
+     C*
+     C           F2RATE    IFEQ *ZERO
+     C                     SETON                     5269
+     C           MSG       IFEQ *BLANK
+     C                     MOVELERR,3     MSG
+     C                     ITER
+     C                     END
+     C                     END
+      *
+     C           *INKE     IFEQ *ON
+     C                     EXSR @CHGF
+     C                     LEAVE
+     C                     END
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+     C*----------------------------------------------------*
+      *  UPDAT
+     C*----------------------------------------------------*
+     C           @CHGF     BEGSR
+      *
+     C                     DO
+      *
+     C           K#FSHN    CHAINAHDPP06              98
+     C           *IN98     IFEQ *ON
+     C                     LEAVE
+     C                     END
+      *
+     C           S1SEL     IFEQ 'D'
+     C                     TIME           WWTIME
+     C                     MOVEL'D'       AISKJY
+     C                     Z-ADD@@YY      AISKYY
+     C                     Z-ADD@@MM      AISKMM
+     C                     Z-ADD@@DD      AISKDD
+     C                     Z-ADD@@YY      AIKOYY
+     C                     Z-ADD@@MM      AIKOMM
+     C                     Z-ADD@@DD      AIKODD
+     C                     Z-ADDWTIMH     AIKOHH
+     C                     Z-ADDWTIMM     AIKOSS
+     C                     MOVEL#PGM      AIPGMN
+     C                     MOVEL#USER     AIKOME
+     C                     ELSE
+     C                     EXSR @EDTF
+     C                     END
+      *
+     C                     UPDATAHDPP061
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *================================================================
+      *   GET DEPARTMENT CODE ( PART NO )
+      *================================================================
+     C           ##FACT    BEGSR
+     C                     CALL 'GDGR1Y'
+     C                     PARM           P$HIN1  5        PART NO1
+     C                     PARM           P$HIN2  5        PART NO2
+     C                     PARM           P$HIN3  2        PART NO3
+     C                     PARM           P$BMON  4
+     C*
+S1   C                     SELEC
+     C** = ATC
+-1   C           P$BMON    WHEQ '0002'                     部門
+     C           P$BMON    OREQ '0094'                     部門
+     C                     MOVE 'ATC'     @@FACT           工場
+     C** = ASJ
+-1   C           P$BMON    WHEQ '8990'                     部門
+     C                     MOVE 'ASJ'     @@FACT           工場
+     C**
+     C                     OTHER
+     C                     MOVEL'   '     @@FACT  3        工場
+E1   C                     ENDSL
+     C                     ENDSR
+      *================================================================
+** ERR
+NO DATA FOUND.
+PART# BLANK.
+RATE ZERO.
+SOMEBODY ELSE ALREADY CREATE. NEED CHECK(DUPLICATE).
+PART# FACTORY IS NOT "ASJ".
+06
+07
+08
+09
+10
+11
+12
+13
+14
+15

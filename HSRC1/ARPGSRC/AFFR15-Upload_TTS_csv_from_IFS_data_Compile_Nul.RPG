@@ -1,0 +1,268 @@
+     H            Y.
+      ****************************************************************
+      *  PROGRAM    : AFFR15                                         *
+      *  WRITTEN    : 02/06/2023                                     *
+      *  WRITTEN BY : LEC       COPIED FROM AFFR10                   *
+      *  FUNCTION   : UPLOAD TTS.CSV FROM IFS DATA                   *
+      *              (TOYOTA TRUCK SCHEDULE)                         *
+     *** CAUTION !!! COMPILE WITH "ALLOW NULL *YES"
+      ****************************************************************
+     FAFFWP15 IF  E           K        DISK
+     FAFFWP16 O   E           K        DISK
+     FAFFWP18 UF  E           K        DISK                      A
+     FAFFWP19 UF  E           K        DISK                      A
+      *
+      *-----------------------------------------------------------------
+      * SYSTEM TIME
+     I            DS
+     I                                        1  140WSDT
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1   80AFSHDT
+     I                                        1   40WNOYY
+     I                                        5   60WNOMM
+     I                                        7   80WNODD
+     I            DS
+     I                                        1   80YYMMDD
+     I                                        1   4 YY
+     I                                        5   6 MM
+     I                                        7   8 DD
+      *
+     I            DS
+     I                                        1   40HHMM
+     I                                        1   2 HH
+     I                                        3   4 MN
+      *
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *----------------------------------------------------*
+      * MAIN ROUTINE                                       *
+      *----------------------------------------------------*
+     C                     EXSR #INIT
+      *
+     C           *IN50     DOWEQ*OFF
+     C                     READ AFFWP15                  50
+     C   50                LEAVE
+      *
+     C                     EXSR #EDIT
+      *
+     C           YYMMDD    IFLT EFFDAT
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     EXSR #DOCK
+      *
+     C           '50SER - 'SCAN FLD7      SP      20
+     C           SP        IFGT *ZERO
+     C           1         SUBSTFLD7:9    HPOS    1
+     C                     EXSR #SERV
+     C                     ENDIF
+      *
+     C           '21TMC - 'SCAN FLD7      CP      20
+     C           CP        IFGT *ZERO
+     C                     EXSR #TMMC
+     C                     ENDIF
+      *
+     C           FLD2      IFNE FLD2SV
+     C           FLD3      ORNE FLD3SV
+     C                     EXSR #WRT
+     C                     MOVELFLD2      FLD2SV 20
+     C                     MOVELFLD3      FLD3SV 20
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *----------------------------------------------------*
+      * INITIALIZE                                         *
+      *----------------------------------------------------*
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           EFFDAT  80
+      *
+     C                     READ AFFWP15                  50
+      *
+     C           FLD1      IFNE 'SUPPLIER'
+     C           FLD3      ORNE 'DATE'
+     C           FLD5      ORNE 'START'
+     C           FLD6      ORNE 'END'
+     C                     MOVE *ON       *IN50
+     C                     ENDIF
+      *
+     C                     TIME           WSDT
+      *
+     C           WP18K     KLIST
+     C                     KFLD           YYMMDD
+     C                     KFLD           SURT   10
+      *
+     C           WP19K     KLIST
+     C                     KFLD           SURT
+     C                     KFLD           NUKE
+     C                     KFLD           NAMC
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  WRITE WORK FILE                                   *
+      *----------------------------------------------------*
+     C           #WRT      BEGSR
+      *
+     C                     CLEARAFFWP161
+     C                     MOVELRTERUN    AFSURT
+     C                     Z-ADDYYMMDD    AFSHID
+     C                     Z-ADDSTRTIM    AFSTIM
+     C                     Z-ADDENDTIM    AFETIM
+     C                     MOVELFLD4      AFWKDY
+     C                     MOVELFLD1      AFSUPP
+     C                     WRITEAFFWP161
+      *
+     C                     ENDSR
+      *----------------------------------------------------*
+      * EDIT FIELDS FOR OUTPUT                             *
+      *----------------------------------------------------*
+     C           #EDIT     BEGSR
+      *
+     C           '-'       SCAN FLD7      DP      20
+     C           DP        IFGT *ZERO
+     C           5         SUBSTFLD7:1    NAMC    5
+     C                     ADD  2         DP
+     C           2         SUBSTFLD7:DP   DOCK    2
+     C                     ENDIF
+      *
+      * remove dash from route...
+     C                     MOVEL*BLANKS   ROUTE
+     C                     MOVEL*BLANKS   RUN
+      *
+     C           '-'       SCAN FLD2:1    POS     20
+     C           POS       IFGT *ZERO
+     C           POS       SUB  1         LEN     20
+     C           LEN       SUBSTFLD2:1    ROUTE   7
+      *
+     C                     Z-ADD2         LEN
+     C                     ADD  1         POS
+     C           LEN       SUBSTFLD2:POS  RUN     2
+     C           ROUTE     CAT  RUN:0     RTERUN  9 P
+     C                     ELSE
+     C                     MOVELFLD2      RTERUN    P
+     C                     ENDIF
+      *
+      * format the date...
+      *     get year...
+     C           ' '       SCAN FLD3:1    POS
+     C           POS       IFGT *ZERO
+     C                     SUB  4         POS
+     C           4         SUBSTFLD3:POS  YY      4
+     C                     ENDIF
+      *
+      *     get month...
+     C           '/'       SCAN FLD3:1    POS
+     C           POS       IFGT *ZERO
+     C           POS       IFEQ 3
+     C           2         SUBSTFLD3:1    MM      2
+     C                     ELSE
+     C           1         SUBSTFLD3:1    M       1
+     C           '0'       CAT  M:0       MM
+     C                     ENDIF
+     C                     ENDIF
+      *
+      *     get day...
+     C           POS       ADD  1         BEG     20
+     C           '/'       SCAN FLD3:BEG  POS
+     C           POS       IFGT *ZERO
+     C           POS       ANDGTBEG
+     C           POS       SUB  BEG       LEN
+     C           LEN       IFEQ 2
+     C           2         SUBSTFLD3:BEG  DD      2
+     C                     ELSE
+     C           1         SUBSTFLD3:BEG  D       1
+     C           '0'       CAT  D:0       DD
+     C                     ENDIF
+     C                     ENDIF
+      *
+      *  format the start time...
+     C                     Z-ADD*ZERO     HHMM
+     C           ':'       SCAN FLD5:1    POS
+     C           POS       IFGT *ZERO
+     C           POS       ADD  1         BEG
+     C           2         SUBSTFLD5:BEG  MN
+     C                     ENDIF
+      *
+     C           POS       IFEQ 3
+     C           2         SUBSTFLD5:1    HH
+     C                     ENDIF
+      *
+     C           POS       IFEQ 2
+     C           1         SUBSTFLD5:1    H       1
+     C           '0'       CAT  H:0       HH
+     C                     ENDIF
+     C                     Z-ADDHHMM      STRTIM  40
+      *
+      *  format the end time...
+     C                     Z-ADD*ZERO     HHMM
+     C           ':'       SCAN FLD6:1    POS
+     C           POS       IFGT *ZERO
+     C           POS       ADD  1         BEG
+     C           2         SUBSTFLD6:BEG  MN
+     C                     ENDIF
+      *
+     C           POS       IFEQ 3
+     C           2         SUBSTFLD6:1    HH
+     C                     ENDIF
+      *
+     C           POS       IFEQ 2
+     C           1         SUBSTFLD6:1    H       1
+     C           '0'       CAT  H:0       HH
+     C                     ENDIF
+      *
+     C                     Z-ADDHHMM      ENDTIM  40
+     C                     ENDSR
+      *----------------------------------------------------*
+      *  SERVICE PARTS - UPDATE HOME POS/ROUTE MASTER      *
+      *----------------------------------------------------*
+     C           #SERV     BEGSR
+      *
+     C                     MOVELEFFDAT    SHID    8
+     C                     CALL 'AFFR17'
+     C                     PARM           RTERUN
+     C                     PARM           SHID
+     C                     PARM           HPOS
+      *
+     C                     ENDSR
+      *-----------------------------------------------------
+      *  TOYOTA CANADA - UPDATE TMMC WORKFILE              *
+      *----------------------------------------------------*
+     C           #TMMC     BEGSR
+      *
+     C                     MOVELRTERUN    SURT
+     C           WP18K     CHAINAFFWP18              80
+     C           *IN80     IFEQ *ON
+     C                     MOVELRTERUN    ACSURT
+     C                     Z-ADDYYMMDD    ACSHID
+     C                     Z-ADDSTRTIM    ACSTIM
+     C                     Z-ADDENDTIM    ACETIM
+     C                     WRITEAFFWP181
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *-----------------------------------------------------
+      *  TOYOTA TRUCK DOCK SCHEDULE WORKFILE               *
+      *----------------------------------------------------*
+     C           #DOCK     BEGSR
+      *
+     C                     MOVELRTERUN    SURT
+     C                     MOVELDOCK      NUKE    4
+     C           WP19K     CHAINAFFWP19              81
+     C           *IN81     IFEQ *ON
+     C                     MOVELSURT      A9SURT
+     C                     MOVELNUKE      A9NUKE
+     C                     MOVELNAMC      A9NAMC
+     C                     Z-ADDEFFDAT    A9SHID
+     C                     WRITEAFFWP191
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *-----------------------------------------------------

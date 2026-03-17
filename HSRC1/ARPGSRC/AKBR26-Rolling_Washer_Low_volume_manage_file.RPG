@@ -1,0 +1,232 @@
+     H            Y.
+      ** AKBR26 ********************************************
+      *  Rolling Washer Low-volume Location manege file    *
+      *                                                    *
+      *  TCHK  : 01/06/06 Create                           *
+      ***************************************** AKBR26 *****
+     FAKBPW26 CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFL010
+     F                                              KINFDS @INFDS
+     FAAJPL11 IF  E           K        DISK
+     FAKBPP26 UF  E           K        DISK                      A
+      *---------------------------------------------------
+     E                    ERR     1  10 60
+      *---------------------------------------------------
+     I@INFDS      DS
+     I                                     *STATUS  @STTS
+     I                                    B 370 3710@@LIN
+     I                                    B 378 3790@@REC
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      * SYSTEM TIME(6) + DATE(8)
+     I            DS
+     I                                        1  140WWTIME
+     I                                        1   60WTIME
+     I                                        1   40WTIM4
+     I                                        7  120WSDATE
+     I                                        9  120@@YM4
+     I                                        7  120@@YM6
+     I                                        7  140@@YMD
+     I                                        7  100@@YY
+     I                                       11  120@@MM
+     I                                       13  140@@DD
+     I            DS
+     I                                        1   80W@DATE
+     I                                        1   40W@YY
+     I                                        5   60W@MM
+     I                                        7   80W@DD
+      *
+     C                     TIME           WWTIME
+      *
+      ******************************************************
+      *  MAIN
+      ******************************************************
+     C*
+     C                     EXSR @C1INT
+     C                     EXSR @C1SET
+      *
+     C                     DO   *HIVAL
+      *
+     C                     WRITEFMT999
+     C                     Z-ADDW#RRN1    #RCNO
+     C                     EXFMTCTL010
+     C   KA                LEAVE
+      *
+     C           @@REC     IFNE *ZERO
+     C                     Z-ADD@@REC     W#RRN1
+     C                     END
+      *
+     C                     MOVEL*BLANK    F9MSG
+     C                     MOVEL*OFF      W#ERR   1
+     C                     EXSR @C1CHK
+     C           W#ERR     IFEQ *ON
+     C                     ITER
+     C                     END
+      *
+     C           *INKE     IFEQ *OFF
+     C                     ITER
+     C                     END
+      *
+     C                     EXSR @UPDAT
+     C                     EXSR @C1INT
+     C                     EXSR @C1SET
+      *
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+     C*----------------------------------------------------*
+      *  INITTIAL ASN DATA PATTERN SCREEN
+     C*----------------------------------------------------*
+     C           @C1INT    BEGSR
+      *
+     C                     MOVEL*ON       *IN51
+     C                     WRITECTL010
+     C                     MOVEL*OFF      *IN51
+      *
+     C                     Z-ADD1         W#RRN1  40
+      *
+     C                     MOVEL*BLANK    C1LOC1
+     C                     MOVEL*BLANK    C1LOC2
+     C                     MOVEL*BLANK    C1LOC3
+     C                     MOVEL*BLANK    C1LOC4
+      *
+     C                     ENDSR
+     C*----------------------------------------------------*
+      *  Set from Rolling Washer Low-volume Location
+     C*----------------------------------------------------*
+     C           @C1SET    BEGSR
+      *
+     C                     Z-ADD*ZERO     RRN1    40
+     C           *LOVAL    SETLLAKBPP26
+      *
+     C                     DO   *HIVAL
+      *
+     C                     READ AKBPP26             N    91
+     C   91                LEAVE
+     C           RWSKJY    IFNE *BLANK
+     C                     ITER
+     C                     END
+      *
+     C                     CLEARSFL010
+      *
+     C                     MOVELRWLOC1    S1LOC1
+     C                     MOVELRWLOC2    S1LOC2
+     C                     MOVELRWLOC3    S1LOC3
+     C                     MOVELRWLOC4    S1LOC4
+      *
+     C                     ADD  1         RRN1
+     C                     WRITESFL010
+      *
+     C                     ENDDO
+      *
+     C           RRN1      IFEQ *ZERO
+     C                     CLEARSFL010
+     C                     MOVEL*ON       *IN41
+     C                     Z-ADD1         RRN1
+     C                     WRITESFL010
+     C                     Z-ADD*ZERO     RRN1
+     C                     END
+      *
+     C                     ENDSR
+     C*----------------------------------------------------*
+      *  CHECK  new location code
+     C*----------------------------------------------------*
+     C           @C1CHK    BEGSR
+      *
+     C                     MOVEL*OFF      *IN61
+      *
+     C                     DO
+      *
+     C           C1LOC1    IFEQ *BLANK
+     C           C1LOC2    ANDEQ*BLANK
+     C           C1LOC3    ANDEQ*BLANK
+     C           C1LOC4    ANDEQ*BLANK
+     C                     LEAVE
+     C                     END
+      *
+     C           K#JPL1    KLIST
+     C                     KFLD           C1LOC1
+     C                     KFLD           C1LOC2
+     C                     KFLD           C1LOC3
+     C                     KFLD           C1LOC4
+     C           K#JPL1    CHAINAAJPL11              92
+     C           *IN92     IFEQ *ON
+     C                     MOVEL*ON       W#ERR
+     C                     MOVEL*ON       *IN61
+     C                     MOVELERR,1     F9MSG
+     C                     END
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+     C******************************************************
+      *  Update file
+     C******************************************************
+     C           @UPDAT    BEGSR
+     C* new
+     C           C1LOC1    IFNE *BLANK
+     C           C1LOC2    ANDNE*BLANK
+     C           C1LOC3    ANDNE*BLANK
+     C           C1LOC4    ANDNE*BLANK
+     C           K#JPL1    CHAINAKBPP261             92
+     C                     CLEARAKBPP261
+     C                     Z-ADD@@YY      RWKOYY
+     C                     Z-ADD@@MM      RWKOMM
+     C                     Z-ADD@@DD      RWKODD
+     C                     MOVELWTIM4     RWKOHH
+     C                     MOVE WTIM4     RWKOSS
+     C                     MOVEL#USER     RWKOME
+     C                     MOVEL#WSID     RWKOWS
+     C                     MOVEL#PGM      RWKOPG
+     C                     MOVELC1LOC1    RWLOC1
+     C                     MOVELC1LOC2    RWLOC2
+     C                     MOVELC1LOC3    RWLOC3
+     C                     MOVELC1LOC4    RWLOC4
+     C  N92                UPDATAKBPP261
+     C   92                WRITEAKBPP261
+     C                     END
+     C*
+     C                     Z-ADD*ZERO     RRN1
+     C                     DO   *HIVAL
+     C*
+     C                     ADD  1         RRN1
+     C           RRN1      CHAINSFL010               93
+     C   93                LEAVE
+     C           S1SEL     IFEQ *BLANK
+     C                     ITER
+     C                     END
+     C*
+     C           K#KBP1    KLIST
+     C                     KFLD           S1LOC1
+     C                     KFLD           S1LOC2
+     C                     KFLD           S1LOC3
+     C                     KFLD           S1LOC4
+     C           K#KBP1    CHAINAKBPP261             92
+     C   92                ITER
+     C*
+     C                     MOVEL'D'       RWSKJY
+     C                     Z-ADD@@YY      RWSKYY
+     C                     Z-ADD@@MM      RWSKMM
+     C                     Z-ADD@@DD      RWSKDD
+     C                     MOVEL#USER     RWSKME
+     C                     MOVEL#WSID     RWSKWS
+     C                     MOVEL#PGM      RWSKPG
+     C                     UPDATAKBPP261
+     C*
+     C                     ENDDO
+     C*
+     C                     ENDSR
+** ERR
+Location code error(not found in master).
+msg-2
+msg-3
+msg-4
+msg-5
+msg-6
+msg-7
+msg-8
+msg-9
+msg-10

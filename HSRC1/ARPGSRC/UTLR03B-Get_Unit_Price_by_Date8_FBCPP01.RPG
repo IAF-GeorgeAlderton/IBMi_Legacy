@@ -1,0 +1,179 @@
+     H            Y.
+     F** UTLR03B *******************************************
+     F*  PROGRAM: UTILITY - GET UNIT PRICE BY DATE         *
+     F*  WRITTEN: JW (SRA)  2016.01.22                     *
+     F* ----------------------------------                 *
+     F*  JW1      2024.05.30 ADD CHECKING PRICE=0          *
+     F*----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UTLR03B'
+     F*                    PARM           $DATE   8
+     F*                    PARM           $TOKU   4
+     F*                    PARM           $NONY   4
+     F*                    PARM           $CPART 20
+     F*                    PARM           $UP     9
+     F*                    PARM           $RTN    1
+     F*  IN  $DATE  :  8A DATE (YYYYMMDD) (BLANK=TODAY)
+     F*      $TOKU  :  4A CUST#
+     F*      $NONY  :  4A DELIVERY#
+     F*      $CPART : 20A CUSTMER PART
+     F*  OUT $UP    :  9A PRICE 9(5)  (0=NO GOOD)
+     F*      $RTN   :  1A RETURN FLAG (BLANK=OK, *=NO GOOD)
+     F******************************************************
+     FFBCPL07 IF  E           K        DISK
+      *--------------------------------------------------------
+     E                    DAT        10  1
+     IW@DATE      DS
+     I                                        1   40W@YY
+     I                                        5   60W@MM
+     I                                        7   80W@DD
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I            DS
+     I                                        1   80EF@DT
+     I                                        1   40FBTKYY
+     I                                        5   60FBTKMM
+     I                                        7   80FBTKDD
+     I            DS
+     I                                        1   80EX@DT
+     I                                        1   40FBTSYY
+     I                                        5   60FBTSMM
+     I                                        7   80FBTSDD
+     I            DS
+     I                                        1  20 @MHN
+     I                                        1   5 @MHN1
+     I                                        6  10 @MHN2
+     I                                       11  15 @MHN3
+     I                                       16  20 @MHN4
+      *--------------------------------------------------------
+      *                    MAIN PROCESS
+      *--------------------------------------------------------
+     C                     EXSR #INIT
+      *
+     C                     Z-ADD0         UPRICE  95
+     C                     EXSR #PRC1
+      *
+     C           RCNT      IFEQ 0
+     C                     EXSR #PRC2
+     C                     ENDIF
+      *
+     C           RCNT      IFEQ 0
+     C                     MOVE '*'       $RTN
+     C                     MOVE *ZERO     $UP
+     C                     ELSE
+     C                     MOVE ' '       $RTN
+     C                     MOVE UPRICE    $UP
+     C                     ENDIF
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *=============================================================
+      * SEARCH PRICE 1 (BY PART#=XXXXX-XXXXX-XXXXX-XXXXX)
+      *=============================================================
+     C           #PRC1     BEGSR
+      *
+     C           KEY1      SETLLFBCPL07
+     C                     DO   *HIVAL
+     C           KEY1      READEFBCPL07                  91
+     C   91                LEAVE
+      *
+     C           FBSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           TGT@DT    IFGE EF@DT
+     C           TGT@DT    ANDLEEX@DT
+     C                     Z-ADDFBNTAN    UPRICE
+     C                     ADD  1         RCNT
+     C                     ENDIF
+      *
+     C           EX@DT     IFEQ 999999
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *=============================================================
+      * SEARCH PRICE 2 (BY PART#=XXXX-XXXX)
+      *=============================================================
+     C           #PRC2     BEGSR
+      *
+     C           KEY2      SETLLFBCPL07
+     C                     DO   *HIVAL
+     C           KEY2      READEFBCPL07                  92
+     C   92                LEAVE
+      *
+     C           FBSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           TGT@DT    IFGE EF@DT
+     C           TGT@DT    ANDLEEX@DT
+     C                     Z-ADDFBNTAN    UPRICE
+     C                     ADD  1         RCNT
+     C                     ENDIF
+      *
+     C           EX@DT     IFEQ 999999
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *=============================================================
+      * INITIAL PROCESS
+      *=============================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $DATE   8
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $CPART 20
+     C                     PARM           $UP     9
+     C                     PARM           $RTN    1
+      *
+     C           KEY1      KLIST
+     C                     KFLD           KBTOKU
+     C                     KFLD           KBNONY
+     C                     KFLD           KBMHN1
+     C                     KFLD           KBMHN2
+     C                     KFLD           KBMHN3
+     C                     KFLD           KBMHN4
+      *
+     C           KEY2      KLIST
+     C                     KFLD           KBTOKU
+     C                     KFLD           KBNONY
+     C                     KFLD           KBMHN1
+     C                     KFLD           KBMHN2
+      *
+     C           *LIKE     DEFN FBTOKU    KBTOKU
+     C           *LIKE     DEFN FBNONY    KBNONY
+     C           *LIKE     DEFN FBMHN1    KBMHN1
+     C           *LIKE     DEFN FBMHN2    KBMHN2
+     C           *LIKE     DEFN FBMHN3    KBMHN3
+     C           *LIKE     DEFN FBMHN4    KBMHN4
+      *
+     C                     TIME           SDATE
+     C                     MOVEL$CPART    @MHN
+     C                     MOVEL$TOKU     KBTOKU
+     C                     MOVEL$NONY     KBNONY
+     C                     MOVEL@MHN1     KBMHN1
+     C                     MOVEL@MHN2     KBMHN2
+     C                     MOVEL@MHN3     KBMHN3
+     C                     MOVEL@MHN4     KBMHN4
+      *
+     C                     MOVEL' '       $RTN
+JW1  C                     Z-ADD0         RCNT    40
+      * SET TARGET DATE
+     C           $DATE     IFEQ *BLANK
+     C           $DATE     OREQ '00000000'
+     C                     MOVELTODAY     TGT@DT  80
+     C                     ELSE
+     C                     MOVEL$DATE     TGT@DT
+     C                     ENDIF
+      *
+     C                     ENDSR

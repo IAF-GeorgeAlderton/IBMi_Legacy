@@ -1,0 +1,310 @@
+     H            Y/
+     F* GDAR18 ******************************************
+     F* MATERIAL ORDER SUMMARY                          *
+     F* JW       2022.01.06                             *
+     F***************************************************
+     FGDAPW18 CF  E                    WORKSTN
+     FIZAPL03 IF  E           K        DISK
+     FGDLPL1C IF  E           K        DISK
+     FGDAWP18 O   E                    DISK
+      *------------------------------------------------------------
+     E                    MSG     1   5 60
+     E                    DT6        12  6 0
+     E                    QTD        12  6 0
+     E                    QTX        12 10
+      *
+     I            DS
+     I                                        1 120 QTX
+     I                                        1  10 IWQT01
+     I                                       11  20 IWQT02
+     I                                       21  30 IWQT03
+     I                                       31  40 IWQT04
+     I                                       41  50 IWQT05
+     I                                       51  60 IWQT06
+     I                                       61  70 IWQT07
+     I                                       71  80 IWQT08
+     I                                       81  90 IWQT09
+     I                                       91 100 IWQT10
+     I                                      101 110 IWQT11
+     I                                      111 120 IWQT12
+      *
+     I            DS
+     I                                        1   7 @YM
+     I                                        1   40@YY
+     I                                        5   5 @SL
+     I                                        6   70@MM
+      *
+     I            DS
+     I                                        1   60WYM
+     I                                        1   40WYY
+     I                                        5   60WMM
+     I            DS
+     I                                        1   60LBODYM
+     I                                        1   40LBODRY
+     I                                        5   60LBODRM
+      *
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I                                        7  100TDYY
+     I                                       11  120TDMM
+     I                                       13  140TDDD
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+      *------------------------------------------------------
+      *  MAIN ROUTINE
+      *------------------------------------------------------
+     C                     EXSR #INIT
+      *
+     C                     DO   *HIVAL
+     C                     EXFMTDSP01
+     C                     MOVE *OFF      *IN85
+     C                     SETOF                     41
+     C                     MOVE *BLANK    XMSG
+      *
+     C                     SELEC
+      * F1: EXIT
+     C           *INKA     WHEQ *ON
+     C                     LEAVE
+      *
+     C                     OTHER
+     C                     EXSR #CHK1
+     C           *IN85     IFEQ *OFF
+      * F5: RUN
+     C           *INKE     IFEQ *ON
+     C                     EXSR #SET
+     C                     LEAVE
+     C                     ELSE
+     C                     MOVELMSG,3     XMSG
+     C                     ENDIF
+     C                     ENDIF
+     C                     ENDSL
+      *
+     C                     ENDDO
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *----------------------------------------------------*
+      *  CHECK
+      *----------------------------------------------------*
+     C           #CHK1     BEGSR
+      * DATE FROM
+     C           XFROM     IFEQ 0
+     C                     MOVE *ON       *IN85
+     C                     MOVE *ON       *IN41
+     C                     MOVELMSG,1     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVELXFROM     LTR8    8
+     C                     MOVE '01'      LTR8
+     C                     MOVELLTR8      $SRC      P
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ *BLANK
+     C                     MOVEL$TRUE     XFROM
+     C                     ELSE
+     C                     MOVE *ON       *IN85
+     C                     MOVE *ON       *IN41
+     C                     MOVELMSG,2     XMSG
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XCHK1     ENDSR
+      *------------------------------------------------------
+      * SET DATE
+      *------------------------------------------------------
+     C           #SET      BEGSR
+      * OUT HEADER
+     C                     EXSR #HDR
+      * OUT DETAIL
+     C           *LOVAL    SETLLIZAPL03
+     C                     DO   *HIVAL
+     C                     READ IZAPL03                  80
+     C   80                LEAVE
+      * SELECT
+     C           ZCSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      * SELECT
+     C           ZCSTYY    IFNE 9999
+     C                     ITER
+     C                     ENDIF
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELZCZAIS    SVZAIS
+     C                     Z-ADDZCZAIK    SVZAIK
+     C                     Z-ADDZCKAKE    SVKAKE
+     C                     ENDIF
+      * BREAK
+     C           ZCZAIS    IFNE SVZAIS
+     C           ZCZAIK    ORNE SVZAIK
+     C           ZCKAKE    ORNE SVKAKE
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * PROCESS
+     C                     Z-ADDZCMKJR    SVMKJR
+     C                     Z-ADDZCTKJR    SVTKJR
+     C                     ENDDO
+      * LAST BREAK
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     ENDIF
+     C                     ENDSR
+      *------------------------------------------------------
+      * BREAK
+      *------------------------------------------------------
+     C           #BRK1     BEGSR
+      *
+     C                     Z-ADD0         QTD
+      * READ GDLPL1C
+     C                     MOVELSVZAIS    K@ZAIS
+     C                     Z-ADDSVZAIK    K@ZAIK
+     C                     Z-ADDSVKAKE    K@SIRE
+     C                     MOVELXFROM     K@ODRY
+     C                     MOVE XFROM     K@ODRM
+     C           K#GDL     SETLLGDLPL1C
+      *
+     C                     DO   *HIVAL
+     C           K#GDL2    READEGDLPL1C                  81
+     C   81                LEAVE
+      *
+     C           LBSKJY    IFEQ 'D'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           LBODYM    IFGT LASTYM
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           LBMAIS    MULT SVTKJR    WQTY    80
+     C                     Z-ADD1         IX      20
+     C           LBODYM    LOKUPDT6,IX                   20
+     C           *IN20     IFEQ *ON
+     C                     ADD  WQTY      QTD,IX
+     C                     ENDIF
+     C                     ENDDO
+      * WRITE WF
+     C                     EXSR #WRT
+      * RESET
+     C                     MOVELZCZAIS    SVZAIS
+     C                     Z-ADDZCZAIK    SVZAIK
+     C                     Z-ADDZCKAKE    SVKAKE
+     C                     Z-ADDZCMKJR    SVMKJR
+     C                     Z-ADDZCTKJR    SVTKJR
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *  WRITE WF
+      *------------------------------------------------------
+     C           #WRT      BEGSR
+      *
+     C                     CLEARGDAWP181
+     C                     MOVELSVZAIS    IWZAIS
+      *
+     C                     Z-ADDSVZAIK    $IN
+     C                     CALL 'UTLR64'
+     C                     PARM           $IN    156
+     C                     PARM           $TRUE2 17
+     C                     PARM           $RTN    1
+     C                     MOVEL$TRUE2    IWZAIK
+      *
+     C                     MOVELSVKAKE    IWKAKE
+     C                     MOVELSVMKJR    IWMKJR
+     C                     MOVELSVTKJR    IWTKJR
+      *
+     C           1         DO   12        IX
+     C                     MOVELQTD,IX    QTX,IX
+     C                     ENDDO
+      * SUPP NAME
+     C                     MOVELSVKAKE    $DLV
+     C                     CALL 'UTLR62'
+     C                     PARM           $DLV    4
+     C                     PARM           $GRP    3
+     C                     PARM           $NAME1 15
+     C                     PARM           $NAME2 50
+     C                     PARM           $RTN    1
+     C                     MOVEL$NAME1    IWNAME
+      *
+     C                     WRITEGDAWP181
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *  HEADER
+      *------------------------------------------------------
+     C           #HDR      BEGSR
+      * SET HEADER
+     C                     CLEARGDAWP181
+     C                     MOVEL'MATERIAL'IWZAIS
+     C                     MOVEL'DIAMETER'IWZAIK
+     C                     MOVEL'SUPP    'IWKAKE
+     C                     MOVEL'NAME    'IWNAME
+     C                     MOVEL'SETTING 'IWMKJR
+     C                     MOVEL'U/W     'IWTKJR
+      * YYYY/MM
+     C                     MOVELXFROM     @YY
+     C                     MOVE XFROM     @MM
+     C                     MOVE '/'       @SL
+     C                     SUB  1         @MM
+     C           1         DO   12        IX
+     C                     ADD  1         @MM
+     C           @MM       IFGE 13
+     C                     Z-ADD1         @MM
+     C                     ADD  1         @YY
+     C                     ENDIF
+     C                     MOVEL@YM       QTX,IX
+     C                     Z-ADD@YY       WYY
+     C                     Z-ADD@MM       WMM
+     C                     Z-ADDWYM       DT6,IX
+     C                     Z-ADDWYM       LASTYM  60
+     C                     ENDDO
+      *
+     C                     WRITEGDAWP181
+      *
+     C                     ENDSR
+      *------------------------------------------------------
+      *  INITIALIZE
+      *------------------------------------------------------
+     C           #INIT     BEGSR
+      *
+     C           K#GDL     KLIST
+     C                     KFLD           K@ZAIS 15
+     C                     KFLD           K@ZAIK  52
+     C                     KFLD           K@SIRE  40
+     C                     KFLD           K@ODRY  40
+     C                     KFLD           K@ODRM  20
+      *
+     C           K#GDL2    KLIST
+     C                     KFLD           K@ZAIS
+     C                     KFLD           K@ZAIK
+     C                     KFLD           K@SIRE
+      *
+     C                     TIME           SDATE
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD0         DT6
+     C                     Z-ADD0         QTD
+     C                     MOVE *BLANK    QTX
+      * XFROM DEFAULT
+     C           TDYY      SUB  1         WYY
+     C                     Z-ADDTDMM      WMM
+     C                     MOVELWYM       XFROM
+      *
+     C           *LIKE     DEFN ZCZAIS    SVZAIS
+     C           *LIKE     DEFN ZCZAIK    SVZAIK
+     C           *LIKE     DEFN ZCKAKE    SVKAKE
+     C           *LIKE     DEFN ZCMKJR    SVMKJR
+     C           *LIKE     DEFN ZCTKJR    SVTKJR
+      *
+     C                     ENDSR
+** MSG(60A) .......2.........3.........4.........5.........6
+ENTER YEAR/MONTH!                                             1
+DATE YYYYMM IS INVALID!                                       2
+PRESS F5 TO DOWNLOAD...                                       3
+                                                              4
+                                                              5

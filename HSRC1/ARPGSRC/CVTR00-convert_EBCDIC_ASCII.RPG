@@ -1,0 +1,160 @@
+     H            Y.                                    1
+     F** CVTR00 *************************************
+     F*     ..EBCDIC<-->ASCII変換ルーチン ..      *
+     F*                                             *
+     F*---------------------------------------------*
+     F*  ﾌﾟ[xｰj:PTYPE ---- AE:ASCII-->EBCDIC        *
+     F*                    EA:EBCDIC-->ASCII        *
+     F*         PBLEN ---- PBUFFの桁数            *
+     F*         PBUFF ----変換元内容              *
+     F*         PSISO ---- SISOの挿入有無(Y OR N) *
+     F*         PDBCS ---- DBCSの個数(0～)      *
+     F*         DSBUFF----変換後内容              *
+     F*  NOTES: ASCII-->EBCDIC                      *
+     F*        制御ﾃｰnﾞはX'20'に変換          *
+     F*         ODOAには注意                      *
+     F*  CODING:K.OKACHI             2000.05.18     *
+     F************************************* CVTR00 **
+     E                    SJ      1   2  4   IB      4
+     E                    IBU      5000  1               入力バッファ
+     E                    OBU      8000  1               出力バッファ
+     E                    WBU      5000  1
+     IPBUFF       DS
+     I                                        15000 IBU
+     IDSBUFF      DS
+     I                                        18000 OBU
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           PTYPE   2        変換タイプ
+     C                     PARM           PBLEN   50       桁数
+     C                     PARM           PBUFF            入力バッファ
+     C                     PARM           PSISO   1        SISO必要
+     C                     PARM           PDBCS   50       漢字個数
+     C                     PARM           DSBUFF           出力バッファ
+      *
+     C           PDBCS     IFNE 0
+     C                     EXSR #SBHEN
+     C                     END
+      *
+     C                     Z-ADD0         IBLEN   50       入力桁数
+     C                     MOVE *BLANK    ITBL   10        変換テーブル
+     C                     MOVE *BLANK    ITBLL  10        ライブラリー
+     C                     Z-ADD0         OBLEN   50
+     C                     Z-ADD0         OCLEN   50
+     C                     MOVE *BLANK    IDBCS  10
+     C                     MOVE *BLANK    ITYPE  10
+     C                     Z-ADD0         WSISO   50
+      *
+     C                     Z-ADD5000      IBLEN
+      *
+     C                     MOVEL'QUSRSYS' ITBLL
+     C           PTYPE     IFEQ 'AE'
+     C           'Q897'    CAT  '337290'  ITBL
+     C                     MOVEL'*AE'     ITYPE
+     C                     ELSE
+     C           'Q290337' CAT  '897'     ITBL
+     C                     MOVEL'*EA'     ITYPE
+     C                     END
+      *
+     C                     MOVE *LOVAL    DSBUFF
+      *
+     C           PDBCS     IFEQ 0
+     C                     Z-ADD8000      OBLEN
+     C                     Z-ADDPBLEN     OCLEN
+     C                     ELSE
+     C           PDBCS     MULT 2         WSISO
+     C                     Z-ADD8000      OBLEN
+     C           WSISO     ADD  PBLEN     OCLEN
+     C                     END
+      *
+     C                     MOVEL'*JPN'    IDBCS
+      *
+     C                     CALL 'QDCXLATE'
+     C                     PARM           IBLEN
+     C                     PARM           PBUFF
+     C                     PARM           ITBL
+     C                     PARM           ITBLL
+     C                     PARM           OBU
+     C                     PARM           OBLEN
+     C                     PARM           OCLEN
+     C                     PARM           IDBCS
+     C                     PARM           PSISO
+     C                     PARM           ITYPE
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *-----------------------------------------------------*
+      *         QDCXLATE にて変換不能文字                 *
+      *-----------------------------------------------------*
+     C           #SBHEN    BEGSR
+     C                     MOVE *BLANK    PTYPE2  1
+     C                     MOVE *BLANK    PCH1    1
+     C                     MOVE *BLANK    PCH2    2
+     C                     Z-ADD1         @A      40
+     C                     Z-ADD2         @B      40
+     C                     MOVE *BLANK    @CHR21  2
+     C                     MOVE *BLANK    @CHR22  2
+     C                     MOVE *BLANK    WCHR4   4
+      *
+     C           PBLEN     SUB  1         WLEN    40
+     C                     DO   WLEN      @A
+      *
+     C                     MOVE '2'       PTYPE2
+     C                     MOVE IBU,@A    PCH1
+     C                     MOVE *BLANK    PCH2
+     C                     EXSR #SBCHR
+     C                     MOVE WCHR2     @CHR21
+      *
+     C                     MOVE IBU,@B    PCH1
+     C                     MOVE *BLANK    PCH2
+     C                     EXSR #SBCHR
+     C                     MOVE WCHR2     @CHR22
+      *
+     C           @CHR21    CAT  @CHR22    WCHR4
+     C                     Z-ADD1         @C      20
+     C                     SETOF                     77
+      *-----------------------------------------------------*
+     C           PTYPE     IFEQ 'AE'
+     C           WCHR4     LOKUPSJ,@C                    77
+     C           *IN77     IFEQ '1'
+     C                     MOVELIB,@C     @CHR21
+     C                     MOVE IB,@C     @CHR22
+     C                     END
+     C                     ELSE
+     C           WCHR4     LOKUPIB,@C                    77
+     C           *IN77     IFEQ '1'
+     C                     MOVELSJ,@C     @CHR21
+     C                     MOVE SJ,@C     @CHR22
+     C                     END
+     C                     END
+      *-----------------------------------------------------*
+     C                     MOVE *BLANK    WCHR4
+     C                     MOVE '1'       PTYPE2
+     C                     MOVE *BLANK    PCH1
+     C                     MOVE @CHR21    PCH2
+     C                     EXSR #SBCHR
+     C                     MOVE WCHR1     IBU,@A
+     C                     MOVE *BLANK    PCH1
+     C                     MOVE @CHR22    PCH2
+     C                     EXSR #SBCHR
+     C                     MOVE WCHR1     IBU,@B
+      *
+     C                     ADD  1         @B
+     C                     ENDDO
+     C           ESBHEN    ENDSR
+      *-----------------------------------------------------*
+      *         1ﾌﾞbn<--->2ﾌﾞbn(HEX)に変換                *
+      *-----------------------------------------------------*
+     C           #SBCHR    BEGSR
+     C                     MOVE *BLANK    WCHR1   1
+     C                     MOVE *BLANK    WCHR2   2
+     C                     CALL 'CVTR11'
+     C                     PARM           PTYPE2
+     C                     PARM           PCH1
+     C                     PARM           PCH2
+     C                     MOVE PCH1      WCHR1
+     C                     MOVE PCH2      WCHR2
+     C           ESBCHR    ENDSR
+** SJIS & IBM-CODE
+878AFA58                                         //㈱
+EE9EFBBA                                         //釚

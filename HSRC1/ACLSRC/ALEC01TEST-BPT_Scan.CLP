@@ -1,0 +1,14 @@
+ PGM
+
+             DCL        VAR(&WKCD) TYPE(*CHAR) LEN(6)
+             DCL        VAR(&WKNM) TYPE(*CHAR) LEN(20)
+
+   /***  OVRDBF FILE(ALEPP01)  TOFILE(TFILE1/ALEPP01)   ***/
+   /***  OVRDBF FILE(ALEPL013) TOFILE(TFILE1/ALEPL013)  ***/
+   /***  OVRDBF FILE(ALEPP10)  TOFILE(TFILE1/ALEPP10)   ***/
+
+             CALL       PGM(ALER01NEW) PARM((&WKCD) (&WKNM))
+
+             SIGNOFF
+
+ ENDPGM

@@ -1,0 +1,281 @@
+     H            Y.
+      ** ABFR20 **********************************************
+      *  FORD EDI862 INQUIRY                                 *
+      *  JW          2023.1.13                               *
+      *========================                              *
+      * F3 - EXIT                                            *
+      * F12- PREVIOUS SCREEN                                 *
+      ********************************************************
+     FABFPW20 CF  E                    WORKSTN
+     F                                        RRN   KSFILE SFL01
+     FABF2L10 IF  E           K        DISK
+     FABFDL02 IF  E           K        DISK
+      ********************************************************
+     E                    ERR     1  10 60
+      *-------------------------------------------------------
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *-----------------------------------------------------------*
+      *     M  A  I  N  L  I  N  E                                *
+      *-----------------------------------------------------------*
+      *
+     C                     EXSR #INIT
+      *
+     C           W@ID      DOWNE'99'
+     C           W@ID      CASEQ'01'      #DSP1
+     C           W@ID      CASEQ'02'      #DSP2
+     C                     ENDCS
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *************************************************************
+      * Purpose: Display Screen 1 to get Date Range.
+      *************************************************************
+     C           #DSP1     BEGSR
+      *
+     C                     EXFMTDSP01
+     C                     MOVEL*BLANKS   XMSG
+     C                     SETOF                     313233
+     C                     MOVE *OFF      *IN85
+     C                     SELEC
+      * F3: END
+     C           *INKA     WHEQ *ON
+     C           *INKC     OREQ *ON
+     C                     MOVEL'99'      W@ID
+      * F5: NEXT
+     C           *INKE     WHEQ *ON
+     C                     EXSR #CHK1
+      * if no errors on screen 1, fill subfile
+     C           *IN85     IFEQ *OFF
+     C                     EXSR #SET1
+     C           RRN       IFGT 0
+     C                     MOVEL'02'      W@ID
+     C                     ELSE
+     C                     MOVELERR,8     XMSG
+     C                     SETON                     313285
+     C                     ENDIF
+     C                     ENDIF
+      * ENTR
+     C                     OTHER
+     C                     EXSR #CHK1
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *************************************************************
+      * Purpose: Check Screen When ENTER is Pressed.
+      *************************************************************
+     C           #CHK1     BEGSR
+      *
+      * CHECK PLANT
+     C           XPLNT     IFEQ *BLANK
+     C                     MOVELERR,1     XMSG
+     C                     SETON                     31  85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C           XPLNT     IFNE '99999'
+     C           XPLNT     CHAINABFDL02              50
+     C           *IN50     IFEQ *ON
+     C                     MOVELERR,2     XMSG
+     C                     SETON                     31  85
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     ENDIF
+      * CHECK FROM
+     C           XFROM     IFEQ 0
+     C                     MOVELERR,3     XMSG
+     C                     SETON                     32  85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      *
+     C                     MOVELXFROM     $SRC      P
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ *BLANK
+     C                     MOVEL$TRUE     XFROM
+     C                     ELSE
+     C                     MOVELERR,4     XMSG
+     C                     SETON                     32  85
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * CHECK TO
+     C           XTO       IFEQ 0
+     C                     Z-ADDXFROM     XTO
+     C                     ENDIF
+      *
+     C           XTO       IFNE 99999999
+     C                     MOVELXTO       $SRC      P
+     C                     CALL 'UTLR01'
+     C                     PARM           $SRC   10
+     C                     PARM           $TRUE   8
+     C                     PARM           $RTN    1
+     C           $RTN      IFEQ *BLANK
+     C                     MOVEL$TRUE     XTO
+     C                     ELSE
+     C                     MOVELERR,6     XMSG
+     C                     SETON                     33  85
+     C                     GOTO XCHK1
+     C                     ENDIF
+     C                     ENDIF
+      *
+      * compare from date with to date...
+     C           XFROM     IFGT XTO
+     C                     MOVELERR,7     XMSG
+     C                     SETON                     323385
+     C                     GOTO XCHK1
+     C                     ENDIF
+      * IF NO ERROR...
+     C                     MOVELERR,9     XMSG
+      *
+     C           XCHK1     ENDSR
+      *************************************************************
+      * Purpose: Fill subfile with detail within date range.
+      ************************************************************
+     C           #SET1     BEGSR
+      *
+     C           XFROM     SETLLABF2L10
+     C                     DO   *HIVAL
+     C                     READ ABF2L10                  51
+     C   51                LEAVE
+      *
+     C           P2DATE    IFGT XTO
+     C                     MOVE *ON       *IN51
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           XPLNT     IFNE '99999'
+     C           XPLNT     ANDNEP2STID
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     ADD  1         RRN
+      *
+     C                     Z-ADDP2CRHZ    SRCHZ
+     C                     Z-ADDP2CRTM    SRCTM
+     C                     MOVELP2EQMT    SBATCH
+     C                     MOVELP2STID    SPLNT
+     C                     Z-ADDP2NONY    SNONY
+     C                     MOVELP2DOCK    SDOCK
+     C                     MOVELP2ICCD    SICCD
+     C                     MOVELP2POR#    SPGM#
+      *
+     C                     MOVELP2NONY    PMNONY
+     C                     MOVE 'D'       PMOPT
+     C                     CALL 'UTLR16'
+     C                     PARM           PMNONY  4
+     C                     PARM           PMOPT   1
+     C                     PARM           PMNAME 20
+     C                     PARM           PTOKU   4
+     C                     PARM           PMRTN   1
+     C                     MOVELPMNAME    SNAM
+      *
+     C                     WRITESFL01
+      *
+     C                     ENDDO
+      *
+     C                     Z-ADDRRN       COUNT   60
+      *
+     C                     ENDSR
+      ************************************************************
+      * Purpose: Display Screen 2.
+      ************************************************************
+     C           #DSP2     BEGSR
+      *
+     C                     WRITEFMT99
+     C                     MOVEL'1'       *IN70
+     C                     EXFMTCTL01
+     C                     MOVEL*BLANKS   XMSG
+     C                     MOVEL'0'       *IN99
+     C                     MOVEL'0'       *IN70
+      *
+     C                     SELEC
+      * F3:EXIT
+     C           *INKC     WHEQ *ON
+     C                     MOVEL'99'      W@ID
+      * F1/F12:BACK
+     C           *INKA     WHEQ *ON
+     C           *INKL     OREQ *ON
+     C                     EXSR #CLRSF
+     C                     Z-ADD0         RRN
+     C                     MOVEL'01'      W@ID
+      * ENTR
+     C                     OTHER
+     C                     EXSR #SEL
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *************************************************************
+      * Purpose: Clear Subfile.
+      *************************************************************
+     C           #CLRSF    BEGSR
+     C                     SETON                     71
+     C                     WRITECTL01
+     C                     SETOF                     71
+     C                     Z-ADD0         RRN
+      *
+     C                     ENDSR
+      *************************************************************
+      * Purpose: Check Subfile for Selected Detail.
+      *************************************************************
+     C           #SEL      BEGSR
+      *
+     C**         1         DO   COUNT     RRN
+      *
+     C**         RRN       CHAINSFL01                50
+     C**         *IN50     IFEQ *OFF
+     C**         SEL       ANDNE' '
+     C**                   EXSR #DSP3
+     C**         *IN03     IFEQ *ON
+     C**                   LEAVE
+     C**                   ENDIF
+     C**                   ENDIF
+      *
+     C**                   MOVE *BLANK    SEL
+     C**                   UPDATSFL01
+      *
+     C**                   ENDDO
+      *
+     C                     ENDSR
+      *************************************************************
+      * Purpose: Display Detail on Screen 3.
+      *************************************************************
+     C**         #DSP3     BEGSR
+      *
+     C**                   CLEARDSP03
+      *
+     C**                   MOVEL@REF#     SCREF#
+     C**                   Z-ADD@SIDT     SCSIDT
+      *
+     C**                   EXFMTDSP03
+      *
+     C**                   ENDSR
+      *************************************************************
+      * Purpose: Initialize variables.
+      *************************************************************
+     C           #INIT     BEGSR
+      *
+     C                     TIME           SDATE
+     C                     MOVE *BLANK    XMSG
+     C                     MOVEL'01'      W@ID    2
+     C                     Z-ADD0         RRN     50
+     C                     Z-ADDTODAY     XFROM
+     C                     Z-ADD99999999  XTO
+      *
+     C                     ENDSR
+      *************************************************************
+** ERR(60) ...+... 2 ...+... 3 ...+... 4 ...+... 5 ...+... 6
+ERROR: ENTER PLANT !                                          01
+ERROR: PLANT IS INVALID !                                     02
+ERROR: ENTER DATE_FROM !                                      03
+ERROR: DATE_FROM IS INVALID !                                 04
+                                                              05
+ERROR: DATE_TO IS INVALID !                                   06
+ERROR: DATE_FROM IS GREATER THAN DATE_TO !                    07
+THERE IS NO DATA !                                            08
+PRESS F5 TO CONTINUE...                                       09
+

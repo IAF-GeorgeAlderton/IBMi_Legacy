@@ -1,0 +1,470 @@
+     H            Y.
+      ** AB#R12T ************************************************
+      *  CREATE UNIVERSAL EDI ORDER DATA (TOYOTA)               *
+      *  J.WATANABE   2025.03.20                                *
+      ***********************************************************
+     FAB#EL40 UF  E           K        DISK
+     FAB#EP12 O   E                    DISK
+     FAB#EP13 O   E                    DISK
+      ***********************************************************
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      254 263 #USER
+     I            DS
+     I I            'L31501c-1'               1  10 W@A315
+     I I            'L749b-1'                11  20 W@A749
+     I I            'DN70-1'                 21  30 W@DN70
+     I I            'SF41-1'                 31  40 W@SF41
+     I I            'D315d-1'                41  50 W@D315
+JX9  I I            ' 901270005'             51  60 W@A901
+      ***********************************************************
+      * MAIN ROUTINE
+      ***********************************************************
+     C                     EXSR #INIT
+      * SET SYSTEM DATE/TIME
+     C                     EXSR #DATE
+      * CREATE HEADER DATA
+     C                     EXSR #HDR
+      * CREATE DETAIL DATA
+TEMP C** STOP              EXSR #DTL
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *=================================================
+      * SET SYSTEM DATE/TIME
+      *=================================================
+     C           #DATE     BEGSR
+      *
+     C           *LOVAL    SETLLAB#EL40
+     C                     DO   *HIVAL
+     C                     READ AB#EL40                  98
+     C   98                LEAVE
+      *
+     C                     Z-ADDTODAY     EPODT
+     C                     Z-ADDNOW       EPOTM
+     C                     UPDATAB#EP401
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *=================================================
+      * CREATE HEADER
+      *=================================================
+     C           #HDR      BEGSR
+      *
+     C           *LOVAL    SETLLAB#EL40
+     C                     DO   *HIVAL
+     C                     READ AB#EL40                  98
+     C   98                LEAVE
+      *
+     C                     MOVELEPOTM     EPOT4   40
+      * GET DELIVERY CODE
+     C           ENONY     IFEQ *BLANK
+     C                     EXSR #GETDL
+     C                     ENDIF
+      * FIRST?
+     C           FIRST     IFEQ 'Y'
+     C                     MOVE 'N'       FIRST
+     C                     MOVELEPRTNR    SVPRTN
+     C                     MOVELEPODT     SVPODT
+     C                     MOVELEPOTM     SVPOTM
+     C                     MOVELEPOTM     SVPOT4
+     C                     MOVELETOKU     SVTOKU
+     C                     MOVELENONY     SVNONY
+     C                     MOVELENKOJ     SVNKOJ
+     C                     MOVELENUKE     SVNUKE
+     C                     ENDIF
+      * BREAK?
+     C           EPRTNR    IFNE SVPRTN
+     C           EPODT     ORNE SVPODT
+     C           EPOT4     ORNE SVPOT4
+     C           ETOKU     ORNE SVTOKU
+     C           ENONY     ORNE SVNONY
+     C           ENKOJ     ORNE SVNKOJ
+     C           ENUKE     ORNE SVNUKE
+     C                     EXSR #BRK1
+     C                     ENDIF
+      * COUNT RECORD
+     C                     ADD  1         @REC
+      *
+     C                     ENDDO
+      * LAST BREAK?
+     C           FIRST     IFEQ 'N'
+     C                     EXSR #BRK1
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *=================================================
+      * HEADER BREAK
+      *=================================================
+     C           #BRK1     BEGSR
+      * WRITE
+     C                     CLEARAB#EP121
+     C                     MOVELSVPRTN    E2PRTN
+     C                     MOVE ' '       E2PLNT
+     C                     MOVE ' '       E2SHCD
+      * GET CUST#/DELV#
+     C                     MOVELSVTOKU    E2TOKU
+     C                     MOVELSVNONY    E2NONY
+     C                     MOVELSVNKOJ    E2NKOJ
+     C                     MOVELSVNUKE    E2NUKE
+      * 862/830
+     C                     MOVELSVNONY    XNONY
+     C                     EXSR #GETED                     --> XEDI(5A)
+     C                     MOVELXEDI      E2TRID
+      *
+     C                     MOVE ' '       E2REF#
+     C                     MOVELSVNUKE    E2NUKE
+     C                     Z-ADD@REC      E2RCD#
+      * GET BATCH#
+     C           SVPODT    IFEQ 0
+     C                     MOVELTODAY     SVPODT
+     C                     MOVELNOW       SVPOT4
+     C                     ENDIF
+      *
+     C                     MOVELSVPRTN    $PRTN
+     C                     MOVELSVPODT    $RCVD1
+     C                     MOVELSVPOT4    $RCVT1
+     C                     CALL 'UEXC58T'
+     C                     PARM           $PRTN  30
+     C                     PARM           $RCVD1  8
+     C                     PARM           $RCVT1  4
+     C                     PARM           $RCVD2  8
+     C                     PARM           $RCVT2  6
+     C                     PARM           $BCH#   7
+     C                     PARM           $INT#  14
+     C                     MOVEL$BCH#     E2BCH#
+     C                     MOVEL$INT#     E2INT#
+     C                     MOVEL$RCVD2    E2RCHZ
+     C                     MOVEL$RCVT2    E2RCTM
+     C                     MOVEL$RCVT2    E2RCT4
+      * DEFAULT
+     C           E2RCHZ    IFEQ 0
+     C                     Z-ADDTODAY     E2RCHZ
+     C                     Z-ADDNOW       E2RCTM
+     C                     MOVELNOW       E2RCT4
+     C                     ENDIF
+      *
+     C           E2NKOJ    IFEQ *BLANK
+     C                     MOVE '0'       E2NKOJ
+     C                     ENDIF
+     C           E2NUKE    IFEQ *BLANK
+     C                     MOVEL'00'      E2NUKE
+     C                     ENDIF
+      *
+     C                     TIME           SDATE
+     C                     Z-ADDTODAY     E2CRHZ
+     C                     Z-ADDNOW       E2CRTM
+     C                     MOVEL#USER     E2CRUS
+     C                     MOVEL#PGM      E2CRPG
+      *
+     C                     WRITEAB#EP121
+      * RESET
+     C                     MOVELEPRTNR    SVPRTN
+     C                     MOVELEPODT     SVPODT
+     C                     MOVELEPOTM     SVPOTM
+     C                     MOVELEPOTM     SVPOT4
+     C                     MOVELETOKU     SVTOKU
+     C                     MOVELENONY     SVNONY
+     C                     MOVELENKOJ     SVNKOJ
+     C                     MOVELENUKE     SVNUKE
+     C                     Z-ADD0         @REC
+      *
+     C                     ENDSR
+      *=================================================
+      * CREATE DETAIL
+      *=================================================
+     C           #DTL      BEGSR
+      *
+     C           *LOVAL    SETLLAB#EL40
+     C                     DO   *HIVAL
+     C                     READ AB#EL40                  98
+     C   98                LEAVE
+      *
+     C                     EXSR #WRT2
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *=================================================
+      * WRITE DETAIL (AB#EP13)
+      *=================================================
+     C           #WRT2     BEGSR
+      * WRITE
+     C                     CLEARAB#EP131
+     C                     MOVELEPRTNR    E3PRTN
+     C                     MOVELETOKU     E3TOKU
+      * GET DELIVERY CODE
+     C           ENONY     IFEQ *BLANK
+     C                     EXSR #GETDL
+     C                     ENDIF
+     C                     MOVELENONY     E3NONY
+      *
+     C                     MOVELENKOJ     E3NKOJ
+     C                     MOVELENUKE     E3NUKE
+      * 862/830
+     C                     MOVELENONY     XNONY   4
+     C                     EXSR #GETED                     --> XEDI(5A)
+     C                     MOVELXEDI      E3TRID
+      *
+     C                     MOVE ' '       E3REF#
+     C                     MOVE ' '       E3PLNT
+     C                     MOVELENUKE     E3SHCD
+      * DETAIL
+     C                     MOVELEMHIN     E3MHIN
+     C                     Z-ADDESRYO     E3SRYO
+     C                     Z-ADDENDATE    E3NDAT
+     C                     Z-ADDENDATE    E3NOHZ
+     C                     MOVELEODRN     E3ODRN
+     C                     MOVELEMKDO     E3MKDO
+     C                     MOVELEINVN     E3INVN
+     C                     MOVELEMANI     E3MANI
+      * GET QPC
+     C                     MOVELE3TOKU    $TOKU
+     C                     MOVELE3NONY    $NONY
+     C                     MOVELE3MHIN    $MHIN
+     C                     MOVE 'USR'     $HTYP
+     C                     MOVE *BLANK    $DATE
+     C                     CALL 'UTLR35D'
+     C                     PARM           $TOKU   4
+     C                     PARM           $NONY   4
+     C                     PARM           $MHIN  20
+     C                     PARM           $HTYP   3
+     C                     PARM           $DATE   8
+     C                     PARM           $SYOS   6
+     C                     PARM           $RTN    1
+     C                     MOVEL$SYOS     E3SYOS
+      *
+     C           E3SYOS    IFEQ 0
+     C                     Z-ADDE3SRYO    E3BOX
+     C                     ELSE
+     C           E3SRYO    DIV  E3SYOS    E3BOX
+     C                     MVR            REM     60
+     C           REM       IFNE 0
+     C                     ADD  1         E3BOX
+     C                     ENDIF
+     C                     ENDIF
+      * GET BATCH#
+     C**                   MOVELEPRTNR    $PRTN
+     C**                   MOVELEPODT     $RCVD1
+     C**                   MOVELEPOTM     $RCVT1
+     C**                   CALL 'UEXC58T'
+     C**                   PARM           $PRTN  30
+     C**                   PARM           $RCVD1  8
+     C**                   PARM           $RCVT1  4
+     C**                   PARM           $RCVD2  8
+     C**                   PARM           $RCVT2  6
+     C**                   PARM           $BCH#   7
+     C**                   PARM           $INT#  14
+      *
+     C**                   MOVEL$BCH#     E3BCH#
+     C                     MOVELEPODT     E3RCHZ
+     C                     MOVELEPOTM     E3RCTM
+     C                     MOVELEPOTM     E3RCT4
+      *
+     C           E3NKOJ    IFEQ *BLANK
+     C                     MOVE '0'       E3NKOJ
+     C                     ENDIF
+     C           E3NUKE    IFEQ *BLANK
+     C                     MOVEL'00'      E3NUKE
+     C                     ENDIF
+      *
+     C                     TIME           SDATE
+     C                     Z-ADDTODAY     E3CRHZ
+     C                     Z-ADDNOW       E3CRTM
+     C                     MOVEL#USER     E3CRUS
+     C                     MOVEL#PGM      E3CRPG
+      *
+     C                     WRITEAB#EP131
+      *
+     C                     ENDSR
+      *=================================================
+      * SET SUBARU DELIVERY CODE
+      *=================================================
+     C           #3611     BEGSR
+      *
+     C                     MOVEL'3611'    ENONY
+      *
+     C           ECUNM     IFNE *BLANK
+     C                     MOVEL'3612'    ENONY
+     C                     ELSE
+     C                     MOVEL'3611'    ENONY
+     C                     ENDIF
+      *
+     C                     MOVELEODRN     W@A01   1
+     C           W@A01     IFEQ 'S'
+     C                     MOVEL'3613'    ENONY
+     C                     ENDIF
+      *
+      * check subaru route and change delv code for these routes.
+     C                     SELEC
+     C           EECS      WHEQ W@A315                     L31501c-1
+     C                     MOVEL'3615'    ENONY
+     C           EECS      WHEQ W@A749                     L749b-1
+     C                     MOVEL'3616'    ENONY
+     C           ESTAD     WHEQ 'SAP'                      DOUGLAS AUTOTECH
+     C           EMHIN     ANDEQW@A901                     ' 901270005'
+     C           W@A01     ANDEQ'U'
+     C                     MOVEL'3617'    ENONY
+     C           ESTAD     WHEQ 'SAP'                      DOUGLAS AUTOTECH
+     C           EMHIN     ANDEQW@A901                     ' 901270005'
+     C           W@A01     ANDEQ'V'
+     C                     MOVEL'3617'    ENONY
+     C           ESTAD     WHEQ 'SAP'                      DOUGLAS AUTOTECH
+     C           ESUB#     ANDEQ'D42701'
+     C                     MOVEL'3617'    ENONY
+     C           ESTAD     WHEQ 'SAP'                      AUSTIN TRI HAWK
+     C           ESUB#     ANDEQ'D73901'
+     C                     MOVEL'3618'    ENONY
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *=================================================
+      * GET EDI TYPE
+      *=================================================
+     C           #GETED    BEGSR
+      *
+     C                     MOVE *BLANK    XEDI    5
+     C                     SELEC
+     C           XNONY     WHEQ '0465'                     ADVICS
+     C           XNONY     OREQ '0492'                     AWNC
+     C           XNONY     OREQ '2394'                     GM
+     C           XNONY     OREQ '2727'                     SRG
+     C           XNONY     OREQ '3317'                     NHK
+     C           XNONY     OREQ '5236'                     LMV
+     C           XNONY     OREQ '5253'                     LITENS
+     C           XNONY     OREQ '5444'                     TOWER AUTO
+     C           XNONY     OREQ '5445'                     TOWER AUTO
+     C           XNONY     OREQ '5446'                     TOWER AUTO
+     C           XNONY     OREQ '5912'                     FNG
+     C           XNONY     OREQ '8006'                     MYTOX
+     C           XNONY     OREQ '5910'                     FNG5910
+     C           XNONY     OREQ '5912'                     FNG5912
+     C           XNONY     OREQ '5915'                     FNG5915
+     C           XNONY     OREQ '5917'                     FNG5917
+     C           XNONY     OREQ '5919'                     FNG5919
+     C           XNONY     OREQ '5923'                     FNG5923
+     C           XNONY     OREQ '5924'                     FNG5924
+     C           XNONY     OREQ '5242'                     FNG5242
+     C                     MOVEL'830'     XEDI
+     C                     OTHER
+     C                     MOVEL'862'     XEDI
+     C                     ENDSL
+      *
+     C                     ENDSR
+      *=================================================
+      * GET DELIVERY CODE
+      *=================================================
+     C           #GETDL    BEGSR
+      *
+     C                     MOVELEN1MI     @5      5
+     C                     MOVELEN1MI     @7      7
+     C                     SELEC
+      * 0871
+     C           ETOKU     WHEQ '0873'
+     C           ENONY     ANDEQ*BLANK
+     C           @5        ANDEQ'CAMPB'
+     C                     MOVEL'0871'    ENONY            ASI KY
+      * 0881
+     C           ETOKU     WHEQ '0873'
+     C           ENONY     ANDEQ*BLANK
+     C           ENUKE     ANDEQ'M1'
+     C           @5        ANDEQ'SANGO'
+     C                     MOVEL'0881'    ENONY            ASI AUTO MX
+      * 0873
+     C           ETOKU     WHEQ '0873'
+     C           ENONY     ANDEQ*BLANK
+     C           @7        ANDEQ'MADISON'
+     C                     MOVEL'0873'    ENONY            ASI MADISON
+      * 0873
+     C           ETOKU     WHEQ '0873'
+     C           ENONY     ANDEQ*BLANK
+     C           ENUKE     ANDEQ'N2'
+     C                     MOVEL'0873'    ENONY            ASI MADISON
+      * 0873
+     C           ETOKU     WHEQ '0873'
+     C           ENONY     ANDEQ*BLANK
+     C           ENUKE     ANDEQ'W1'
+     C                     MOVEL'0873'    ENONY            ASI MADISON
+      * 0876
+     C           ETOKU     WHEQ '0873'
+     C           ENONY     ANDEQ*BLANK
+     C           @7        ANDEQ'Service'
+     C                     MOVEL'0876'    ENONY            ASI IN
+      * 0876
+     C           ETOKU     WHEQ '0873'
+     C           ENONY     ANDEQ*BLANK
+     C           ENUKE     ANDEQ'SP1'
+     C                     MOVEL'0876'    ENONY            ASI IN
+      * 0879
+     C           ETOKU     WHEQ '0873'
+     C           ENONY     ANDEQ*BLANK
+     C           @7        ANDEQ'ASI SAN'
+     C                     MOVEL'0879'    ENONY            ASI TX
+      * 0876
+     C           ETOKU     WHEQ '0873'
+     C           ENONY     ANDEQ*BLANK
+     C           ENUKE     ANDEQ'TX '
+     C                     MOVEL'0879'    ENONY            ASI TX
+      * 0878
+     C           ETOKU     WHEQ '0873'
+     C           ENONY     ANDEQ*BLANK
+     C           @7        ANDEQ'LONDON '
+     C                     MOVEL'0878'    ENONY            ASI CANADA
+      * 0878
+     C           ETOKU     WHEQ '0873'
+     C           ENONY     ANDEQ*BLANK
+     C           ENUKE     ANDEQ'N1 '
+     C                     MOVEL'0878'    ENONY            ASI CANADA
+      * 0880
+     C           ETOKU     WHEQ '0873'
+     C           ENONY     ANDEQ*BLANK
+     C           @7        ANDEQ'Henders'
+     C                     MOVEL'0880'    ENONY            ASI TN
+      * 0880
+     C           ETOKU     WHEQ '0873'
+     C           ENONY     ANDEQ*BLANK
+     C           ENUKE     ANDEQ'1  '
+     C                     MOVEL'0880'    ENONY            ASI TN
+      * 0870
+     C           EN1MI     WHEQ 'MERCED'
+     C                     MOVEL'0870'    ENONY            ASI (CA)
+      * 0590
+     C           EN1MI     WHEQ 'DMAX'
+     C                     MOVEL'0590'    ENONY            DMAX
+      * 0437
+     C           EN1MI     WHEQ 'SIA'
+     C                     MOVEL'0437'    ENONY            SIA (PROMAX)
+     C                     ENDSL
+      * SET NONY
+     C           ENONY     IFEQ '    '
+     C           ENONY     OREQ '0000'
+     C                     SELEC
+     C           ETOKU     WHEQ '3611'                      SUBARU
+     C                     EXSR #3611
+     C                     ENDSL
+     C                     ENDIF
+      *
+     C           XGETDL    ENDSR
+      *=================================================
+      * INITIAL SET
+      *=================================================
+     C           #INIT     BEGSR
+      *
+     C                     TIME           SDATE
+     C                     MOVE 'Y'       FIRST   1
+     C                     Z-ADD0         @REC    60
+     C                     Z-ADD0         SVPOT4  40
+      *
+     C           *LIKE     DEFN EPRTNR    SVPRTN
+     C           *LIKE     DEFN EPODT     SVPODT
+     C           *LIKE     DEFN EPOTM     SVPOTM
+     C           *LIKE     DEFN ETOKU     SVTOKU
+     C           *LIKE     DEFN ENONY     SVNONY
+     C           *LIKE     DEFN ENKOJ     SVNKOJ
+     C           *LIKE     DEFN ENUKE     SVNUKE
+      *
+     C                     ENDSR

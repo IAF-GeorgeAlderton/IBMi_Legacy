@@ -1,0 +1,226 @@
+     H            Y.
+     F** GDGR28 ******************************************************
+     F*  (HANDY) READ CASE MARK                                      *
+     F*       SEEK                      2023.02.20                   *
+     F****************************************************** GDGR28 **
+     FGDGPW28 CF  E                    WORKSTN
+     FALBPL30 IF  E           K        DISK
+     FGDGPP28 UF  E           K        DISK                      A
+      ****************************************************************
+      * 使用標識                                                   *
+      *        KC(F3)   : 終了                                     *
+      *        31       : 入力値エラー（反転表示）                 *
+      *        40       : 表示項目＿出力制御用                     *
+      *        90       : 汎用標識                                 *
+      *        99       : 画面エラー代表標識                       *
+      ****************************************************************
+     E                    MSG     1   3 20               エラーＭＳＧ
+     I*
+     I            DS
+     I                                        1  17 D1BAR
+     I                                        1   4 D1BAR1
+     I                                        5   8 D1BAR2
+     I                                        9  16 D1BAR3
+     I                                       17  17 D1BAR4
+     I            DS
+     I                                        1  140W0TIME
+     I                                        1   60W0TITM
+     I                                        7  140W0TIDT
+     I           SDS
+     I                                     *PROGRAM DSPGM
+     I                                      254 263 DSUSER
+      ****************************************************************
+      * パラメータ                                                 *
+      ****************************************************************
+     C           *ENTRY    PLIST
+     C                     PARM           P0WKCD  6         WORKER NO
+     C                     PARM           P0USER 10         USER PROFILE
+     C*  CHKR03
+     C           PLIST1    PLIST
+     C                     PARM           P1AREA100        フィールド
+     C                     PARM           P1BYTE  3        有効桁数
+     C                     PARM           P1CHK   1         kｩｮhmﾞﾆﾞｮn
+     C                     PARM           P1RTCD  1         ﾒjｰ]ﾃｰnﾞ
+      ****************************************************************
+      * キーリスト                                                 *
+      ****************************************************************
+     C*  GDGPP28
+     C           KEYG8     KLIST
+     C                     KFLD           G8PARE            PALLETE
+     C                     KFLD           G8CAHK            CASE# ISSUE DATE
+      ****************************************************************
+      * メイン                                                     *
+      ****************************************************************
+     C* 初期処理
+     C                     EXSR #INIT
+     C* 処理
+B01  C                     DO   *HIVAL
+B02  C                     SELEC
+     C           W0CTL     WHEQ '*END'
+     C                     LEAVE
+     C           W0CTL     WHEQ '*DSP1'
+     C                     EXSR #DSP1
+E02  C                     ENDSL
+E01  C                     ENDDO
+     C* 終了
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      ****************************************************************
+      * 初期処理                                                   *
+      ****************************************************************
+     C           #INIT     BEGSR
+     C*
+     C                     MOVE *BLANK    D1CASN            CASE-NO
+     C                     Z-ADD*ZERO     D1DATE            ISSUE DATE
+     C                     MOVE *OFF      *IN40
+     C*
+     C                     MOVEL'*DSP1'   W0CTL   5        処理制御
+     C*
+     C                     ENDSR
+      ****************************************************************
+      * 画面１                                                     *
+      ****************************************************************
+     C           #DSP1     BEGSR
+     C* 画面１＿セット
+     C                     EXSR #SET1
+     C* 画面１＿表示
+B01  C                     DO   *HIVAL
+     C                     EXFMTDSP1
+     C* 終了
+B02  C           *INKC     IFEQ *ON
+     C                     MOVEL'*END '   W0CTL
+     C                     LEAVE
+E02  C                     ENDIF
+     C*
+     C                     MOVE *OFF      *IN31
+     C                     MOVE *OFF      *IN40
+     C                     MOVE *OFF      *IN99
+     C                     MOVE *BLANK    D9ERR            エラーＭＳＧ
+     C*
+     C                     TIME           W0TIME
+     C* 画面１＿チェック
+     C                     EXSR #CHK1
+B02  C           *IN99     IFEQ *ON
+     C                     EXSR #DSP9
+     C                     ITER
+E02  C                     ENDIF
+     C* ファイルの更新
+     C                     EXSR #UPD
+     C                     MOVEL'*DSP1'   W0CTL
+     C                     LEAVE
+     C*
+E01  C                     ENDDO
+     C*
+     C                     ENDSR
+      ****************************************************************
+      * エラー画面                                                 *
+      ****************************************************************
+     C           #DSP9     BEGSR
+     C* エラー画面＿表示
+B01  C                     DO   *HIVAL
+     C                     EXFMTDSP99
+     C*
+     C                     LEAVE
+E01  C                     ENDDO
+     C*
+     C                     ENDSR
+     C****************************************************************
+     C* 画面１のセット                                             *
+     C****************************************************************
+     C           #SET1     BEGSR
+     C*
+     C                     MOVE *BLANK    D1BAR             BAR-CODE
+     C*
+     C                     MOVE *OFF      *IN31             *IN31
+     C                     MOVE *OFF      *IN99
+     C                     MOVE *BLANK    D9ERR            エラーＭＳＧ
+     C*
+     C                     ENDSR
+     C****************************************************************
+     C* 画面１のチェック                                           *
+     C****************************************************************
+     C           #CHK1     BEGSR
+     C*  BAR-CODE
+B01  C           D1BAR     IFEQ *BLANK
+     C                     MOVE *ON       *IN31
+B02  C           *IN99     IFEQ *OFF
+     C                     MOVELMSG,1     D9ERR
+     C                     MOVE *ON       *IN99
+E02  C                     ENDIF
+X01  C                     ELSE
+     C*  __ C/D CHECK
+     C                     MOVELD1BAR     P1AREA    P      フィールド
+     C                     MOVEL'016'     P1BYTE           有効桁数
+     C                     MOVE *BLANK    P1CHK             kｩｮhmﾞﾆﾞｮn
+     C                     MOVE *BLANK    P1RTCD            ﾒjｰ]ﾃｰnﾞ
+     C                     CALL 'CHKR03'  PLIST1
+B02  C           D1BAR4    IFNE P1CHK
+     C                     MOVE *ON       *IN31
+B03  C           *IN99     IFEQ *OFF
+     C                     MOVELMSG,2     D9ERR
+     C                     MOVE *ON       *IN99
+E03  C                     ENDIF
+X02  C                     ELSE
+     C* ＿存在チェック
+     C                     MOVELD1BAR1    G8PARE            PALLETE
+     C                     MOVELD1BAR3    G8CAHK            CASE# ISSUE DATE
+     C           KEYG8     CHAINGDGPP281             90
+B03  C           *IN90     IFEQ *OFF
+     C           G8SKJY    ANDEQ'D'
+     C           G8SKDT    ANDLEW0TIDT
+     C                     MOVE *ON       *IN90
+E03  C                     ENDIF
+B03  C           *IN90     IFEQ *OFF
+     C           G8SCDT    ANDEQW0TIDT
+     C                     MOVE *ON       *IN31
+B04  C           *IN99     IFEQ *OFF
+     C                     MOVELMSG,3     D9ERR
+     C                     MOVE *ON       *IN99
+E04  C                     ENDIF
+E03  C                     ENDIF
+E02  C                     ENDIF
+E01  C                     ENDIF
+     C*
+     C                     ENDSR
+     C****************************************************************
+     C* ファイルの更新                                             *
+     C****************************************************************
+     C           #UPD      BEGSR
+     C*
+     C                     MOVELP0WKCD    ALWKCD            WORKER CD NO
+     C           ALWKCD    CHAINALBPL301             90
+B01  C           *IN90     IFEQ *OFF
+     C           ALSKJY    ANDNE*BLANK
+     C                     MOVE *ON       *IN90
+E01  C                     ENDIF
+     C   90                MOVE *BLANK    ALWKNM            WORKER CD NAME
+     C*  GDGPP28 (WRT/UPD)
+     C                     CLEARGDGPP281
+     C*
+     C                     MOVELD1BAR1    G8PARE            PALLETE
+     C                     MOVELD1BAR3    G8CAHK            CASE# ISSUE DATE
+     C           KEYG8     CHAINGDGPP281             90
+     C                     MOVE *BLANK    G8SKJY            DELETE CODE
+     C                     Z-ADD*ZERO     G8SKDT            DELETE DUE DATE
+     C                     Z-ADDW0TIDT    G8KODT            UPDATE WORK DATE
+     C                     Z-ADDW0TITM    G8KOTM            UPDATE WORK TIME
+     C                     MOVELDSPGM     G8KOPG            UPDATE PROGRAM
+     C                     MOVELDSUSER    G8KOME            UPDATE MEMBER
+     C                     Z-ADDW0TIDT    G8SCDT            SCANNED DATE
+     C                     Z-ADDW0TITM    G8SCTM            SCANNED TIME
+     C                     MOVELP0WKCD    G8WKCD            SCANNED WORKER NO
+     C                     MOVELALWKNM    G8WKNM            SCANNED WORKER NAME
+     C                     MOVELD1BAR1    G8PARE            PALLETE
+     C                     MOVELD1BAR3    G8CAHK            CASE# ISSUE DATE
+     C   90                WRITEGDGPP281
+     C  N90                UPDATGDGPP281
+     C*
+     C                     MOVELD1BAR1    D1CASN            CASE-NO
+     C                     MOVELD1BAR3    D1DATE            ISSUE DATE
+     C                     MOVE *ON       *IN40
+     C*
+     C                     ENDSR
+**  MSG (エラーＭＳＧ)
+INPUT BAR-CODE.                                                           1
+INVALID BAR-CODE.                                                         2
+ALREADY REGISTERED.                                                       3

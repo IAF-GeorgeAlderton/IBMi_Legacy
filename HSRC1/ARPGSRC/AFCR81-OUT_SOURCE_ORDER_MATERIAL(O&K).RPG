@@ -1,0 +1,234 @@
+     H            Y.                                    1
+     H** AFCR81 *******************************************************
+     H* OUT SOURCE ORDER MATERIAL(O&K)                                *
+     H*                                                               *
+     H* TCH 2001.06.21                                                *
+     H**************************************************************************
+     H*
+     H* *INKC = 1(CF03)
+     H* *IN30 = 1(ERROR)
+     H* *IN90 = 1(NOT READ IZAPL02 MATERIAL MASTER)
+     H* *IN93 = 1(NOT READ AFCPL82 ORDER DETAIL FILE)
+     H**************************************************************************
+     FAFCPW81 CF  E                    WORKSTN
+     FIZAPL02 IF  E           K        DISK
+     FAFCPL82 IF  E           K        DISK
+     FAFCNP80 UF  E           K        DISK                      A
+     FAFCPP80 O   E                    DISK
+     I**************************************************************************
+     E                    BCD         8  1
+     E                    ER      1  30 15
+     I**************************************************************************
+     I* BARCODE
+     I*(UPDATE CODE + ABSOLUTE # + PURCHASE CODE + KANBAN TYPE + HAKKO #
+     I            DS
+     I                                        1   8 BCD
+     I                                        1   8 BARCD
+     I                                        1   1 BCOCD
+     I                                        2   5 BZETI
+     I                                        6   8 BHKNO
+     I*
+     I            DS
+     I                                        1  120WTMDT
+     I                                        1   20WHHHH
+     I                                        3   40WSSSS
+     I                                        7   80WYYYY
+     I                                        9  100WMMMM
+     I                                       11  120WDDDD
+     I            DS
+     I                                        1   60KEY3
+     I                                        1   40K31
+     I                                        5   60K32
+     I**************************************************************************
+     C*
+     C           *ENTRY    PLIST
+     C                     PARM           PUSR   10
+     C                     PARM           PWKCD   6
+     C* IZAPL02
+     C           KEY1      KLIST
+     C                     KFLD           BCOCD            CONTROL CD
+     C                     KFLD           BZETI            ABSOLUTE #
+     C* AFCPL82
+     C           KEY4      KLIST
+     C                     KFLD           BCOCD            CONTROL CD
+     C                     KFLD           BZETI            ABSOLUTE #
+     C                     KFLD           BHKNO            ISSUE
+     C**************************************************************************
+     C*                    MAIN ROUTINE
+     C**************************************************************************
+     C                     EXSR @INT
+     C                     EXSR @MAIN
+     C                     EXSR @END
+     C**************************************************************************
+     C*                    @INT
+     C**************************************************************************
+     C           @INT      BEGSR
+     C*
+     C                     SETOF                     30
+     C                     MOVE *BLANK    MSG
+     C*
+     C                     TIME           WTMDT
+     C                     Z-ADD2000      K31
+     C                     ADD  WYYYY     K31
+     C                     Z-ADDWMMMM     K32
+     C*
+     C                     Z-ADD*ZERO     I       20
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @MAIN
+     C**************************************************************************
+     C           @MAIN     BEGSR
+     C*
+B01  C           *INKC     DOUEQ'1'
+     C* DISPLAY ERROR
+B03  C           *IN30     IFEQ '1'
+     C                     EXFMTAFCPW899
+     C*
+     C                     SETOF                     30
+     C                     MOVE *BLANK    MSG
+     C*
+     C                     ELSE
+     C                     EXFMTAFCPW811
+B02  C           *INKC     IFEQ '1'
+     C*
+     C                     ELSE
+     C                     EXSR @CHK1
+     C*
+B04  C           *IN30     IFEQ '0'
+     C                     EXSR @WRT
+     C                     MOVE *BLANK    BARCD
+     C                     END
+     C                     END
+     C                     END
+     C                     END
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @CHK1
+     C**************************************************************************
+     C           @CHK1     BEGSR
+     C*
+     C* READ ALL DATA?
+     C                     Z-ADD1         I
+     C           1         DO   8         I
+     C           BCD,I     IFEQ *BLANK
+     C                     SETON                     30
+     C                     MOVE ER,1      MSG
+     C                     GOTO #ECHK1
+     C                     END
+     C                     END
+     C*
+     C* MATERIAL MASTER EXIST ?
+     C                     SETOF                     90
+     C           KEY1      SETGTIZAPL02
+     C           KEY1      REDPEIZAPL02                  90
+     C           *IN90     IFEQ '0'
+     C*
+     C           ZCSKJY    IFEQ 'D'
+     C                     SETON                     30
+     C                     MOVE ER,3      MSG
+     C                     GOTO #ECHK1
+     C                     END
+     C           ZCSTYY    IFNE 9999
+     C                     SETON                     30
+     C                     MOVE ER,3      MSG
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C                     ELSE
+     C                     SETON                     30
+     C                     MOVE ER,3      MSG
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C*
+     C* ORDER DETAIL FILE
+     C           KEY4      SETGTAFCPL821
+     C           KEY4      REDPEAFCPL821                 93
+     C           *IN93     IFEQ '0'
+     C           C8SKJY    ANDEQ*BLANK
+     C*          C8NOYY    IFEQ *ZERO
+     C*          C8SUYY    ANDEQ*ZERO
+     C*                    SETON                     30
+     C*                    MOVE ER,4      MSG
+     C*                    GOTO #ECHK1
+     C*                    END
+     C                     END
+     C*
+     C* TEMPORARY CHECK
+     C           ZCKAKE    IFNE 4511
+     C                     SETON                     30
+     C                     MOVE ER,2      MSG
+     C                     GOTO #ECHK1
+     C                     END
+     C*
+     C           #ECHK1    ENDSR
+     C**************************************************************************
+     C*                    @WRT
+     C**************************************************************************
+     C           @WRT      BEGSR
+     C*
+     C                     CLEARAFCPP801
+     C           2000      ADD  WYYYY     C8KOYY           UPDATE YEAR
+     C                     Z-ADDWMMMM     C8KOMM                  MONTH
+     C                     Z-ADDWDDDD     C8KODD                  DAY
+     C                     Z-ADDWHHHH     C8KOHH                  HOUR
+     C                     Z-ADDWSSSS     C8KOSS                  MINUTE
+     C                     MOVE PUSR      C8KOME                  USER
+     C                     MOVEL'AFCR81'  C8KOPG                  PGM-ID
+     C                     MOVE PWKCD     C8WORK                  WORKER CD
+     C*
+     C                     MOVE BCOCD     C8KANR           CONTROL CODE
+     C                     MOVE BZETI     C8ZETI           ABSOLUTE
+     C                     MOVE BHKNO     C8HKNO           ISSUE NO.
+     C                     MOVE ZCZAIS    C8ZAIS           WIRE
+     C                     MOVE ZCZAIK    C8ZAIK           DIAMETER
+     C                     MOVE ZCKOJE    C8KOJE           VENDER
+     C                     MOVE ZCKAKE    C8KAKE           FREEWAY
+     C                     Z-ADDZCTKJR    C8TKJR           QTY/CONT.
+     C                     Z-ADD*ZERO     C8SUYY           SUMMARY DATE
+     C                     Z-ADD*ZERO     C8SUMM
+     C                     Z-ADD*ZERO     C8SUDD
+     C                     Z-ADD*ZERO     C8ODNO           ORDER #
+     C                     Z-ADD*ZERO     C8NYYY           ESTIMATE DATE
+     C                     Z-ADD*ZERO     C8NYMM
+     C                     Z-ADD*ZERO     C8NYDD
+     C                     Z-ADD*ZERO     C8NOYY           INSPECTION DATE
+     C                     Z-ADD*ZERO     C8NOMM
+     C                     Z-ADD*ZERO     C8NODD
+     C                     Z-ADD*DATE     C8DATE
+     C*
+     C* GET CREATE NUMBER
+     C           KEY3      CHAINAFCNP801             93
+     C           *IN93     IFEQ '0'
+     C                     ADD  1         CXNO
+     C                     UPDATAFCNP801
+     C*
+     C                     ELSE
+     C                     Z-ADDKEY3      CXYYMM
+     C                     Z-ADD1         CXNO
+     C                     WRITEAFCNP801
+     C                     END
+     C                     Z-ADDCXNO      C8RENO
+     C*
+     C                     WRITEAFCPP801
+     C*
+     C                     ENDSR
+     C**************************************************************************
+     C*                    @END
+     C**************************************************************************
+     C           @END      BEGSR
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+     C*
+     C                     ENDSR
+** ERROR MESSAGE
+BARCODE BLANK
+SUPPLIER WRONG
+NOT MATERIAL MAS
+ALREADY SCANNED
+
+
+

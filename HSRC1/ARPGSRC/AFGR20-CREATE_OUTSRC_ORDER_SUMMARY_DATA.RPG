@@ -1,0 +1,108 @@
+     H            Y.
+     F** AFGR10 *********************************************
+     F* CREATE OUTGOING EDI ORDER SUMMARY DATA              *
+     F*             T.SAKAKI       2016.11.14               *
+JW1  F* JW     2019.03.28 ADD UPD DATE & TIME               *
+     F*******************************************************
+     FAFDPL26 IF  E           K        DISK
+     FAFGPL01 UF  E           K        DISK                      A
+      *
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60WTIME
+     I                                        7  140WDATE
+     I                                        7  100WYYYY
+     I                                       11  120WMMMM
+     I                                       13  140WDDDD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *-----------------------------------------------------
+      *  ENTRY LIST
+      *-----------------------------------------------------
+     C           *ENTRY    PLIST
+     C                     PARM           P1SUPP  4
+     C                     PARM           P1ODNO  60
+      *----------------------------------------------------*
+      *   K  E  Y   L  I  S  T                             *
+      *----------------------------------------------------*
+     C           KEY1      KLIST
+     C                     KFLD           P1SUPP
+     C                     KFLD           P1ODNO
+     C*
+     C           KEY2      KLIST
+     C                     KFLD           P1SUPP
+     C                     KFLD           P1ODNO
+     C                     KFLD           AFPAR1
+     C                     KFLD           AFPAR2
+     C                     KFLD           AFPAR3
+      *-----------------------------------------------------
+      *  MAIN ROUTINE
+      *-----------------------------------------------------
+     C                     TIME           SDATE
+      *
+      * GET DETAIL DATA
+     C           KEY1      SETLLAFDPP201
+     C                     DO   *HIVAL
+     C           KEY1      READEAFDPP201                 80
+     C   80                LEAVE
+      *
+     C           *IN80     IFEQ '0'
+      * CALCULATE TOTAL QTY AND TOTAL WEIGHT LB
+     C           AFHAKO    MULT AFSYOS    WKTQTY  70
+     C           AFWGT1    MULT 2.2046    WKTWGT  82H      KG --> LB
+      *
+      * WRITE SUMMARY DATA
+     C                     EXSR #SB500
+      *
+     C                     ENDIF
+     C                     ENDDO
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *-----------------------------------------------------
+      *  CHECK AFGPP01
+      *-----------------------------------------------------
+     CSR         #SB500    BEGSR
+      *
+     C           KEY2      CHAINAFGPL011             81
+     C           *IN81     IFEQ '0'
+     C                     ADD  AFHAKO    AGHAKO
+     C                     ADD  WKTQTY    AGIQTY
+     C                     ADD  WKTWGT    AGIWGT
+JW1  C                     Z-ADDWDATE     AGKODT
+ |   C                     Z-ADDWTIME     AGKHMS
+ |   C                     MOVELW#USER    AGKOME
+JW1  C                     MOVELW#PGM     AGKOPG
+     C                     UPDATAFGPL011
+     C                     ELSE
+     C                     CLEARAFGPL011
+     C                     Z-ADDWDATE     AGKODT
+     C                     Z-ADDWTIME     AGKHMS
+     C                     MOVELW#USER    AGKOME
+     C                     MOVELW#PGM     AGKOPG
+     C                     MOVELAFZETI    AGZETI
+     C                     MOVELAFPAR1    AGPAR1
+     C                     MOVELAFPAR2    AGPAR2
+     C                     MOVELAFPAR3    AGPAR3
+     C                     MOVELP1SUPP    AGSUPP
+     C                     MOVELP1ODNO    AGODNO
+     C                     Z-ADDAFKODT    AGSUMD
+     C                     Z-ADDAFKHMS    AGSUMT
+     C                     Z-ADDAFSYOS    AGSYOS
+     C                     Z-ADDAFHAKO    AGHAKO
+     C                     Z-ADDWKTQTY    AGIQTY
+     C                     Z-ADD0         AGRQTY
+     C                     Z-ADDWKTWGT    AGIWGT
+     C                     Z-ADD0         AGRWGT
+     C                     MOVEL'1'       AGUPID
+     C                     MOVEL'850'     AGDKBN
+      *
+     C                     WRITEAFGPL011
+      *
+     C                     ENDIF
+      *
+     CSR         ESB501    ENDSR

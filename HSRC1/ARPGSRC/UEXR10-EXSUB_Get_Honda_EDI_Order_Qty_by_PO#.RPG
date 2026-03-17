@@ -1,0 +1,240 @@
+     H            Y.
+     F** UEXR10 ********************************************
+     F*  PROGRAM: GET HONDA EDI ORDER QTY BY PO#           *
+     F*  WRITTEN: JW (SRA) 2019.07.05                      *
+     F*----------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UEXR10'
+     F*                    PARM           $NONY   4
+     F*                    PARM           $ODRN  10
+     F*                    PARM           $MHINI 20
+     F*                    PARM           $NOHZ   8
+     F*                    PARM           $PLNT   3
+     F*                    PARM           $SHCD  10
+     F*                    PARM           $PLSH   8
+     F*                    PARM           $QTY    9
+     F*                    PARM           $MHINO 20
+     F*                    PARM           $RTN    1
+     F*  IN  $NONY :  4A DELEIVERY#
+     F*      $ODRN : 10A ORDER#
+     F*      $MHINI: 20A USER PART  (NO BLANK)
+     F*      $NOHZ :  8A EFFECTIVE DATE
+     F*  OUT $PLNT :  3A PLANT CODE
+     F*      $SHCD : 10A SHIP TO CODE
+     F*      $PLSH :  8A SHIP DATE (YYYYMMDD)
+     F*      $QTY  :  9A SHIP QTY
+     F*      $MHINO: 20A USER PART  (ORIGINAL)
+     F*      $RTN  :  1A RETURN CODE (BLANK/*)
+     F******************************************************
+     FAB#EL96SIF  E           K        DISK
+     FAB#EL95SIF  E           K        DISK
+     F            AB#E90S1                          KRENAMEAB#E94S1
+     FAB#PL2A6IF  E           K        DISK
+     FEDIPP45 IF  E           K        DISK
+      *===================================================
+      * USER PART
+     I            DS
+     I                                        1  20 WMHIN
+     I                                        1   8 WMHN1
+     I                                        9  20 WMHN2
+     I            DS
+     I                                        1  30 @MHIN
+     I                                        1   8 @MHN1
+     I                                        9   9 @BLNK
+     I                                       10  30 @MHN2
+     I            DS
+     I                                        1  20 WCMHIN
+     I                                        1   5 ACMHN1
+     I                                        6  10 ACMHN2
+     I                                       11  15 ACMHN3
+     I                                       16  20 ACMHN4
+     I            DS
+     I                                        1  20 E5MHIN
+     I                                        1   5 E5MHN1
+     I                                        6  10 E5MHN2
+     I                                       11  15 E5MHN3
+     I                                       16  20 E5MHN4
+     I            DS
+     I                                        1  30 K#MHIN
+     I                                        1   5 K#MHN1
+     I                                        6  10 K#MHN2
+     I                                       11  15 K#MHN3
+     I                                       16  20 K#MHN4
+     I                                       21  30 K#MHN5
+      * SYSTEM DATE
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *===================================================
+      *           MAIN ROUTINE
+      *===================================================
+     C                     EXSR #INIT
+      * GET USER PART
+     C                     EXSR #MHIN
+      * PROC A (EDI862)
+     C                     EXSR #862
+      * PROC A (EDI850)
+     C           $PLNT     IFEQ *BLANK
+     C                     EXSR #850
+     C                     ENDIF
+      *
+     C           $PLNT     IFEQ *BLANK
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *======================================================
+      * GET USER PART
+      *======================================================
+     C           #MHIN     BEGSR
+      *
+     C                     MOVE *BLANK    @LSTP  20
+     C                     MOVE *BLANK    @ACTP  20
+     C                     MOVE *OFF      *IN86
+      *
+     C           K#PP2A    SETGTAB#PL2A6
+     C                     DO   *HIVAL
+     C                     READPAB#PL2A6                 89
+     C   89                LEAVE
+      *
+     C           WCMHIN    IFNE $MHINI
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           ACNONY    IFEQ @NONY
+     C                     MOVELACMHIN    @ACTP
+     C                     MOVE *ON       *IN86
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           @LSTP     IFEQ *BLANK
+     C                     MOVELACMHIN    @LSTP
+     C                     MOVE *ON       *IN86
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C           *IN86     IFEQ *ON
+     C           @ACTP     IFEQ *BLANK
+     C                     MOVEL@LSTP     K#MHIN
+     C                     ELSE
+     C                     MOVEL@ACTP     K#MHIN
+     C                     ENDIF
+     C                     ENDIF
+      * IF PART IS NOT IN PP2A
+      * GET IT FROM EDIPP45
+     C           *IN86     IFEQ *OFF
+     C           K#45      CHAINEDIPP45              98
+     C           *IN98     IFEQ *OFF
+     C                     MOVELE5UPRT    K#MHIN
+     C                     MOVE *ON       *IN86
+     C                     ENDIF
+     C                     ENDIF
+      * DEFAULT PART
+     C           *IN86     IFEQ *OFF
+     C                     MOVEL@MHIN     K#MHIN
+     C                     ENDIF
+      *
+     C                     ENDSR
+      *======================================================
+      * FOR EDI 862
+      *======================================================
+     C           #862      BEGSR
+      *
+     C           K#90      SETLLAB#EL96S
+     C                     DO   *HIVAL
+     C           K#90      READEAB#EL96S                 88
+     C   88                LEAVE
+      *
+     C           AECRDT    IFLE @NOHZ
+     C                     MOVELAEPLNT    $PLNT
+     C                     MOVELAESHCD    $SHCD
+     C                     MOVELAEPLSH    $PLSH
+     C                     MOVELAEQNTY    $QTY
+     C                     MOVELAEMHIN    $MHINO
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *======================================================
+      * FOR EDI 850
+      *======================================================
+     C           #850      BEGSR
+      *
+     C           K#90      SETLLAB#EL95S
+     C                     DO   *HIVAL
+     C           K#90      READEAB#EL95S                 88
+     C   88                LEAVE
+      *
+     C           AECRDT    IFLE @NOHZ
+     C                     MOVELAEPLNT    $PLNT
+     C                     MOVELAESHCD    $SHCD
+     C                     MOVELAEPLSH    $PLSH
+     C                     MOVELAEQNTY    $QTY
+     C                     MOVELAEMHIN    $MHINO
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *======================================================
+      * INITIAL SET
+      *======================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $NONY   4        IN
+     C                     PARM           $ODRN  10        "
+     C                     PARM           $MHINI 20        "
+     C                     PARM           $NOHZ   8        "
+     C                     PARM           $PLNT   3        OUT
+     C                     PARM           $SHCD  10        "
+     C                     PARM           $PLSH   8        "
+     C                     PARM           $QTY    9        "
+     C                     PARM           $MHINO 20        "
+     C                     PARM           $RTN    1        "
+      *
+     C           K#PP2A    KLIST
+     C                     KFLD           K#NONY  40
+     C                     KFLD           K#MHN1
+     C                     KFLD           K#MHN2
+     C                     KFLD           K#MHN3
+     C                     KFLD           K#MHN4
+     C                     KFLD           K#CRDT  80
+      *
+     C           K#90      KLIST
+     C                     KFLD           KORD20
+     C                     KFLD           K#MHIN
+      *
+     C           K#45      KLIST
+     C                     KFLD           K#NONY
+     C                     KFLD           K#MHN1
+     C                     KFLD           K#MHN2
+     C                     KFLD           K#MHN3
+     C                     KFLD           K#MHN4
+      *
+     C                     MOVEL$NONY     @NONY   40
+     C                     MOVEL$ODRN     KORD20 20
+     C                     MOVEL$NOHZ     @NOHZ   80
+     C                     MOVE *BLANK    $PLNT
+     C                     MOVE *BLANK    $SHCD
+     C                     MOVE *ALL'0'   $PLSH
+     C                     MOVE *ALL'0'   $QTY
+     C                     MOVE *BLANK    $MHINO
+     C                     MOVE *BLANK    $RTN
+     C                     MOVE *BLANK    @BLNK
+     C                     TIME           SDATE
+      * SET KEY
+     C                     MOVEL$NONY     K#NONY
+     C                     Z-ADD@NOHZ     K#CRDT
+     C                     MOVEL$MHINI    K#MHIN
+      * ADJUST USER PART
+     C                     MOVEL$MHINI    WMHIN
+     C                     MOVELWMHN1     @MHN1
+     C                     MOVELWMHN2     @MHN2     P
+      *
+     C                     ENDSR
+      *====================================================

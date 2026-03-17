@@ -1,0 +1,222 @@
+     H            Y.
+     F** UEXR35A ***********************************************
+     F*  PROGRAM: CHECK PT PART STATUS BY ZETI (PASS THROUGH)  *
+     F*  WRITTEN: J.WATANABE    2020.09.25                     *
+     F*--------------------------------------------------------*
+     F*  CALLING SEQ.
+     F*                    CALL 'UEXR35A'
+     F*                    PARM           $KBN    1
+     F*                    PARM           $ZETI   4
+     F*                    PARM           $TEHI   3
+     F*                    PARM           $PAGE   2
+     F*                    PARM           $STAT   1
+     F*                    PARM           $PLPD   80
+     F*                    PARM           $PLPT   40
+     F*                    PARM           $RTN    1
+     F*  IN  $KBN  :  1A  KANBAN TYPE
+     F*      $ZETI :  4A  ABS# (PART#)
+     F*      $TEHI :  3A  LOT#
+     F*      $PAGE :  2A  PAGE#
+     F*  OUT $STAT :  1A  STATUS (A/B/C/D/E)
+     F*      $PLPD :  8S0 STORE OUT DATE
+     F*      $PLPT :  4S0 STORE OUT TIME
+     F*      $RTN  :  1A  RETURN CODE (BLANK:OK , *:NG)
+     F*  -------------------------------------------------
+     F*  $STAT=A : AFTER ISSUED
+     F*  $STAT=B : BEFORE
+     F*  $STAT=C : IN PROCESS
+     F*  $STAT=D : AFTER STORE IN
+     F*  $STAT=E : SHIPPED
+     F******************************************************
+     FALCPL06 IF  E           K        DISK
+     FALDPL2B IF  E           K        DISK
+     FALDPL30 IF  E           K        DISK
+      *
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60NOW
+     I                                        7  140TODAY
+      *===================================================
+      *           MAIN ROUTINE
+      *===================================================
+     C                     EXSR #INIT
+      *
+      * CHECK ALCPP01
+     C                     EXSR #AP01
+      * CHECK ALCPP25
+     C                     EXSR #AP25
+      * CHECK ALCPP30
+     C                     EXSR #AP30
+      *
+     C                     SELEC
+     C           AP25F     WHEQ 'Y'
+     C           AP30F     ANDEQ'Y'
+     C                     MOVEL'E'       $STAT
+      *
+     C           AP25F     WHEQ 'Y'
+     C           AP30F     ANDEQ'N'
+     C                     MOVEL'D'       $STAT
+      *
+     C           AP10F     WHEQ '2'
+     C           AP25F     ANDEQ'N'
+     C           AP30F     ANDEQ'N'
+     C                     MOVEL'C'       $STAT
+      *
+     C           AP10F     WHEQ '1'
+     C           AP25F     ANDEQ'N'
+     C           AP30F     ANDEQ'N'
+     C                     MOVEL'B'       $STAT
+      *
+     C           AP10F     WHEQ 'N'
+     C           AP25F     ANDEQ'N'
+     C           AP30F     ANDEQ'N'
+     C                     MOVEL'A'       $STAT
+     C                     ENDSL
+      *
+     C                     Z-ADD@@PLPD    $PLPD
+     C                     Z-ADD@@PLPT    $PLPT
+      *
+     C           $STAT     IFEQ *BLANK
+     C                     MOVE '*'       $RTN
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
+      *======================================================
+      * CHECK ALCPP01
+      *======================================================
+     C           #AP01     BEGSR
+      *
+     C                     MOVE 'N'       AP10F   1
+     C           K#PL06    KLIST
+     C                     KFLD           K#BRCA  1
+     C                     KFLD           K#BRCB  4
+     C                     KFLD           K#BRCC  3
+      *
+     C                     MOVEL$KBN      K#BRCA           KUBUN
+     C                     MOVEL$ZETI     K#BRCB           ZETI
+     C                     MOVEL$TEHI     K#BRCC           TEHI
+     C           K#PL06    SETLLALCPL06
+     C                     DO   *HIVAL
+     C           K#PL06    READEALCPL06                  98
+     C   98                LEAVE
+      * SELECT
+     C           A8DATE    IFLE @LASTY
+     C                     ITER
+     C                     ENDIF
+      * SELECT
+     C           A8BRCD    IFNE $PAGE
+     C                     ITER
+     C                     ENDIF
+     C           A8ERR     IFNE *BLANK
+     C                     ITER
+     C                     ENDIF
+     C           A8PGID    IFNE 'ALCR12'
+     C                     ITER
+     C                     ENDIF
+      *
+     C           A8BRC3    IFNE *BLANK
+     C           A8BRC2    ANDEQ'SHIPPING'
+     C                     MOVE '2'       AP10F
+     C                     ENDIF
+      *
+     C           AP10F     IFNE '2'
+     C           A8BRC3    ANDNE*BLANK
+     C                     MOVE '1'       AP10F
+      *
+     C           A8DATE    IFGT @@PLPD
+     C                     Z-ADDA8DATE    @@PLPD
+     C           A8TIME    DIV  100       @@PLPT
+     C                     ENDIF
+     C                     ENDIF
+      *
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *======================================================
+      * CHECK ALCPP25
+      *======================================================
+     C           #AP25     BEGSR
+      *
+     C                     MOVE 'N'       AP25F   1
+      *
+     C           K#PL2B    KLIST
+     C                     KFLD           K#AZET  4
+     C                     KFLD           K#TEHI  3
+     C                     KFLD           K#PAGE  2
+      *
+     C                     MOVEL$ZETI     K#AZET
+     C                     MOVEL$TEHI     K#TEHI
+     C                     MOVEL$PAGE     K#PAGE
+     C           K#PL2B    SETLLALDPL2B
+     C                     DO   *HIVAL
+     C           K#PL2B    READEALDPL2B                  97
+     C   97                LEAVE
+      * SELECT
+     C           A9CODT    IFLE @LASTY
+     C                     ITER
+     C                     ENDIF
+     C           A9OKNG    IFNE 'OK'
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVE 'Y'       AP25F
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *======================================================
+      * CHECK ALCPP30
+      *======================================================
+     C           #AP30     BEGSR
+      *
+     C                     MOVE 'N'       AP30F   1
+      *
+     C           K#PL30    KLIST
+     C                     KFLD           K#AZET  4
+     C                     KFLD           K#TEHI  3
+     C                     KFLD           K#PAGE  2
+      *
+     C                     MOVEL$ZETI     K#AZET
+     C                     MOVEL$TEHI     K#TEHI
+     C                     MOVEL$PAGE     K#PAGE
+     C           K#PL30    SETLLALDPL30
+     C                     DO   *HIVAL
+     C           K#PL30    READEALDPL30                  97
+     C   97                LEAVE
+      * SELECT
+     C           A3KSHZ    IFLE @LASTY
+     C                     ITER
+     C                     ENDIF
+      *
+     C                     MOVE 'Y'       AP30F
+     C                     LEAVE
+     C                     ENDDO
+      *
+     C                     ENDSR
+      *======================================================
+      * INITIAL SET
+      *======================================================
+     C           #INIT     BEGSR
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           $KBN    1
+     C                     PARM           $ZETI   4
+     C                     PARM           $TEHI   3
+     C                     PARM           $PAGE   2
+     C                     PARM           $STAT   1
+     C                     PARM           $PLPD   80
+     C                     PARM           $PLPT   40
+     C                     PARM           $RTN    1
+      *
+     C                     MOVE *BLANK    $STAT
+     C                     Z-ADD0         $PLPD
+     C                     Z-ADD0         $PLPT
+     C                     Z-ADD0         @@PLPD  80
+     C                     Z-ADD0         @@PLPT  40
+     C                     MOVE *BLANK    $RTN
+     C                     TIME           SDATE
+      * LAST YEAR
+     C           TODAY     SUB  10000     @LASTY  80
+      *
+     C                     ENDSR

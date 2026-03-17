@@ -1,0 +1,211 @@
+     H            Y.
+     F** AFHR01 *********************************************
+     F* CREATE EDI FORECAST DATA 830 FOR OUTSOURCE          *
+     F*             T.SAKAKI       2016.08.12               *
+     F*******************************************************
+     FAFHPW01 CF  E                    WORKSTN
+     FAGDPL12 IF  E           K        DISK
+     FFGBPL01 IF  E           K        DISK
+      *
+     E                    ER      1  20 60
+      *
+     I            DS
+     I                                        1  140SDATE
+     I                                        1   60WTIME
+     I                                        7  140WDATE
+     I                                        7  100WYYYY
+     I                                       11  120WMMMM
+     I                                       13  140WDDDD
+      *
+     I            DS
+     I                                        1   80D1SDAT
+     I                                        1   40D1SDYY
+     I                                        5   60D1SDMM
+     I                                        7   80D1SDDD
+     I            DS
+     I                                        1   80F8KYMD
+     I                                        1   40F8KAYY
+     I                                        5   60F8KAMM
+     I                                        7   80F8KADD
+     I            DS
+     I                                        1   80B2SKHZ
+     I                                        1   40B2SKYY
+     I                                        5   60B2SKMM
+     I                                        7   80B2SKDD
+      *
+     I           SDS
+     I                                     *PROGRAM W#PGM
+     I                                      244 253 W#WSID
+     I                                      254 263 W#USER
+     I                                      264 269 W#JBNO
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           P1CODE  4
+     C                     PARM           P1SDAT  80
+     C                     PARM           P1TER1  20
+     C                     PARM           P1TER2  1
+     C                     PARM           P1TMQL  1
+     C                     PARM           P1LDT1  20
+     C                     PARM           P1LDT2  1
+     C                     PARM           P9CMD   2
+      *----------------------------------------------------*
+      *   K  E  Y   L  I  S  T                             *
+      *----------------------------------------------------*
+     C           KEYT      KLIST
+     C                     KFLD           WYYYY
+     C                     KFLD           WMMMM
+     C                     KFLD           WDDDD
+     C           KEYS      KLIST
+     C                     KFLD           D1SDYY
+     C                     KFLD           D1SDMM
+     C                     KFLD           D1SDDD
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     C                     TIME           SDATE
+     C                     EXSR #SB100
+     C           DSPSW     DOUEQ'99'
+     C                     EXSR #SB200
+     C                     ENDDO
+     C                     EXSR #SB300
+      *----------------------------------------------------*
+      * INZ                                                *
+      *----------------------------------------------------*
+     CSR         #SB100    BEGSR
+      *
+     C                     MOVEL'01'      DSPSW   2
+     C                     MOVEL*BLANK    P9CMD
+      * VENDOR CODE
+     C                     MOVE P1CODE    D1CODE
+     C           D1CODE    CHAINFGBPL011             92
+     C           *IN92     IFEQ '0'
+     C           B2SKJY    IFEQ 'D'
+     C           B2SKHZ    ANDLEWDATE
+     C                     ELSE
+     C                     MOVELB2SMEI    D1SMEI
+     C                     ENDIF
+     C                     ENDIF
+      * START DATE (GET NEXT MONDAY)
+     C           KEYT      SETLLAGDPL121
+     C                     READ AGDPL12                  30
+     C* MONDAY
+     C           F8YOBI    IFEQ 1
+     C                     READ AGDPL12                  30
+     C                     ENDIF
+     C* OTHERS
+     C                     DO   *HIVAL
+     C                     READ AGDPL12                  30
+     C           *IN30     IFEQ '0'
+     C           F8YOBI    ANDEQ1
+     C                     Z-ADDF8KYMD    D1SDAT
+     C                     LEAVE
+     C                     ENDIF
+     C  N30                ENDDO
+     C*
+      * TERM (WEEK)
+     C                     Z-ADD12        D1TER1
+     C                     MOVEL'W'       D1TER2
+      * TIMING QUALFIER(WEEKLY)
+     C                     MOVEL'W'       D1TMQL
+      *
+      * LEAD TIME   4WEEK = 1MONTH
+     C                     Z-ADD4         D1LDT1
+     C                     MOVEL'W'       D1LDT2
+      *
+     CSR         ESB100    ENDSR
+      *----------------------------------------------------*
+      * MAIN                                               *
+      *----------------------------------------------------*
+     CSR         #SB200    BEGSR
+      *
+     C           DSPSW     DOWEQ'01'
+     C                     EXSR #SB210
+     C                     ENDDO
+      *
+     CSR         ESB200    ENDSR
+      *----------------------------------------------------*
+      * MAIN 2                                             *
+      *----------------------------------------------------*
+     CSR         #SB210    BEGSR
+      *
+     C                     EXFMTAFHPW011
+     C                     SETOF                     313299
+     C                     SETOF                     333435
+     C                     SETOF                     3637
+     C                     MOVEL*BLANK    D1ERR
+      *
+     C           *IN01     IFEQ '1'
+     C                     MOVEL'01'      P9CMD
+     C                     MOVEL'99'      DSPSW
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+      * START DATE
+     C           KEYS      CHAINAGDPL12              90
+     C           *IN90     IFEQ '1'
+      * NOT MONDAY ?
+     C           F8YOBI    ORNE 1
+     C                     MOVELER,1      D1ERR
+     C                     SETON                     3199
+     C                     GOTO ESB210
+     C                     ENDIF
+      * TERM
+     C           D1TER1    IFEQ 0
+     C                     MOVELER,2      D1ERR
+     C                     SETON                     3299
+     C                     GOTO ESB210
+     C                     ENDIF
+     C           D1TER2    IFEQ *BLANK
+     C                     MOVELER,2      D1ERR
+     C                     SETON                     3399
+     C                     GOTO ESB210
+     C                     ENDIF
+      * TIMING QUALIFIER
+     C           D1TMQL    IFEQ *BLANK
+     C                     MOVELER,2      D1ERR
+     C                     SETON                     3499
+     C                     GOTO ESB210
+     C                     ENDIF
+      * LEAD TIME
+     C           D1LDT1    IFEQ 0
+     C                     MOVELER,2      D1ERR
+     C                     SETON                     3599
+     C                     GOTO ESB210
+     C                     ENDIF
+     C           D1LDT2    IFEQ *BLANK
+     C                     MOVELER,2      D1ERR
+     C                     SETON                     3699
+     C                     GOTO ESB210
+     C                     ENDIF
+      *
+     C           *IN99     IFEQ *OFF
+     C           *IN05     IFEQ '1'
+     C                     MOVEL'99'      DSPSW
+      *
+     C                     Z-ADDD1SDAT    P1SDAT
+     C                     Z-ADDD1TER1    P1TER1
+     C                     MOVELD1TER2    P1TER2
+     C                     MOVELD1TMQL    P1TMQL
+     C                     Z-ADDD1LDT1    P1LDT1
+     C                     MOVELD1LDT2    P1LDT2
+      *
+     C                     MOVEL'05'      P9CMD
+     C                     ENDIF
+      *
+     C                     ENDIF
+      *
+     CSR         ESB210    ENDSR
+      *----------------------------------------------------*
+      * END                                                *
+      *----------------------------------------------------*
+     CSR         #SB300    BEGSR
+     C                     SETON                     LR
+     C                     RETRN
+     CSR         ESB300    ENDSR
+** ER
+E-01 INPUT CORRECT DATE.
+E-02 INPUT REQUIRED.
+E-03
+E-04
+E-05
+E-06

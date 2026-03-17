@@ -1,0 +1,169 @@
+     H            Y.                                    1
+      ** AJZR11 **********************************
+      *端数統合・造り過ぎからマイナスの生産指示*
+      *               CREATE DATE : 2014.08.11   *
+      *               AUTHOR      : T.SAKASHITA  *
+      *               CREATE DATE : 2024.05.17   *
+      *               AUTHOR      : QY.LIU       *
+      ********************************** AJSR1A **
+     FAGAPL31 IF  E           K        DISK
+     FFCEPL01 IF  E           K        DISK
+     FAU#PP11 O   E                    DISK
+     FAGAPL41 IF  E           K        DISK
+     FAU#PP91 O   E                    DISK
+     I           SDS
+     I                                        1   8 #PGM
+     I                                      244 253 #WSID
+     I                                      254 263 #USER
+     I            DS
+     I                                        1  140D#TIME
+     I                                        1   60NOW
+     I                                        7  140TODAY
+     I*CHANGE DATE OF FCEPP01
+     I            DS
+     I                                        1   80A2DATE
+     I                                        1   40A2SYYY
+     I                                        5   60A2SYMM
+     I                                        7   80A2SYDD
+     I            DS
+     I                                        1   80CQKOHZ
+     I                                        1   40CQKOYY
+     I                                        5   60CQKOMM
+     I                                        7   80CQKODD
+     I            DS
+     I                                        1   60CQKOTI
+     I                                        1   20CQKOHH
+     I                                        3   40CQKOSS
+     I            DS
+     I                                        1   80CQTHHZ
+     I                                        1   40CQTHYY
+     I                                        5   60CQTHMM
+     I                                        7   80CQTHDD
+     I            DS
+     I                                        1   60CQTHTI
+     I                                        1   20CQTHJI
+     I                                        3   40CQTHPN
+     I            DS
+     I                                        1   80CQNOHZ
+     I                                        1   40CQNOYY
+     I                                        5   60CQNOMM
+     I                                        7   80CQNODD
+     I            DS
+     I                                        1   80CQURHZ
+     I                                        1   40CQURYY
+     I                                        5   60CQURMM
+     I                                        7   80CQURDD
+     I            DS
+     I                                        1   60CQURTI
+     I                                        1   20CQURJI
+     I                                        3   40CQURPN
+     C           *ENTRY    PLIST
+     C                     PARM           P@HIN1  5
+     C                     PARM           P@HIN2  5
+     C                     PARM           P@HIN3  2
+     C                     PARM           P@APPL  1
+      * INITIAL SETTING
+     C                     TIME           D#TIME
+      *
+     C                     MOVE P@HIN1    K@HIN1  5
+     C                     MOVE P@HIN2    K@HIN2  5
+     C                     MOVE P@HIN3    K@HIN3  2
+      *
+     C           HINKEY    KLIST
+     C                     KFLD           K@HIN1  5
+     C                     KFLD           K@HIN2  5
+     C                     KFLD           K@HIN3  2
+      *
+     C           HINKEY    CHAINAGAPL31              88
+     C           *IN88     IFEQ '0'
+     C           CBSKJY    IFEQ 'D'
+     C                     SETON                     88
+     C                     END
+     C                     END
+      *
+     C   88                GOTO @END
+      *
+     C                     CLEARAU#PP111
+      *
+     C                     Z-ADD*DATE     CQKOHZ
+     C                     TIME           CQKOTI
+     C                     MOVEL#PGM      CQKOME
+     C                     MOVE K@HIN1    CQSHN1
+     C                     MOVE K@HIN2    CQSHN2
+     C                     MOVE K@HIN3    CQSHN3
+      *
+     C           HINKEY    CHAINFCEPL011             88
+     C           *IN88     IFEQ '0'
+     C           A2GSKD    IFEQ 'D'
+     C                     SETON                     88
+     C                     END
+     C                     END
+      *
+     C   88                GOTO @END
+      *
+     C           A2DATE    IFLT TODAY
+     C                     Z-ADDA2SSYS    CQSYUY
+     C                     ELSE
+     C                     Z-ADDA2KSYS    CQSYUY
+     C                     ENDIF
+      *
+     C           1         MULT CQSYUY    CQSRYO
+     C                     Z-SUBCQSRYO    CQSRYO
+     C                     Z-ADDTODAY     @NXDY   80
+     C                     Z-ADD@NXDY     CQTHHZ
+     C                     TIME           CQTHTI
+     C                     Z-ADDTODAY     CQNOHZ
+     C                     Z-ADD*ZERO     CQNOBB
+     C                     MOVE 'G'       CQTHAI
+     C                     MOVE 'K'       CQSKKB
+     C                     Z-SUB1         CQHAKO
+      *
+     C                     MOVE '4'       CQDTSO
+      * 端数統合
+     C                     MOVE '32'      CQGYOM
+      * 造り過ぎ（マイナス反映）
+     C           P@APPL    IFEQ '1'
+     C                     MOVE '56'      CQGYOM
+     C                     ENDIF
+      *
+     C                     Z-ADDTODAY     CQURHZ
+     C                     TIME           CQURTI
+     C                     MOVE 'B'       CQBNKA
+     C                     MOVE K@HIN3    CQHBSB
+      *
+     C                     CALL 'AUDRSB'
+     C                     PARM           WJYNO   70
+     C                     Z-ADDWJYNO     CQJTNO
+      *ビニールかんばんのデータもこのプログラムを通るようにしたので
+      *ビニールかんばんのデータはAU#PP11に書かないように制御を追加
+     C           P@APPL    IFNE 'P'
+     C           P@APPL    ANDNE'2'
+     C                     WRITEAU#PP111
+     C                     END
+      *
+      * つるべ    QY.LIU  2024.05.17
+     C           HINKEY    CHAINAGAPL41              77
+      *
+     C           *IN77     IFEQ '0'
+     C           CBSKJY    ANDEQ*BLANK
+     C                     Z-ADDCBSYUY    CQSYUY
+     C           CQSRYO    DIV  CQSYUY    CQHAKO
+     C                     MVR            SS      30
+     C           SS        IFNE 0
+     C           SS        IFLT 0
+     C                     SUB  1         CQHAKO
+     C                     ELSE
+     C                     ADD  1         CQHAKO
+     C                     ENDIF
+     C                     ENDIF
+     C                     WRITEAU#PP911
+     C                     ENDIF
+     C*
+     C*
+     C*
+      *
+     C           @END      TAG
+      *
+     C                     SETON                     LR
+     C                     RETRN
+      *

@@ -1,0 +1,374 @@
+     H            Y.
+      ** GAHR35 *******************************************************
+      *  UPDATE OF CARRIER M/F
+      *  KIRI                                            2017.06.28
+      *****************************************************************
+     FGAHPW35 CF  E                    WORKSTN
+     F                                        RRN1  KSFILE SFREC1
+      * CARRIER M/F  LF1                           *
+     FGAHPL35 UF  E           K        DISK                      A
+      *===============================================================
+     E                    ER      1  20 60
+     E                    @CRC     9999  2
+     E                    @CRN     9999 48
+      *===============================================================
+      *---
+     I            DS
+     I                                        1  48 S1DATA
+     I                                        1   2 S1CRCD
+     I                                        3  47 S1CRNA
+     I                                        3  17 S1CRN1
+     I                                       18  32 S1CRN2
+     I                                       33  47 S1CRN3
+     I                                       48  48 S1MNT
+     I            DS
+     I                                        1   2 D1CRCD
+     I                                        1   1 D1CRC1
+     I                                        2   2 D1CRC2
+     I****************************
+      *プログラム状況データ構造*
+     I****************************
+     I           SDS
+     I                                     *PROGRAM W$PGM
+     I                                      244 253 W$WSID
+     I                                      254 263 W$USER
+     I                                      264 269 W$JBNO
+     I            DS
+     I                                        1  140@TIME
+     I                                        1   60@SYSTM
+     I                                        7  140@SYSHZ
+     C*===============================================================
+     C*
+     C*===============================================================
+     C                     MOVE '#INIT   '@STEP   8
+     C*
+     C           @STEP     DOUEQ'#END    '
+     C           @STEP     CASEQ'#INIT   '#INIT            初期処理
+     C           @STEP     CASEQ'#DSP1   '#DSP1
+     C           @STEP     CASEQ'#CHK1   '#CHK1
+     C           @STEP     CASEQ'#CHK1 F5'#CHK1
+     C           @STEP     CASEQ'#UPDAT  '#UPDAT
+     C                     ENDCS
+     C                     ENDDO
+     C*
+     C                     SETON                     LR
+     C                     RETRN
+     C*===============================================================
+      * 初期ﾈｮmb
+     C*===============================================================
+     C           #INIT     BEGSR
+     C                     MOVEA*ALL'0'   *IN
+     C                     TIME           @TIME
+      *
+     C           *LOVAL    SETLLGAHPL35
+     C                     Z-ADD0         X       40
+     C                     MOVE *BLANK    @CRC
+     C                     MOVE *BLANK    @CRN
+      *
+     C                     DO   *HIVAL
+     C                     READ GAHPL35             N    90
+     C   90                LEAVE
+     C           G5SKJY    IFEQ 'D'
+     C           G5SKHZ    ANDLE@SYSHZ
+     C                     ITER
+     C                     ENDIF
+     C*
+     C                     MOVELG5CRCD    S1CRCD           CARRIER CODE
+     C                     MOVELG5CRN1    S1CRN1           CARRIER NAME 1
+     C                     MOVELG5CRN2    S1CRN2           CARRIER NAME 2
+     C                     MOVELG5CRN3    S1CRN3           CARRIER NAME 3
+     C                     MOVE *BLANK    S1MNT
+     C                     ADD  1         X
+     C                     MOVE S1CRCD    @CRC,X
+     C                     MOVE S1DATA    @CRN,X
+     C                     ENDDO
+      *-------------------*
+     C                     Z-ADD1         @@PAGE  40
+     C                     EXSR #SFSET
+     C                     SETON                     91
+      *
+     C                     MOVE *BLANK    D1KKBN           更新区分
+     C                     MOVE *BLANK    D1CRCD            CARRIER
+     C                     MOVE *BLANK    D1CRN1            NAME1
+     C                     MOVE *BLANK    D1CRN2            NAME2
+     C                     MOVE *BLANK    D1CRN3            NAME2
+     C                     MOVE *BLANK    D1ERR            d[ｰxｮﾈｰﾆﾞ
+      *
+     C                     WRITEGAHPW352                   罫線CLR
+     C                     WRITEGAHPW353                   罫線DSP
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDSR
+     C*===============================================================
+      *サブファイル作成
+     C*===============================================================
+     C           #SFSET    BEGSR
+     C*<SFLCLR>
+     C                     SETON                     73
+     C                     WRITESFCTL1
+     C                     SETOF                     73
+     C                     Z-ADD0         RRN1    40
+     C           @@PAGE    MULT 10        X       40
+     C                     SUB  10        X
+     C                     SETOF                     96
+      *-------------------------
+     C                     DO   10
+     C                     ADD  1         X
+     C           @CRN,X    IFEQ *BLANK
+     C                     SETON                     96
+     C                     LEAVE
+     C                     ENDIF
+     C*
+     C                     MOVE @CRN,X    S1DATA
+     C                     MOVEL*BLANK    S1COM
+     C                     SELEC
+     C           S1MNT     WHEQ '0'
+     C                     MOVEL'CANCEL'  S1COM
+     C           S1MNT     WHEQ '1'
+     C                     MOVEL'CHANGE'  S1COM
+     C           S1MNT     WHEQ '2'
+     C                     MOVEL'ADD   '  S1COM
+     C                     ENDSL
+     C*
+     C                     ADD  1         RRN1
+     C                     WRITESFREC1
+     C                     ENDDO
+      *-------------------------
+     C                     Z-ADDRRN1      ENDRRN  40
+     C                     ENDSR
+     C*===============================================================
+      *画面１*
+     C*===============================================================
+     C           #DSP1     BEGSR
+     C*
+     C**                   WRITEGAHPW353                   罫線DSP
+     C                     WRITEGAHPW351
+     C           ENDRRN    IFNE 0
+     C                     SETON                     72     SFLDSP
+     C                     ENDIF
+     C                     SETON                     71     SFLDSPCTL
+     C                     EXFMTSFCTL1
+     C                     SETOF                     7172
+     C                     MOVEA'00000000'*IN,31
+     C                     SETOF                     99
+      *
+     C                     SELEC
+      *-------*
+      * (F3)  *
+      *-------*
+     C           *INKC     WHEQ *ON
+     C                     WRITEGAHPW352                   罫線CLR
+     C                     MOVE '#END    '@STEP
+      *-------*
+      * (F5)  *
+      *-------*
+     C           *INKE     WHEQ *ON
+     C                     MOVE '#CHK1 F5'@STEP
+      *-------*
+      * ROLL UP
+      *-------*
+     C           *IN75     WHEQ *ON
+     C           *IN96     IFEQ *OFF
+     C                     ADD  1         @@PAGE
+     C                     EXSR #SFSET
+     C           ENDRRN    IFEQ 0
+     C                     SUB  1         @@PAGE
+     C                     EXSR #SFSET
+     C                     ENDIF
+     C                     ENDIF
+      *-------*
+      * ROLL DOWN
+      *-------*
+     C           *IN76     WHEQ *ON
+     C           @@PAGE    IFGT 1
+     C                     SUB  1         @@PAGE
+     C                     EXSR #SFSET
+     C                     ENDIF
+      *-------*
+     C                     OTHER
+     C                     MOVE '#CHK1   '@STEP
+     C                     ENDSL
+     C*
+     C                     ENDSR
+     C*===============================================================
+      *画面１チェック
+     C*===============================================================
+     C           #CHK1     BEGSR
+      *----------------------*
+      * UPDATE更新区分(31)
+      *----------------------*
+S1   C                     SELEC
+ 1   C           D1KKBN    WHEQ '0'                        :取消
+ 1   C           D1KKBN    WHEQ '1'                        :変更
+ 1   C           D1KKBN    WHEQ '2'                        :追加
+ 1   C           D1KKBN    WHEQ ' '                        :未入力
+     C                     SETON                     3199
+     C                     MOVELER,2      D1ERR
+     C                     GOTO $CHK1Z
+ 1   C                     OTHER
+     C                     SETON                     3199
+     C                     MOVELER,1      D1ERR
+     C                     GOTO $CHK1Z
+E1   C                     ENDSL
+      *----------------------*
+      * CARRIER CODE (32)
+      *----------------------*
+     C           D1CRC1    IFEQ *BLANK
+     C           D1CRC2    OREQ *BLANK
+     C                     SETON                     3299
+     C                     MOVELER,3      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+      *----------------------*
+     C           D1CRCD    CHAINGAHPL35             N90
+      *
+S1   C                     SELEC
+ 1   C           D1KKBN    WHEQ '0'                        :取消
+     C           *IN90     IFEQ *ON
+     C                     SETON                     313299
+     C                     MOVELER,4      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C           G5SKJY    IFEQ 'D'
+     C           G5SKHZ    ANDLE@SYSHZ
+     C                     SETON                     313299
+     C                     MOVELER,5      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+ 1   C           D1KKBN    WHEQ '1'                        :変更
+     C           *IN90     IFEQ *ON
+     C                     SETON                     313299
+     C                     MOVELER,6      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+     C           G5SKJY    IFEQ 'D'
+     C           G5SKHZ    ANDLE@SYSHZ
+     C                     SETON                     313299
+     C                     MOVELER,5      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+ 1   C           D1KKBN    WHEQ '2'                        :追加
+     C           *IN90     IFEQ *OFF
+     C           G5SKJY    ANDNE'D'
+     C                     SETON                     313299
+     C                     MOVELER,7      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+E1   C                     ENDSL
+     C*
+S1   C           D1KKBN    IFEQ '0'                        :取消
+     C                     MOVELG5CRN1    D1CRN1           CARRIER NAME 1
+     C                     MOVELG5CRN2    D1CRN2           CARRIER NAME 2
+     C                     MOVELG5CRN3    D1CRN3           CARRIER NAME 3
+E1   C                     ENDIF
+     C*
+S1   C           D1KKBN    IFEQ '1'                        :変更
+     C           D1CRN1    IFEQ *BLANK
+     C           D1CRN2    ANDEQ*BLANK
+     C           D1CRN3    ANDEQ*BLANK
+     C                     MOVELG5CRN1    D1CRN1           CARRIER NAME 1
+     C                     MOVELG5CRN2    D1CRN2           CARRIER NAME 2
+     C                     MOVELG5CRN3    D1CRN3           CARRIER NAME 3
+     C                     ENDIF
+E1   C                     ENDIF
+      *----------------------*
+      * CARRIER NAME (33)
+      *----------------------*
+     C           D1CRN1    IFEQ *BLANK
+     C           D1CRN2    ANDEQ*BLANK
+     C           D1CRN3    ANDEQ*BLANK
+     C                     SETON                     3399
+     C                     MOVELER,8      D1ERR
+     C                     GOTO $CHK1Z
+     C                     ENDIF
+      *----------------------*
+     C           $CHK1Z    TAG
+      *----------------------*
+     C           *IN99     IFEQ *OFF
+     C           @STEP     ANDEQ'#CHK1 F5'
+     C                     MOVE '#UPDAT  '@STEP
+     C                     ELSE
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDIF
+      *----------------------*
+     C                     ENDSR
+     C*===============================================================
+      *ファイル更新処理
+     C*===============================================================
+     C           #UPDAT    BEGSR
+     C*
+     C           D1CRCD    CHAINGAHPL35              90
+     C   90                CLEARGAHPL351
+     C*
+S1   C                     SELEC
+-1   C           D1KKBN    WHEQ '0'                        :CANCEL
+     C                     MOVEL'D'       G5SKJY           DELETE CODE D
+     C                     Z-ADD@SYSHZ    G5SKHZ           DELETE DATE
+     C                     Z-ADD@SYSTM    G5SKTM           DELETE TIME
+     C                     MOVELW$USER    G5SKNM           DELETE PERSON
+-1   C                     OTHER                           :ADD CHANGE
+     C                     MOVEL' '       G5SKJY           DELETE CODE D
+     C                     Z-ADD0         G5SKHZ           DELETE DATE
+     C                     Z-ADD0         G5SKTM           DELETE TIME
+     C                     MOVEL*BLANK    G5SKNM           DELETE PERSON
+     C                     Z-ADD@SYSHZ    G5KOHZ           UPDATE DATE
+     C                     Z-ADD@SYSTM    G5KOTM           UPDATE TIME
+     C                     MOVELW$PGM     G5KOPG           UPDATE PROGRAM
+     C                     MOVELW$USER    G5KONM           UPDATE PERSON
+     C                     MOVELD1CRCD    G5CRCD            CARRIER
+     C                     MOVELD1CRN1    G5CRN1            NAME1
+     C                     MOVELD1CRN2    G5CRN2            NAME2
+     C                     MOVELD1CRN3    G5CRN3            NAME2
+E1   C                     ENDSL
+      *
+     C   90                WRITEGAHPL351
+     C  N90                UPDATGAHPL351
+     C*
+S1   C           D1KKBN    IFEQ '0'                        :CANCEL
+     C           D1KKBN    OREQ '1'                        :CHANGE
+     C                     Z-ADD1         X
+     C           D1CRCD    LOKUP@CRC,X                   50
+ S2  C           *IN50     IFEQ *ON
+     C                     MOVEL@CRN,X    S1DATA
+     C                     MOVELD1CRN1    S1CRN1           CARRIER NAME 1
+     C                     MOVELD1CRN2    S1CRN2           CARRIER NAME 2
+     C                     MOVELD1CRN3    S1CRN3           CARRIER NAME 3
+     C                     MOVELD1KKBN    S1MNT
+     C                     MOVELS1DATA    @CRN,X
+ E2  C                     ENDIF
+E1   C                     ENDIF
+      *
+S1   C           D1KKBN    IFEQ '2'                        :ADD
+     C                     MOVELD1CRCD    S1CRCD           CARRIER CODE
+     C                     MOVELD1CRN1    S1CRN1           CARRIER NAME 1
+     C                     MOVELD1CRN2    S1CRN2           CARRIER NAME 2
+     C                     MOVELD1CRN3    S1CRN3           CARRIER NAME 3
+     C                     MOVELD1KKBN    S1MNT
+     C                     Z-ADD1         X
+     C           '  '      LOKUP@CRC,X                   50
+ S2  C           *IN50     IFEQ *ON
+     C                     MOVELD1CRCD    @CRC,X           CARRIER CODE
+     C                     MOVELS1DATA    @CRN,X
+ E2  C                     ENDIF
+E1   C                     ENDIF
+     C*
+     C                     MOVEL*BLANK    D1KKBN           更新区分
+     C                     MOVEL*BLANK    D1CRCD           CARRIER CODE
+     C                     MOVEL*BLANK    D1CRN1           CARRIER NAME 1
+     C                     MOVEL*BLANK    D1CRN2           CARRIER NAME 2
+     C                     MOVEL*BLANK    D1CRN3           CARRIER NAME 3
+     C                     EXSR #SFSET
+     C                     MOVE '#DSP1   '@STEP
+     C                     ENDSR
+      *================================================================
+      *================================================================
+**  ERROR
+E-01 UPDATE INSTRUCTION <0 1 2>
+E-02 INPUT UPDATE
+E-03 INPUT CARRIER CODE WITH NO BLANK SPACE.
+E-04 THERE ISN'T CANCEL DATA
+E-05 DATA IS CANCELLED ALREADY
+E-06 THERE ISN'T CHANGE DATA
+E-07 THERE IS DATA
+E-08 INPUT CARRIER NAME
+E-09
+E-10

@@ -1,0 +1,122 @@
+     H            Y/                                    1
+      ***** GDGR1L ***********************************
+      *     GET ORDER NUM, SEIH
+      *     LEC                        2016/07/06
+      ************************************************
+     FAGDPL11 IF  E           K        DISK
+     FAAPPL05 IF  E           K        DISK
+     FAKBPL06 IF  E           K        DISK
+     FAANPL05 IF  E           K        DISK
+      *
+      * System Date(8 DIGITS)
+     I            DS
+     I                                        1   80WSDATE
+     I                                        1   40WSYYYY
+     I                                        5   60WSMM
+     I                                        7   80WSDD
+     I                                        3   4 YY
+     I                                        5   6 MM
+      * Order number
+     I                                        1   6 ODER
+     I                                        1   2 YY@ORD
+     I                                        3   4 MM@ORD
+     I                                        5   6 SQ@ORD
+      *
+     C           *ENTRY    PLIST
+     C                     PARM           PZETI   4
+     C                     PARM           PODER   6
+     C                     PARM           PSEIH   1
+     C                     PARM           PRENB   4
+      *
+      * blank out parameters
+     C                     MOVE *BLANKS   PODER
+     C                     MOVE *BLANK    PSEIH
+     C                     MOVE '0000'    PRENB
+      *
+      * Get Order Number
+      *
+     C                     Z-ADD*DATE     WSDATE
+      *
+     C           AGDP11    KLIST
+     C                     KFLD           WSYYYY
+     C                     KFLD           WSMM
+      *
+     C           AGDP11    CHAINAGDPL11              50
+     C           *IN50     DOWEQ*OFF
+      *
+     C                     ADD  1         SEQ#    20
+     C           F8KADD    IFEQ WSDD
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           AGDP11    READEAGDPL11                  50
+     C                     ENDDO
+      *
+     C                     MOVE YY        YY@ORD
+     C                     MOVE MM        MM@ORD
+     C                     MOVE SEQ#      SQ@ORD
+     C                     MOVE ODER      PODER
+      *
+      * Get Product Code (SEIH)
+      *
+      *  Find Absolute Id (ZETI)....
+      *  Check for it in COMPLETION PRODUCT KANBAN M/F
+      *
+     C           AAPL05    KLIST
+     C                     KFLD           PZETI
+      *
+     C           AAPL05    CHAINAAPPL05              50
+     C           *IN50     DOWEQ*OFF
+      *
+     C           L5SKJY    IFEQ *BLANK
+     C                     MOVE '0'       PSEIH
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           AAPL05    READEAAPPL05                  50
+     C                     ENDDO
+      *
+      *  If ZETI not found,
+      *  Check for it in COMPONENTS KANBAN M/F
+      *
+     C           PSEIH     IFEQ *BLANK
+      *
+     C           AKBL06    KLIST
+     C                     KFLD           PZETI
+      *
+     C           AKBL06    CHAINAKBPL06              50
+     C           *IN50     DOWEQ*OFF
+      *
+     C           L1SKJY    IFEQ *BLANK
+     C                     MOVE '3'       PSEIH
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           AKBL06    READEAKBPL06                  50
+     C                     ENDDO
+      *
+     C                     ENDIF
+      *
+      *  If ZETI still not found,
+      *  Check for it in HALF-FINISHED GOODS KANBAN M/F
+      *
+     C           PSEIH     IFEQ *BLANK
+      *
+     C           AANL05    KLIST
+     C                     KFLD           PZETI
+      *
+     C           AANL05    CHAINAANPL05              50
+     C           *IN50     DOWEQ*OFF
+      *
+     C           L7SKJY    IFEQ *BLANK
+     C                     MOVE '6'       PSEIH
+     C                     LEAVE
+     C                     ENDIF
+      *
+     C           AANL05    READEAANPL05                  50
+     C                     ENDDO
+      *
+     C                     ENDIF
+      *
+     C                     MOVE *ON       *INLR
+     C                     RETRN
