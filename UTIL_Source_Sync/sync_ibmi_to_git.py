@@ -137,8 +137,8 @@ def get_source_members(library: str, srcfile: str, conn) -> List[Dict[str, str]]
     return members
 
 
-def export_member_to_temp(library: str, srcfile: str, member: str) -> Optional[str]:
-    """Export member to temporary UTF-8 file, return temp path"""
+def export_member_to_temp(library: str, srcfile: str, member: str) -> Tuple[Optional[str], str]:
+    """Export member to temporary UTF-8 file, return (temp_path, command)"""
     temp_fd, temp_path = tempfile.mkstemp(prefix=f'ibmi_sync_{member}_', suffix='.tmp')
     os.close(temp_fd)  # Close the file descriptor, we just need the path
     
@@ -159,9 +159,9 @@ def export_member_to_temp(library: str, srcfile: str, member: str) -> Optional[s
     if rc != 0:
         if os.path.exists(temp_path):
             os.unlink(temp_path)
-        return None
+        return None, cmd
     
-    return temp_path
+    return temp_path, cmd
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -246,12 +246,15 @@ def sync_source_file(
     dry_run: bool = False,
     verbose: bool = False,
     conn = None,
-    files_remaining: int = 0
+    files_remaining: int = 0,
+    failures: Optional[List[Dict]] = None
 ) -> Dict[str, int]:
     """
     Sync one source file to target directory.
     Returns stats dict.
     """
+    if failures is None:
+        failures = []
     stats = {
         'scanned': 0,
         'excluded': 0,
@@ -299,10 +302,19 @@ def sync_source_file(
         exported_files.add(target_filename)
         
         # Export to temp
-        temp_path = export_member_to_temp(library, srcfile, member)
+        temp_path, cpytostmf_cmd = export_member_to_temp(library, srcfile, member)
         if not temp_path:
             stats['failed'] += 1
             print(f"   ✗  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename} (export failed)")
+            failures.append({
+                'library': library.upper(),
+                'srcfile': srcfile.upper(),
+                'member': member.upper(),
+                'type': member_type.upper() if member_type else 'TXT',
+                'target_filename': target_filename,
+                'reason': 'CPYTOSTMF export failed',
+                'command': cpytostmf_cmd
+            })
             continue
         
         try:
@@ -389,6 +401,50 @@ def write_metadata(target_dir: Path, library: str, srcfile: str, stats: Dict[str
         json.dump(metadata, f, indent=2)
 
 
+def write_sync_log(target_base: Path, library: str, failures: List[Dict], stats: Dict[str, int], files_processed: int, start_time: datetime, end_time: datetime):
+    """Write sync log file with failures and summary"""
+    log_path = target_base / 'synclog.txt'
+    elapsed = end_time - start_time
+    
+    with open(log_path, 'w', encoding='utf-8') as f:
+        f.write(f"{'═' * 70}\n")
+        f.write(f"IBM i → Git Source Export Log\n")
+        f.write(f"{'═' * 70}\n")
+        f.write(f"Library: {library.upper()}\n")
+        f.write(f"Target: {target_base}\n")
+        f.write(f"Start:  {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"End:    {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"Elapsed: {elapsed}\n")
+        f.write(f"{'═' * 70}\n\n")
+        
+        if failures:
+            f.write(f"FAILURES ({len(failures)})\n")
+            f.write(f"{'-' * 70}\n")
+            for failure in failures:
+                f.write(f"  {failure['library']}/{failure['srcfile']}.{failure['member']}.{failure['type']}\n")
+                f.write(f"    → {failure['target_filename']}\n")
+                f.write(f"    Reason: {failure['reason']}\n")
+                f.write(f"    Command: {failure['command']}\n\n")
+        else:
+            f.write(f"FAILURES\n")
+            f.write(f"{'-' * 70}\n")
+            f.write(f"  None\n\n")
+        
+        f.write(f"{'═' * 70}\n")
+        f.write(f"SUMMARY\n")
+        f.write(f"{'═' * 70}\n")
+        f.write(f"  Source files:     {files_processed}\n")
+        f.write(f"  Members scanned:  {stats['scanned']}\n")
+        f.write(f"  Added:            {stats['added']}\n")
+        f.write(f"  Updated:          {stats['updated']}\n")
+        f.write(f"  Unchanged:        {stats['unchanged']}\n")
+        f.write(f"  Deleted:          {stats['deleted']}\n")
+        f.write(f"  Excluded:         {stats['excluded']}\n")
+        f.write(f"  Failed:           {stats['failed']}\n")
+        f.write(f"  Elapsed time:     {elapsed}\n")
+        f.write(f"{'═' * 70}\n")
+
+
 def sync_library(
     library: str,
     target_base: Path,
@@ -400,6 +456,8 @@ def sync_library(
     """
     Sync entire library or specific source files.
     """
+    start_time = datetime.now()
+    
     print(f"\n{'═' * 70}")
     print(f"IBM i → Git Source Export")
     print(f"{'═' * 70}")
@@ -407,6 +465,7 @@ def sync_library(
     print(f"Target:  {target_base}")
     if dry_run:
         print(f"Mode:    DRY RUN (no changes will be made)")
+    print(f"Started: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'═' * 70}")
     
     # Discover source files if not specified
@@ -429,12 +488,13 @@ def sync_library(
         'failed': 0,
     }
     
+    all_failures = []
     files_processed = 0
     total_files = len(source_files)
     for file_idx, srcfile in enumerate(source_files):
         files_remaining = total_files - file_idx
         target_dir = target_base / srcfile.upper()
-        stats = sync_source_file(library, srcfile, target_dir, dry_run, verbose, conn, files_remaining)
+        stats = sync_source_file(library, srcfile, target_dir, dry_run, verbose, conn, files_remaining, all_failures)
         
         # Only count files that had members
         if stats['scanned'] > 0:
@@ -448,6 +508,9 @@ def sync_library(
             total_stats[key] += stats[key]
     
     # Summary
+    end_time = datetime.now()
+    elapsed = end_time - start_time
+    
     print(f"\n{'═' * 70}")
     print(f"Summary")
     print(f"{'═' * 70}")
@@ -459,7 +522,13 @@ def sync_library(
     print(f"  Deleted:          {total_stats['deleted']}")
     print(f"  Excluded:         {total_stats['excluded']}")
     print(f"  Failed:           {total_stats['failed']}")
+    print(f"  Elapsed time:     {elapsed}")
     print(f"{'═' * 70}\n")
+    
+    # Write sync log
+    if not dry_run:
+        write_sync_log(target_base, library, all_failures, total_stats, files_processed, start_time, end_time)
+        print(f"📄 Sync log written to: {target_base / 'synclog.txt'}\n")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
