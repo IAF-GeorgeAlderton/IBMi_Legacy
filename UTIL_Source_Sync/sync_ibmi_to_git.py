@@ -49,6 +49,10 @@ class Config:
         # r'.*_BAK$',   # Backup files
         # r'.*_OLD$',   # Old versions
     ]
+    
+    # Timestamp comparison (faster incremental syncs)
+    USE_TIMESTAMP_COMPARISON = False  # Set True for timestamp-based detection (faster)
+    TIMESTAMP_FILE = '.member_timestamps.json'  # Stored in target directory
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -297,7 +301,8 @@ def sync_source_file(
     conn = None,
     files_remaining: int = 0,
     total_files: int = 0,
-    failures: Optional[List[Dict]] = None
+    failures: Optional[List[Dict]] = None,
+    timestamps: Optional[Dict[str, str]] = None
 ) -> Dict[str, int]:
     """
     Sync one source file to target directory.
@@ -387,14 +392,34 @@ def sync_source_file(
             with open(temp_path, 'w', encoding='utf-8') as f:
                 f.write(content)
             
-            # Compare with existing file
+            # Check if file has changed (timestamp or content comparison)
             if target_path.exists():
-                if files_are_identical(temp_path, str(target_path)):
+                is_unchanged = False
+                
+                if Config.USE_TIMESTAMP_COMPARISON and timestamps is not None:
+                    # Timestamp-based comparison
+                    ts_key = f"{srcfile.upper()}.{member.upper()}"
+                    last_ts = timestamps.get(ts_key, '')
+                    current_ts = member_data['timestamp']
+                    is_unchanged = (last_ts == current_ts)
+                    if is_unchanged:
+                        # Update timestamp even if unchanged (keeps dict current)
+                        timestamps[ts_key] = current_ts
+                else:
+                    # Content-based comparison
+                    is_unchanged = files_are_identical(temp_path, str(target_path))
+                
+                if is_unchanged:
                     stats['unchanged'] += 1
                     if verbose:
-                        # Print verbose unchanged status on new line
-                        print(f"\n   =  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename} (unchanged)")
+                        compare_method = "timestamp" if Config.USE_TIMESTAMP_COMPARISON else "content"
+                        print(f"\n   =  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename} (unchanged - {compare_method})")
                     continue
+            
+            # Update timestamp tracking for new or changed files
+            if timestamps is not None:
+                ts_key = f"{srcfile.upper()}.{member.upper()}"
+                timestamps[ts_key] = member_data['timestamp']
             
             # Content differs or file is new - copy it
             is_new = not target_path.exists()
@@ -581,11 +606,16 @@ def sync_library(
     source_files: Optional[List[str]] = None,
     dry_run: bool = False,
     verbose: bool = False,
+    use_timestamp: bool = False,
     conn = None
 ):
     """
     Sync entire library or specific source files.
     """
+    # Override config with runtime argument
+    if use_timestamp:
+        Config.USE_TIMESTAMP_COMPARISON = True
+    
     start_time = datetime.now()
     
     print(f"\n{'═' * 70}")
@@ -595,8 +625,22 @@ def sync_library(
     print(f"Target:  {target_base}")
     if dry_run:
         print(f"Mode:    DRY RUN (no changes will be made)")
+    if Config.USE_TIMESTAMP_COMPARISON:
+        print(f"Mode:    TIMESTAMP comparison (faster incremental)")
     print(f"Started: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'═' * 70}")
+    
+    # Load timestamp tracking if enabled (always load/maintain even if not using)
+    timestamps = {}
+    timestamp_file = target_base / Config.TIMESTAMP_FILE
+    if timestamp_file.exists():
+        try:
+            with open(timestamp_file, 'r', encoding='utf-8') as f:
+                timestamps = json.load(f)
+            print(f"\n📅 Loaded {len(timestamps)} timestamp entries from cache")
+        except Exception as e:
+            print(f"\n⚠️  Warning: Could not load timestamps: {e}")
+            timestamps = {}
     
     # Discover source files if not specified
     if not source_files:
@@ -624,7 +668,7 @@ def sync_library(
     for file_idx, srcfile in enumerate(source_files):
         files_remaining = total_files - file_idx
         target_dir = target_base / srcfile.upper()
-        stats = sync_source_file(library, srcfile, target_dir, dry_run, verbose, conn, files_remaining, total_files, all_failures)
+        stats = sync_source_file(library, srcfile, target_dir, dry_run, verbose, conn, files_remaining, total_files, all_failures, timestamps)
         
         # Only count files that had members
         if stats['scanned'] > 0:
@@ -656,6 +700,33 @@ def sync_library(
     if not dry_run:
         write_sync_log(target_base, library, all_failures, total_stats, files_processed, start_time, end_time)
         write_sync_log_markdown(target_base, library, all_failures, total_stats, files_processed, start_time, end_time)
+        
+        # Save timestamp tracking (always maintain even if not using for comparison)
+        try:
+            target_base.mkdir(parents=True, exist_ok=True)
+            with open(timestamp_file, 'w', encoding='utf-8') as f:
+                json.dump(timestamps, f, indent=2)
+            print(f"📅 Saved {len(timestamps)} timestamp entries to cache\n")
+        except Exception as e:
+            print(f"⚠️  Warning: Could not save timestamps: {e}\n")
+        
+        # Ensure .gitignore includes timestamp file
+        gitignore_path = target_base / '.gitignore'
+        try:
+            existing_ignores = set()
+            if gitignore_path.exists():
+                with open(gitignore_path, 'r', encoding='utf-8') as f:
+                    existing_ignores = set(line.strip() for line in f if line.strip() and not line.startswith('#'))
+            
+            if Config.TIMESTAMP_FILE not in existing_ignores:
+                with open(gitignore_path, 'a', encoding='utf-8') as f:
+                    if gitignore_path.exists() and gitignore_path.stat().st_size > 0:
+                        f.write('\n')
+                    f.write(f"# Timestamp cache for incremental syncs\n")
+                    f.write(f"{Config.TIMESTAMP_FILE}\n")
+        except Exception as e:
+            print(f"⚠️  Warning: Could not update .gitignore: {e}\n")
+        
         print(f"📄 Sync logs written to:")
         print(f"   - {target_base / f'{library.upper()}_sync_log.txt'}")
         print(f"   - {target_base.parent / f'{library.upper()}_sync_log.md'}\n")
@@ -687,6 +758,9 @@ Examples:
 
   # Verbose output
   python3 sync_ibmi_to_git.py --library MYLIB --target /home/GitRepos/MYLIB --verbose
+  
+  # Fast incremental sync using timestamps (good for frequent runs)
+  python3 sync_ibmi_to_git.py --library MYLIB --target /home/GitRepos/MYLIB --use-timestamp
         """
     )
     
@@ -720,6 +794,12 @@ Examples:
         help='Show all members including unchanged'
     )
     
+    parser.add_argument(
+        '--use-timestamp',
+        action='store_true',
+        help='Use timestamp comparison instead of file content (faster incremental syncs)'
+    )
+    
     args = parser.parse_args()
     
     # Validate inputs
@@ -736,6 +816,7 @@ Examples:
             source_files=args.srcfiles,
             dry_run=args.dry_run,
             verbose=args.verbose,
+            use_timestamp=args.use_timestamp,
             conn=conn
         )
         

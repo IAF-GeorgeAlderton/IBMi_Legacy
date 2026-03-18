@@ -3,7 +3,8 @@
 # HSRC1 Library Sync & Git Push Script
 # ═══════════════════════════════════════════════════════════════════════════
 # Purpose: Sync IBM i HSRC1 library to Git repository and push changes
-# Usage:   ./sync_and_push_hsrc1.sh
+# Usage:   ./sync_and_push_hsrc1.sh [--use-timestamp]
+#          --use-timestamp : Use timestamp comparison (faster incremental)
 # ═══════════════════════════════════════════════════════════════════════════
 
 set -e  # Exit on error
@@ -13,6 +14,12 @@ REPO_DIR="/home/GitRepos/IBMi_Legacy"
 LIBRARY="HSRC1"
 TARGET_DIR="${REPO_DIR}/${LIBRARY}"
 SYNC_SCRIPT="${REPO_DIR}/UTIL_Source_Sync/sync_ibmi_to_git.py"
+
+# Parse arguments
+USE_TIMESTAMP=""
+if [[ "$1" == "--use-timestamp" ]]; then
+    USE_TIMESTAMP="--use-timestamp"
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -41,7 +48,8 @@ echo -e "${YELLOW}🔄 Running sync script for ${LIBRARY}...${NC}"
 set +e  # Temporarily disable exit on error to capture exit code
 /QOpenSys/pkgs/bin/python3 "${SYNC_SCRIPT}" \
     --library "${LIBRARY}" \
-    --target "${TARGET_DIR}"
+    --target "${TARGET_DIR}" \
+    ${USE_TIMESTAMP}
 SYNC_EXIT_CODE=$?
 set -e  # Re-enable exit on error
 
