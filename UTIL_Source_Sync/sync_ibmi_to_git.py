@@ -105,24 +105,23 @@ def get_source_members(library: str, srcfile: str, conn, last_timestamp: Optiona
         library: IBM i library name
         srcfile: Source physical file name
         conn: Database connection
-        last_timestamp: Optional timestamp filter - only return members changed since this time
+        last_timestamp: Optional timestamp - adds 'changed' flag to indicate if member changed since this time
     """
-    where_clauses = [
-        f"System_Table_Schema = '{library.upper()}'",
-        f"System_Table_Name = '{srcfile.upper()}'"
-    ]
-    
-    # Add timestamp filter if provided (only get changed members)
+    # Build changed flag expression
     if last_timestamp:
-        where_clauses.append(f"Last_Source_Update_Timestamp >= '{last_timestamp}'")
+        changed_expr = f"CASE WHEN Last_Source_Update_Timestamp >= '{last_timestamp}' THEN 1 ELSE 0 END"
+    else:
+        changed_expr = "1"  # All members considered changed if no timestamp
     
     sql = f"""
         Select Trim(System_Table_Member) Member,
                Trim(Coalesce(Source_Type, '')) Type,
                Trim(Coalesce(Partition_Text, '')) AS Text,
-               Last_Source_Update_Timestamp
+               Last_Source_Update_Timestamp,
+               {changed_expr} AS Changed
           From QSys2.SysPartitionStat
-         Where {' And '.join(where_clauses)}
+         Where System_Table_Schema = '{library.upper()}'
+           And System_Table_Name = '{srcfile.upper()}'
          Order by System_Table_Member
     """
     
@@ -136,7 +135,8 @@ def get_source_members(library: str, srcfile: str, conn, last_timestamp: Optiona
                     'name': row[0].strip(),
                     'type': row[1].strip() if row[1] else '',
                     'text': row[2].strip() if row[2] else '',
-                    'timestamp': str(row[3]) if row[3] else ''
+                    'timestamp': str(row[3]) if row[3] else '',
+                    'changed': bool(row[4]) if len(row) > 4 else True
                 })
         cursor.close()
         return members
@@ -320,14 +320,10 @@ def sync_source_file(
     
     print(f"\n📂 {srcfile}")
     
-    # Get members (filtered by timestamp if provided)
+    # Get members (with changed flag if timestamp provided)
     members = get_source_members(library, srcfile, conn, last_timestamp)
     if not members:
-        if last_timestamp:
-            if verbose:
-                print(f"   ⏭️  Skipping - no members changed since last sync")
-        else:
-            print(f"   ⏭️  Skipping - no members found")
+        print(f"   ⏭️  Skipping - no members found")
         return stats
     
     # Track exported filenames for cleanup
@@ -339,10 +335,22 @@ def sync_source_file(
         member = member_data['name']
         member_type = member_data['type']
         member_text = member_data['text']
+        member_changed = member_data.get('changed', True)
         
         stats['scanned'] += 1
         members_remaining = total_members - idx - 1
         progress = f"{files_remaining:03d}/{total_files:03d} {members_remaining:05d}/{total_members:05d}"
+        
+        # If using timestamp mode and member hasn't changed, skip processing
+        if Config.USE_TIMESTAMP_COMPARISON and not member_changed:
+            stats['unchanged'] += 1
+            if verbose:
+                temp_filename = build_target_filename(member, member_type, member_text)
+                print(f"\n   =  {progress} {srcfile}.{member}.{member_type.upper()} -> {temp_filename} (unchanged - timestamp)")
+            # Still track the filename so it doesn't get deleted
+            temp_filename = build_target_filename(member, member_type, member_text)
+            exported_files.add(temp_filename)
+            continue
         
         # Build target filename
         target_filename = build_target_filename(member, member_type, member_text)
@@ -384,18 +392,15 @@ def sync_source_file(
             with open(temp_path, 'w', encoding='utf-8') as f:
                 f.write(content)
             
-            # Check if file has changed (content comparison, unless using timestamp filter)
-            if target_path.exists():
-                # If using timestamp filter, SQL already filtered to changed members only
-                # Otherwise, do content comparison
-                if not Config.USE_TIMESTAMP_COMPARISON:
-                    is_unchanged = files_are_identical(temp_path, str(target_path))
-                    
-                    if is_unchanged:
-                        stats['unchanged'] += 1
-                        if verbose:
-                            print(f"\n   =  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename} (unchanged - content)")
-                        continue
+            # Check if file has changed (content comparison for non-timestamp mode)
+            if target_path.exists() and not Config.USE_TIMESTAMP_COMPARISON:
+                is_unchanged = files_are_identical(temp_path, str(target_path))
+                
+                if is_unchanged:
+                    stats['unchanged'] += 1
+                    if verbose:
+                        print(f"\n   =  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename} (unchanged - content)")
+                    continue
             
             # Content differs or file is new - copy it
             is_new = not target_path.exists()

@@ -7,7 +7,7 @@
      F                                     INFDS(INFDS)
      F                                     SFILE(SFREC1:RRN)
      FRGAPL11   IF   E           K DISK
-     FINQWP21   O    F   32        DISK
+     F******************************************************
       *
      D INFDS           DS
      D  $$RRN                378    379B 0
@@ -52,7 +52,6 @@
      C*===============================================================
      C     #INIT         BEGSR
      C                   MOVEA     *ALL'0'       *IN
-     C                   EXCEPT    HD
      C*  SFLCLR
      C                   SETON                                        82
      C                   WRITE     SFCTL1
@@ -79,7 +78,6 @@ S1   C                   DO        *HIVAL
      C                   MOVEL     *BLANK        WUSRNM           15
      C                   MOVEL     J8PROF        WUSRID
      C                   MOVEL     J8NAME        WUSRNM
-     C                   EXCEPT    DT
       *
      C                   ADD       1             RRN
      C                   WRITE     SFREC1
@@ -113,24 +111,3 @@ E1   C                   ENDDO
      C   KJ              MOVE      '#END    '    @STEP
      C                   ENDSR
       *****************************************************************
-      *
-      *****************************************************************
-     OINQWP21   E            HD
-      **A
-     O                                              'USER ID '
-     O                                              '"'
-     O                                              ','
-      **B
-     O                                              '"'
-     O                                              'USER NAME'
-      *****************************************************************
-      *
-      *****************************************************************
-     O          E            DT
-      **A
-1    O                       WUSRID
-     O                                              '"'
-,    O                                              ','
-      **B
-     O                                              '"'
-1    O                       WUSRNM
