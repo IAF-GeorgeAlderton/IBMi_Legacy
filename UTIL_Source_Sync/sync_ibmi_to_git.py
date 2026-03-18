@@ -43,7 +43,7 @@ class Config:
     
     # Timestamp comparison (faster incremental syncs)
     USE_TIMESTAMP_COMPARISON = False  # Set True for timestamp-based detection (faster)
-    TIMESTAMP_FILE = '.member_timestamps.json'  # Stored in target directory
+    TIMESTAMP_FILE = '.last_sync_timestamp.txt'  # Stored in target directory
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -98,16 +98,31 @@ def get_source_files(library: str, conn) -> List[str]:
         return []
 
 
-def get_source_members(library: str, srcfile: str, conn) -> List[Dict[str, str]]:
-    """Get list of members in a source file with metadata"""
+def get_source_members(library: str, srcfile: str, conn, last_timestamp: Optional[str] = None) -> List[Dict[str, str]]:
+    """Get list of members in a source file with metadata
+    
+    Args:
+        library: IBM i library name
+        srcfile: Source physical file name
+        conn: Database connection
+        last_timestamp: Optional timestamp filter - only return members changed since this time
+    """
+    where_clauses = [
+        f"System_Table_Schema = '{library.upper()}'",
+        f"System_Table_Name = '{srcfile.upper()}'"
+    ]
+    
+    # Add timestamp filter if provided (only get changed members)
+    if last_timestamp:
+        where_clauses.append(f"Last_Source_Update_Timestamp >= '{last_timestamp}'")
+    
     sql = f"""
         Select Trim(System_Table_Member) Member,
                Trim(Coalesce(Source_Type, '')) Type,
                Trim(Coalesce(Partition_Text, '')) AS Text,
                Last_Source_Update_Timestamp
           From QSys2.SysPartitionStat
-         Where System_Table_Schema = '{library.upper()}'
-           And System_Table_Name = '{srcfile.upper()}'
+         Where {' And '.join(where_clauses)}
          Order by System_Table_Member
     """
     
@@ -285,7 +300,7 @@ def sync_source_file(
     files_remaining: int = 0,
     total_files: int = 0,
     failures: Optional[List[Dict]] = None,
-    timestamps: Optional[Dict[str, str]] = None
+    last_timestamp: Optional[str] = None
 ) -> Dict[str, int]:
     """
     Sync one source file to target directory.
@@ -305,10 +320,14 @@ def sync_source_file(
     
     print(f"\n📂 {srcfile}")
     
-    # Get members
-    members = get_source_members(library, srcfile, conn)
+    # Get members (filtered by timestamp if provided)
+    members = get_source_members(library, srcfile, conn, last_timestamp)
     if not members:
-        print(f"   ⏭️  Skipping - no members found")
+        if last_timestamp:
+            if verbose:
+                print(f"   ⏭️  Skipping - no members changed since last sync")
+        else:
+            print(f"   ⏭️  Skipping - no members found")
         return stats
     
     # Track exported filenames for cleanup
@@ -365,38 +384,18 @@ def sync_source_file(
             with open(temp_path, 'w', encoding='utf-8') as f:
                 f.write(content)
             
-            # Check if file has changed (timestamp or content comparison)
+            # Check if file has changed (content comparison, unless using timestamp filter)
             if target_path.exists():
-                is_unchanged = False
-                
-                if Config.USE_TIMESTAMP_COMPARISON and timestamps is not None:
-                    # Timestamp-based comparison
-                    ts_key = f"{srcfile.upper()}.{member.upper()}"
-                    last_ts = timestamps.get(ts_key, '')
-                    current_ts = member_data['timestamp']
-                    is_unchanged = (last_ts == current_ts)
-                    if is_unchanged:
-                        # Update timestamp even if unchanged (keeps dict current)
-                        timestamps[ts_key] = current_ts
-                else:
-                    # Content-based comparison
+                # If using timestamp filter, SQL already filtered to changed members only
+                # Otherwise, do content comparison
+                if not Config.USE_TIMESTAMP_COMPARISON:
                     is_unchanged = files_are_identical(temp_path, str(target_path))
-                    # Always update timestamp cache when using file comparison (builds cache for future timestamp use)
-                    if is_unchanged and timestamps is not None:
-                        ts_key = f"{srcfile.upper()}.{member.upper()}"
-                        timestamps[ts_key] = member_data['timestamp']
-                
-                if is_unchanged:
-                    stats['unchanged'] += 1
-                    if verbose:
-                        compare_method = "timestamp" if Config.USE_TIMESTAMP_COMPARISON else "content"
-                        print(f"\n   =  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename} (unchanged - {compare_method})")
-                    continue
-            
-            # Update timestamp tracking for new or changed files
-            if timestamps is not None:
-                ts_key = f"{srcfile.upper()}.{member.upper()}"
-                timestamps[ts_key] = member_data['timestamp']
+                    
+                    if is_unchanged:
+                        stats['unchanged'] += 1
+                        if verbose:
+                            print(f"\n   =  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename} (unchanged - content)")
+                        continue
             
             # Content differs or file is new - copy it
             is_new = not target_path.exists()
@@ -575,6 +574,19 @@ def write_sync_log_markdown(target_base: Path, library: str, failures: List[Dict
         f.write(f"*Generated by IBM i Source Sync - {end_time.strftime('%Y-%m-%d %H:%M:%S')}*\n")
 
 
+def get_ibmi_current_timestamp(conn) -> str:
+    """Get current timestamp from IBM i"""
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT CURRENT_TIMESTAMP FROM SYSIBM.SYSDUMMY1")
+        row = cursor.fetchone()
+        cursor.close()
+        return str(row[0]) if row else None
+    except Exception as e:
+        print(f"⚠️  Warning: Could not get IBM i timestamp: {e}", file=sys.stderr)
+        return None
+
+
 def sync_library(
     library: str,
     target_base: Path,
@@ -587,9 +599,8 @@ def sync_library(
     """
     Sync entire library or specific source files.
     """
-    # Override config with runtime argument
-    if use_timestamp:
-        Config.USE_TIMESTAMP_COMPARISON = True
+    # Get IBM i current timestamp at start (for saving at end)
+    sync_start_timestamp = get_ibmi_current_timestamp(conn)
     
     start_time = datetime.now()
     
@@ -605,17 +616,26 @@ def sync_library(
     print(f"Started: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'═' * 70}")
     
-    # Load timestamp tracking if enabled (always load/maintain even if not using)
-    timestamps = {}
+    # Load last sync timestamp if using timestamp comparison
+    last_sync_timestamp = None
     timestamp_file = target_base / Config.TIMESTAMP_FILE
-    if timestamp_file.exists():
-        try:
-            with open(timestamp_file, 'r', encoding='utf-8') as f:
-                timestamps = json.load(f)
-            print(f"\n📅 Loaded {len(timestamps)} timestamp entries from cache")
-        except Exception as e:
-            print(f"\n⚠️  Warning: Could not load timestamps: {e}")
-            timestamps = {}
+    
+    if use_timestamp:
+        if timestamp_file.exists():
+            try:
+                with open(timestamp_file, 'r', encoding='utf-8') as f:
+                    last_sync_timestamp = f.read().strip()
+                print(f"\n📅 Last sync: {last_sync_timestamp}")
+                print(f"📅 Using timestamp filter - only processing changed members")
+                Config.USE_TIMESTAMP_COMPARISON = True
+            except Exception as e:
+                print(f"\n⚠️  Warning: Could not load last sync timestamp: {e}")
+                print(f"⚠️  Falling back to full content comparison")
+                use_timestamp = False
+        else:
+            print(f"\n⚠️  No previous sync timestamp found - performing full sync")
+            print(f"⚠️  Subsequent syncs with --use-timestamp will be faster")
+            use_timestamp = False
     
     # Discover source files if not specified
     if not source_files:
@@ -642,7 +662,7 @@ def sync_library(
     for file_idx, srcfile in enumerate(source_files):
         files_remaining = total_files - file_idx
         target_dir = target_base / srcfile.upper()
-        stats = sync_source_file(library, srcfile, target_dir, dry_run, verbose, conn, files_remaining, total_files, all_failures, timestamps)
+        stats = sync_source_file(library, srcfile, target_dir, dry_run, verbose, conn, files_remaining, total_files, all_failures, last_sync_timestamp)
         
         # Only count files that had members
         if stats['scanned'] > 0:
@@ -674,14 +694,15 @@ def sync_library(
         write_sync_log(target_base, library, all_failures, total_stats, files_processed, start_time, end_time)
         write_sync_log_markdown(target_base, library, all_failures, total_stats, files_processed, start_time, end_time)
         
-        # Save timestamp tracking (always maintain even if not using for comparison)
-        try:
-            target_base.mkdir(parents=True, exist_ok=True)
-            with open(timestamp_file, 'w', encoding='utf-8') as f:
-                json.dump(timestamps, f, indent=2)
-            print(f"📅 Saved {len(timestamps)} timestamp entries to cache\n")
-        except Exception as e:
-            print(f"⚠️  Warning: Could not save timestamps: {e}\n")
+        # Save sync start timestamp for next run
+        if sync_start_timestamp:
+            try:
+                target_base.mkdir(parents=True, exist_ok=True)
+                with open(timestamp_file, 'w', encoding='utf-8') as f:
+                    f.write(sync_start_timestamp)
+                print(f"📅 Saved sync timestamp: {sync_start_timestamp}\n")
+            except Exception as e:
+                print(f"⚠️  Warning: Could not save sync timestamp: {e}\n")
         
         # Ensure .gitignore includes timestamp file
         gitignore_path = target_base / '.gitignore'
@@ -695,7 +716,7 @@ def sync_library(
                 with open(gitignore_path, 'a', encoding='utf-8') as f:
                     if gitignore_path.exists() and gitignore_path.stat().st_size > 0:
                         f.write('\n')
-                    f.write(f"# Timestamp cache for incremental syncs\n")
+                    f.write(f"# Last sync timestamp for incremental syncs\n")
                     f.write(f"{Config.TIMESTAMP_FILE}\n")
         except Exception as e:
             print(f"⚠️  Warning: Could not update .gitignore: {e}\n")
