@@ -41,15 +41,6 @@ class Config:
     TEXT_SEPARATOR = "-"          # Separator between name and text
     TEXT_MAX_LENGTH = 40          # Max length of text portion
     
-    # Exclusion patterns (regex on member name)
-    EXCLUDE_PATTERNS = [
-        # r'^@.*',      # @WORK, @START, etc.
-        # r'^#.*',      # Temp markers
-        # r'^\$.*',     # System temp
-        # r'.*_BAK$',   # Backup files
-        # r'.*_OLD$',   # Old versions
-    ]
-    
     # Timestamp comparison (faster incremental syncs)
     USE_TIMESTAMP_COMPARISON = False  # Set True for timestamp-based detection (faster)
     TIMESTAMP_FILE = '.member_timestamps.json'  # Stored in target directory
@@ -280,14 +271,6 @@ def files_are_identical(path1: str, path2: str) -> bool:
         return False
 
 
-def should_exclude_member(member_name: str) -> bool:
-    """Check if member matches exclusion patterns"""
-    for pattern in Config.EXCLUDE_PATTERNS:
-        if re.match(pattern, member_name, re.IGNORECASE):
-            return True
-    return False
-
-
 # ═══════════════════════════════════════════════════════════════════════════
 # Sync Logic
 # ═══════════════════════════════════════════════════════════════════════════
@@ -313,7 +296,6 @@ def sync_source_file(
     
     stats = {
         'scanned': 0,
-        'excluded': 0,
         'added': 0,
         'updated': 0,
         'unchanged': 0,
@@ -342,15 +324,6 @@ def sync_source_file(
         stats['scanned'] += 1
         members_remaining = total_members - idx - 1
         progress = f"{files_remaining:03d}/{total_files:03d} {members_remaining:05d}/{total_members:05d}"
-        
-        # Check exclusions
-        if should_exclude_member(member):
-            stats['excluded'] += 1
-            if verbose:
-                # Build filename for display
-                temp_filename = build_target_filename(member, member_type, member_text)
-                print(f"   ⊘  {progress} {srcfile}.{member}.{member_type.upper()} -> {temp_filename} (excluded)")
-            continue
         
         # Build target filename
         target_filename = build_target_filename(member, member_type, member_text)
@@ -408,6 +381,10 @@ def sync_source_file(
                 else:
                     # Content-based comparison
                     is_unchanged = files_are_identical(temp_path, str(target_path))
+                    # Always update timestamp cache when using file comparison (builds cache for future timestamp use)
+                    if is_unchanged and timestamps is not None:
+                        ts_key = f"{srcfile.upper()}.{member.upper()}"
+                        timestamps[ts_key] = member_data['timestamp']
                 
                 if is_unchanged:
                     stats['unchanged'] += 1
@@ -538,7 +515,6 @@ def write_sync_log(target_base: Path, library: str, failures: List[Dict], stats:
         f.write(f"  Updated:          {stats['updated']}\n")
         f.write(f"  Unchanged:        {stats['unchanged']}\n")
         f.write(f"  Deleted:          {stats['deleted']}\n")
-        f.write(f"  Excluded:         {stats['excluded']}\n")
         f.write(f"  Failed:           {stats['failed']}\n")
         f.write(f"  Elapsed time:     {elapsed}\n")
         f.write(f"{'═' * 70}\n")
@@ -572,7 +548,6 @@ def write_sync_log_markdown(target_base: Path, library: str, failures: List[Dict
         f.write(f"| Updated | 🔄 {stats['updated']} |\n")
         f.write(f"| Unchanged | ⏸️ {stats['unchanged']} |\n")
         f.write(f"| Deleted | ❌ {stats['deleted']} |\n")
-        f.write(f"| Excluded | ⊘ {stats['excluded']} |\n")
         f.write(f"| **Failed** | ❗ **{stats['failed']}** |\n\n")
         
         # Failures section
@@ -654,7 +629,6 @@ def sync_library(
     # Process each source file
     total_stats = {
         'scanned': 0,
-        'excluded': 0,
         'added': 0,
         'updated': 0,
         'unchanged': 0,
@@ -691,7 +665,6 @@ def sync_library(
     print(f"  Updated:          {total_stats['updated']}")
     print(f"  Unchanged:        {total_stats['unchanged']}")
     print(f"  Deleted:          {total_stats['deleted']}")
-    print(f"  Excluded:         {total_stats['excluded']}")
     print(f"  Failed:           {total_stats['failed']}")
     print(f"  Elapsed time:     {elapsed}")
     print(f"{'═' * 70}\n")

@@ -3,6 +3,7 @@
 /*  J.WATANABE   2025.06.30                                                 */
 /* ENGLISH                                                                  */
 /*    ABCDEFG HIJKLMN OPQRSTU VWXYZ                                         */
+/*    abcdefg hijklmn opqrstu vwxyZ                                         */
 /*    ｱｲﾐｴﾈｶｷ ｸｹﾀﾁﾂﾄﾃ ﾅﾆﾇﾈﾍﾎﾏ ﾐﾑﾒﾓﾔ                                         */
 /* 日本語                                                                 */
 /*   あいうえお かきくけこ                                              */
