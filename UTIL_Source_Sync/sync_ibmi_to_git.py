@@ -364,10 +364,15 @@ def sync_source_file(
             bad_chars = check_bad_chars_in_member(library, srcfile, member, conn)
             
             if bad_chars:
-                # Build status line suffix with first bad char info
-                first_bad = bad_chars[0]
-                status_suffix = f"(x'0F' at seq {first_bad['seq']} col {first_bad['col']})"
-                print(f"\n   ✗  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename} {status_suffix}")
+                # Show detailed information about bad characters
+                print(f"\n   ✗  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename}")
+                print(f"      ERROR: Invalid character x'0F' found - {len(bad_chars)} occurrence(s)")
+                # Show first few bad character locations
+                for idx, bad_char in enumerate(bad_chars[:3]):
+                    line_preview = bad_char['line'][:60] if len(bad_char['line']) > 60 else bad_char['line']
+                    print(f"        [{idx+1}] Seq {bad_char['seq']:>6} Col {bad_char['col']:>3}: {line_preview}")
+                if len(bad_chars) > 3:
+                    print(f"        ... and {len(bad_chars) - 3} more (see synclog.txt)")
             else:
                 print(f"\n   ✗  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename} (export failed)")
             
@@ -378,7 +383,7 @@ def sync_source_file(
                 'type': member_type.upper() if member_type else 'TXT',
                 'target_filename': target_filename,
                 'reason': 'CPYTOSTMF export failed',
-                'bad_chars': bad_chars
+                'bad_chars': bad_chars if bad_chars else []
             })
             continue
         
@@ -491,17 +496,22 @@ def write_sync_log(target_base: Path, library: str, failures: List[Dict], stats:
         if failures:
             f.write(f"FAILURES ({len(failures)})\n")
             f.write(f"{'-' * 70}\n")
-            for failure in failures:
-                f.write(f"  {failure['library']}/{failure['srcfile']}.{failure['member']}.{failure['type']}\n")
-                f.write(f"    → {failure['target_filename']}\n")
-                f.write(f"    Reason: {failure['reason']}\n")
+            for idx, failure in enumerate(failures, 1):
+                f.write(f"\n[{idx}] {failure['library']}/{failure['srcfile']}.{failure['member']}.{failure['type']}\n")
+                f.write(f"    Target:  {failure['target_filename']}\n")
+                f.write(f"    Reason:  {failure['reason']}\n")
                 
                 # Include bad character details if found
                 if 'bad_chars' in failure and failure['bad_chars']:
-                    f.write(f"    Bad Characters Found (x'0F'):\n")
+                    f.write(f"    Invalid Characters (x'0F'): {len(failure['bad_chars'])} occurrence(s)\n")
+                    f.write(f"    Locations:\n")
                     for bad_line in failure['bad_chars']:
-                        f.write(f"      Seq {bad_line['seq']:>6} Col {bad_line['col']:>3}: {bad_line['line']}\n")
-                f.write(f"\n")
+                        f.write(f"      Sequence: {bad_line['seq']:>6}  Column: {bad_line['col']:>3}\n")
+                        f.write(f"      Line:     {bad_line['line']}\n")
+                        f.write(f"\n")
+                else:
+                    f.write(f"    Note: No invalid characters detected in source\n")
+                f.write(f"{'-' * 70}\n")
         else:
             f.write(f"FAILURES\n")
             f.write(f"{'-' * 70}\n")
