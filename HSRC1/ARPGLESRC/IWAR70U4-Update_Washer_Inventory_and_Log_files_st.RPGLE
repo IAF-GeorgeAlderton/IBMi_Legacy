@@ -1,0 +1,260 @@
+     H DATEDIT(*YMD.) Option(*SrcStmt:*NoDebugIO)
+      ** IWAR70U4  ****************************************************
+      *  UPDATE WASHER ORDER IN INVENTORY AND LOG FILES
+      *   LEC   2025.07.23
+      *****************************************************************
+     FALBPL30   IF   E           K DISK
+     FAKBPL06   IF   E           K DISK
+     FGDMPL10   IF   E           K DISK
+     FIWAPP71   UF A E           K DISK
+     FIWAPP7L   O  A E           K DISK
+      *
+     D  KBNBC          S             20
+     D  NUM6           S              6  0
+     D  ##LOTSZ        S              2  0
+     D  ##TMNM         S             20
+     D  Valid          S              1
+      *
+     D                 DS
+     D  @TIME                  1     14  0
+     D  @SYSTM                 1      6  0
+     D  @SYSHZ                 7     14  0
+      *
+     D                 DS
+     D  @WOKBN                 1     20
+     D  @WOTYP                 1      1
+     D  @WOZET                 2      5
+     D  @WOORD                 6     11
+     D  @WOLOT                13     16
+      *
+      *  plastic kanban qr code
+     D D3QR            DS
+     D  D3QRA                  1    256
+     D  D3TYPE                 1      3
+     D  D3SHIN                34     45
+     D  D3SHN1                34     38
+     D  D3SHN2                39     43
+     D  D3SHN3                44     45
+     D  D3NXLC                53     58
+     D  D3MLC1                53     53
+     D  D3MLC2                54     55
+     D  D3MLC3                56     57
+     D  D3MLC4                58     58
+     D  D3FRLC                79     84
+     D  D3PROC               175    177
+     D  D3MCH#               178    180
+     D  D3CHIN               219    230
+     D  D3CHN1               219    223
+     D  D3CHN2               224    228
+     D  D3CHN3               229    230
+     D  D3QRB                257    400
+      *
+     D                SDS
+     D  W#PGM            *PROC
+     D  W#WSID               244    253
+     D  W#USER               254    263
+     D  W#JBNO               264    269
+      *
+     C     *Entry        PList
+     C                   Parm                    PWOKB            20
+     C                   Parm                    PKQR            400
+     C                   Parm                    PWKCD             6
+     C                   Parm                    PPGMN            10
+     C                   Parm                    PLOCN             6
+     C                   Parm                    PSTS              1
+     C                   Parm                    PSTEP             1
+     C                   Parm                    #RTNC             1
+
+      *
+      * get worker name...
+     C                   Eval      NUM6 = %dec(PWKCD:6:0)
+     C     NUM6          Chain     ALBPL30                            98
+     C                   If        *IN98 = *OFF
+     C                   Eval      ##TMNM = ALWKNM
+     C                   Else
+     C                   Eval      ##TMNM = *blank
+     C                   EndIf
+      *
+      *----------------------------------------------------*
+      * Mainline                                           *
+      *----------------------------------------------------*
+      *
+
+     C                   Eval      @WOKBN= PWOKB
+     C                   Exsr      #SB100
+
+     C                   If        Valid = 'Y'
+     C                   Eval      D3QR = PKQR
+     C                   Exsr      #SB71
+     C                   Exsr      #SB70L
+     C                   EndIf
+
+     C                   Eval      #RTNC = Valid
+     C                   Eval      *InLR = *On
+     C                   Return
+
+      *------------------------------------------------------*
+      * Check Washer Kanban Master File
+      *------------------------------------------------------*
+     C     #SB100        BegSr
+
+      * check for washer ID...
+     C     Key1          KList
+     C                   KFld                    @WOZET
+
+     C     Key1          SetGT     AKBPL06
+      *
+     C                   DoW       *In91 = *Off
+     C     Key1          ReadPE    AKBPL06                                91
+
+     C                   If        *In91 = *On
+     C                   Leave
+     C                   EndIf
+      *
+     C                   If        L1SKJY = 'D'
+     C                   Iter
+     C                   EndIf
+      *
+     C                   If        L1STYY = 9999
+     C                   Leave
+     C                   EndIf
+     C                   EndDo
+
+     C                   If        *IN91 = *On
+     C                   Eval      Valid = 'N'
+     C                   Else
+     C                   Eval      Valid = 'Y'
+     C                   EndIf
+
+      * get lot size...
+     C     Key2          KList
+     C                   KFld                    L1SHN1
+     C                   KFld                    L1SHN2
+     C                   KFld                    L1SHN3
+
+     C     Key2          Chain     GDMPL10
+     C                   If        %found(GDMPL10)
+     C                   Eval      ##LOTSZ = M1LOTN
+     C                   EndIf
+
+     C                   EndSr
+      *----------------------------------------------------*
+      *  Washer Kanban Scan to Inventory File - CANS
+      *----------------------------------------------------*
+     C     #SB71         BegSr
+
+     C                   Time                    @TIME
+     C                   Clear                   IWAPP711
+
+     C     PWOKB         Chain     IWAPP71                            62
+     C                   If        *IN62 = *On
+     C                   Eval      W1KODT = @SYSHZ
+     C                   Eval      W1KOTM = @SYSTM
+     C                   Eval      W1KOUS = ##TMNM
+     C                   Eval      W1KOPG = PPGMN
+
+     C                   Eval      W1CODT = @SYSHZ
+     C                   Eval      W1COTM = @SYSTM
+     C                   Eval      W1COUS = ##TMNM
+
+     C                   Eval      W1OBCD = PWOKB
+     C                   Eval      W1OZET = @WOZET
+     C                   Eval      W1OLOT = @WOLOT
+     C                   Eval      W1OORD = @WOORD
+     C                   Eval      W1OQTY = L1SYOS * ##LOTSZ
+     C                   Eval      W1SUPP = L1BMON
+
+     C                   Eval      W1PBCD = PKQR
+     C                   Eval      W1MHN1 = D3SHN1
+     C                   Eval      W1MHN2 = D3SHN2
+     C                   Eval      W1MHN3 = D3SHN3
+
+     C                   Eval      W1PHN1 = D3CHN1
+     C                   Eval      W1PHN2 = D3CHN2
+     C                   Eval      W1PHN3 = D3CHN3
+
+     C                   Eval      W1MLC1 = D3MLC1
+     C                   Eval      W1MLC2 = D3MLC2
+     C                   Eval      W1MLC3 = D3MLC3
+     C                   Eval      W1MLC4 = D3MLC4
+
+     C                   Eval      W1PROC = D3PROC
+     C                   Eval      W1MCH# = D3MCH#
+
+     C                   Eval      W1PLOC = *blank
+     C                   Eval      W1CLOC = PLOCN
+     C                   Eval      W1OSTS = PSTS
+     C                   Eval      W1MIFC = PSTEP
+     C                   Write     IWAPP711
+
+     C                   Else
+
+     C                   Eval      W1KODT = @SYSHZ
+     C                   Eval      W1KOTM = @SYSTM
+     C                   Eval      W1KOUS = ##TMNM
+     C                   Eval      W1KOPG = PPGMN
+
+     C                   If        PLOCN  <> W1CLOC
+     C                   Eval      W1PLOC = W1CLOC
+     C                   Eval      W1CLOC = PLOCN
+     C                   EndIf
+
+     C                   Eval      W1SUPP = L1BMON
+
+     C                   Eval      W1PBCD = PKQR
+     C                   Eval      W1MHN1 = D3SHN1
+     C                   Eval      W1MHN2 = D3SHN2
+     C                   Eval      W1MHN3 = D3SHN3
+
+     C                   Eval      W1PHN1 = D3CHN1
+     C                   Eval      W1PHN2 = D3CHN2
+     C                   Eval      W1PHN3 = D3CHN3
+
+     C                   Eval      W1MLC1 = D3MLC1
+     C                   Eval      W1MLC2 = D3MLC2
+     C                   Eval      W1MLC3 = D3MLC3
+     C                   Eval      W1MLC4 = D3MLC4
+
+     C                   Eval      W1PROC = D3PROC
+     C                   Eval      W1MCH# = D3MCH#
+
+     C                   Eval      W1MIFC = PSTEP
+     C                   Eval      W1OSTS = PSTS
+
+     C                   Update    IWAPP711
+     C                   EndIf
+      *
+     C                   EndSr
+      *----------------------------------------------------*
+      * Write Washer Kanban Scan to Inventory Log File
+      *----------------------------------------------------*
+     C     #SB70L        BegSr
+      *
+     C                   Clear                   IWAPP7L1
+     C                   Eval      LGKODT  = @SYSHZ
+     C                   Eval      LGKOTM  = @SYSTM
+     C                   Eval      LGKOUS  = ##TMNM
+     C                   Eval      LGKOPG  = PPGMN
+      *
+     C                   Eval      LGZETI  = @WOZET
+     C                   Eval      LGCHN1  = L1SHN1
+     C                   Eval      LGCHN2  = L1SHN2
+     C                   Eval      LGCHN3  = L1SHN3
+
+     C                   Eval      LGOBCD  = W1OBCD
+     C                   Eval      LGOZET  = W1OZET
+     C                   Eval      LGOORD  = W1OORD
+     C                   Eval      LGOLOT  = W1OLOT
+     C                   Eval      LGOQTY  = W1OQTY
+
+     C                   Eval      LGPLOC  = W1PLOC
+     C                   Eval      LGCLOC  = W1CLOC
+      *
+     C                   Eval      LGCSTS  = 'C'
+     C                   Eval      LGOSTS  = W1OSTS
+      *
+     C                   Write     IWAPP7L1
+      *
+     C                   EndSr
+      *------------------------------------------------------------*
+
