@@ -1,18 +1,23 @@
      H            Y.
+     F** AB#RFMT ***********************************************
+     F*  FORD NIRVANA ORDER VARIANCE REPORT                    *
+     F*  J. WATANABE  2026.03.18                              *
      F**********************************************************
-     FABFDL01 IF  E           K        DISK
-      *
      FABFEP01 IF  E           K        DISK
      FFCEPL01 IF  E           K        DISK
      FABF9P01 IF  E           K        DISK
+     FABFDL01 IF  E           K        DISK
      FABFAP01 IF  E           K        DISK
      FABF2L02 IF  E           K        DISK
      FAGDPL12 IF  E           K        DISK
      FAB#PL15 IF  E           K        DISK
-     FAB#WP451O   F     256            DISK
      FABFBP10 IF  E           K        DISK
      FQPRINT  O   F     132     OF     PRINTER
      FQPRINT2 O   F     132     OV     PRINTER
+      ****************************************************
+     F**AB#PP2W O   E                    DISK
+     FAB#WP451O   F     256            DISK
+     FABF3P01 O   E                    DISK
      F****************************************************
      E                    P1      1   3 12
      E                    P2      1   3 20
@@ -55,6 +60,7 @@
      I* PLANT(ROUTE FILE)
      I            DS
      I                                        1   5 QAPLAN
+     I*                                       1   4 K11
      I                                        1   5 K11
      I            DS
      I                                        1   80QASKHZ
@@ -106,20 +112,24 @@
      I            DS
      I                                        1   5 CFDOCK
      I                                        1   2 CFDK@2
+     I            DS
+     I                                        1  140STIME
+     I                                        1   60NOW
+     I                                        7  140TODAY
      I           SDS
      I                                        1   8 #PGM
      I                                      244 253 #WSID
      I                                      254 263 #USER
      C***********************************************************
      C           *ENTRY    PLIST
-     C                     PARM           PRYYYY  40       YY
-     C                     PARM           PRMMMM  20       MM
-     C                     PARM           PRDDDD  20       DD
-     C                     PARM           PSYYYY  40       YY
-     C                     PARM           PSMMMM  20       MM
-     C                     PARM           PSDDDD  20       DD
-     C                     PARM           PSIRE   4        DRLIV#
-     C                     PARM           PGRP    1        GROUP CODE
+     C                     PARM           PRYYYY  40
+     C                     PARM           PRMMMM  20
+     C                     PARM           PRDDDD  20
+     C                     PARM           PSYYYY  40
+     C                     PARM           PSMMMM  20
+     C                     PARM           PSDDDD  20
+     C                     PARM           PSIRE   4
+     C                     PARM           PGRP    1
      C                     PARM           PBIN#   20
      C* ABFAP01
      C           KEY1      KLIST
@@ -213,13 +223,20 @@
      C*
      C                     EXSR @INZ
      C                     EXSR @MAIN
-     C                     EXSR @END
+      *
+     C**                   EXSR #LOG
+      *
+     C                     SETON                     LR
+     C                     RETRN
      C***********************************************************
      C* INITIALIZE WORK AREA
      C***********************************************************
      C           @INZ      BEGSR
      C*
      C                     TIME           WTMDT
+     C                     TIME           STIME
+     C                     Z-ADD0         RCNT    40       ORDER REC
+     C                     MOVE *BLANK    @QPT    4        PRINT
      C*
      C                     Z-ADD*ZERO     WQTY2  100
      C                     Z-ADD*ZERO     WQTY3  100
@@ -253,8 +270,14 @@
      C                     ENDIF
      C                     ENDIF
      C                     ENDDO
-     C*
-     C                     ENDSR
+      * DUMMY
+     C                     GOTO XINZ
+      *
+      **********************************
+     C                     WRITEABF3P011
+      **********************************
+      *
+     C           XINZ      ENDSR
      C***********************************************************
      C* MAIN
      C***********************************************************
@@ -264,7 +287,7 @@
      C* READ AND PROCESS ALL ROUTE MASTER RECORD
      C           *LOVAL    SETLLABFDL01R
      C                     READ ABFDL01R                 90
-     C*
+      *
      C           *IN90     DOWEQ'0'
      C                     Z-ADDQANONY    K@NONY
      C                     MOVE QADOCK    K@DOCK
@@ -298,6 +321,7 @@
      C*
      C           QASKJY    IFEQ *BLANK
      C           QAEFHZ    ANDLE*DATE
+      *
      C           @@NONY    IFEQ *ZERO
      C*
      C                     MOVELQANONY    W@A004  4
@@ -356,6 +380,7 @@
      C                     END
      C                     END
      C                     EXCPT#DTL1
+     C                     MOVEL'Q '      @QPT
      C                     END
      C*
      C* READ EDI KEY FILE
@@ -363,7 +388,6 @@
      C           KEY1      SETLLABFAP01R
      C           KEY1      READEABFAP01R                 91
      C           *IN91     DOWEQ'0'
-     C*
      C           CFDLCD    IFNE *BLANK
      C                     GOTO @@SKP
      C                     END
@@ -397,6 +421,7 @@
      C                     Z-ADD*ZERO     XXYMD
      C                     Z-ADD*ZERO     WQTY2
      C                     Z-ADD*ZERO     WSURY
+     C*          AFLSDT    IFNE *ZERO
      C           AFLSDT    IFNE *ZERO
      C           20000000  ADD  AFLSDT    XXYMD
      C                     ELSE
@@ -419,6 +444,7 @@
      C*
      C* NOT WORKING DAY,RE-CULUCULATE
      C           *IN89     IFEQ '1'
+     C*                    EXSR @MOVE
      C           AFQTY2    SUB  AFYSQY    WQTY2            ORDERED QTY
      C                     SUB  XXQTY     WQTY2
      C                     Z-ADDWQTY2     WSURY   70
@@ -481,6 +507,7 @@
      C*
      C                     Z-ADD*ZERO     WNOTM   40       INVOICE TIME
      C                     Z-ADD*ZERO     WUSYS   60       USER QTY/CONT.
+      *
      C           PBIN#     IFNE *ZERO
      C                     MOVELPBIN#     WBIN
      C                     ELSE
@@ -490,7 +517,8 @@
      C                     ELSE
      C                     MOVE '06'      WBIN
      C                     ENDIF
-     C                     END
+     C                     ENDIF
+      *
      C                     MOVELAFALFL    WALFL   4        FEED LINE
      C*
      C* GET INVOICE NUMBER(ROUTE + JULIAN DATE)
@@ -523,7 +551,23 @@
      C                     END
      C                     END
      C                     EXCPT#DTL1
+     C                     MOVEL'Q '      @QPT
      C   77                EXCPTDT
+      *
+     C           *IN77     IFEQ *ON
+     C                     ADD  1         RCNT
+     C                     Z-ADDTODAY     F3PRHZ
+     C                     Z-ADDNOW       F3PRTM
+     C                     MOVEL#USER     F3PRUS
+     C                     MOVEL#PGM      F3PRPG
+     C                     MOVEL#WSID     F3PRWS
+     C                     MOVELWTOKU     XTOKU
+     C                     MOVELWNONY     XNONY
+     C                     MOVELWSURY     XSURY
+     C                     MOVELWBIN      XBIN
+     C******************** WRITEABF3P011
+     C                     ENDIF
+      *
      C                     ENDIF
      C                     ENDDO
       *
@@ -540,7 +584,23 @@
      C                     END
      C                     END
      C                     EXCPT#DTL1
+     C                     MOVEL'Q '      @QPT
      C   77                EXCPTDT
+      *
+     C           *IN77     IFEQ *ON
+     C                     ADD  1         RCNT
+     C                     Z-ADDTODAY     F3PRHZ
+     C                     Z-ADDNOW       F3PRTM
+     C                     MOVEL#USER     F3PRUS
+     C                     MOVEL#PGM      F3PRPG
+     C                     MOVEL#WSID     F3PRWS
+     C                     MOVELWTOKU     XTOKU
+     C                     MOVELWNONY     XNONY
+     C                     MOVELWSURY     XSURY
+     C                     MOVELWBIN      XBIN
+     C******************** WRITEABF3P011
+     C                     ENDIF
+      *
      C                     ENDIF
       *
      C                     ENDIF
@@ -551,24 +611,39 @@
      C           KEY1      READEABFAP01R                 91
      C                     ENDDO
      C*
+     C*                    ENDIF
+     C*          K#FD      SETGTABFDP01R
      C           @@SKP2    TAG
      C           K#ADF     SETGTABFDL01R
      C                     ENDIF
+     C*                    READ ABFDP01R                 90
      C           @@SKP1    TAG
      C                     READ ABFDL01R                 90
      C                     ENDDO
      C*
      C                     ENDSR
      C***********************************************************
-     C* END
+     C* SAVE PRARAMETER
      C***********************************************************
-     C           @END      BEGSR
+     C**         #LOG      BEGSR
      C*
-     C                     SETON                     LR
-     C                     RETRN
+     C**                   CLEARAB#PP2W1
+     C**                   Z-ADDTODAY     P2CRHZ
+     C**                   Z-ADDWTIME     P2CRTM
+     C**                   MOVEL#USER     P2CRUS
+     C**                   MOVE @QPT      P2CRUS
+     C**                   MOVEL#WSID     P2CRWS
+     C**                   MOVEL#PGM      P2CRPG
+     C**                   MOVELPSIRE     P2SIRE
+     C**                   MOVEL'7 '      P2SEL
+     C**                   Z-ADDWRDAT     P2RLHZ
+     C**                   Z-ADDWSDAT     P2NOHZ
+     C**                   MOVELPGRP      P2GRP
+     C**                   Z-ADDPBIN#     P2BIN
+     C**                   Z-ADDRCNT      P2REC#
+     C**                   WRITEAB#PP2W1
      C*
-     C                     ENDSR
-     C***********************************************************
+     C**                   ENDSR
      C***********************************************************
      C* CUM QTY ERROR
      C***********************************************************
@@ -601,16 +676,17 @@
      C  N98                MOVE *ON       *IN98
       *
      C                     EXCPT@DETE
+     C                     MOVE 'Q2'      @QPT
      C                     ENDIF
      C*
      C                     ENDSR
      C********************************************************
      OQPRINT  E    2           #HED1
      O       OR        OF
-     O                                   18 'AB#RFM'
-     O                                   26 'QPRINT'
-     O                                   52 'FORD NIRVANA  DATA'
-     O                                   68 'VARIANCE REPORT'
+     O                                    8 'AB#RFM'
+     O                                   17 'QPRINT '
+     O                                   40 'FORD NIRVANA ORDER'
+     O                                   56 ' VARIANCE REPORT'
      O                                  131 '.....................'
      O*
      O        E 1              #HED1
@@ -640,6 +716,7 @@
      O                                   91 '------------------'
      O                                  106 ' EDI NEW DATA '
      O                                  123 '------------------'
+      *====================================
      O        E 1              #HED2
      O       OR        OF
      O                                    6 'PLANT'
@@ -655,7 +732,7 @@
      O                                  102 'PART'
      O                                  123 'LINE'
      O                                  129 'R-LOC'
-     O*
+      *====================================
      O        E 1              #DTL1
      O                N96      BANONY     5
      O                N96      BANUKE    11
@@ -683,7 +760,7 @@
      O                 96      WMHIN    118
      O                 96      WALFL    123
      O                 96      WRLOC    128
-      *
+      *====================================
      OQPRINT2 E    1           @HEDE
      O                         #PGM       8
      O                                   17 'QPRINT2'
@@ -708,7 +785,7 @@
      O                         AFIPAR    33
      O                         AFQTY21   49
      O                         @@QTY 1   62
-     C*******************14**************************************
+      *====================================
      OAB#WP451E                DT
      O                         WSIRE      4
      O                         WSIRK      5

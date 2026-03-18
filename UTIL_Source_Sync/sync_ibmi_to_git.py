@@ -137,54 +137,53 @@ def get_source_members(library: str, srcfile: str, conn) -> List[Dict[str, str]]
     return members
 
 
-def check_bad_chars_in_member(library: str, srcfile: str, member: str, conn) -> List[Dict[str, any]]:
-    """Check for x'0F' characters in source member using alias"""
-    bad_lines = []
-    
+def check_bad_chars_in_member(library: str, srcfile: str, member: str, conn) -> str:
+    """Check for x'0F' characters in source member using alias
+    Returns empty string if OK, or error message if bad character found
+    """
     try:
         cursor = conn.cursor()
         
         # Drop alias if it exists
         try:
-            cursor.execute(f"DROP ALIAS {library.upper()}/GITSRCMBR")
+            cursor.execute(f"DROP ALIAS {library.upper()}.GITSRCMBR")
         except:
             pass  # Alias may not exist
         
-        # Create alias pointing to the problem member
-        create_alias_sql = f"CREATE ALIAS {library.upper()}/GITSRCMBR FOR {library.upper()}.{srcfile.upper()} ({member.upper()})"
+        # Create alias pointing to the member (use lowercase for schema.file, uppercase for member)
+        create_alias_sql = f"CREATE ALIAS {library.upper()}.GITSRCMBR FOR {library.lower()}.{srcfile.lower()} ({member.upper()})"
         cursor.execute(create_alias_sql)
         
-        # Query for bad characters
+        # Query for bad characters - WHERE clause filters to only rows with x'0F'
         check_sql = f"""
             Select SrcSeq,
-                   PosStr(SrcDta, x'0F') As BadCol,
-                   SrcDta As SourceLine
-              From {library.upper()}/GITSRCMBR
+                   PosStr(SrcDta, x'0F') As BadCol
+              From {library.upper()}.GITSRCMBR
              Where PosStr(SrcDta, x'0F') > 0
         """
         
         cursor.execute(check_sql)
-        
-        for row in cursor.fetchall():
-            bad_lines.append({
-                'seq': str(row[0]).strip() if row[0] else '',
-                'col': int(row[1]) if row[1] else 0,
-                'line': row[2].strip() if row[2] else ''
-            })
+        row = cursor.fetchone()
         
         # Clean up alias
         try:
-            cursor.execute(f"DROP ALIAS {library.upper()}/GITSRCMBR")
+            cursor.execute(f"DROP ALIAS {library.upper()}.GITSRCMBR")
         except:
             pass
         
         cursor.close()
         
+        # If we found a bad character, return error message
+        if row:
+            seq = row[0]
+            col = row[1]
+            return f"Bad Character found at column {col} in line {seq}"
+        
+        return ""
+        
     except Exception as e:
         # If we can't check, just return empty
-        pass
-    
-    return bad_lines
+        return ""
 
 
 def export_member_to_temp(library: str, srcfile: str, member: str) -> Tuple[Optional[str], str]:
@@ -297,6 +296,7 @@ def sync_source_file(
     verbose: bool = False,
     conn = None,
     files_remaining: int = 0,
+    total_files: int = 0,
     failures: Optional[List[Dict]] = None
 ) -> Dict[str, int]:
     """
@@ -335,8 +335,8 @@ def sync_source_file(
         member_text = member_data['text']
         
         stats['scanned'] += 1
-        members_remaining = total_members - idx
-        progress = f"{files_remaining:03d} {members_remaining:05d}"
+        members_remaining = total_members - idx - 1
+        progress = f"{files_remaining:03d}/{total_files:03d} {members_remaining:05d}/{total_members:05d}"
         
         # Check exclusions
         if should_exclude_member(member):
@@ -353,7 +353,7 @@ def sync_source_file(
         exported_files.add(target_filename)
         
         # Show progress counter
-        print(f"\r   Processing: {progress} files/members remaining", end='', flush=True)
+        print(f"\r   Processing: {progress} (files/members remaining/total)", end='', flush=True)
         
         # Export to temp
         temp_path, cpytostmf_cmd = export_member_to_temp(library, srcfile, member)
@@ -361,20 +361,13 @@ def sync_source_file(
             stats['failed'] += 1
             
             # Check for bad characters in the source
-            bad_chars = check_bad_chars_in_member(library, srcfile, member, conn)
+            error_msg = check_bad_chars_in_member(library, srcfile, member, conn)
             
-            if bad_chars:
-                # Show detailed information about bad characters
-                print(f"\n   ✗  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename}")
-                print(f"      ERROR: Invalid character x'0F' found - {len(bad_chars)} occurrence(s)")
-                # Show first few bad character locations
-                for idx, bad_char in enumerate(bad_chars[:3]):
-                    line_preview = bad_char['line'][:60] if len(bad_char['line']) > 60 else bad_char['line']
-                    print(f"        [{idx+1}] Seq {bad_char['seq']:>6} Col {bad_char['col']:>3}: {line_preview}")
-                if len(bad_chars) > 3:
-                    print(f"        ... and {len(bad_chars) - 3} more (see synclog.txt)")
+            print(f"\n   ✗  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename} (export failed)")
+            if error_msg:
+                print(f"      ⚠️  {error_msg}")
             else:
-                print(f"\n   ✗  {progress} {srcfile}.{member}.{member_type.upper()} -> {target_filename} (export failed)")
+                print(f"      ⚠️  CPYTOSTMF failed - check member for invalid characters or encoding issues")
             
             failures.append({
                 'library': library.upper(),
@@ -383,7 +376,7 @@ def sync_source_file(
                 'type': member_type.upper() if member_type else 'TXT',
                 'target_filename': target_filename,
                 'reason': 'CPYTOSTMF export failed',
-                'bad_chars': bad_chars if bad_chars else []
+                'error_message': error_msg
             })
             continue
         
@@ -435,7 +428,7 @@ def sync_source_file(
         orphaned = existing_files - exported_files
         
         if orphaned:
-            progress = f"{files_remaining:03d} 00000"
+            progress = f"{files_remaining:03d}/{total_files:03d} 00000/{total_members:05d}"
             for filename in orphaned:
                 orphan_path = target_dir / filename
                 if dry_run:
@@ -479,7 +472,7 @@ def write_metadata(target_dir: Path, library: str, srcfile: str, stats: Dict[str
 
 def write_sync_log(target_base: Path, library: str, failures: List[Dict], stats: Dict[str, int], files_processed: int, start_time: datetime, end_time: datetime):
     """Write sync log file with failures and summary"""
-    log_path = target_base / 'synclog.txt'
+    log_path = target_base / f'{library.upper()}_sync_log.txt'
     elapsed = end_time - start_time
     
     with open(log_path, 'w', encoding='utf-8') as f:
@@ -501,16 +494,10 @@ def write_sync_log(target_base: Path, library: str, failures: List[Dict], stats:
                 f.write(f"    Target:  {failure['target_filename']}\n")
                 f.write(f"    Reason:  {failure['reason']}\n")
                 
-                # Include bad character details if found
-                if 'bad_chars' in failure and failure['bad_chars']:
-                    f.write(f"    Invalid Characters (x'0F'): {len(failure['bad_chars'])} occurrence(s)\n")
-                    f.write(f"    Locations:\n")
-                    for bad_line in failure['bad_chars']:
-                        f.write(f"      Sequence: {bad_line['seq']:>6}  Column: {bad_line['col']:>3}\n")
-                        f.write(f"      Line:     {bad_line['line']}\n")
-                        f.write(f"\n")
-                else:
-                    f.write(f"    Note: No invalid characters detected in source\n")
+                # Include error message if found
+                if 'error_message' in failure and failure['error_message']:
+                    f.write(f"    Error:   {failure['error_message']}\n")
+                
                 f.write(f"{'-' * 70}\n")
         else:
             f.write(f"FAILURES\n")
@@ -572,23 +559,11 @@ def write_sync_log_markdown(target_base: Path, library: str, failures: List[Dict
                 f.write(f"- **Target File:** `{failure['target_filename']}`\n")
                 f.write(f"- **Reason:** {failure['reason']}\n")
                 
-                # Include bad character details if found
-                if 'bad_chars' in failure and failure['bad_chars']:
-                    f.write(f"- **Invalid Characters:** Found `x'0F'` character - {len(failure['bad_chars'])} occurrence(s)\n\n")
-                    f.write(f"#### Character Locations\n\n")
-                    f.write(f"| # | Sequence | Column | Line Content |\n")
-                    f.write(f"|---|----------|--------|-------------|\n")
-                    
-                    for char_idx, bad_line in enumerate(failure['bad_chars'], 1):
-                        # Escape pipe characters in line content for markdown table
-                        line_content = bad_line['line'].replace('|', '\\|')
-                        # Truncate long lines
-                        if len(line_content) > 80:
-                            line_content = line_content[:77] + "..."
-                        f.write(f"| {char_idx} | {bad_line['seq']} | {bad_line['col']} | `{line_content}` |\n")
-                    f.write(f"\n")
+                # Include error message if found
+                if 'error_message' in failure and failure['error_message']:
+                    f.write(f"- **Error:** {failure['error_message']}\n\n")
                 else:
-                    f.write(f"- **Note:** No invalid characters detected in source\n\n")
+                    f.write(f"\n")
                 
                 f.write(f"---\n\n")
         else:
@@ -649,7 +624,7 @@ def sync_library(
     for file_idx, srcfile in enumerate(source_files):
         files_remaining = total_files - file_idx
         target_dir = target_base / srcfile.upper()
-        stats = sync_source_file(library, srcfile, target_dir, dry_run, verbose, conn, files_remaining, all_failures)
+        stats = sync_source_file(library, srcfile, target_dir, dry_run, verbose, conn, files_remaining, total_files, all_failures)
         
         # Only count files that had members
         if stats['scanned'] > 0:
@@ -682,8 +657,12 @@ def sync_library(
         write_sync_log(target_base, library, all_failures, total_stats, files_processed, start_time, end_time)
         write_sync_log_markdown(target_base, library, all_failures, total_stats, files_processed, start_time, end_time)
         print(f"📄 Sync logs written to:")
-        print(f"   - {target_base / 'synclog.txt'}")
+        print(f"   - {target_base / f'{library.upper()}_sync_log.txt'}")
         print(f"   - {target_base.parent / f'{library.upper()}_sync_log.md'}\n")
+    
+    # Return True if there were actual changes (added, updated, or deleted members)
+    has_changes = (total_stats['added'] + total_stats['updated'] + total_stats['deleted']) > 0
+    return has_changes
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -751,7 +730,7 @@ Examples:
     conn = get_db_connection()
     
     try:
-        sync_library(
+        has_changes = sync_library(
             library=args.library,
             target_base=target_path,
             source_files=args.srcfiles,
@@ -759,6 +738,15 @@ Examples:
             verbose=args.verbose,
             conn=conn
         )
+        
+        # Exit with code indicating if Git commit is needed
+        # 0 = changes made (commit needed)
+        # 10 = no changes (skip commit)
+        if has_changes:
+            sys.exit(0)
+        else:
+            sys.exit(10)
+            
     except KeyboardInterrupt:
         print("\n\n⚠️  Interrupted by user")
         sys.exit(1)

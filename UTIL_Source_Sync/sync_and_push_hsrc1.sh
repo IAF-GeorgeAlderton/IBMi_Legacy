@@ -38,15 +38,27 @@ echo ""
 
 # Run sync script
 echo -e "${YELLOW}🔄 Running sync script for ${LIBRARY}...${NC}"
-if /QOpenSys/pkgs/bin/python3 "${SYNC_SCRIPT}" \
+set +e  # Temporarily disable exit on error to capture exit code
+/QOpenSys/pkgs/bin/python3 "${SYNC_SCRIPT}" \
     --library "${LIBRARY}" \
-    --target "${TARGET_DIR}"; then
-    echo -e "${GREEN}✓ Sync completed successfully${NC}"
+    --target "${TARGET_DIR}"
+SYNC_EXIT_CODE=$?
+set -e  # Re-enable exit on error
+
+# Check exit code
+if [ $SYNC_EXIT_CODE -eq 0 ]; then
+    echo -e "${GREEN}✓ Sync completed - changes detected${NC}"
+    echo ""
+elif [ $SYNC_EXIT_CODE -eq 10 ]; then
+    echo -e "${GREEN}✓ Sync completed - no source changes detected${NC}"
+    echo -e "${BLUE}═══════════════════════════════════════════════════════════════════════════${NC}"
+    echo -e "No Git commit needed (only log files changed)"
+    echo -e "${BLUE}═══════════════════════════════════════════════════════════════════════════${NC}"
+    exit 0
 else
-    echo -e "${RED}✗ Sync failed${NC}"
+    echo -e "${RED}✗ Sync failed with error code ${SYNC_EXIT_CODE}${NC}"
     exit 1
 fi
-echo ""
 
 # Check if there are changes to commit
 echo -e "${YELLOW}🔍 Checking for changes...${NC}"

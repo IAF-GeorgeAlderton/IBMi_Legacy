@@ -31,7 +31,7 @@
              CHGVAR     VAR(&OUT) VALUE('1')
              CHGVAR     VAR(&EDT) VALUE('Y')
              CALL       PGM(SPLC02) PARM(&JOB &USR &NBR &FIL &FL# +
-                          &OUT &EDT 'Y')
+                          &OUT &EDT 'Y' 'Y')
 
              DLTOVR     FILE(*ALL)
 
